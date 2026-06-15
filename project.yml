@@ -1,0 +1,45 @@
+name: Argos
+
+options:
+  bundleIdPrefix: com.iaportafolio
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+# --- Swift Package Manager dependencies ---------------------------------------
+# Ambos productos se vinculan al target Argos (ver targets.Argos.dependencies).
+packages:
+  Citadel:
+    url: https://github.com/orlandos-nl/Citadel
+    from: 0.12.0
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm
+    from: 1.13.0
+
+targets:
+  Argos:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Argos
+    # Sin archivo .entitlements y con ENABLE_APP_SANDBOX = NO => App Sandbox
+    # DESACTIVADO: la app puede leer ~/.ssh y abrir conexiones de red salientes.
+    settings:
+      base:
+        PRODUCT_NAME: Argos
+        PRODUCT_BUNDLE_IDENTIFIER: com.iaportafolio.argos
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: "YES"
+        ENABLE_APP_SANDBOX: "NO"
+        ENABLE_HARDENED_RUNTIME: "NO"
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.developer-tools"
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    dependencies:
+      - package: Citadel
+      - package: SwiftTerm

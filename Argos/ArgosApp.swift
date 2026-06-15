@@ -2,7 +2,7 @@
 //  ArgosApp.swift
 //  Argos
 //
-//  Created by Victor Alejandro Cano Jaramillo on 14/06/26.
+//  Gestor visual de sesiones tmux remotas vía SSH.
 //
 
 import SwiftUI

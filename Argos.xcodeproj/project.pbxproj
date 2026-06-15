@@ -6,133 +6,213 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		192D3C31F4496A0D12998928 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = C9AC58752B09ADD31B61011B /* SwiftTerm */; };
+		50262D24381D99AB728C774F /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = FC6E54AE421077969B9E7E5B /* Citadel */; };
+		6B78960D933DD7F03DBBA69E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB081348202A1C599D6C7B3 /* ContentView.swift */; };
+		8AC026AA720A52F8A534CC41 /* SSHService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792CDD043DC9EF3063ABAF4B /* SSHService.swift */; };
+		96BB2263E5EBCE167C214C1A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 65C5951389633CCA111B2D96 /* Assets.xcassets */; };
+		9BB2EC28C44ABE37A25840A7 /* TmuxSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5018CBF48657BB02BA165C22 /* TmuxSession.swift */; };
+		B64F67267E607EF02D082823 /* ArgosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17F27F1BDF8240FDE090119 /* ArgosApp.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
-		C4F0891A2FDF891E002C2118 /* Argos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Argos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5018CBF48657BB02BA165C22 /* TmuxSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxSession.swift; sourceTree = "<group>"; };
+		65C5951389633CCA111B2D96 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		75AE7601077EF66F3CBBFC25 /* Argos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Argos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		792CDD043DC9EF3063ABAF4B /* SSHService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHService.swift; sourceTree = "<group>"; };
+		A17F27F1BDF8240FDE090119 /* ArgosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArgosApp.swift; sourceTree = "<group>"; };
+		AFB081348202A1C599D6C7B3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		C4F0891C2FDF891E002C2118 /* Argos */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Argos;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFrameworksBuildPhase section */
-		C4F089172FDF891E002C2118 /* Frameworks */ = {
+		923F26E4C91EB198F6591C28 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				50262D24381D99AB728C774F /* Citadel in Frameworks */,
+				192D3C31F4496A0D12998928 /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		C4F089112FDF891E002C2118 = {
+		3A1A98094DA95E37D3FD7134 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C4F0891C2FDF891E002C2118 /* Argos */,
-				C4F0891B2FDF891E002C2118 /* Products */,
-			);
-			sourceTree = "<group>";
-		};
-		C4F0891B2FDF891E002C2118 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				C4F0891A2FDF891E002C2118 /* Argos.app */,
+				75AE7601077EF66F3CBBFC25 /* Argos.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5A3A23A48775071C50DA76EE /* Argos */ = {
+			isa = PBXGroup;
+			children = (
+				A17F27F1BDF8240FDE090119 /* ArgosApp.swift */,
+				65C5951389633CCA111B2D96 /* Assets.xcassets */,
+				AFB081348202A1C599D6C7B3 /* ContentView.swift */,
+				792CDD043DC9EF3063ABAF4B /* SSHService.swift */,
+				5018CBF48657BB02BA165C22 /* TmuxSession.swift */,
+			);
+			path = Argos;
+			sourceTree = "<group>";
+		};
+		C23853C680ABD34E17F5BE8B = {
+			isa = PBXGroup;
+			children = (
+				5A3A23A48775071C50DA76EE /* Argos */,
+				3A1A98094DA95E37D3FD7134 /* Products */,
+			);
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		C4F089192FDF891E002C2118 /* Argos */ = {
+		5D61FF93EC48A47E4B04BCAB /* Argos */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C4F089252FDF8920002C2118 /* Build configuration list for PBXNativeTarget "Argos" */;
+			buildConfigurationList = 2EB869143CCE784DEAC7A0EF /* Build configuration list for PBXNativeTarget "Argos" */;
 			buildPhases = (
-				C4F089162FDF891E002C2118 /* Sources */,
-				C4F089172FDF891E002C2118 /* Frameworks */,
-				C4F089182FDF891E002C2118 /* Resources */,
+				4B08E3150006A9EEF377A247 /* Sources */,
+				0ED80B3FE7AC1CA68E3DEC42 /* Resources */,
+				923F26E4C91EB198F6591C28 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				C4F0891C2FDF891E002C2118 /* Argos */,
-			);
 			name = Argos;
 			packageProductDependencies = (
+				FC6E54AE421077969B9E7E5B /* Citadel */,
+				C9AC58752B09ADD31B61011B /* SwiftTerm */,
 			);
 			productName = Argos;
-			productReference = C4F0891A2FDF891E002C2118 /* Argos.app */;
+			productReference = 75AE7601077EF66F3CBBFC25 /* Argos.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		C4F089122FDF891E002C2118 /* Project object */ = {
+		7DA10A44D8AFCD295EEFA8BC /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 2630;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
-					C4F089192FDF891E002C2118 = {
-						CreatedOnToolsVersion = 26.3;
+					5D61FF93EC48A47E4B04BCAB = {
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
-			buildConfigurationList = C4F089152FDF891E002C2118 /* Build configuration list for PBXProject "Argos" */;
+			buildConfigurationList = 35AE2D47A456E118AA240D21 /* Build configuration list for PBXProject "Argos" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				en,
 			);
-			mainGroup = C4F089112FDF891E002C2118;
+			mainGroup = C23853C680ABD34E17F5BE8B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				18756971E1D8FF5D8164D04C /* XCRemoteSwiftPackageReference "Citadel" */,
+				31EA31D104960E3F83A3C2E2 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = C4F0891B2FDF891E002C2118 /* Products */;
+			productRefGroup = 3A1A98094DA95E37D3FD7134 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				C4F089192FDF891E002C2118 /* Argos */,
+				5D61FF93EC48A47E4B04BCAB /* Argos */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		C4F089182FDF891E002C2118 /* Resources */ = {
+		0ED80B3FE7AC1CA68E3DEC42 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				96BB2263E5EBCE167C214C1A /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		C4F089162FDF891E002C2118 /* Sources */ = {
+		4B08E3150006A9EEF377A247 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B64F67267E607EF02D082823 /* ArgosApp.swift in Sources */,
+				6B78960D933DD7F03DBBA69E /* ContentView.swift in Sources */,
+				8AC026AA720A52F8A534CC41 /* SSHService.swift in Sources */,
+				9BB2EC28C44ABE37A25840A7 /* TmuxSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		C4F089232FDF8920002C2118 /* Debug */ = {
+		390BBF9736D2545372005913 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
+				PRODUCT_NAME = Argos;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		3FF02419FE791D9FCEA78A63 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
+				PRODUCT_NAME = Argos;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		D1A11F620F285D0F8865A523 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -162,14 +242,13 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
 					"$(inherited)",
+					"DEBUG=1",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -177,25 +256,26 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
-		C4F089242FDF8920002C2118 /* Release */ = {
+		E850911FBD90514F006BED57 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -225,8 +305,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -234,71 +313,13 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
-			};
-			name = Release;
-		};
-		C4F089262FDF8920002C2118 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.victalejo.Argos;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Debug;
-		};
-		C4F089272FDF8920002C2118 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.victalejo.Argos;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
@@ -306,25 +327,57 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C4F089152FDF891E002C2118 /* Build configuration list for PBXProject "Argos" */ = {
+		2EB869143CCE784DEAC7A0EF /* Build configuration list for PBXNativeTarget "Argos" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C4F089232FDF8920002C2118 /* Debug */,
-				C4F089242FDF8920002C2118 /* Release */,
+				390BBF9736D2545372005913 /* Debug */,
+				3FF02419FE791D9FCEA78A63 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
-		C4F089252FDF8920002C2118 /* Build configuration list for PBXNativeTarget "Argos" */ = {
+		35AE2D47A456E118AA240D21 /* Build configuration list for PBXProject "Argos" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C4F089262FDF8920002C2118 /* Debug */,
-				C4F089272FDF8920002C2118 /* Release */,
+				D1A11F620F285D0F8865A523 /* Debug */,
+				E850911FBD90514F006BED57 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		18756971E1D8FF5D8164D04C /* XCRemoteSwiftPackageReference "Citadel" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/orlandos-nl/Citadel";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.12.0;
+			};
+		};
+		31EA31D104960E3F83A3C2E2 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.13.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C9AC58752B09ADD31B61011B /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 31EA31D104960E3F83A3C2E2 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
+		};
+		FC6E54AE421077969B9E7E5B /* Citadel */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18756971E1D8FF5D8164D04C /* XCRemoteSwiftPackageReference "Citadel" */;
+			productName = Citadel;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = C4F089122FDF891E002C2118 /* Project object */;
+	rootObject = 7DA10A44D8AFCD295EEFA8BC /* Project object */;
 }
