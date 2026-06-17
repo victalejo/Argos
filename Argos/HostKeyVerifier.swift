@@ -14,6 +14,7 @@
 //
 
 import Foundation
+import os
 import Crypto      // SHA256
 import NIOCore     // ByteBuffer
 import NIOSSH      // NIOSSHPublicKey, NIOSSHClientServerAuthenticationDelegate
@@ -39,7 +40,11 @@ struct HostKeyMismatchError: LocalizedError {
 final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {
     private let endpoint: String
     private let storeURL: URL
-    private let lock = NSLock()
+
+    /// Lock PROCESS-WIDE: distintos validadores (p. ej. al conectar a varios
+    /// servidores a la vez en modo multi-servidor) comparten el MISMO fichero
+    /// known_hosts.json, así que la exclusión debe ser estática, no por instancia.
+    private static let fileLock = NSLock()
 
     init(host: String, port: Int, storeURL: URL = TOFUHostKeyValidator.defaultStoreURL()) {
         self.endpoint = "\(host):\(port)"
@@ -49,8 +54,8 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
     func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>) {
         let presented = Self.fingerprint(of: hostKey)
 
-        lock.lock()
-        defer { lock.unlock() }
+        Self.fileLock.lock()
+        defer { Self.fileLock.unlock() }
 
         var known = Self.load(from: storeURL)
 
@@ -72,6 +77,19 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
             Self.save(known, to: storeURL)
             validationCompletePromise.succeed(())
         }
+    }
+
+    /// Olvida la huella confiada de un endpoint, permitiendo re-confiar en la
+    /// próxima conexión. Lo usa la UI para resolver un `HostKeyMismatchError` tras
+    /// una reinstalación legítima del servidor, sin editar el JSON a mano.
+    static func forget(host: String, port: Int, storeURL: URL = defaultStoreURL()) {
+        let endpoint = "\(host):\(port)"
+        fileLock.lock()
+        defer { fileLock.unlock() }
+        var known = load(from: storeURL)
+        guard known.removeValue(forKey: endpoint) != nil else { return }
+        save(known, to: storeURL)
+        Log.hostKey.notice("Huella olvidada para \(endpoint, privacy: .public); se re-confiará en la próxima conexión.")
     }
 
     // MARK: - Fingerprint
@@ -106,17 +124,32 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
     }
 
     private static func load(from url: URL) -> [String: String] {
-        guard
-            let data = try? Data(contentsOf: url),
-            let dictionary = try? JSONDecoder().decode([String: String].self, from: data)
-        else {
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            // Archivo inexistente en el primer uso: caso normal (no es error).
             return [:]
         }
-        return dictionary
+        do {
+            return try JSONDecoder().decode([String: String].self, from: data)
+        } catch {
+            // El archivo EXISTE pero no parsea => corrupción. Es relevante para
+            // seguridad: devolver [:] re-confiaría en todos los hosts (TOFU). Lo
+            // dejamos registrado en vez de tragarlo en silencio.
+            Log.hostKey.error("known_hosts corrupto en \(url.path, privacy: .public); se ignora y se re-confiará en hosts: \(String(describing: error), privacy: .public)")
+            return [:]
+        }
     }
 
     private static func save(_ dictionary: [String: String], to url: URL) {
-        guard let data = try? JSONEncoder().encode(dictionary) else { return }
-        try? data.write(to: url, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(dictionary)
+            try data.write(to: url, options: .atomic)
+        } catch {
+            // Si no se persiste, la huella no se recordará y se re-confiará en el
+            // próximo arranque: lo registramos para que el fallo sea observable.
+            Log.hostKey.error("No se pudo persistir known_hosts en \(url.path, privacy: .public): \(String(describing: error), privacy: .public)")
+        }
     }
 }

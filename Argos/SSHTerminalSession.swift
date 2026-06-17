@@ -20,6 +20,7 @@
 //
 
 import Foundation
+import os
 import Citadel
 import NIOCore   // ByteBuffer
 import NIOSSH    // SSHChannelRequestEvent, SSHTerminalModes
@@ -122,8 +123,13 @@ extension SSHService {
                                 )
                             }
                         }
+                    } catch is CancellationError {
+                        // Cancelación cooperativa: fin normal del trabajo de escritura.
                     } catch {
-                        // Canal cerrándose: fin del trabajo de escritura.
+                        // El canal suele estar cerrándose (lo habitual), pero podría ser
+                        // un error real de protocolo/backpressure: lo registramos en vez
+                        // de tragarlo en silencio para poder diagnosticar un PTY mudo.
+                        Log.terminal.debug("Fin de escritura al PTY: \(String(describing: error), privacy: .public)")
                     }
                 }
 
