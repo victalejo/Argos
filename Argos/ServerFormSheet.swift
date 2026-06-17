@@ -8,8 +8,8 @@
 //  Keychain, NUNCA en el modelo persistido ni en el código).
 //
 
+import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct ServerFormSheet: View {
 
@@ -45,7 +45,7 @@ struct ServerFormSheet: View {
     @State private var keyPath: String
     @State private var keyBookmark: Data?
     @State private var passphrase: String
-    @State private var isShowingKeyPicker = false
+    @State private var bookmarkError: String?
 
     private let editingID: UUID?
 
@@ -86,7 +86,12 @@ struct ServerFormSheet: View {
 
                 HStack {
                     TextField("Clave privada", text: $keyPath)
-                    Button("Elegir…") { isShowingKeyPicker = true }
+                    Button("Elegir…") { openKeyFilePicker() }
+                }
+                if let err = bookmarkError {
+                    Text(err)
+                        .font(.caption)
+                        .foregroundStyle(.red)
                 }
                 SecureField("Passphrase (opcional)", text: $passphrase)
             }
@@ -104,13 +109,6 @@ struct ServerFormSheet: View {
         }
         .padding(20)
         .frame(width: 480)
-        .fileImporter(
-            isPresented: $isShowingKeyPicker,
-            allowedContentTypes: [.data, .item],
-            allowsMultipleSelection: false
-        ) { result in
-            handleKeySelection(result)
-        }
     }
 
     private var canSave: Bool {
@@ -121,18 +119,32 @@ struct ServerFormSheet: View {
             && !keyPath.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// Crea un security-scoped bookmark del archivo elegido para poder leerlo
-    /// luego bajo App Sandbox.
-    private func handleKeySelection(_ result: Result<[URL], Error>) {
-        guard case .success(let urls) = result, let url = urls.first else { return }
-        keyPath = url.path
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-        keyBookmark = try? url.bookmarkData(
-            options: [.withSecurityScope],
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
+    /// Abre NSOpenPanel (muestra archivos ocultos, empieza en ~/.ssh) y crea un
+    /// security-scoped bookmark del archivo elegido para leerlo bajo App Sandbox.
+    private func openKeyFilePicker() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.showsHiddenFiles = true
+        panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".ssh")
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            keyPath = url.path
+            bookmarkError = nil
+            do {
+                keyBookmark = try url.bookmarkData(
+                    options: [.withSecurityScope],
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                )
+                Log.store.info("Bookmark de clave SSH creado: \(url.path, privacy: .public)")
+            } catch {
+                keyBookmark = nil
+                bookmarkError = "No se pudo crear el acceso al archivo: \(error.localizedDescription)"
+                Log.store.error("Fallo al crear bookmark SSH: \(error)")
+            }
+        }
     }
 
     private func save() {

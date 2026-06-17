@@ -362,12 +362,26 @@ actor SSHService {
             }
         }
 
-        let path = (configuration.privateKeyPath as NSString).expandingTildeInPath
+        let path = Self.expandKeyPath(configuration.privateKeyPath)
         do {
             return try String(contentsOfFile: path, encoding: .utf8)
         } catch {
             throw SSHServiceError.keyUnreadable(path: path, underlying: error)
         }
+    }
+
+    // MARK: - Utilidades de ruta
+
+    /// Expande `~` al home real del usuario (no al container de sandbox).
+    /// Bajo App Sandbox `NSHomeDirectory()` devuelve el home del container;
+    /// `getpwuid` devuelve siempre el home POSIX real.
+    private static func expandKeyPath(_ path: String) -> String {
+        guard path.hasPrefix("~/") || path == "~" else { return path }
+        var realHome = NSHomeDirectory()
+        if let pw = getpwuid(getuid()) {
+            realHome = String(cString: pw.pointee.pw_dir)
+        }
+        return realHome + path.dropFirst()
     }
 
     // MARK: - Ejecución de comandos

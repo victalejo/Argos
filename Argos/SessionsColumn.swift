@@ -2,133 +2,112 @@
 //  SessionsColumn.swift
 //  Argos
 //
-//  Columna central: la lista de sesiones tmux del servidor seleccionado, con sus
-//  estados de carga y la gestión (crear / renombrar / matar). Extraída del antiguo
-//  ContentView para separarla de la gestión de servidores.
+//  Columna central: sesiones tmux de TODOS los servidores configurados,
+//  agrupadas por servidor. Cada sección muestra su estado de conexión propio.
 //
 
 import SwiftUI
 
 struct SessionsColumn: View {
-    let viewModel: SessionsViewModel
-    @Binding var selection: TmuxSession.ID?
+    let servers: [Server]
+    let vms: [Server.ID: SessionsViewModel]
+    /// Servidor activo en la sidebar (para "Nueva sesión").
+    let activeServerID: Server.ID?
+    @Binding var selection: SessionHandle?
 
     @State private var isShowingCreateSheet = false
-    @State private var renameTarget: TmuxSession?
-    @State private var killTarget: TmuxSession?
+    @State private var renameTarget: SessionAction?
+    @State private var killTarget: SessionAction?
 
     var body: some View {
-        content
-            .navigationTitle("Sesiones tmux")
-            .navigationSplitViewColumnWidth(min: 240, ideal: 300)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        isShowingCreateSheet = true
-                    } label: {
-                        Label("Nueva sesión", systemImage: "plus")
+        List(selection: $selection) {
+            ForEach(servers) { server in
+                Section {
+                    if let vm = vms[server.id] {
+                        ServerSessionsSection(
+                            server: server,
+                            vm: vm,
+                            renameTarget: $renameTarget,
+                            killTarget: $killTarget
+                        )
                     }
-                    .help("Crear una nueva sesión tmux")
-                    .disabled(viewModel.state.isBusy)
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        Task { await viewModel.load() }
-                    } label: {
-                        Label("Refrescar", systemImage: "arrow.clockwise")
-                    }
-                    .help("Volver a consultar las sesiones tmux")
-                    .disabled(viewModel.state.isBusy)
+                } header: {
+                    serverHeader(server)
                 }
             }
-            .sheet(isPresented: $isShowingCreateSheet) {
+        }
+        .navigationTitle("Sesiones tmux")
+        .navigationSplitViewColumnWidth(min: 240, ideal: 300)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { isShowingCreateSheet = true } label: {
+                    Label("Nueva sesión", systemImage: "plus")
+                }
+                .help(activeServerID != nil
+                      ? "Crear una nueva sesión en \(activeServer?.name ?? "el servidor seleccionado")"
+                      : "Selecciona un servidor en la barra lateral")
+                .disabled(activeVM?.state.isBusy ?? true)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    Task {
+                        await withTaskGroup(of: Void.self) { group in
+                            for vm in vms.values { group.addTask { await vm.load() } }
+                        }
+                    }
+                } label: {
+                    Label("Refrescar todo", systemImage: "arrow.clockwise")
+                }
+                .help("Volver a consultar las sesiones de todos los servidores")
+            }
+        }
+        .sheet(isPresented: $isShowingCreateSheet) {
+            if let vm = activeVM {
                 SessionNameSheet(mode: .create) { name in
-                    try await viewModel.createSession(named: name)
+                    try await vm.createSession(named: name)
                 }
             }
-            .sheet(item: $renameTarget) { session in
-                SessionNameSheet(mode: .rename(current: session.name)) { newName in
-                    try await viewModel.renameSession(session, to: newName)
+        }
+        .sheet(item: $renameTarget) { action in
+            SessionNameSheet(mode: .rename(current: action.session.name)) { newName in
+                if let vm = vms[action.server.id] {
+                    try await vm.renameSession(action.session, to: newName)
                 }
             }
-            .confirmationDialog(
-                killTarget.map { "¿Matar la sesión '\($0.name)'?" } ?? "¿Matar la sesión?",
-                isPresented: killDialogBinding,
-                titleVisibility: .visible,
-                presenting: killTarget
-            ) { session in
-                Button("Matar", role: .destructive) {
-                    Task { await viewModel.kill(session) }
+        }
+        .confirmationDialog(
+            killTarget.map { "¿Matar la sesión '\($0.session.name)'?" } ?? "¿Matar la sesión?",
+            isPresented: killDialogBinding,
+            titleVisibility: .visible,
+            presenting: killTarget
+        ) { action in
+            Button("Matar", role: .destructive) {
+                Task {
+                    if let vm = vms[action.server.id] { await vm.kill(action.session) }
                 }
-                Button("Cancelar", role: .cancel) {}
-            } message: { _ in
-                Text("Se cerrará y se perderá todo lo que corra en ella.")
             }
-            .alert(
-                "No se pudo matar la sesión",
-                isPresented: operationErrorBinding,
-                presenting: viewModel.operationError
-            ) { _ in
-                Button("OK", role: .cancel) {}
-            } message: { message in
-                Text(message)
-            }
+            Button("Cancelar", role: .cancel) {}
+        } message: { _ in
+            Text("Se cerrará y se perderá todo lo que corra en ella.")
+        }
+    }
+
+    private var activeServer: Server? {
+        guard let id = activeServerID else { return nil }
+        return servers.first { $0.id == id }
+    }
+
+    private var activeVM: SessionsViewModel? {
+        guard let id = activeServerID else { return nil }
+        return vms[id]
     }
 
     @ViewBuilder
-    private var content: some View {
-        switch viewModel.state {
-        case .idle:
-            ProgressView("Conectando al servidor…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .verifying:
-            ProgressView("Verificando tmux…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .installing:
-            ProgressView("Instalando tmux…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .configuring:
-            ProgressView("Configurando tmux…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .loading:
-            ProgressView("Listando sesiones…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-        case .tmuxMissing:
-            ContentUnavailableView {
-                Label("tmux no está instalado", systemImage: "shippingbox")
-            } description: {
-                Text(SSHService.manualInstallInstruction)
-            } actions: {
-                Button("Reintentar") { Task { await viewModel.load() } }
-                    .buttonStyle(.borderedProminent)
-            }
-
-        case .failed(let message):
-            ErrorStateView(message: message) {
-                Task { await viewModel.load() }
-            }
-
-        case .loaded(let sessions) where sessions.isEmpty:
-            EmptyStateView()
-
-        case .loaded(let sessions):
-            List(selection: $selection) {
-                ForEach(SessionGrouping.groups(from: sessions)) { group in
-                    Section(group.name) {
-                        ForEach(group.sessions) { session in
-                            SessionRow(
-                                session: session,
-                                displayName: SessionGrouping.shortName(for: session.name)
-                            )
-                            .tag(session.id)
-                            .contextMenu {
-                                Button("Renombrar…") { renameTarget = session }
-                                Button("Matar…", role: .destructive) { killTarget = session }
-                            }
-                        }
-                    }
-                }
+    private func serverHeader(_ server: Server) -> some View {
+        HStack(spacing: 6) {
+            Text(server.name)
+            if let vm = vms[server.id], vm.state.isBusy {
+                ProgressView().controlSize(.mini)
             }
         }
     }
@@ -136,13 +115,84 @@ struct SessionsColumn: View {
     private var killDialogBinding: Binding<Bool> {
         Binding(get: { killTarget != nil }, set: { if !$0 { killTarget = nil } })
     }
+}
 
-    private var operationErrorBinding: Binding<Bool> {
-        Binding(
-            get: { viewModel.operationError != nil },
-            set: { if !$0 { viewModel.operationError = nil } }
-        )
+// MARK: - Sección de sesiones de un servidor
+
+private struct ServerSessionsSection: View {
+    let server: Server
+    let vm: SessionsViewModel
+    @Binding var renameTarget: SessionAction?
+    @Binding var killTarget: SessionAction?
+
+    var body: some View {
+        switch vm.state {
+        case .idle:
+            loadingRow("Conectando…")
+        case .verifying:
+            loadingRow("Verificando tmux…")
+        case .installing:
+            loadingRow("Instalando tmux…")
+        case .configuring:
+            loadingRow("Configurando tmux…")
+        case .loading:
+            loadingRow("Listando sesiones…")
+
+        case .tmuxMissing:
+            Label("tmux no instalado — instálalo manualmente", systemImage: "shippingbox")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+        case .failed(let message):
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.circle")
+                    .foregroundStyle(.red)
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Spacer()
+                Button("Reintentar") { Task { await vm.load() } }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+            }
+
+        case .loaded(let sessions) where sessions.isEmpty:
+            Label("Sin sesiones activas", systemImage: "moon.zzz")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+        case .loaded(let sessions):
+            ForEach(sessions) { session in
+                SessionRow(session: session)
+                    .tag(SessionHandle(serverID: server.id, sessionID: session.id))
+                    .contextMenu {
+                        Button("Renombrar…") {
+                            renameTarget = SessionAction(server: server, session: session)
+                        }
+                        Button("Matar…", role: .destructive) {
+                            killTarget = SessionAction(server: server, session: session)
+                        }
+                    }
+            }
+        }
     }
+
+    @ViewBuilder
+    private func loadingRow(_ label: String) -> some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Modelo auxiliar para acciones con contexto de servidor
+
+struct SessionAction: Identifiable {
+    let server: Server
+    let session: TmuxSession
+    var id: String { "\(server.id)-\(session.id)" }
 }
 
 // MARK: - Fila de sesión
@@ -154,43 +204,39 @@ struct SessionRow: View {
     private var title: String { displayName ?? session.name }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "terminal")
-                .font(.title3)
-                .foregroundStyle(.secondary)
+        HStack(spacing: 10) {
+            Image(systemName: session.isAttached ? "terminal.fill" : "terminal")
+                .font(.body)
+                .foregroundStyle(session.isAttached ? Color.accentColor : .secondary)
+                .frame(width: 20)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(.headline)
+                    .lineLimit(1)
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
             Spacer()
-            attachedBadge
+
+            Circle()
+                .fill(session.isAttached ? Color.green : Color.secondary.opacity(0.4))
+                .frame(width: 8, height: 8)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 3)
     }
 
     private var subtitle: String {
         let windows = "\(session.windowCount) \(session.windowCount == 1 ? "ventana" : "ventanas")"
-        let created = session.createdAt.formatted(date: .abbreviated, time: .shortened)
-        return "\(windows) · creada \(created)"
-    }
-
-    private var attachedBadge: some View {
-        Label(
-            session.isAttached ? "Activa" : "Inactiva",
-            systemImage: session.isAttached ? "circle.fill" : "circle"
-        )
-        .labelStyle(.titleAndIcon)
-        .font(.caption.weight(.medium))
-        .foregroundStyle(session.isAttached ? Color.green : Color.secondary)
+        let age = session.createdAt.formatted(.relative(presentation: .named, unitsStyle: .abbreviated))
+        return "\(windows) · \(age)"
     }
 }
 
-// MARK: - Estados vacíos / error
+// MARK: - Estados vacíos / error (para compatibilidad con ErrorStateView)
 
 struct EmptyStateView: View {
     var body: some View {
@@ -217,3 +263,21 @@ struct ErrorStateView: View {
         }
     }
 }
+
+// MARK: - Previews
+
+#if DEBUG
+#Preview("Fila de sesión") {
+    List(TmuxSession.samples) { SessionRow(session: $0) }
+        .frame(width: 320, height: 320)
+}
+
+#Preview("Vacío") {
+    EmptyStateView().frame(width: 520, height: 320)
+}
+
+#Preview("Error") {
+    ErrorStateView(message: "No se pudo conectar a 100.86.237.26:2222.") {}
+        .frame(width: 520, height: 320)
+}
+#endif
