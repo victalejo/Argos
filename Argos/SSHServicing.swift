@@ -20,10 +20,14 @@ protocol SSHServicing: Sendable {
     func installTmuxWithApt() async throws
     func tmuxConfigExists() async throws -> Bool
     func writeDefaultTmuxConfig() async throws
+    func enableClipboardForwarding() async
 
     func createSession(named name: String) async throws
     func renameSession(from oldName: String, to newName: String) async throws
     func killSession(named name: String) async throws
+
+    func uploadPastedFile(data: Data, fileExtension: String) async throws -> String
+    func uploadDroppedFile(data: Data, originalName: String) async throws -> String
 
     func attachTerminal(
         session name: String,

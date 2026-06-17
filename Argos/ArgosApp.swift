@@ -41,5 +41,9 @@ struct ArgosApp: App {
                 .keyboardShortcut("a", modifiers: .command)
             }
         }
+
+        Settings {
+            TerminalSettingsView()
+        }
     }
 }

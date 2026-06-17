@@ -18,6 +18,7 @@ struct SessionsColumn: View {
     @State private var isShowingCreateSheet = false
     @State private var renameTarget: SessionAction?
     @State private var killTarget: SessionAction?
+    @State private var searchText = ""
 
     var body: some View {
         List(selection: $selection) {
@@ -27,6 +28,7 @@ struct SessionsColumn: View {
                         ServerSessionsSection(
                             server: server,
                             vm: vm,
+                            filter: searchText,
                             renameTarget: $renameTarget,
                             killTarget: $killTarget
                         )
@@ -36,6 +38,7 @@ struct SessionsColumn: View {
                 }
             }
         }
+        .searchable(text: $searchText, placement: .sidebar, prompt: "Buscar sesión")
         .navigationTitle("Sesiones tmux")
         .navigationSplitViewColumnWidth(min: 240, ideal: 300)
         .toolbar {
@@ -122,6 +125,7 @@ struct SessionsColumn: View {
 private struct ServerSessionsSection: View {
     let server: Server
     let vm: SessionsViewModel
+    let filter: String
     @Binding var renameTarget: SessionAction?
     @Binding var killTarget: SessionAction?
 
@@ -163,18 +167,34 @@ private struct ServerSessionsSection: View {
                 .foregroundStyle(.secondary)
 
         case .loaded(let sessions):
-            ForEach(sessions) { session in
-                SessionRow(session: session)
-                    .tag(SessionHandle(serverID: server.id, sessionID: session.id))
-                    .contextMenu {
-                        Button("Renombrar…") {
-                            renameTarget = SessionAction(server: server, session: session)
+            let filtered = Self.matching(sessions, filter: filter)
+            if filtered.isEmpty {
+                Label("Sin coincidencias", systemImage: "magnifyingglass")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(filtered) { session in
+                    SessionRow(session: session)
+                        .tag(SessionHandle(serverID: server.id, sessionID: session.id))
+                        .contextMenu {
+                            Button("Renombrar…") {
+                                renameTarget = SessionAction(server: server, session: session)
+                            }
+                            Button("Matar…", role: .destructive) {
+                                killTarget = SessionAction(server: server, session: session)
+                            }
                         }
-                        Button("Matar…", role: .destructive) {
-                            killTarget = SessionAction(server: server, session: session)
-                        }
-                    }
+                }
             }
+        }
+    }
+
+    /// Filtra por subcadena (case/diacritic-insensitive). Filtro vacío = todas.
+    private static func matching(_ sessions: [TmuxSession], filter: String) -> [TmuxSession] {
+        let query = filter.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return sessions }
+        return sessions.filter {
+            $0.name.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
         }
     }
 

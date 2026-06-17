@@ -66,6 +66,7 @@ actor SSHService {
         case tmuxNotInstalled
         case installFailed(String)
         case configFailed(String)
+        case uploadFailed(String)
 
         var errorDescription: String? {
             switch self {
@@ -82,6 +83,8 @@ actor SSHService {
                 return "No se pudo instalar tmux. \(message)"
             case .configFailed(let message):
                 return "No se pudo crear ~/.tmux.conf. \(message)"
+            case .uploadFailed(let message):
+                return "No se pudo subir el archivo al servidor. \(message)"
             }
         }
     }
@@ -256,6 +259,12 @@ actor SSHService {
         "set -sg escape-time 0",
         "set -g default-terminal \"tmux-256color\"",
         "set -ga terminal-overrides \",*256col*:Tc\"",
+        // Portapapeles: reenvía las secuencias OSC 52 que emiten las apps (p. ej. la
+        // opción "c to copy" de Claude Code) al terminal exterior (SwiftTerm), que las
+        // copia al portapapeles del Mac. El override `Ms` declara que el terminal soporta
+        // OSC 52 aunque su terminfo no lo anuncie.
+        "set -g set-clipboard on",
+        "set -ga terminal-overrides \",*:Ms=\\\\E]52;%p1%s;%p2%s\\\\007\"",
     ].joined(separator: "\n")
 
     /// ¿Existe ya `~/.tmux.conf`? (`test -f "$HOME/.tmux.conf"`).
@@ -284,6 +293,18 @@ actor SSHService {
                 detail.isEmpty ? "Código de salida \(result.exitCode)." : detail
             )
         }
+    }
+
+    /// Habilita el reenvío de OSC 52 en el servidor tmux **en ejecución**, para que
+    /// servidores ya configurados (sin `set-clipboard on` en su `~/.tmux.conf`) también
+    /// puedan copiar al portapapeles del Mac. Best-effort: si no hay servidor tmux o el
+    /// comando falla, se ignora silenciosamente (no debe bloquear la conexión).
+    func enableClipboardForwarding() async {
+        guard let client = try? await connectedClient() else { return }
+        let command =
+            "tmux set -g set-clipboard on 2>/dev/null; "
+            + "tmux set -ga terminal-overrides ',*:Ms=\\E]52;%p1%s;%p2%s\\007' 2>/dev/null; true"
+        _ = try? await capture(client, command: command)
     }
 
     // MARK: - Conexión

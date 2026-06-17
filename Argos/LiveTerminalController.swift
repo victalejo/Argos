@@ -39,10 +39,13 @@ enum LiveTerminalStatus: Sendable, Equatable {
 final class LiveTerminalController: TerminalViewDelegate {
 
     /// La NSView de SwiftTerm que se incrusta en SwiftUI mediante un NSViewRepresentable.
-    let terminalView: TerminalView
+    let terminalView: ArgosTerminalView
 
     /// Estado de la conexión (para feedback en la UI).
     private(set) var status: LiveTerminalStatus = .connecting
+
+    /// `true` mientras se sube una imagen pegada por SFTP (feedback en la UI).
+    private(set) var isUploading = false
 
     private let service: any SSHServicing
     private let sessionName: String
@@ -66,9 +69,83 @@ final class LiveTerminalController: TerminalViewDelegate {
         let (controlStream, controlContinuation) = AsyncStream<TerminalControlEvent>.makeStream()
         self.controlStream = controlStream
         self.controlContinuation = controlContinuation
-        self.terminalView = TerminalView(frame: .zero)
+        self.terminalView = ArgosTerminalView(frame: .zero)
         self.terminalView.terminalDelegate = self
+        installClipboardHandler()
+        self.terminalView.enableFileDrop()
+        self.terminalView.onPasteImage = { [weak self] data, ext in
+            self?.handlePastedImage(data, fileExtension: ext)
+        }
+        self.terminalView.onDropFiles = { [weak self] urls in
+            self?.handleDroppedFiles(urls)
+        }
         start()
+    }
+
+    /// Sube por SFTP cada archivo soltado (conservando su nombre) e inserta sus rutas
+    /// remotas en el input del terminal, separadas por espacio.
+    private func handleDroppedFiles(_ urls: [URL]) {
+        guard !isUploading else { return }
+        isUploading = true
+        Task { @MainActor in
+            defer { isUploading = false }
+            for url in urls {
+                let accessed = url.startAccessingSecurityScopedResource()
+                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                guard let data = try? Data(contentsOf: url) else {
+                    Log.terminal.error("No se pudo leer el archivo soltado: \(url.lastPathComponent, privacy: .public)")
+                    continue
+                }
+                do {
+                    let remotePath = try await service.uploadDroppedFile(
+                        data: data, originalName: url.lastPathComponent
+                    )
+                    controlContinuation.yield(.input(Array((remotePath + " ").utf8)))
+                } catch {
+                    Log.terminal.error("Fallo al subir \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+    }
+
+    /// Sube por SFTP la imagen pegada y, al terminar, inserta su ruta remota en el
+    /// input del terminal (con espacio final) para que la app remota (p. ej. Claude
+    /// Code) pueda leerla por ruta.
+    private func handlePastedImage(_ data: Data, fileExtension: String) {
+        guard !isUploading else { return }
+        isUploading = true
+        Task { @MainActor in
+            defer { isUploading = false }
+            do {
+                let remotePath = try await service.uploadPastedFile(data: data, fileExtension: fileExtension)
+                controlContinuation.yield(.input(Array((remotePath + " ").utf8)))
+            } catch {
+                Log.terminal.error("Fallo al subir imagen pegada: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    /// Registra un handler propio para OSC 52 directamente en el parser del terminal.
+    ///
+    /// En macOS, el `TerminalView` de SwiftTerm NO reenvía OSC 52 al `TerminalViewDelegate`
+    /// (usa la implementación vacía por defecto de `TerminalDelegate.clipboardCopy`; solo
+    /// iOS la sobreescribe). Interceptamos el código 52 en el parser para copiar nosotros
+    /// al portapapeles del Mac. El payload es "<selección>;<base64>".
+    private func installClipboardHandler() {
+        terminalView.getTerminal().registerOscHandler(code: 52) { data in
+            guard let semi = data.firstIndex(of: UInt8(ascii: ";")) else { return }
+            let base64Start = data.index(after: semi)
+            guard base64Start < data.endIndex else { return }
+            let base64 = Data(data[base64Start...])
+            guard let decoded = Data(base64Encoded: base64),
+                  let text = String(data: decoded, encoding: .utf8) else { return }
+            Log.terminal.notice("OSC 52 -> portapapeles (\(text.count, privacy: .public) chars)")
+            Task { @MainActor in
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(text, forType: .string)
+            }
+        }
     }
 
     // El detach/limpieza lo dispara `stop()`, invocado de forma fiable por el `defer`
@@ -178,12 +255,16 @@ final class LiveTerminalController: TerminalViewDelegate {
         controlContinuation.yield(.resize(cols: newCols, rows: newRows))
     }
 
-    /// OSC 52: la app remota pidió copiar al portapapeles.
+    /// OSC 52 vía el delegate de SwiftTerm. En macOS este método NO se invoca (la
+    /// `TerminalView` no reenvía OSC 52 al delegate); la copia real la hace el handler
+    /// registrado en `installClipboardHandler()`. Se mantiene por compatibilidad.
     nonisolated func clipboardCopy(source: TerminalView, content: Data) {
         guard let text = String(data: content, encoding: .utf8) else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        Task { @MainActor in
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(text, forType: .string)
+        }
     }
 
     // Métodos restantes del protocolo sin comportamiento específico para este caso.
@@ -191,4 +272,85 @@ final class LiveTerminalController: TerminalViewDelegate {
     nonisolated func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
     nonisolated func scrolled(source: TerminalView, position: Double) {}
     nonisolated func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
+}
+
+// MARK: - TerminalView que intercepta el pegado de imágenes
+
+/// Subclase de `TerminalView` que detecta cuando el usuario pega (Cmd+V) y el
+/// portapapeles del Mac contiene una imagen: en ese caso invoca `onPasteImage` (que
+/// la sube al servidor) en lugar de pegar texto. Si no hay imagen, pega normal.
+final class ArgosTerminalView: TerminalView {
+    /// Invocado al pegar con una imagen en el portapapeles: `(datos, extensión)`.
+    var onPasteImage: ((Data, String) -> Void)?
+    /// Invocado al soltar archivos desde Finder sobre el terminal: lista de URLs.
+    var onDropFiles: (([URL]) -> Void)?
+
+    override func paste(_ sender: Any?) {
+        if let (data, ext) = Self.imageFromPasteboard() {
+            onPasteImage?(data, ext)
+            return
+        }
+        super.paste(sender)
+    }
+
+    // MARK: - Arrastrar y soltar archivos
+
+    /// Registra el tipo arrastrable. SwiftTerm ya maneja drags internos; nos sumamos
+    /// para aceptar URLs de archivo soltadas desde Finder.
+    func enableFileDrop() {
+        registerForDraggedTypes([.fileURL])
+    }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        hasDraggableFiles(sender) ? .copy : super.draggingEntered(sender)
+    }
+
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        hasDraggableFiles(sender) ? .copy : super.draggingUpdated(sender)
+    }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        let urls = fileURLs(from: sender)
+        guard !urls.isEmpty else { return super.performDragOperation(sender) }
+        onDropFiles?(urls)
+        return true
+    }
+
+    private func hasDraggableFiles(_ sender: any NSDraggingInfo) -> Bool {
+        !fileURLs(from: sender).isEmpty
+    }
+
+    private func fileURLs(from sender: any NSDraggingInfo) -> [URL] {
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        let objects = sender.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self], options: options
+        ) as? [URL] ?? []
+        return objects.filter { $0.isFileURL }
+    }
+
+    /// Extrae una imagen del portapapeles como `(datos, extensión)`, o `nil` si no hay.
+    /// Prioriza PNG; convierte TIFF (screenshots) a PNG; admite un archivo de imagen
+    /// copiado en Finder.
+    private static func imageFromPasteboard() -> (Data, String)? {
+        let pasteboard = NSPasteboard.general
+
+        if let png = pasteboard.data(forType: .png) {
+            return (png, "png")
+        }
+
+        if let tiff = pasteboard.data(forType: .tiff),
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            return (png, "png")
+        }
+
+        let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "heic", "bmp"]
+        if let url = NSURL(from: pasteboard) as URL?,
+           imageExtensions.contains(url.pathExtension.lowercased()),
+           let data = try? Data(contentsOf: url) {
+            return (data, url.pathExtension.lowercased())
+        }
+
+        return nil
+    }
 }
