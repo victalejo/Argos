@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Seleccionar Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Instalar XcodeGen y xcbeautify
+        run: brew install xcodegen xcbeautify
+
+      # project.yml es la fuente de verdad. Regeneramos y fallamos si el .pbxproj
+      # commiteado quedó desincronizado (drift) — evita el doble-fuente-de-verdad.
+      - name: Verificar sincronía XcodeGen (sin drift)
+        run: |
+          xcodegen generate
+          if ! git diff --quiet -- Argos.xcodeproj/project.pbxproj; then
+            echo "::error::project.pbxproj desincronizado con project.yml. Ejecuta 'xcodegen generate' y commitea."
+            git diff --stat -- Argos.xcodeproj/project.pbxproj
+            exit 1
+          fi
+
+      - name: Resolver dependencias SPM
+        run: xcodebuild -resolvePackageDependencies -project Argos.xcodeproj -scheme Argos
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project Argos.xcodeproj -scheme Argos -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO | xcbeautify || exit ${PIPESTATUS[0]}
+
+      - name: Test (con cobertura)
+        run: |
+          xcodebuild test \
+            -project Argos.xcodeproj -scheme Argos -configuration Debug \
+            -destination 'platform=macOS' -enableCodeCoverage YES \
+            CODE_SIGNING_ALLOWED=NO | xcbeautify || exit ${PIPESTATUS[0]}
