@@ -161,7 +161,7 @@ actor SSHService {
     ///
     /// Errores reales (p. ej. `tmux: command not found`, exit 127) NO coinciden con
     /// estos marcadores y se propagan como `SSHServiceError.commandFailed`.
-    private static func indicatesNoTmuxServer(stdout: String, stderr: String) -> Bool {
+    static func indicatesNoTmuxServer(stdout: String, stderr: String) -> Bool {
         let haystack = (stdout + "\n" + stderr).lowercased()
         let noServerMarkers = [
             "no server running",
@@ -178,7 +178,7 @@ actor SSHService {
     /// `bash: tmux: command not found` / `sh: tmux: not found` cuando el comando
     /// no se encuentra. Se comprueba DESPUÉS de `indicatesNoTmuxServer` para no
     /// confundir "no hay servidor" con "no está instalado".
-    private static func indicatesTmuxNotInstalled(
+    static func indicatesTmuxNotInstalled(
         stdout: String,
         stderr: String,
         exitCode: Int

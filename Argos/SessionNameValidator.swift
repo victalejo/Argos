@@ -18,6 +18,8 @@ enum SessionNameValidator {
     enum ValidationError: LocalizedError, Equatable {
         case empty
         case forbiddenCharacter(Character)
+        case controlCharacter
+        case leadingDash
 
         var errorDescription: String? {
             switch self {
@@ -26,6 +28,12 @@ enum SessionNameValidator {
             case .forbiddenCharacter(let character):
                 return "El nombre no puede contener '\(character)': "
                      + "tmux usa ':' y '.' como separadores de sesión."
+            case .controlCharacter:
+                return "El nombre no puede contener saltos de línea, tabuladores "
+                     + "ni otros caracteres de control."
+            case .leadingDash:
+                return "El nombre no puede empezar por '-' "
+                     + "(tmux lo interpretaría como una opción)."
             }
         }
     }
@@ -36,11 +44,22 @@ enum SessionNameValidator {
 
     /// Valida y normaliza un nombre (recorta espacios alrededor). Lanza si es inválido.
     /// Devuelve el nombre ya recortado, listo para enviar a tmux.
+    ///
+    /// Defensa en profundidad: aunque `ShellQuoting` neutraliza el shell, se
+    /// rechazan caracteres de control (un '\n' embebido rompería el parseo por
+    /// líneas de `list-sessions`) y el prefijo '-' (inyección de OPCIONES a tmux,
+    /// no de comandos de shell).
     static func validate(_ rawName: String) throws -> String {
         let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw ValidationError.empty }
+        if trimmed.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
+            throw ValidationError.controlCharacter
+        }
         if let offending = forbiddenCharacters.first(where: { trimmed.contains($0) }) {
             throw ValidationError.forbiddenCharacter(offending)
+        }
+        if trimmed.hasPrefix("-") {
+            throw ValidationError.leadingDash
         }
         return trimmed
     }

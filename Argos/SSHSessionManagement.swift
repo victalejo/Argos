@@ -21,22 +21,22 @@ extension SSHService {
     /// Crea una nueva sesión tmux *detached* (`tmux new-session -d -s '<nombre>'`).
     func createSession(named name: String) async throws {
         try await runManagementCommand(
-            "tmux new-session -d -s \(Self.shellSingleQuoted(name))"
+            "tmux new-session -d -s \(ShellQuoting.singleQuoted(name))"
         )
     }
 
     /// Renombra una sesión (`tmux rename-session -t '<viejo>' '<nuevo>'`).
     func renameSession(from oldName: String, to newName: String) async throws {
         try await runManagementCommand(
-            "tmux rename-session -t \(Self.shellSingleQuoted(oldName)) "
-            + Self.shellSingleQuoted(newName)
+            "tmux rename-session -t \(ShellQuoting.singleQuoted(oldName)) "
+            + ShellQuoting.singleQuoted(newName)
         )
     }
 
     /// Mata una sesión (`tmux kill-session -t '<nombre>'`). Operación destructiva.
     func killSession(named name: String) async throws {
         try await runManagementCommand(
-            "tmux kill-session -t \(Self.shellSingleQuoted(name))"
+            "tmux kill-session -t \(ShellQuoting.singleQuoted(name))"
         )
     }
 

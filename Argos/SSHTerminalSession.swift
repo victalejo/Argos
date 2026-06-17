@@ -84,7 +84,7 @@ extension SSHService {
             // Lanzamos `tmux attach` dentro del shell del PTY. `exec` reemplaza el shell
             // por tmux para que, al desengancharse, el canal se cierre limpiamente.
             // El nombre va entrecomillado para resistir espacios/caracteres especiales.
-            let command = "exec tmux attach -t \(Self.shellSingleQuoted(name))\n"
+            let command = "exec tmux attach -t \(ShellQuoting.singleQuoted(name))\n"
             try await outbound.write(ByteBuffer(string: command))
 
             try await withThrowingTaskGroup(of: Void.self) { group in
@@ -135,9 +135,4 @@ extension SSHService {
         }
     }
 
-    /// Entrecomilla un argumento para un shell POSIX usando comillas simples,
-    /// escapando las comillas simples internas con la secuencia `'\''`.
-    nonisolated static func shellSingleQuoted(_ value: String) -> String {
-        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
-    }
 }
