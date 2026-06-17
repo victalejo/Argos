@@ -44,16 +44,23 @@ actor SSHService {
         /// Passphrase de la clave. La provee el llamador (desde Keychain), NUNCA
         /// se hardcodea. `nil` = clave sin passphrase. Se convierte a Data efímera.
         var passphrase: String?
+        /// Método de autenticación (clave o contraseña).
+        var authMethod: AuthMethod
+        /// Contraseña de login (solo para `authMethod == .password`), desde Keychain.
+        var password: String?
 
-        /// Construye la configuración de transporte a partir de un `Server` y la
-        /// passphrase recuperada de Keychain (`nil` si la clave no la requiere).
-        init(server: Server, passphrase: String?) {
+        /// Construye la configuración de transporte a partir de un `Server` y el secreto
+        /// recuperado de Keychain: passphrase (auth por clave) o contraseña (auth por
+        /// contraseña), según `server.authMethod`.
+        init(server: Server, passphrase: String? = nil, password: String? = nil) {
             self.host = server.host
             self.port = server.port
             self.username = server.username
             self.privateKeyPath = server.privateKeyPath
             self.privateKeyBookmark = server.privateKeyBookmark
+            self.authMethod = server.authMethod
             self.passphrase = passphrase
+            self.password = password
         }
     }
 
@@ -316,11 +323,7 @@ actor SSHService {
             return client
         }
 
-        let privateKey = try loadPrivateKey()
-        let authentication = SSHAuthenticationMethod.ed25519(
-            username: configuration.username,
-            privateKey: privateKey
-        )
+        let authentication = try makeAuthenticationMethod()
 
         // Verificación de host key con Trust-On-First-Use (estilo known_hosts).
         // NO usamos `.acceptAnything()`: dejaría la conexión expuesta a MitM, algo
@@ -341,6 +344,21 @@ actor SSHService {
         self.client = client
         Log.ssh.notice("Conexión SSH establecida con \(self.configuration.host, privacy: .public):\(self.configuration.port)")
         return client
+    }
+
+    /// Construye el método de autenticación según el `authMethod` configurado:
+    /// clave Ed25519 (con passphrase opcional) o usuario+contraseña.
+    private func makeAuthenticationMethod() throws -> SSHAuthenticationMethod {
+        switch configuration.authMethod {
+        case .key:
+            let privateKey = try loadPrivateKey()
+            return .ed25519(username: configuration.username, privateKey: privateKey)
+        case .password:
+            return .passwordBased(
+                username: configuration.username,
+                password: configuration.password ?? ""
+            )
+        }
     }
 
     /// Lee y parsea la clave Ed25519 OpenSSH del disco.

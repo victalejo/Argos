@@ -42,9 +42,11 @@ struct ServerFormSheet: View {
     @State private var host: String
     @State private var port: String
     @State private var username: String
+    @State private var authMethod: AuthMethod
     @State private var keyPath: String
     @State private var keyBookmark: Data?
     @State private var passphrase: String
+    @State private var password: String
     @State private var bookmarkError: String?
 
     private let editingID: UUID?
@@ -58,18 +60,22 @@ struct ServerFormSheet: View {
             _host = State(initialValue: "")
             _port = State(initialValue: "22")
             _username = State(initialValue: "")
+            _authMethod = State(initialValue: .key)
             _keyPath = State(initialValue: "~/.ssh/id_ed25519")
             _keyBookmark = State(initialValue: nil)
             _passphrase = State(initialValue: "")
+            _password = State(initialValue: "")
             editingID = nil
         case .edit(let server):
             _name = State(initialValue: server.name)
             _host = State(initialValue: server.host)
             _port = State(initialValue: String(server.port))
             _username = State(initialValue: server.username)
+            _authMethod = State(initialValue: server.authMethod)
             _keyPath = State(initialValue: server.privateKeyPath)
             _keyBookmark = State(initialValue: server.privateKeyBookmark)
             _passphrase = State(initialValue: KeychainStore.passphrase(for: server.id) ?? "")
+            _password = State(initialValue: KeychainStore.password(for: server.id) ?? "")
             editingID = server.id
         }
     }
@@ -84,16 +90,27 @@ struct ServerFormSheet: View {
                 TextField("Puerto", text: $port, prompt: Text("22"))
                 TextField("Usuario", text: $username, prompt: Text("usuario"))
 
-                HStack {
-                    TextField("Clave privada", text: $keyPath)
-                    Button("Elegir…") { openKeyFilePicker() }
+                Picker("Autenticación", selection: $authMethod) {
+                    Text("Clave SSH").tag(AuthMethod.key)
+                    Text("Contraseña").tag(AuthMethod.password)
                 }
-                if let err = bookmarkError {
-                    Text(err)
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                .pickerStyle(.segmented)
+
+                switch authMethod {
+                case .key:
+                    HStack {
+                        TextField("Clave privada", text: $keyPath)
+                        Button("Elegir…") { openKeyFilePicker() }
+                    }
+                    if let err = bookmarkError {
+                        Text(err)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                    SecureField("Passphrase (opcional)", text: $passphrase)
+                case .password:
+                    SecureField("Contraseña", text: $password)
                 }
-                SecureField("Passphrase (opcional)", text: $passphrase)
             }
             .formStyle(.grouped)
 
@@ -112,11 +129,16 @@ struct ServerFormSheet: View {
     }
 
     private var canSave: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty
+        let baseValid = !name.trimmingCharacters(in: .whitespaces).isEmpty
             && !host.trimmingCharacters(in: .whitespaces).isEmpty
             && !username.trimmingCharacters(in: .whitespaces).isEmpty
             && Int(port) != nil
-            && !keyPath.trimmingCharacters(in: .whitespaces).isEmpty
+        switch authMethod {
+        case .key:
+            return baseValid && !keyPath.trimmingCharacters(in: .whitespaces).isEmpty
+        case .password:
+            return baseValid && !password.isEmpty
+        }
     }
 
     /// Abre NSOpenPanel (muestra archivos ocultos, empieza en ~/.ssh) y crea un
@@ -149,18 +171,36 @@ struct ServerFormSheet: View {
 
     private func save() {
         guard canSave, let portValue = Int(port) else { return }
-        let trimmedPass = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
-        let server = Server(
-            id: editingID ?? UUID(),
-            name: name.trimmingCharacters(in: .whitespaces),
-            host: host.trimmingCharacters(in: .whitespaces),
-            port: portValue,
-            username: username.trimmingCharacters(in: .whitespaces),
-            privateKeyPath: keyPath.trimmingCharacters(in: .whitespaces),
-            privateKeyBookmark: keyBookmark,
-            requiresPassphrase: !trimmedPass.isEmpty
-        )
-        onSave(server, trimmedPass.isEmpty ? nil : trimmedPass)
+
+        let secret: String?
+        let server: Server
+        switch authMethod {
+        case .key:
+            let trimmedPass = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+            secret = trimmedPass.isEmpty ? nil : trimmedPass
+            server = Server(
+                id: editingID ?? UUID(),
+                name: name.trimmingCharacters(in: .whitespaces),
+                host: host.trimmingCharacters(in: .whitespaces),
+                port: portValue,
+                username: username.trimmingCharacters(in: .whitespaces),
+                authMethod: .key,
+                privateKeyPath: keyPath.trimmingCharacters(in: .whitespaces),
+                privateKeyBookmark: keyBookmark,
+                requiresPassphrase: !trimmedPass.isEmpty
+            )
+        case .password:
+            secret = password.isEmpty ? nil : password
+            server = Server(
+                id: editingID ?? UUID(),
+                name: name.trimmingCharacters(in: .whitespaces),
+                host: host.trimmingCharacters(in: .whitespaces),
+                port: portValue,
+                username: username.trimmingCharacters(in: .whitespaces),
+                authMethod: .password
+            )
+        }
+        onSave(server, secret)
         dismiss()
     }
 }

@@ -42,8 +42,8 @@ struct ContentView: View {
         }
         .onChange(of: store.servers) { _, _ in syncVMs() }
         .sheet(item: $serverFormMode) { mode in
-            ServerFormSheet(mode: mode) { server, passphrase in
-                save(server, passphrase: passphrase)
+            ServerFormSheet(mode: mode) { server, secret in
+                save(server, secret: secret)
             }
         }
         .confirmationDialog(
@@ -152,8 +152,17 @@ struct ContentView: View {
 
     // MARK: - Acciones de servidores
 
-    private func save(_ server: Server, passphrase: String?) {
-        try? KeychainStore.setPassphrase(passphrase, for: server.id)
+    /// `secret` es la passphrase (auth por clave) o la contraseña (auth por contraseña),
+    /// según `server.authMethod`. Se guarda en el namespace de Keychain correspondiente.
+    private func save(_ server: Server, secret: String?) {
+        switch server.authMethod {
+        case .key:
+            try? KeychainStore.setPassphrase(secret, for: server.id)
+            KeychainStore.deletePassword(for: server.id)
+        case .password:
+            try? KeychainStore.setPassword(secret, for: server.id)
+            KeychainStore.deletePassphrase(for: server.id)
+        }
         if store.servers.contains(where: { $0.id == server.id }) {
             store.update(server)
         } else {
@@ -169,6 +178,8 @@ struct ContentView: View {
     private func delete(_ server: Server) {
         store.remove(server)
         vms.removeValue(forKey: server.id)
+        KeychainStore.deletePassphrase(for: server.id)
+        KeychainStore.deletePassword(for: server.id)
         if selectedServerID == server.id {
             selectedServerID = store.servers.first?.id
         }
@@ -182,8 +193,14 @@ struct ContentView: View {
     }
 
     private static func makeService(for server: Server) -> SSHService {
-        let passphrase = server.requiresPassphrase ? KeychainStore.passphrase(for: server.id) : nil
-        return SSHService(configuration: SSHService.Configuration(server: server, passphrase: passphrase))
+        switch server.authMethod {
+        case .key:
+            let passphrase = server.requiresPassphrase ? KeychainStore.passphrase(for: server.id) : nil
+            return SSHService(configuration: SSHService.Configuration(server: server, passphrase: passphrase))
+        case .password:
+            let password = KeychainStore.password(for: server.id)
+            return SSHService(configuration: SSHService.Configuration(server: server, password: password))
+        }
     }
 }
 
