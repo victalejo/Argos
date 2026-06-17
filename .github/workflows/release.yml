@@ -1,0 +1,102 @@
+name: Release DMG
+
+# Compila Argos (Release) y empaqueta un .dmg instalable.
+#   - Ejecución manual (workflow_dispatch): el DMG queda como artifact de la corrida.
+#   - Push de tag v* (p.ej. v1.0.0): además publica un GitHub Release con el DMG adjunto.
+#
+# Firma AD-HOC ("-"): la app corre en tu propia Mac sin cuenta Apple Developer.
+# NO está notarizada, así que tras descargar hay que quitar la cuarentena de Gatekeeper
+# (ver README / notas del job). Para distribuir a terceros haría falta firma + notarización.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # necesario para crear el Release en push de tag
+
+jobs:
+  build-dmg:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Seleccionar Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Instalar XcodeGen y xcbeautify
+        run: brew install xcodegen xcbeautify
+
+      # project.yml es la fuente de verdad: regeneramos antes de compilar.
+      - name: Generar proyecto (XcodeGen)
+        run: xcodegen generate
+
+      - name: Resolver dependencias SPM
+        run: xcodebuild -resolvePackageDependencies -project Argos.xcodeproj -scheme Argos
+
+      # Build Release con firma ad-hoc ("-"). Style=Manual evita que el firmado
+      # automático intente contactar a Apple (no hay equipo de desarrollo en CI).
+      - name: Build (Release, ad-hoc)
+        run: |
+          xcodebuild build \
+            -project Argos.xcodeproj -scheme Argos -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/dd \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            | xcbeautify || exit ${PIPESTATUS[0]}
+
+      # Empaqueta con hdiutil (sin Finder/AppleScript → fiable en runner headless).
+      # Incluye un symlink a /Applications para arrastrar la app al instalar.
+      - name: Empaquetar DMG
+        run: |
+          APP="build/dd/Build/Products/Release/Argos.app"
+          test -d "$APP" || { echo "::error::No se encontró $APP"; exit 1; }
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || echo 0.0)"
+          echo "DMG_VERSION=$VERSION" >> "$GITHUB_ENV"
+          STAGE="build/dmg-stage"
+          rm -rf "$STAGE" && mkdir -p "$STAGE"
+          cp -R "$APP" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create \
+            -volname "Argos" \
+            -srcfolder "$STAGE" \
+            -fs HFS+ \
+            -format UDZO \
+            -ov \
+            "Argos-${VERSION}.dmg"
+          # Verifica que el DMG sea montable/íntegro antes de publicarlo.
+          hdiutil verify "Argos-${VERSION}.dmg"
+          ls -lh Argos-*.dmg
+
+      - name: Subir DMG como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Argos-dmg
+          path: Argos-*.dmg
+          retention-days: 30
+          if-no-files-found: error
+
+      # Solo en push de tag: publica un Release con el DMG (link de descarga permanente).
+      - name: Publicar Release (en tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" Argos-*.dmg \
+            --title "Argos ${GITHUB_REF_NAME}" \
+            --notes "Build ad-hoc para uso personal (sin notarizar).
+
+          Instalación: abre el .dmg, arrastra Argos a Applications.
+          Primera ejecución (Gatekeeper bloquea apps sin notarizar):
+            xattr -dr com.apple.quarantine /Applications/Argos.app
+          o clic derecho sobre la app → Abrir."
