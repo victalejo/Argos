@@ -53,6 +53,9 @@ final class LiveTerminalController: TerminalViewDelegate {
     private var task: Task<Void, Never>?
     private var isStopping = false
 
+    /// Monitor local de eventos de rueda (reenvía el scroll al PTY; ver `forwardWheel`).
+    private var scrollMonitor: Any?
+
     /// Tarea que revela el terminal tras un breve margen desde la primera salida,
     /// dando tiempo a que tmux repinte la pantalla (evita el "flash" negro de attach).
     private var revealTask: Task<Void, Never>?
@@ -79,7 +82,23 @@ final class LiveTerminalController: TerminalViewDelegate {
         self.terminalView.onDropFiles = { [weak self] urls in
             self?.handleDroppedFiles(urls)
         }
+        installScrollMonitor()
         start()
+    }
+
+    /// Instala un monitor local de rueda: cuando el puntero está sobre nuestro terminal
+    /// y la app tiene mouse reporting activo, reenvía el scroll al PTY y consume el evento
+    /// (devuelve `nil`) para que SwiftTerm no haga además su scroll local.
+    private func installScrollMonitor() {
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            guard let self else { return event }
+            return MainActor.assumeIsolated {
+                guard let window = self.terminalView.window, event.window === window else { return event }
+                let point = self.terminalView.convert(event.locationInWindow, from: nil)
+                guard self.terminalView.bounds.contains(point) else { return event }
+                return self.terminalView.forwardWheel(event) ? nil : event
+            }
+        }
     }
 
     /// Sube por SFTP cada archivo soltado (conservando su nombre) e inserta sus rutas
@@ -211,6 +230,10 @@ final class LiveTerminalController: TerminalViewDelegate {
     func stop() {
         isStopping = true
         controlContinuation.finish() // idempotente; tras esto, los `yield` son no-ops.
+        if let scrollMonitor {
+            NSEvent.removeMonitor(scrollMonitor)
+            self.scrollMonitor = nil
+        }
         revealTask?.cancel()
         revealTask = nil
         task?.cancel()
@@ -318,6 +341,44 @@ final class ArgosTerminalView: TerminalView {
 
     private func hasDraggableFiles(_ sender: any NSDraggingInfo) -> Bool {
         !fileURLs(from: sender).isEmpty
+    }
+
+    // MARK: - Rueda de scroll
+
+    /// Reenvía la rueda del ratón al PTY si la app remota tiene mouse reporting activo
+    /// (tmux con `mouse on` lo activa) y devuelve `true` (evento consumido). Si no,
+    /// devuelve `false` para que ocurra el scroll local por defecto de SwiftTerm.
+    ///
+    /// No se puede sobreescribir `scrollWheel` (SwiftTerm lo declara `public`, no `open`),
+    /// por eso el controlador instala un monitor local de eventos que llama aquí.
+    func forwardWheel(_ event: NSEvent) -> Bool {
+        let terminal = getTerminal()
+        let reportingActive: Bool
+        switch terminal.mouseMode {
+        case .off: reportingActive = false
+        default: reportingActive = true
+        }
+        guard allowMouseReporting, reportingActive, event.deltaY != 0 else { return false }
+
+        let button = event.deltaY > 0 ? 4 : 5 // 4 = rueda arriba, 5 = rueda abajo
+        let flags = terminal.encodeButton(
+            button: button, release: false, shift: false, meta: false, control: false
+        )
+        let (col, row) = gridPosition(for: event, cols: terminal.cols, rows: terminal.rows)
+        let steps = max(1, min(Int(abs(event.deltaY)), 4))
+        for _ in 0..<steps {
+            terminal.sendEvent(buttonFlags: flags, x: col, y: row)
+        }
+        return true
+    }
+
+    /// Posición de celda (col,row) bajo el cursor para el evento de rueda.
+    private func gridPosition(for event: NSEvent, cols: Int, rows: Int) -> (Int, Int) {
+        guard cols > 0, rows > 0, bounds.width > 0, bounds.height > 0 else { return (0, 0) }
+        let point = convert(event.locationInWindow, from: nil)
+        let col = Int(point.x / (bounds.width / CGFloat(cols)))
+        let row = Int((bounds.height - point.y) / (bounds.height / CGFloat(rows)))
+        return (min(max(0, col), cols - 1), min(max(0, row), rows - 1))
     }
 
     private func fileURLs(from sender: any NSDraggingInfo) -> [URL] {
