@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+*.swp
+
+# Xcode — artefactos de build
+DerivedData/
+build/
+
+# Xcode — estado POR USUARIO (no versionar).
+# El .xcodeproj se versiona como artefacto generado por XcodeGen (ver CLAUDE.md),
+# pero todo lo de xcuserdata/ y el UI state es específico de cada máquina.
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+**/xcuserdata/
+
+# Swift Package Manager (las dependencias se restauran desde Package.resolved,
+# que SÍ se versiona dentro de xcshareddata/ para builds reproducibles).
+.build/
+.swiftpm/
+Packages/
+
+# Salidas / temporales
+*.log
