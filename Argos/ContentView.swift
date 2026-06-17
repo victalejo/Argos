@@ -76,17 +76,21 @@ struct ContentView: View {
                         Button("Eliminar…", role: .destructive) { serverToDelete = server }
                     }
             }
+
+            // Botón "Añadir servidor" dentro de la lista para no confundir con el
+            // "+" de la columna de sesiones que va en el toolbar principal.
+            Button {
+                serverFormMode = .add
+            } label: {
+                Label("Añadir servidor", systemImage: "plus.circle")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            }
+            .buttonStyle(.borderless)
+            .padding(.top, 4)
         }
         .navigationTitle("Argos")
         .navigationSplitViewColumnWidth(min: 200, ideal: 240)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { serverFormMode = .add } label: {
-                    Label("Añadir servidor", systemImage: "plus")
-                }
-                .help("Añadir un servidor SSH")
-            }
-        }
     }
 
     // MARK: - Columna 2: sesiones (todos los servidores)

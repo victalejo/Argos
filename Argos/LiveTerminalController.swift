@@ -50,6 +50,10 @@ final class LiveTerminalController: TerminalViewDelegate {
     private var task: Task<Void, Never>?
     private var isStopping = false
 
+    /// Tarea que revela el terminal tras un breve margen desde la primera salida,
+    /// dando tiempo a que tmux repinte la pantalla (evita el "flash" negro de attach).
+    private var revealTask: Task<Void, Never>?
+
     // Stream de control (teclas / resize). Se crea en `init` como `let` Sendable para
     // que los métodos `nonisolated` del delegate puedan encolar directamente, sin saltar
     // de actor: así las pulsaciones conservan su orden y no se introduce latencia.
@@ -98,8 +102,11 @@ final class LiveTerminalController: TerminalViewDelegate {
             let feeder = Task { @MainActor [weak self] in
                 for await bytes in outputStream {
                     guard let self else { continue }
-                    if self.status == .connecting { self.status = .connected }
+                    // Pintamos siempre (tmux repinta DEBAJO del overlay de carga); el
+                    // overlay se retira con un margen tras la primera salida, no de golpe
+                    // en el primer byte (que es solo el eco de `exec tmux attach`).
                     self.terminalView.feed(byteArray: bytes[...])
+                    self.scheduleRevealIfNeeded()
                 }
             }
 
@@ -127,8 +134,22 @@ final class LiveTerminalController: TerminalViewDelegate {
     func stop() {
         isStopping = true
         controlContinuation.finish() // idempotente; tras esto, los `yield` son no-ops.
+        revealTask?.cancel()
+        revealTask = nil
         task?.cancel()
         task = nil
+    }
+
+    /// Tras la PRIMERA salida del PTY, espera un margen breve para que tmux repinte
+    /// la pantalla y solo entonces marca `.connected` (retira el overlay de carga).
+    /// Solo programa una vez; las salidas posteriores no reinician el contador.
+    private func scheduleRevealIfNeeded() {
+        guard status == .connecting, revealTask == nil else { return }
+        revealTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard let self, !self.isStopping, self.status == .connecting else { return }
+            self.status = .connected
+        }
     }
 
     private func finish(error: Error?) {

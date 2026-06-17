@@ -42,17 +42,13 @@ struct SessionTerminalView: View {
         ZStack {
             if let controller {
                 TerminalViewRepresentable(controller: controller)
-                    .ignoresSafeArea()
                 overlay(for: controller.status)
             } else {
-                ProgressView("Abriendo terminal…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                connectingScreen
             }
         }
         .navigationTitle(session.name)
         .navigationSubtitle("tmux attach")
-        // Reabre el terminal al cambiar de sesión o al reintentar. La cancelación de
-        // esta `.task` (cambio de id / desaparición de la vista) dispara el detach.
         .task(id: "\(session.id)#\(attempt)") {
             let controller = LiveTerminalController(service: service, sessionName: session.name)
             self.controller = controller
@@ -64,15 +60,50 @@ struct SessionTerminalView: View {
         }
     }
 
+    // MARK: - Pantalla de carga inicial (antes de que exista el controlador)
+
+    private var connectingScreen: some View {
+        ZStack {
+            Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
+            VStack(spacing: 20) {
+                ProgressView()
+                    .controlSize(.large)
+                    .scaleEffect(1.4)
+                VStack(spacing: 6) {
+                    Text("Abriendo sesión")
+                        .font(.title3.weight(.medium))
+                    Text(session.name)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .monospaced()
+                }
+            }
+        }
+    }
+
     // MARK: - Overlays de estado
 
     @ViewBuilder
     private func overlay(for status: LiveTerminalStatus) -> some View {
         switch status {
         case .connecting:
-            ProgressView("Conectando a la sesión…")
-                .padding(16)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+            ZStack {
+                Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .controlSize(.large)
+                        .scaleEffect(1.4)
+                    VStack(spacing: 6) {
+                        Text("Conectando a la sesión")
+                            .font(.title3.weight(.medium))
+                        Text(session.name)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .monospaced()
+                    }
+                }
+            }
+            .transition(.opacity.animation(.easeOut(duration: 0.25)))
 
         case .connected:
             EmptyView()
