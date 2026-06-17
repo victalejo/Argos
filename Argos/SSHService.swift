@@ -44,16 +44,23 @@ actor SSHService {
         /// Passphrase de la clave. La provee el llamador (desde Keychain), NUNCA
         /// se hardcodea. `nil` = clave sin passphrase. Se convierte a Data efímera.
         var passphrase: String?
+        /// Método de autenticación (clave o contraseña).
+        var authMethod: AuthMethod
+        /// Contraseña de login (solo para `authMethod == .password`), desde Keychain.
+        var password: String?
 
-        /// Construye la configuración de transporte a partir de un `Server` y la
-        /// passphrase recuperada de Keychain (`nil` si la clave no la requiere).
-        init(server: Server, passphrase: String?) {
+        /// Construye la configuración de transporte a partir de un `Server` y el secreto
+        /// recuperado de Keychain: passphrase (auth por clave) o contraseña (auth por
+        /// contraseña), según `server.authMethod`.
+        init(server: Server, passphrase: String? = nil, password: String? = nil) {
             self.host = server.host
             self.port = server.port
             self.username = server.username
             self.privateKeyPath = server.privateKeyPath
             self.privateKeyBookmark = server.privateKeyBookmark
+            self.authMethod = server.authMethod
             self.passphrase = passphrase
+            self.password = password
         }
     }
 
@@ -66,6 +73,7 @@ actor SSHService {
         case tmuxNotInstalled
         case installFailed(String)
         case configFailed(String)
+        case uploadFailed(String)
 
         var errorDescription: String? {
             switch self {
@@ -82,6 +90,8 @@ actor SSHService {
                 return "No se pudo instalar tmux. \(message)"
             case .configFailed(let message):
                 return "No se pudo crear ~/.tmux.conf. \(message)"
+            case .uploadFailed(let message):
+                return "No se pudo subir el archivo al servidor. \(message)"
             }
         }
     }
@@ -256,6 +266,12 @@ actor SSHService {
         "set -sg escape-time 0",
         "set -g default-terminal \"tmux-256color\"",
         "set -ga terminal-overrides \",*256col*:Tc\"",
+        // Portapapeles: reenvía las secuencias OSC 52 que emiten las apps (p. ej. la
+        // opción "c to copy" de Claude Code) al terminal exterior (SwiftTerm), que las
+        // copia al portapapeles del Mac. El override `Ms` declara que el terminal soporta
+        // OSC 52 aunque su terminfo no lo anuncie.
+        "set -g set-clipboard on",
+        "set -ga terminal-overrides \",*:Ms=\\\\E]52;%p1%s;%p2%s\\\\007\"",
     ].joined(separator: "\n")
 
     /// ¿Existe ya `~/.tmux.conf`? (`test -f "$HOME/.tmux.conf"`).
@@ -286,6 +302,18 @@ actor SSHService {
         }
     }
 
+    /// Habilita el reenvío de OSC 52 en el servidor tmux **en ejecución**, para que
+    /// servidores ya configurados (sin `set-clipboard on` en su `~/.tmux.conf`) también
+    /// puedan copiar al portapapeles del Mac. Best-effort: si no hay servidor tmux o el
+    /// comando falla, se ignora silenciosamente (no debe bloquear la conexión).
+    func enableClipboardForwarding() async {
+        guard let client = try? await connectedClient() else { return }
+        let command =
+            "tmux set -g set-clipboard on 2>/dev/null; "
+            + "tmux set -ga terminal-overrides ',*:Ms=\\E]52;%p1%s;%p2%s\\007' 2>/dev/null; true"
+        _ = try? await capture(client, command: command)
+    }
+
     // MARK: - Conexión
 
     /// Conexión SSH compartida. `internal` (no `private`) para que la extensión del
@@ -295,11 +323,7 @@ actor SSHService {
             return client
         }
 
-        let privateKey = try loadPrivateKey()
-        let authentication = SSHAuthenticationMethod.ed25519(
-            username: configuration.username,
-            privateKey: privateKey
-        )
+        let authentication = try makeAuthenticationMethod()
 
         // Verificación de host key con Trust-On-First-Use (estilo known_hosts).
         // NO usamos `.acceptAnything()`: dejaría la conexión expuesta a MitM, algo
@@ -320,6 +344,21 @@ actor SSHService {
         self.client = client
         Log.ssh.notice("Conexión SSH establecida con \(self.configuration.host, privacy: .public):\(self.configuration.port)")
         return client
+    }
+
+    /// Construye el método de autenticación según el `authMethod` configurado:
+    /// clave Ed25519 (con passphrase opcional) o usuario+contraseña.
+    private func makeAuthenticationMethod() throws -> SSHAuthenticationMethod {
+        switch configuration.authMethod {
+        case .key:
+            let privateKey = try loadPrivateKey()
+            return .ed25519(username: configuration.username, privateKey: privateKey)
+        case .password:
+            return .passwordBased(
+                username: configuration.username,
+                password: configuration.password ?? ""
+            )
+        }
     }
 
     /// Lee y parsea la clave Ed25519 OpenSSH del disco.

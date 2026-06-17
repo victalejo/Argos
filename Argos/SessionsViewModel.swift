@@ -81,6 +81,10 @@ final class SessionsViewModel {
             state = .configuring
             try await service.writeDefaultTmuxConfig()
         }
+
+        // Habilita OSC 52 en el servidor en ejecución (best-effort) para que la copia
+        // al portapapeles funcione incluso en servidores con config previa.
+        await service.enableClipboardForwarding()
     }
 
     /// Señal interna para detener el bootstrap sin marcar `state = .failed`.

@@ -27,18 +27,51 @@ enum KeychainStore {
         }
     }
 
-    private static let service = "com.iaportafolio.argos.ssh-passphrase"
+    private static let passphraseService = "com.iaportafolio.argos.ssh-passphrase"
+    private static let passwordService = "com.iaportafolio.argos.ssh-password"
+
+    // MARK: - Passphrase de clave SSH
 
     /// Guarda (o actualiza) la passphrase de un servidor. `nil` o vacío la borra.
     static func setPassphrase(_ passphrase: String?, for serverID: UUID) throws {
-        guard let passphrase, !passphrase.isEmpty else {
-            deletePassphrase(for: serverID)
+        try setSecret(passphrase, service: passphraseService, account: serverID.uuidString)
+    }
+
+    /// Devuelve la passphrase de un servidor, o `nil` si no hay ninguna guardada.
+    static func passphrase(for serverID: UUID) -> String? {
+        secret(service: passphraseService, account: serverID.uuidString)
+    }
+
+    /// Borra la passphrase de un servidor (idempotente).
+    static func deletePassphrase(for serverID: UUID) {
+        deleteSecret(service: passphraseService, account: serverID.uuidString)
+    }
+
+    // MARK: - Contraseña de login SSH
+
+    /// Guarda (o actualiza) la contraseña de login de un servidor. `nil` o vacío la borra.
+    static func setPassword(_ password: String?, for serverID: UUID) throws {
+        try setSecret(password, service: passwordService, account: serverID.uuidString)
+    }
+
+    /// Devuelve la contraseña de login de un servidor, o `nil` si no hay ninguna.
+    static func password(for serverID: UUID) -> String? {
+        secret(service: passwordService, account: serverID.uuidString)
+    }
+
+    /// Borra la contraseña de login de un servidor (idempotente).
+    static func deletePassword(for serverID: UUID) {
+        deleteSecret(service: passwordService, account: serverID.uuidString)
+    }
+
+    // MARK: - Núcleo genérico (service + account)
+
+    private static func setSecret(_ value: String?, service: String, account: String) throws {
+        guard let value, !value.isEmpty else {
+            deleteSecret(service: service, account: account)
             return
         }
-        let account = serverID.uuidString
-        let data = Data(passphrase.utf8)
-
-        // Si ya existe, actualizamos; si no, añadimos.
+        let data = Data(value.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -58,12 +91,11 @@ enum KeychainStore {
         }
     }
 
-    /// Devuelve la passphrase de un servidor, o `nil` si no hay ninguna guardada.
-    static func passphrase(for serverID: UUID) -> String? {
+    private static func secret(service: String, account: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: serverID.uuidString,
+            kSecAttrAccount as String: account,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
@@ -78,12 +110,11 @@ enum KeychainStore {
         return String(data: data, encoding: .utf8)
     }
 
-    /// Borra la passphrase de un servidor (idempotente).
-    static func deletePassphrase(for serverID: UUID) {
+    private static func deleteSecret(service: String, account: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: serverID.uuidString,
+            kSecAttrAccount as String: account,
         ]
         let status = SecItemDelete(query as CFDictionary)
         if status != errSecSuccess && status != errSecItemNotFound {
