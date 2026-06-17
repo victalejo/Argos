@@ -44,7 +44,7 @@ final class LiveTerminalController: TerminalViewDelegate {
     /// Estado de la conexión (para feedback en la UI).
     private(set) var status: LiveTerminalStatus = .connecting
 
-    private let service: SSHService
+    private let service: any SSHServicing
     private let sessionName: String
 
     private var task: Task<Void, Never>?
@@ -56,7 +56,7 @@ final class LiveTerminalController: TerminalViewDelegate {
     private let controlStream: AsyncStream<TerminalControlEvent>
     private let controlContinuation: AsyncStream<TerminalControlEvent>.Continuation
 
-    init(service: SSHService, sessionName: String) {
+    init(service: any SSHServicing, sessionName: String) {
         self.service = service
         self.sessionName = sessionName
         let (controlStream, controlContinuation) = AsyncStream<TerminalControlEvent>.makeStream()
@@ -76,7 +76,13 @@ final class LiveTerminalController: TerminalViewDelegate {
     private func start() {
         guard task == nil else { return }
 
-        let (outputStream, outputCont) = AsyncStream<[UInt8]>.makeStream()
+        // Buffer ACOTADO: ante salida remota de muy alto volumen (p. ej. Claude Code
+        // escupiendo miles de líneas), si el feeder del MainActor no drena a tiempo,
+        // se descartan los chunks más viejos en lugar de crecer en memoria sin tope.
+        // La entrada (teclas) usa su propio stream sin acotar: nunca se pierden.
+        let (outputStream, outputCont) = AsyncStream<[UInt8]>.makeStream(
+            bufferingPolicy: .bufferingNewest(4096)
+        )
 
         // Tamaño inicial del PTY tomado del terminal (se corrige con el primer resize).
         let terminal = terminalView.getTerminal()

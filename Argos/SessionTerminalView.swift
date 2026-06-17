@@ -33,7 +33,7 @@ struct TerminalViewRepresentable: NSViewRepresentable {
 
 struct SessionTerminalView: View {
     let session: TmuxSession
-    let service: SSHService
+    let service: any SSHServicing
 
     @State private var controller: LiveTerminalController?
     @State private var attempt = 0

@@ -18,6 +18,7 @@
 //
 
 import Foundation
+import os
 import Citadel
 import Crypto      // Curve25519.Signing.PrivateKey
 import NIOCore     // ByteBuffer, String(buffer:)
@@ -30,28 +31,30 @@ actor SSHService {
 
     // MARK: - Configuración
 
-    /// Parámetros de conexión a un servidor.
+    /// Parámetros de conexión a un servidor, derivados de un `Server` persistido.
     struct Configuration: Sendable {
         var host: String
         var port: Int
         var username: String
-        /// Ruta a la clave privada (admite `~`). Se lee en tiempo de conexión.
+        /// Ruta a la clave privada (admite `~`). Modo sin sandbox / informativa.
         var privateKeyPath: String
-        /// Passphrase de la clave privada.
-        ///
-        /// 👉 PUNTO DE INYECCIÓN: si tu `id_ed25519` tiene passphrase, asígnala aquí
-        ///    (o pásala desde la UI / Keychain). Por defecto `nil` = clave SIN passphrase.
-        ///    Internamente se convierte a `Data(passphrase.utf8)` para Citadel.
+        /// Security-scoped bookmark a la clave (modo App Sandbox). Si está presente,
+        /// tiene prioridad sobre `privateKeyPath` al leer la clave.
+        var privateKeyBookmark: Data?
+        /// Passphrase de la clave. La provee el llamador (desde Keychain), NUNCA
+        /// se hardcodea. `nil` = clave sin passphrase. Se convierte a Data efímera.
         var passphrase: String?
 
-        /// Servidor de desarrollo (Host "dev" de la config SSH del usuario).
-        static let dev = Configuration(
-            host: "100.86.237.26",
-            port: 2222,
-            username: "victalejo",
-            privateKeyPath: "~/.ssh/id_ed25519",
-            passphrase: nil // <- inyecta aquí la passphrase si la clave la requiere
-        )
+        /// Construye la configuración de transporte a partir de un `Server` y la
+        /// passphrase recuperada de Keychain (`nil` si la clave no la requiere).
+        init(server: Server, passphrase: String?) {
+            self.host = server.host
+            self.port = server.port
+            self.username = server.username
+            self.privateKeyPath = server.privateKeyPath
+            self.privateKeyBookmark = server.privateKeyBookmark
+            self.passphrase = passphrase
+        }
     }
 
     // MARK: - Errores
@@ -315,19 +318,13 @@ actor SSHService {
         )
 
         self.client = client
+        Log.ssh.notice("Conexión SSH establecida con \(self.configuration.host, privacy: .public):\(self.configuration.port)")
         return client
     }
 
     /// Lee y parsea la clave Ed25519 OpenSSH del disco.
     private func loadPrivateKey() throws -> Curve25519.Signing.PrivateKey {
-        let path = (configuration.privateKeyPath as NSString).expandingTildeInPath
-
-        let keyText: String
-        do {
-            keyText = try String(contentsOfFile: path, encoding: .utf8)
-        } catch {
-            throw SSHServiceError.keyUnreadable(path: path, underlying: error)
-        }
+        let keyText = try readKeyText()
 
         // Passphrase opcional -> Data UTF-8 (nil si la clave no está cifrada).
         let decryptionKey = configuration.passphrase.map { Data($0.utf8) }
@@ -339,6 +336,37 @@ actor SSHService {
             )
         } catch {
             throw SSHServiceError.keyParseFailed(underlying: error)
+        }
+    }
+
+    /// Lee el texto de la clave privada. Bajo App Sandbox resuelve el
+    /// security-scoped bookmark que el usuario concedió al elegir el archivo; si
+    /// no hay bookmark (modo sin sandbox), lee por ruta directa (admite `~`).
+    private func readKeyText() throws -> String {
+        if let bookmark = configuration.privateKeyBookmark {
+            do {
+                var isStale = false
+                let url = try URL(
+                    resolvingBookmarkData: bookmark,
+                    options: [.withSecurityScope],
+                    relativeTo: nil,
+                    bookmarkDataIsStale: &isStale
+                )
+                let accessed = url.startAccessingSecurityScopedResource()
+                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                return try String(contentsOf: url, encoding: .utf8)
+            } catch {
+                throw SSHServiceError.keyUnreadable(
+                    path: configuration.privateKeyPath, underlying: error
+                )
+            }
+        }
+
+        let path = (configuration.privateKeyPath as NSString).expandingTildeInPath
+        do {
+            return try String(contentsOfFile: path, encoding: .utf8)
+        } catch {
+            throw SSHServiceError.keyUnreadable(path: path, underlying: error)
         }
     }
 
