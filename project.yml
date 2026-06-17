@@ -1,23 +1,31 @@
 name: Argos
 
+# ─────────────────────────────────────────────────────────────────────────────
+# project.yml es la ÚNICA FUENTE DE VERDAD del proyecto.
+# El .xcodeproj se genera con `xcodegen generate` y se versiona como artefacto.
+# Tras editar este archivo: ejecuta `xcodegen generate`. La CI verifica que no
+# haya drift (genera y falla si el .pbxproj resultante difiere del commiteado).
+# ─────────────────────────────────────────────────────────────────────────────
+
 options:
   bundleIdPrefix: com.iaportafolio
   deploymentTarget:
-    # Fase 2: el terminal en vivo usa Citadel.withPTY / TTYOutput, marcados
-    # @available(macOS 15.0, *). Subimos el mínimo a macOS 15.
+    # El terminal en vivo usa Citadel.withPTY / TTYOutput, marcados
+    # @available(macOS 15.0, *). Mínimo: macOS 15.
     macOS: "15.0"
   createIntermediateGroups: true
   groupSortPosition: top
 
 # --- Swift Package Manager dependencies ---------------------------------------
-# Ambos productos se vinculan al target Argos (ver targets.Argos.dependencies).
 packages:
   Citadel:
     url: https://github.com/orlandos-nl/Citadel
-    from: 0.12.0
+    # Pin estricto a minor: Citadel es <1.0; un salto de minor puede romper la API
+    # de PTY/SSH que usamos. upToNextMinor evita actualizaciones incompatibles.
+    minorVersion: 0.12.0
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm
-    from: 1.13.0
+    minorVersion: 1.13.0
 
 targets:
   Argos:
@@ -26,8 +34,9 @@ targets:
     deploymentTarget: "15.0"
     sources:
       - path: Argos
-    # Sin archivo .entitlements y con ENABLE_APP_SANDBOX = NO => App Sandbox
-    # DESACTIVADO: la app puede leer ~/.ssh y abrir conexiones de red salientes.
+    # NOTA: App Sandbox + Hardened Runtime + entitlements se activan en el hito de
+    # distribución (requiere acceso a la clave por security-scoped bookmark). Hoy
+    # OFF para no romper la lectura directa de la clave hasta migrar a bookmarks.
     settings:
       base:
         PRODUCT_NAME: Argos
@@ -45,3 +54,35 @@ targets:
     dependencies:
       - package: Citadel
       - package: SwiftTerm
+
+  ArgosTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: ArgosTests
+    # Host-less: las pruebas NO lanzan la app (evita que ContentView intente
+    # conectar por SSH en CI). @testable import Argos funciona vía testability.
+    dependencies:
+      - target: Argos
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.iaportafolio.argos.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+
+schemes:
+  Argos:
+    build:
+      targets:
+        Argos: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - ArgosTests
+    profile:
+      config: Release
+    archive:
+      config: Release

@@ -9,10 +9,14 @@
 /* Begin PBXBuildFile section */
 		0B5D19F31AD7F36075636625 /* CreateSessionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44EB269F90646735AE9A53CA /* CreateSessionSheet.swift */; };
 		192D3C31F4496A0D12998928 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = C9AC58752B09ADD31B61011B /* SwiftTerm */; };
+		36FD49CE37818A19FAC19F22 /* SessionNameValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9307BD0AA5FF67DD40E900B /* SessionNameValidatorTests.swift */; };
 		42FA68FCB0EB89B1FF5DBE8B /* SSHTerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 373E1FCA88FA61170D8B97F3 /* SSHTerminalSession.swift */; };
 		50262D24381D99AB728C774F /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = FC6E54AE421077969B9E7E5B /* Citadel */; };
+		6A51AC072F076B67E7B81B7F /* SessionGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0CD355C55856CF39D5DF08F /* SessionGroupingTests.swift */; };
 		6B78960D933DD7F03DBBA69E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB081348202A1C599D6C7B3 /* ContentView.swift */; };
 		6C96D300E599845D811DBCED /* SessionGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1C527D544A33C86FDA6A00 /* SessionGroup.swift */; };
+		738DA9D8E838A1152C816CC3 /* ShellQuoting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D433BD561BAFB67B3E3007D /* ShellQuoting.swift */; };
+		7696C2EECDEC523B7B55536D /* TmuxSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E8D2897CB2C59012C299625 /* TmuxSessionTests.swift */; };
 		8AC026AA720A52F8A534CC41 /* SSHService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792CDD043DC9EF3063ABAF4B /* SSHService.swift */; };
 		9133E096190BE4C458431394 /* LiveTerminalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445EC9A275BAC494A796B3E2 /* LiveTerminalController.swift */; };
 		96BB2263E5EBCE167C214C1A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 65C5951389633CCA111B2D96 /* Assets.xcassets */; };
@@ -22,11 +26,25 @@
 		B64F67267E607EF02D082823 /* ArgosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17F27F1BDF8240FDE090119 /* ArgosApp.swift */; };
 		C7B6778AD95B861B188040BF /* SessionTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */; };
 		D91377E6937819F5032D9662 /* SSHSessionManagement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E0A20A19F7815044978FC19 /* SSHSessionManagement.swift */; };
+		DC7465DFF1450038B4484B9A /* TmuxErrorClassificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD9D527CAB785756EB0FCB9 /* TmuxErrorClassificationTests.swift */; };
 		E224B3D53EE2D7827A485CB5 /* HostKeyVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B62EB21A9B138B0A1CBD9C /* HostKeyVerifier.swift */; };
+		E85B008DFD3F25098FCB5BD2 /* ShellQuotingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B52A0DF05049D85D634854BF /* ShellQuotingTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A65D5E30522E97700CD9CDEB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7DA10A44D8AFCD295EEFA8BC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D61FF93EC48A47E4B04BCAB;
+			remoteInfo = Argos;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		0E0A20A19F7815044978FC19 /* SSHSessionManagement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHSessionManagement.swift; sourceTree = "<group>"; };
+		2D433BD561BAFB67B3E3007D /* ShellQuoting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellQuoting.swift; sourceTree = "<group>"; };
+		2E8D2897CB2C59012C299625 /* TmuxSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxSessionTests.swift; sourceTree = "<group>"; };
 		373E1FCA88FA61170D8B97F3 /* SSHTerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHTerminalSession.swift; sourceTree = "<group>"; };
 		38CEB7C88E72A43CEC8A545F /* SessionNameValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameValidator.swift; sourceTree = "<group>"; };
 		445EC9A275BAC494A796B3E2 /* LiveTerminalController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTerminalController.swift; sourceTree = "<group>"; };
@@ -39,6 +57,11 @@
 		9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTerminalView.swift; sourceTree = "<group>"; };
 		A17F27F1BDF8240FDE090119 /* ArgosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArgosApp.swift; sourceTree = "<group>"; };
 		AFB081348202A1C599D6C7B3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		AFD9D527CAB785756EB0FCB9 /* TmuxErrorClassificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxErrorClassificationTests.swift; sourceTree = "<group>"; };
+		B0CD355C55856CF39D5DF08F /* SessionGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionGroupingTests.swift; sourceTree = "<group>"; };
+		B52A0DF05049D85D634854BF /* ShellQuotingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellQuotingTests.swift; sourceTree = "<group>"; };
+		B9307BD0AA5FF67DD40E900B /* SessionNameValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameValidatorTests.swift; sourceTree = "<group>"; };
+		CD3AC653A136E494AD535400 /* ArgosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ArgosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E3B62EB21A9B138B0A1CBD9C /* HostKeyVerifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostKeyVerifier.swift; sourceTree = "<group>"; };
 		FC8C1A574D352F400AAE3A46 /* RenameSessionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenameSessionSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -60,6 +83,7 @@
 			isa = PBXGroup;
 			children = (
 				75AE7601077EF66F3CBBFC25 /* Argos.app */,
+				CD3AC653A136E494AD535400 /* ArgosTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -77,6 +101,7 @@
 				8F1C527D544A33C86FDA6A00 /* SessionGroup.swift */,
 				38CEB7C88E72A43CEC8A545F /* SessionNameValidator.swift */,
 				9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */,
+				2D433BD561BAFB67B3E3007D /* ShellQuoting.swift */,
 				792CDD043DC9EF3063ABAF4B /* SSHService.swift */,
 				0E0A20A19F7815044978FC19 /* SSHSessionManagement.swift */,
 				373E1FCA88FA61170D8B97F3 /* SSHTerminalSession.swift */,
@@ -85,10 +110,23 @@
 			path = Argos;
 			sourceTree = "<group>";
 		};
+		8F6D93E04397B7D87C9D1BD1 /* ArgosTests */ = {
+			isa = PBXGroup;
+			children = (
+				B0CD355C55856CF39D5DF08F /* SessionGroupingTests.swift */,
+				B9307BD0AA5FF67DD40E900B /* SessionNameValidatorTests.swift */,
+				B52A0DF05049D85D634854BF /* ShellQuotingTests.swift */,
+				AFD9D527CAB785756EB0FCB9 /* TmuxErrorClassificationTests.swift */,
+				2E8D2897CB2C59012C299625 /* TmuxSessionTests.swift */,
+			);
+			path = ArgosTests;
+			sourceTree = "<group>";
+		};
 		C23853C680ABD34E17F5BE8B = {
 			isa = PBXGroup;
 			children = (
 				5A3A23A48775071C50DA76EE /* Argos */,
+				8F6D93E04397B7D87C9D1BD1 /* ArgosTests */,
 				3A1A98094DA95E37D3FD7134 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -116,6 +154,24 @@
 			productName = Argos;
 			productReference = 75AE7601077EF66F3CBBFC25 /* Argos.app */;
 			productType = "com.apple.product-type.application";
+		};
+		9B1C6FF8AB27F22861A9ECE4 /* ArgosTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2C895C758AAC8DDD7B4A138F /* Build configuration list for PBXNativeTarget "ArgosTests" */;
+			buildPhases = (
+				C4036272681DDEDB670F56E5 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3C5C5898288014DC8BC3862A /* PBXTargetDependency */,
+			);
+			name = ArgosTests;
+			packageProductDependencies = (
+			);
+			productName = ArgosTests;
+			productReference = CD3AC653A136E494AD535400 /* ArgosTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -150,6 +206,7 @@
 			projectRoot = "";
 			targets = (
 				5D61FF93EC48A47E4B04BCAB /* Argos */,
+				9B1C6FF8AB27F22861A9ECE4 /* ArgosTests */,
 			);
 		};
 /* End PBXProject section */
@@ -182,13 +239,52 @@
 				6C96D300E599845D811DBCED /* SessionGroup.swift in Sources */,
 				B1709EB6CD4C480A71B5EF13 /* SessionNameValidator.swift in Sources */,
 				C7B6778AD95B861B188040BF /* SessionTerminalView.swift in Sources */,
+				738DA9D8E838A1152C816CC3 /* ShellQuoting.swift in Sources */,
 				9BB2EC28C44ABE37A25840A7 /* TmuxSession.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C4036272681DDEDB670F56E5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6A51AC072F076B67E7B81B7F /* SessionGroupingTests.swift in Sources */,
+				36FD49CE37818A19FAC19F22 /* SessionNameValidatorTests.swift in Sources */,
+				E85B008DFD3F25098FCB5BD2 /* ShellQuotingTests.swift in Sources */,
+				DC7465DFF1450038B4484B9A /* TmuxErrorClassificationTests.swift in Sources */,
+				7696C2EECDEC523B7B55536D /* TmuxSessionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		3C5C5898288014DC8BC3862A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D61FF93EC48A47E4B04BCAB /* Argos */;
+			targetProxy = A65D5E30522E97700CD9CDEB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		2FE90BA57D646485C6B62043 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Argos.app/Contents/MacOS/Argos";
+			};
+			name = Debug;
+		};
 		390BBF9736D2545372005913 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -238,6 +334,24 @@
 				PRODUCT_NAME = Argos;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		4ED3CC117FA5C95E80D0C28A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Argos.app/Contents/MacOS/Argos";
 			};
 			name = Release;
 		};
@@ -363,6 +477,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2C895C758AAC8DDD7B4A138F /* Build configuration list for PBXNativeTarget "ArgosTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2FE90BA57D646485C6B62043 /* Debug */,
+				4ED3CC117FA5C95E80D0C28A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		2EB869143CCE784DEAC7A0EF /* Build configuration list for PBXNativeTarget "Argos" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -388,7 +511,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/orlandos-nl/Citadel";
 			requirement = {
-				kind = upToNextMajorVersion;
+				kind = upToNextMinorVersion;
 				minimumVersion = 0.12.0;
 			};
 		};
@@ -396,7 +519,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
 			requirement = {
-				kind = upToNextMajorVersion;
+				kind = upToNextMinorVersion;
 				minimumVersion = 1.13.0;
 			};
 		};
