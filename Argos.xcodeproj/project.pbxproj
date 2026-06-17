@@ -7,22 +7,40 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B5D19F31AD7F36075636625 /* CreateSessionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44EB269F90646735AE9A53CA /* CreateSessionSheet.swift */; };
 		192D3C31F4496A0D12998928 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = C9AC58752B09ADD31B61011B /* SwiftTerm */; };
+		42FA68FCB0EB89B1FF5DBE8B /* SSHTerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 373E1FCA88FA61170D8B97F3 /* SSHTerminalSession.swift */; };
 		50262D24381D99AB728C774F /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = FC6E54AE421077969B9E7E5B /* Citadel */; };
 		6B78960D933DD7F03DBBA69E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB081348202A1C599D6C7B3 /* ContentView.swift */; };
+		6C96D300E599845D811DBCED /* SessionGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1C527D544A33C86FDA6A00 /* SessionGroup.swift */; };
 		8AC026AA720A52F8A534CC41 /* SSHService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792CDD043DC9EF3063ABAF4B /* SSHService.swift */; };
+		9133E096190BE4C458431394 /* LiveTerminalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445EC9A275BAC494A796B3E2 /* LiveTerminalController.swift */; };
 		96BB2263E5EBCE167C214C1A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 65C5951389633CCA111B2D96 /* Assets.xcassets */; };
 		9BB2EC28C44ABE37A25840A7 /* TmuxSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5018CBF48657BB02BA165C22 /* TmuxSession.swift */; };
+		A6B051B70720FDB32766E1E2 /* RenameSessionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC8C1A574D352F400AAE3A46 /* RenameSessionSheet.swift */; };
+		B1709EB6CD4C480A71B5EF13 /* SessionNameValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38CEB7C88E72A43CEC8A545F /* SessionNameValidator.swift */; };
 		B64F67267E607EF02D082823 /* ArgosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17F27F1BDF8240FDE090119 /* ArgosApp.swift */; };
+		C7B6778AD95B861B188040BF /* SessionTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */; };
+		D91377E6937819F5032D9662 /* SSHSessionManagement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E0A20A19F7815044978FC19 /* SSHSessionManagement.swift */; };
+		E224B3D53EE2D7827A485CB5 /* HostKeyVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B62EB21A9B138B0A1CBD9C /* HostKeyVerifier.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0E0A20A19F7815044978FC19 /* SSHSessionManagement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHSessionManagement.swift; sourceTree = "<group>"; };
+		373E1FCA88FA61170D8B97F3 /* SSHTerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHTerminalSession.swift; sourceTree = "<group>"; };
+		38CEB7C88E72A43CEC8A545F /* SessionNameValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameValidator.swift; sourceTree = "<group>"; };
+		445EC9A275BAC494A796B3E2 /* LiveTerminalController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTerminalController.swift; sourceTree = "<group>"; };
+		44EB269F90646735AE9A53CA /* CreateSessionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateSessionSheet.swift; sourceTree = "<group>"; };
 		5018CBF48657BB02BA165C22 /* TmuxSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxSession.swift; sourceTree = "<group>"; };
 		65C5951389633CCA111B2D96 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		75AE7601077EF66F3CBBFC25 /* Argos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Argos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		792CDD043DC9EF3063ABAF4B /* SSHService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHService.swift; sourceTree = "<group>"; };
+		8F1C527D544A33C86FDA6A00 /* SessionGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionGroup.swift; sourceTree = "<group>"; };
+		9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTerminalView.swift; sourceTree = "<group>"; };
 		A17F27F1BDF8240FDE090119 /* ArgosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArgosApp.swift; sourceTree = "<group>"; };
 		AFB081348202A1C599D6C7B3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		E3B62EB21A9B138B0A1CBD9C /* HostKeyVerifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostKeyVerifier.swift; sourceTree = "<group>"; };
+		FC8C1A574D352F400AAE3A46 /* RenameSessionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenameSessionSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,7 +70,16 @@
 				A17F27F1BDF8240FDE090119 /* ArgosApp.swift */,
 				65C5951389633CCA111B2D96 /* Assets.xcassets */,
 				AFB081348202A1C599D6C7B3 /* ContentView.swift */,
+				44EB269F90646735AE9A53CA /* CreateSessionSheet.swift */,
+				E3B62EB21A9B138B0A1CBD9C /* HostKeyVerifier.swift */,
+				445EC9A275BAC494A796B3E2 /* LiveTerminalController.swift */,
+				FC8C1A574D352F400AAE3A46 /* RenameSessionSheet.swift */,
+				8F1C527D544A33C86FDA6A00 /* SessionGroup.swift */,
+				38CEB7C88E72A43CEC8A545F /* SessionNameValidator.swift */,
+				9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */,
 				792CDD043DC9EF3063ABAF4B /* SSHService.swift */,
+				0E0A20A19F7815044978FC19 /* SSHSessionManagement.swift */,
+				373E1FCA88FA61170D8B97F3 /* SSHTerminalSession.swift */,
 				5018CBF48657BB02BA165C22 /* TmuxSession.swift */,
 			);
 			path = Argos;
@@ -145,7 +172,16 @@
 			files = (
 				B64F67267E607EF02D082823 /* ArgosApp.swift in Sources */,
 				6B78960D933DD7F03DBBA69E /* ContentView.swift in Sources */,
+				0B5D19F31AD7F36075636625 /* CreateSessionSheet.swift in Sources */,
+				E224B3D53EE2D7827A485CB5 /* HostKeyVerifier.swift in Sources */,
+				9133E096190BE4C458431394 /* LiveTerminalController.swift in Sources */,
+				A6B051B70720FDB32766E1E2 /* RenameSessionSheet.swift in Sources */,
 				8AC026AA720A52F8A534CC41 /* SSHService.swift in Sources */,
+				D91377E6937819F5032D9662 /* SSHSessionManagement.swift in Sources */,
+				42FA68FCB0EB89B1FF5DBE8B /* SSHTerminalSession.swift in Sources */,
+				6C96D300E599845D811DBCED /* SessionGroup.swift in Sources */,
+				B1709EB6CD4C480A71B5EF13 /* SessionNameValidator.swift in Sources */,
+				C7B6778AD95B861B188040BF /* SessionTerminalView.swift in Sources */,
 				9BB2EC28C44ABE37A25840A7 /* TmuxSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -170,7 +206,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
 				PRODUCT_NAME = Argos;
@@ -196,7 +232,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
 				PRODUCT_NAME = Argos;
@@ -256,7 +292,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -313,7 +349,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

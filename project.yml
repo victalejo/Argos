@@ -3,7 +3,9 @@ name: Argos
 options:
   bundleIdPrefix: com.iaportafolio
   deploymentTarget:
-    macOS: "14.0"
+    # Fase 2: el terminal en vivo usa Citadel.withPTY / TTYOutput, marcados
+    # @available(macOS 15.0, *). Subimos el mínimo a macOS 15.
+    macOS: "15.0"
   createIntermediateGroups: true
   groupSortPosition: top
 
@@ -21,7 +23,7 @@ targets:
   Argos:
     type: application
     platform: macOS
-    deploymentTarget: "14.0"
+    deploymentTarget: "15.0"
     sources:
       - path: Argos
     # Sin archivo .entitlements y con ENABLE_APP_SANDBOX = NO => App Sandbox

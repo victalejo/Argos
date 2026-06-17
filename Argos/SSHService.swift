@@ -62,6 +62,7 @@ actor SSHService {
         case commandFailed(exitCode: Int, message: String)
         case tmuxNotInstalled
         case installFailed(String)
+        case configFailed(String)
 
         var errorDescription: String? {
             switch self {
@@ -76,9 +77,17 @@ actor SSHService {
                 return "tmux no está instalado en el servidor."
             case .installFailed(let message):
                 return "No se pudo instalar tmux. \(message)"
+            case .configFailed(let message):
+                return "No se pudo crear ~/.tmux.conf. \(message)"
             }
         }
     }
+
+    /// Mensaje accionable cuando tmux falta y no hay sudo sin contraseña: lo resuelve
+    /// el usuario fuera de la app (la app NUNCA pide ni guarda la contraseña de sudo).
+    static let manualInstallInstruction =
+        "tmux no está instalado y tu usuario no tiene sudo sin contraseña. "
+        + "Instálalo con: sudo apt install tmux"
 
     // MARK: - Estado
 
@@ -182,64 +191,103 @@ actor SSHService {
         return exitCode == 127 && haystack.contains("tmux")
     }
 
-    // MARK: - Instalación de tmux
+    // MARK: - Preparación del entorno tmux (detección / instalación / configuración)
+    //
+    // Pensado para Ubuntu/Debian (apt). El orquestador (la UI) llama a estos pasos en
+    // secuencia y refleja cada fase. Todos son idempotentes y no interactivos: nunca se
+    // queda colgado pidiendo contraseña (se usa `sudo -n`) ni se pide/guarda la contraseña.
 
-    /// Script que detecta el gestor de paquetes del servidor e instala tmux.
-    ///
-    /// - Usa `sudo -n` (no interactivo) salvo que ya seamos root, para no quedar
-    ///   colgados esperando una contraseña en un canal sin TTY.
-    /// - Emite marcadores (`ARGOS_*`) en stdout para que el cliente interprete el
-    ///   resultado de forma robusta, independientemente del idioma del SO.
-    private static let installTmuxScript = """
-    if command -v tmux >/dev/null 2>&1; then echo ARGOS_ALREADY_INSTALLED; exit 0; fi
-    if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo -n"; fi
-    if command -v apt-get >/dev/null 2>&1; then $SUDO apt-get update -y && $SUDO apt-get install -y tmux
-    elif command -v dnf >/dev/null 2>&1; then $SUDO dnf install -y tmux
-    elif command -v yum >/dev/null 2>&1; then $SUDO yum install -y tmux
-    elif command -v zypper >/dev/null 2>&1; then $SUDO zypper --non-interactive install tmux
-    elif command -v pacman >/dev/null 2>&1; then $SUDO pacman -Sy --noconfirm tmux
-    elif command -v apk >/dev/null 2>&1; then $SUDO apk add tmux
-    elif command -v brew >/dev/null 2>&1; then brew install tmux
-    else echo ARGOS_NO_PACKAGE_MANAGER; exit 1; fi
-    if command -v tmux >/dev/null 2>&1; then echo ARGOS_INSTALL_OK; else echo ARGOS_INSTALL_FAILED; exit 1; fi
-    """
-
-    /// Instala tmux en el servidor remoto. Lanza `SSHServiceError.installFailed`
-    /// con un mensaje accionable si no es posible (sin sudo, gestor desconocido…).
-    func installTmux() async throws {
+    /// Detecta si tmux está instalado en el servidor (`command -v tmux`).
+    func isTmuxInstalled() async throws -> Bool {
         let client = try await connectedClient()
-        let result = try await capture(client, command: Self.installTmuxScript)
-        let stdout = result.stdout
+        let result = try await capture(client, command: "command -v tmux")
+        return result.exitCode == 0
+    }
 
-        if stdout.contains("ARGOS_INSTALL_OK") || stdout.contains("ARGOS_ALREADY_INSTALLED") {
-            return
-        }
+    /// ¿Puede el usuario ejecutar sudo SIN contraseña? (`sudo -n true`).
+    ///
+    /// `sudo -n` falla en vez de pedir contraseña, así que es seguro de probar en un
+    /// canal sin TTY: nunca bloquea.
+    func canUseSudoNonInteractive() async throws -> Bool {
+        let client = try await connectedClient()
+        let result = try await capture(client, command: "sudo -n true")
+        return result.exitCode == 0
+    }
 
-        if stdout.contains("ARGOS_NO_PACKAGE_MANAGER") {
+    /// Instala tmux con apt y verifica al final con `command -v tmux`.
+    ///
+    /// Precondición: el llamador ya comprobó `canUseSudoNonInteractive()`. Se ejecuta
+    /// todo dentro de un único `sudo -n sh -c …` como root, con
+    /// `DEBIAN_FRONTEND=noninteractive` para que apt no abra diálogos.
+    /// Lanza `SSHServiceError.installFailed` si tras instalar tmux sigue sin aparecer.
+    func installTmuxWithApt() async throws {
+        let client = try await connectedClient()
+        let install =
+            "sudo -n sh -c 'apt-get update && "
+            + "DEBIAN_FRONTEND=noninteractive apt-get install -y tmux'"
+        let result = try await capture(client, command: install)
+
+        // Verificación independiente del código de salida de apt.
+        let check = try await capture(client, command: "command -v tmux")
+        guard check.exitCode == 0 else {
+            let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.installFailed(
-                "No se reconoció el gestor de paquetes del servidor. Instálalo manualmente."
+                detail.isEmpty ? "apt terminó con código \(result.exitCode)." : detail
             )
         }
+    }
 
-        let stderrLower = result.stderr.lowercased()
-        if stderrLower.contains("password is required")
-            || stderrLower.contains("a terminal is required")
-            || stderrLower.contains("sudo:") {
-            throw SSHServiceError.installFailed(
-                "Requiere sudo sin contraseña. Ejecuta en el servidor, por ejemplo: "
-                + "sudo apt install tmux (o el gestor que uses)."
+    // MARK: - Configuración de ~/.tmux.conf
+
+    /// Contenido base de `~/.tmux.conf` (mouse, scrollback, índices base 1, colores).
+    ///
+    /// `default-terminal "tmux-256color"` + el override `Tc` habilitan truecolor; si
+    /// SwiftTerm anuncia otro `TERM` y hay problemas de color, este es el primer ajuste
+    /// a revisar.
+    private static let defaultTmuxConfig = [
+        "set -g mouse on",
+        "set -g history-limit 50000",
+        "set -g base-index 1",
+        "setw -g pane-base-index 1",
+        "set -g renumber-windows on",
+        "set -sg escape-time 0",
+        "set -g default-terminal \"tmux-256color\"",
+        "set -ga terminal-overrides \",*256col*:Tc\"",
+    ].joined(separator: "\n")
+
+    /// ¿Existe ya `~/.tmux.conf`? (`test -f "$HOME/.tmux.conf"`).
+    func tmuxConfigExists() async throws -> Bool {
+        let client = try await connectedClient()
+        let result = try await capture(client, command: "test -f \"$HOME/.tmux.conf\"")
+        return result.exitCode == 0
+    }
+
+    /// Crea `~/.tmux.conf` con la base por defecto **solo si no existe** (no sobreescribe).
+    ///
+    /// El `if [ ! -f ]` interno hace la operación idempotente y a prueba de carreras; el
+    /// heredoc con delimitador entrecomillado escribe el contenido literal sin expansión.
+    func writeDefaultTmuxConfig() async throws {
+        let client = try await connectedClient()
+        let command =
+            "if [ ! -f \"$HOME/.tmux.conf\" ]; then\n"
+            + "cat > \"$HOME/.tmux.conf\" <<'ARGOS_TMUX_CONF'\n"
+            + Self.defaultTmuxConfig + "\n"
+            + "ARGOS_TMUX_CONF\n"
+            + "fi"
+        let result = try await capture(client, command: command)
+        if result.exitCode != 0 {
+            let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            throw SSHServiceError.configFailed(
+                detail.isEmpty ? "Código de salida \(result.exitCode)." : detail
             )
         }
-
-        let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-        throw SSHServiceError.installFailed(
-            detail.isEmpty ? "Código de salida \(result.exitCode)." : detail
-        )
     }
 
     // MARK: - Conexión
 
-    private func connectedClient() async throws -> SSHClient {
+    /// Conexión SSH compartida. `internal` (no `private`) para que la extensión del
+    /// terminal en vivo (`SSHTerminalSession.swift`) reutilice el mismo `SSHClient`.
+    func connectedClient() async throws -> SSHClient {
         if let client, client.isConnected {
             return client
         }
@@ -301,7 +349,10 @@ actor SSHService {
     /// Un exit-code distinto de cero NO lanza aquí: se devuelve para que la capa
     /// superior decida (p. ej. tmux "no server running" sale con código != 0 pero
     /// debe tratarse como lista vacía).
-    private func capture(
+    ///
+    /// `internal` (no `private`) para que la extensión de gestión de sesiones
+    /// (`SSHSessionManagement.swift`) reutilice esta misma ejecución de comandos.
+    func capture(
         _ client: SSHClient,
         command: String
     ) async throws -> (stdout: String, stderr: String, exitCode: Int) {
