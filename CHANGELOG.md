@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-06-18
+
 ### Añadido
 - **Comprobador de actualizaciones**: consulta el último GitHub Release, compara con
   la versión instalada y, si hay una nueva, ofrece descargar el DMG (hoja de aviso).
