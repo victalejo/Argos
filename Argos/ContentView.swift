@@ -27,6 +27,8 @@ struct ContentView: View {
     @State private var serverFormMode: ServerFormSheet.Mode?
     @State private var serverToDelete: Server?
 
+    @State private var updates = UpdateChecker.shared
+
     var body: some View {
         NavigationSplitView {
             serverSidebar
@@ -39,8 +41,15 @@ struct ContentView: View {
         .onAppear {
             syncVMs()
             if selectedServerID == nil { selectedServerID = store.servers.first?.id }
+            // Chequeo de actualizaciones al arrancar (idempotente; silencioso salvo
+            // que haya una nueva versión).
+            updates.checkOnLaunch()
         }
         .onChange(of: store.servers) { _, _ in syncVMs() }
+        // La UI de actualización se monta en un subview propio para no competir por el
+        // mismo "slot" de sheet con el formulario de servidor (dos .sheet en la misma
+        // vista no pueden presentarse a la vez).
+        .background(updatePresenter)
         .sheet(item: $serverFormMode) { mode in
             ServerFormSheet(mode: mode) { server, secret in
                 save(server, secret: secret)
@@ -190,6 +199,62 @@ struct ContentView: View {
 
     private var deleteDialogBinding: Binding<Bool> {
         Binding(get: { serverToDelete != nil }, set: { if !$0 { serverToDelete = nil } })
+    }
+
+    // MARK: - Presentación de actualizaciones (subview con su propio contexto de sheet)
+
+    private var updatePresenter: some View {
+        Color.clear
+            .sheet(isPresented: updateSheetBinding) {
+                if case .updateAvailable(let info) = updates.state {
+                    UpdateAvailableSheet(
+                        info: info,
+                        currentVersion: updates.currentVersion,
+                        onDismiss: { updates.dismiss() }
+                    )
+                }
+            }
+            .alert("Estás al día", isPresented: upToDateAlertBinding) {
+                Button("OK") { updates.dismiss() }
+            } message: {
+                Text("Tienes la última versión de Argos (\(updates.currentVersion)).")
+            }
+            .alert("No se pudo comprobar", isPresented: updateFailedAlertBinding, presenting: updateFailureMessage) { _ in
+                Button("OK") { updates.dismiss() }
+            } message: { message in
+                Text(message)
+            }
+    }
+
+    // MARK: - Bindings de actualización
+
+    /// La hoja de actualización se muestra siempre que haya una versión nueva
+    /// (tanto en el chequeo automático como en el manual).
+    private var updateSheetBinding: Binding<Bool> {
+        Binding(
+            get: { if case .updateAvailable = updates.state { return true } else { return false } },
+            set: { if !$0 { updates.dismiss() } }
+        )
+    }
+
+    /// "Estás al día" solo tras un chequeo manual (los automáticos son silenciosos).
+    private var upToDateAlertBinding: Binding<Bool> {
+        Binding(
+            get: { updates.wasManual && updates.state == .upToDate },
+            set: { if !$0 { updates.dismiss() } }
+        )
+    }
+
+    private var updateFailureMessage: String? {
+        if updates.wasManual, case .failed(let message) = updates.state { return message }
+        return nil
+    }
+
+    private var updateFailedAlertBinding: Binding<Bool> {
+        Binding(
+            get: { updateFailureMessage != nil },
+            set: { if !$0 { updates.dismiss() } }
+        )
     }
 
     private static func makeService(for server: Server) -> SSHService {

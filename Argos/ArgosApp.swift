@@ -15,6 +15,13 @@ struct ArgosApp: App {
             ContentView()
         }
         .commands {
+            // Comprobador de actualizaciones bajo el menú de la app (junto a "Acerca de").
+            CommandGroup(after: .appInfo) {
+                Button("Buscar actualizaciones…") {
+                    UpdateChecker.shared.check(manual: true)
+                }
+            }
+
             // El terminal de SwiftTerm implementa copy:/paste:/selectAll: como acciones
             // estándar de AppKit, pero sin estos ítems de menú (con sus atajos) las teclas
             // Cmd+C/Cmd+V se enviarían como bytes crudos al PTY en vez de tocar el
