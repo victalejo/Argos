@@ -6,6 +6,11 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **Comprobador de actualizaciones**: consulta el último GitHub Release, compara con
+  la versión instalada y, si hay una nueva, ofrece descargar el DMG (hoja de aviso).
+  Comando de menú "Buscar actualizaciones…" + chequeo silencioso al arrancar.
+
 ## [1.0.2] - 2026-06-18
 
 ### Añadido
