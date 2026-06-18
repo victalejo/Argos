@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-06-18
+
+### Cambiado
+- **Actualizaciones OTA con [Sparkle](https://sparkle-project.org/)**: reemplaza el
+  comprobador propio. Ahora descarga e instala el update dentro de la app ("Instalar y
+  reiniciar") sin pasar por el navegador, evitando la cuarentena de Gatekeeper en cada
+  versión. Firma EdDSA propia (sin cuenta Apple). El release publica un ZIP + `appcast.xml`
+  firmado además del DMG.
+
 ## [1.0.3] - 2026-06-18
 
 ### Añadido
