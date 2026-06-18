@@ -116,7 +116,9 @@ jobs:
 
           tmp="$(mktemp -d)"
           # Clasifica cada commit por su tipo Conventional en archivos por categoría.
-          git log --no-merges --pretty=format:'%s' "$RANGE" | while IFS= read -r subject; do
+          # `tformat:` termina CADA línea con newline (incluida la última) para que el
+          # `while read` no descarte el último commit (git `format:` no pone newline final).
+          git log --no-merges --pretty=tformat:'%s' "$RANGE" | while IFS= read -r subject; do
             type="$(printf '%s' "$subject" | sed -nE 's/^([a-zA-Z]+)(\([^)]*\))?!?:.*/\1/p' | tr '[:upper:]' '[:lower:]')"
             case "$type" in
               feat) cat="feat" ;;
