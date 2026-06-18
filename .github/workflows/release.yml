@@ -1,0 +1,193 @@
+name: Release DMG
+
+# Compila Argos (Release) y empaqueta un .dmg instalable.
+#   - Ejecución manual (workflow_dispatch): el DMG queda como artifact de la corrida.
+#   - Push de un tag v* (p. ej. v1.0.2): además publica un GitHub Release con el DMG
+#     adjunto y notas generadas automáticamente desde los Conventional Commits.
+#
+# Firma AD-HOC ("-"): la app corre en tu propia Mac sin cuenta Apple Developer.
+# NO está notarizada, así que tras descargar hay que quitar la cuarentena de Gatekeeper
+# (ver el cuerpo del release). Para distribuir a terceros sin avisos haría falta
+# firma con Developer ID + notarización.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # necesario para crear el Release en push de tag
+
+jobs:
+  build-dmg:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Historia + tags completos: las notas del release usan `git log` entre
+          # el tag anterior y el actual, y `git describe` para hallar el anterior.
+          fetch-depth: 0
+
+      - name: Seleccionar Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Instalar XcodeGen y xcbeautify
+        run: brew install xcodegen xcbeautify
+
+      # project.yml es la fuente de verdad: regeneramos antes de compilar.
+      - name: Generar proyecto (XcodeGen)
+        run: xcodegen generate
+
+      - name: Resolver dependencias SPM
+        run: xcodebuild -resolvePackageDependencies -project Argos.xcodeproj -scheme Argos
+
+      # Build Release con firma ad-hoc ("-"). Style=Manual evita que el firmado
+      # automático intente contactar a Apple (no hay equipo de desarrollo en CI).
+      - name: Build (Release, ad-hoc)
+        run: |
+          xcodebuild build \
+            -project Argos.xcodeproj -scheme Argos -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/dd \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            | xcbeautify || exit ${PIPESTATUS[0]}
+
+      # Empaqueta con hdiutil (sin Finder/AppleScript → fiable en runner headless).
+      # La versión sale del tag (v1.0.2 → 1.0.2); en corridas manuales, del Info.plist.
+      - name: Empaquetar DMG
+        run: |
+          set -euo pipefail
+          APP="build/dd/Build/Products/Release/Argos.app"
+          test -d "$APP" || { echo "::error::No se encontró $APP"; exit 1; }
+
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || echo 0.0)"
+          fi
+          echo "DMG_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "DMG_NAME=Argos-${VERSION}.dmg" >> "$GITHUB_ENV"
+
+          STAGE="build/dmg-stage"
+          rm -rf "$STAGE" && mkdir -p "$STAGE"
+          cp -R "$APP" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create \
+            -volname "Argos" \
+            -srcfolder "$STAGE" \
+            -fs HFS+ \
+            -format UDZO \
+            -ov \
+            "Argos-${VERSION}.dmg"
+          # Verifica que el DMG sea montable/íntegro antes de publicarlo.
+          hdiutil verify "Argos-${VERSION}.dmg"
+          ls -lh Argos-*.dmg
+
+      # El DMG queda disponible como artifact en TODA corrida (incluida la manual).
+      - name: Subir DMG como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.DMG_NAME }}
+          path: ${{ env.DMG_NAME }}
+          if-no-files-found: error
+
+      # Genera el cuerpo del release agrupando los Conventional Commits desde el tag
+      # anterior. Solo en push de tag.
+      - name: Generar notas del release
+        if: github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          PREV="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          if [[ -n "$PREV" ]]; then
+            RANGE="${PREV}..${TAG}"
+          else
+            RANGE="${TAG}"
+          fi
+
+          tmp="$(mktemp -d)"
+          # Clasifica cada commit por su tipo Conventional en archivos por categoría.
+          git log --no-merges --pretty=format:'%s' "$RANGE" | while IFS= read -r subject; do
+            type="$(printf '%s' "$subject" | sed -nE 's/^([a-zA-Z]+)(\([^)]*\))?!?:.*/\1/p' | tr '[:upper:]' '[:lower:]')"
+            case "$type" in
+              feat) cat="feat" ;;
+              fix) cat="fix" ;;
+              perf) cat="perf" ;;
+              refactor) cat="refactor" ;;
+              docs) cat="docs" ;;
+              build|ci|chore|test) cat="chore" ;;
+              *) cat="other" ;;
+            esac
+            if [[ "$cat" != "other" ]]; then
+              desc="$(printf '%s' "$subject" | sed -E 's/^[a-zA-Z]+(\([^)]*\))?!?:[[:space:]]*//')"
+            else
+              desc="$subject"
+            fi
+            printf -- '- %s\n' "$desc" >> "$tmp/$cat"
+          done
+
+          section() { # $1=archivo $2=título
+            if [[ -s "$tmp/$1" ]]; then
+              printf '### %s\n\n' "$2"
+              cat "$tmp/$1"
+              printf '\n'
+            fi
+          }
+
+          {
+            echo "Build ad-hoc para uso personal (sin notarizar)."
+            echo
+            echo "**Instalación:** abre el \`.dmg\` y arrastra Argos a Applications."
+            echo "En la primera ejecución (Gatekeeper bloquea apps sin notarizar):"
+            echo
+            echo '```sh'
+            echo "xattr -dr com.apple.quarantine /Applications/Argos.app"
+            echo '```'
+            echo
+            echo "o clic derecho sobre la app → **Abrir**."
+            echo
+            echo "## Cambios"
+            echo
+            section feat "✨ Funcionalidades"
+            section fix "🐛 Correcciones"
+            section perf "⚡ Rendimiento"
+            section refactor "♻️ Refactor"
+            section docs "📝 Documentación"
+            section chore "🔧 Mantenimiento"
+            section other "📦 Otros"
+            if [[ -n "$PREV" ]]; then
+              echo "**Comparar:** ${PREV}...${TAG}"
+            fi
+          } > notes.md
+
+          echo "----- notes.md -----"
+          cat notes.md
+
+      # Publica el GitHub Release con el DMG adjunto. Solo en push de tag.
+      - name: Publicar GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Idempotente: si el Release del tag ya existe (re-tag con `git tag -f` o
+          # "Re-run job"), actualiza notas y re-sube el DMG en vez de fallar.
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release edit "${GITHUB_REF_NAME}" \
+              --title "Argos ${GITHUB_REF_NAME}" \
+              --notes-file notes.md
+            gh release upload "${GITHUB_REF_NAME}" "${DMG_NAME}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "${DMG_NAME}" \
+              --title "Argos ${GITHUB_REF_NAME}" \
+              --notes-file notes.md
+          fi
