@@ -6,6 +6,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-06-18
+
+### Corregido
+- La build ad-hoc no arrancaba con Sparkle embebido (Hardened Runtime rechazaba el
+  framework por distinto Team ID). Añadido `disable-library-validation`. **v1.0.4 estaba
+  rota; usa v1.0.5+.**
+
 ## [1.0.4] - 2026-06-18
 
 ### Cambiado
