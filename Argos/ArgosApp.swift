@@ -6,20 +6,28 @@
 //
 
 import AppKit
+import Sparkle
 import SwiftUI
 
 @main
 struct ArgosApp: App {
+    // Sparkle: controlador del actualizador (OTA). `startingUpdater: true` arranca los
+    // chequeos programados en segundo plano (gobernados por SUEnableAutomaticChecks).
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
+
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
         .commands {
-            // Comprobador de actualizaciones bajo el menú de la app (junto a "Acerca de").
+            // "Buscar actualizaciones…" de Sparkle, junto a "Acerca de". Sparkle muestra
+            // su propia UI (disponible / al día / error / progreso / instalar y reiniciar).
             CommandGroup(after: .appInfo) {
-                Button("Buscar actualizaciones…") {
-                    UpdateChecker.shared.check(manual: true)
-                }
+                CheckForUpdatesView(updater: updaterController.updater)
             }
 
             // El terminal de SwiftTerm implementa copy:/paste:/selectAll: como acciones

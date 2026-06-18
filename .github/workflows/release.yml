@@ -92,6 +92,19 @@ jobs:
           hdiutil verify "Argos-${VERSION}.dmg"
           ls -lh Argos-*.dmg
 
+      # ZIP que consume Sparkle para las actualizaciones OTA. Debe contener Argos.app en
+      # la raíz: `ditto --keepParent` lo garantiza. También captura el build (CFBundleVersion),
+      # que es lo que Sparkle compara (sparkle:version) para decidir si hay actualización.
+      - name: Empaquetar ZIP (Sparkle)
+        run: |
+          set -euo pipefail
+          APP="build/dd/Build/Products/Release/Argos.app"
+          BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")"
+          echo "APP_BUILD=$BUILD" >> "$GITHUB_ENV"
+          echo "ZIP_NAME=Argos-${DMG_VERSION}.zip" >> "$GITHUB_ENV"
+          ditto -c -k --keepParent "$APP" "Argos-${DMG_VERSION}.zip"
+          ls -lh Argos-*.zip
+
       # El DMG queda disponible como artifact en TODA corrida (incluida la manual).
       - name: Subir DMG como artifact
         uses: actions/upload-artifact@v4
@@ -174,22 +187,62 @@ jobs:
           echo "----- notes.md -----"
           cat notes.md
 
-      # Publica el GitHub Release con el DMG adjunto. Solo en push de tag.
+      # Firma el ZIP con la clave EdDSA (desde el secret) y genera el appcast.xml que
+      # leerá Sparkle. La clave privada NUNCA se imprime ni se escribe a disco.
+      - name: Firmar update y generar appcast (Sparkle)
+        if: github.ref_type == 'tag'
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/2.9.3/Sparkle-2.9.3.tar.xz" -o /tmp/sparkle.tar.xz
+          mkdir -p /tmp/sparkle && tar -xf /tmp/sparkle.tar.xz -C /tmp/sparkle
+          SIGN="/tmp/sparkle/bin/sign_update"
+
+          # Devuelve: sparkle:edSignature="..." length="...". La clave llega por stdin.
+          SIG_LINE="$(echo "$SPARKLE_ED_PRIVATE_KEY" | "$SIGN" --ed-key-file - "$ZIP_NAME")"
+
+          ZIP_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${ZIP_NAME}"
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+          PUBDATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
+
+          {
+            echo '<?xml version="1.0" encoding="utf-8"?>'
+            echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">'
+            echo '  <channel>'
+            echo '    <title>Argos</title>'
+            echo '    <item>'
+            echo "      <title>${GITHUB_REF_NAME}</title>"
+            echo "      <link>${RELEASE_URL}</link>"
+            echo "      <sparkle:releaseNotesLink>${RELEASE_URL}</sparkle:releaseNotesLink>"
+            echo "      <sparkle:version>${APP_BUILD}</sparkle:version>"
+            echo "      <sparkle:shortVersionString>${DMG_VERSION}</sparkle:shortVersionString>"
+            echo "      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>"
+            echo "      <pubDate>${PUBDATE}</pubDate>"
+            echo "      <enclosure url=\"${ZIP_URL}\" ${SIG_LINE} type=\"application/octet-stream\" />"
+            echo '    </item>'
+            echo '  </channel>'
+            echo '</rss>'
+          } > appcast.xml
+          echo "----- appcast.xml -----"; cat appcast.xml
+
+      # Publica el GitHub Release con el DMG (instalación inicial), el ZIP y el appcast
+      # (actualizaciones OTA vía Sparkle). Solo en push de tag.
       - name: Publicar GitHub Release
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Idempotente: si el Release del tag ya existe (re-tag con `git tag -f` o
-          # "Re-run job"), actualiza notas y re-sube el DMG en vez de fallar.
+          # Idempotente: si el Release del tag ya existe (re-tag o "Re-run job"),
+          # actualiza notas y re-sube los assets en vez de fallar.
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release edit "${GITHUB_REF_NAME}" \
               --title "Argos ${GITHUB_REF_NAME}" \
               --notes-file notes.md
-            gh release upload "${GITHUB_REF_NAME}" "${DMG_NAME}" --clobber
+            gh release upload "${GITHUB_REF_NAME}" "${DMG_NAME}" "${ZIP_NAME}" appcast.xml --clobber
           else
-            gh release create "${GITHUB_REF_NAME}" "${DMG_NAME}" \
+            gh release create "${GITHUB_REF_NAME}" "${DMG_NAME}" "${ZIP_NAME}" appcast.xml \
               --title "Argos ${GITHUB_REF_NAME}" \
               --notes-file notes.md
           fi

@@ -26,6 +26,11 @@ packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm
     minorVersion: 1.13.0
+  Sparkle:
+    # Framework de auto-actualización (OTA). Firma sus updates con clave EdDSA propia
+    # (independiente de Apple), así que funciona con builds ad-hoc.
+    url: https://github.com/sparkle-project/Sparkle
+    majorVersion: 2.9.3
 
 targets:
   Argos:
@@ -46,23 +51,44 @@ targets:
         com.apple.security.files.bookmarks.app-scope: true
         com.apple.security.temporary-exception.files.home-relative-path.read-only:
           - /.ssh/
+        # Sparkle (sandbox): el Installer XPC corre fuera del sandbox y se comunica con
+        # la app por estos nombres mach derivados del bundle id. $(PRODUCT_BUNDLE_IDENTIFIER)
+        # lo sustituye Xcode al firmar.
+        com.apple.security.temporary-exception.mach-lookup.global-name:
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
+    # Info.plist explícito (XcodeGen rellena los CFBundle* por defecto y añade estas
+    # claves). Necesario porque Sparkle requiere claves propias (SUFeedURL, etc.) que
+    # GENERATE_INFOPLIST_FILE no permite inyectar.
+    info:
+      path: Argos/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSApplicationCategoryType: public.app-category.developer-tools
+        NSHumanReadableCopyright: ""
+        # --- Sparkle (auto-actualización) ---
+        SUFeedURL: https://github.com/victalejo/Argos/releases/latest/download/appcast.xml
+        SUPublicEDKey: Sud7aRbwmy3N+CGAncEQdku4gCAEY6wYOMPHCM0SAN4=
+        SUEnableInstallerLauncherService: true
+        SUEnableAutomaticChecks: true
     settings:
       base:
         PRODUCT_NAME: Argos
         PRODUCT_BUNDLE_IDENTIFIER: com.iaportafolio.argos
         MARKETING_VERSION: "1.0.3"
         CURRENT_PROJECT_VERSION: "4"
-        GENERATE_INFOPLIST_FILE: "YES"
+        GENERATE_INFOPLIST_FILE: "NO"
         ENABLE_APP_SANDBOX: "YES"
         ENABLE_HARDENED_RUNTIME: "YES"
         SWIFT_VERSION: "5.0"
         CODE_SIGN_STYLE: Automatic
-        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.developer-tools"
-        INFOPLIST_KEY_NSHumanReadableCopyright: ""
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     dependencies:
       - package: Citadel
       - package: SwiftTerm
+      - package: Sparkle
 
   ArgosTests:
     type: bundle.unit-test
