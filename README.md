@@ -36,6 +36,11 @@ xattr -dr com.apple.quarantine /Applications/Argos.app
 
 o clic derecho sobre la app → **Abrir** (solo la primera vez).
 
+> **Actualizaciones automáticas:** desde la **v1.0.4**, Argos se actualiza solo vía
+> [Sparkle](https://sparkle-project.org/). Tras instalar una vez, las nuevas versiones se
+> descargan e instalan **desde la propia app** ("Instalar y reiniciar"), sin el aviso de
+> Gatekeeper. También puedes buscarlas a mano en **Argos → Buscar actualizaciones…**.
+
 > ¿Prefieres compilarla tú? Ve a [Compilar y ejecutar](#compilar-y-ejecutar).
 
 ## Características
