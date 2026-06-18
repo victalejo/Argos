@@ -57,6 +57,11 @@ targets:
         com.apple.security.temporary-exception.mach-lookup.global-name:
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
+        # Sparkle.framework viene firmado por su propio team; bajo Hardened Runtime con
+        # firma ad-hoc (sin Team ID), Library Validation rechaza cargarlo (Team IDs
+        # distintos). Esto lo permite. Aceptable en distribución ad-hoc; al notarizar con
+        # Developer ID se re-firmaría el framework y podría quitarse.
+        com.apple.security.cs.disable-library-validation: true
     # Info.plist explícito (XcodeGen rellena los CFBundle* por defecto y añade estas
     # claves). Necesario porque Sparkle requiere claves propias (SUFeedURL, etc.) que
     # GENERATE_INFOPLIST_FILE no permite inyectar.
