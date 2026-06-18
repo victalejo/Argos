@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-06-18
+
 ### Añadido
 - **Autenticación por contraseña** además de clave Ed25519: selector en el
   formulario; la contraseña se guarda en Keychain (namespace separado).
