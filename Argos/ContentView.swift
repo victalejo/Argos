@@ -31,6 +31,8 @@ struct ContentView: View {
     /// selección) y fuente de los estados de cada sesión.
     @State private var terminalStore = TerminalSessionStore()
 
+    @State private var quickSwitcher = QuickSwitcher.shared
+
     var body: some View {
         NavigationSplitView {
             serverSidebar
@@ -50,6 +52,20 @@ struct ContentView: View {
                 save(server, secret: secret)
             }
         }
+        // Switcher en un subview propio para no competir con el sheet del formulario.
+        .background(
+            Color.clear.sheet(isPresented: $quickSwitcher.isPresented) {
+                QuickSwitcherView(
+                    items: quickSwitchItems,
+                    onSelect: { handle in
+                        selectedServerID = handle.serverID
+                        selectedSession = handle
+                        quickSwitcher.isPresented = false
+                    },
+                    onCancel: { quickSwitcher.isPresented = false }
+                )
+            }
+        )
         .confirmationDialog(
             serverToDelete.map { "¿Eliminar el servidor '\($0.name)'?" } ?? "",
             isPresented: deleteDialogBinding,
@@ -198,6 +214,19 @@ struct ContentView: View {
 
     private var deleteDialogBinding: Binding<Bool> {
         Binding(get: { serverToDelete != nil }, set: { if !$0 { serverToDelete = nil } })
+    }
+
+    /// Todas las sesiones (de todos los servidores) para el cambiador rápido (⌘K).
+    private var quickSwitchItems: [QuickSwitchItem] {
+        store.servers.flatMap { server in
+            (vms[server.id]?.sessions ?? []).map { session in
+                QuickSwitchItem(
+                    handle: SessionHandle(serverID: server.id, sessionID: session.id),
+                    serverName: server.name,
+                    sessionName: session.name
+                )
+            }
+        }
     }
 
     private static func makeService(for server: Server) -> SSHService {

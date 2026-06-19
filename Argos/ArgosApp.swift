@@ -43,6 +43,12 @@ struct ArgosApp: App {
                 }
             }
 
+            // Cambiador rápido de sesión (⌘K), en el menú Visualización.
+            CommandGroup(after: .sidebar) {
+                Button("Cambiar de sesión…") { QuickSwitcher.shared.present() }
+                    .keyboardShortcut("k", modifiers: .command)
+            }
+
             // El terminal de SwiftTerm implementa copy:/paste:/selectAll: como acciones
             // estándar de AppKit, pero sin estos ítems de menú (con sus atajos) las teclas
             // Cmd+C/Cmd+V se enviarían como bytes crudos al PTY en vez de tocar el
