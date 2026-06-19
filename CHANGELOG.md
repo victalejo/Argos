@@ -6,6 +6,12 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-06-18
+
+### Añadido
+- **Icono de la app**: ojo "todo-vidente" con un prompt de terminal (`>_`) — guiño a
+  Argos Panoptes. Reemplaza el icono genérico.
+
 ## [1.0.6] - 2026-06-18
 
 ### Añadido
