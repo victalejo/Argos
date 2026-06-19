@@ -6,6 +6,20 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-06-19
+
+### Añadido
+- **Cambiador rápido (⌘K)**: buscador difuso para saltar a cualquier sesión de cualquier
+  servidor al instante (teclado o clic).
+- **Ventanas de tmux**: barra sobre el terminal con las ventanas de la sesión (índice,
+  nombre, paneles); clic para cambiar y **+** para crear una nueva.
+- Menús **Acerca de Argos**, **Ajustes** (pestañas Terminal + Actualizaciones) y **Ayuda**
+  (Documentación / Novedades / Reportar un problema) ahora funcionales.
+
+### Cambiado
+- **App en español**: los menús del sistema (Archivo, Edición, Visualización, Ventana,
+  Ayuda…) y diálogos ahora se muestran en español.
+
 ## [1.0.7] - 2026-06-18
 
 ### Añadido
