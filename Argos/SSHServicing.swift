@@ -26,6 +26,10 @@ protocol SSHServicing: Sendable {
     func renameSession(from oldName: String, to newName: String) async throws
     func killSession(named name: String) async throws
 
+    func listWindows(session: String) async throws -> [TmuxWindow]
+    func selectWindow(session: String, index: Int) async throws
+    func newWindow(session: String) async throws
+
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String
 

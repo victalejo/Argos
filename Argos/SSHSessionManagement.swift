@@ -40,6 +40,38 @@ extension SSHService {
         )
     }
 
+    // MARK: - Ventanas
+
+    /// Lista las ventanas de una sesión. Devuelve `[]` si la sesión no existe o no hay
+    /// servidor tmux (no lanza: la barra de ventanas simplemente queda vacía).
+    func listWindows(session: String) async throws -> [TmuxWindow] {
+        let client = try await connectedClient()
+        let command =
+            "tmux list-windows -t \(ShellQuoting.singleQuoted(session)) "
+            + "-F '#{window_index}|#{window_name}|#{window_active}|#{window_panes}'"
+        let result = try await capture(client, command: command)
+        guard result.exitCode == 0 else { return [] }
+        return result.stdout
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .compactMap { TmuxWindow(line: String($0)) }
+            .sorted { $0.index < $1.index }
+    }
+
+    /// Cambia la ventana activa de la sesión (`tmux select-window -t '<sesión>':<idx>`).
+    /// El terminal adjunto a esa sesión refleja el cambio en vivo.
+    func selectWindow(session: String, index: Int) async throws {
+        try await runManagementCommand(
+            "tmux select-window -t \(ShellQuoting.singleQuoted(session)):\(index)"
+        )
+    }
+
+    /// Crea una nueva ventana en la sesión (`tmux new-window -t '<sesión>'`).
+    func newWindow(session: String) async throws {
+        try await runManagementCommand(
+            "tmux new-window -t \(ShellQuoting.singleQuoted(session))"
+        )
+    }
+
     /// Ejecuta un comando de gestión y lanza `commandFailed` si tmux sale con código
     /// distinto de cero (p. ej. nombre duplicado o sesión inexistente), propagando el
     /// mensaje de stderr de tmux para mostrarlo en la UI.

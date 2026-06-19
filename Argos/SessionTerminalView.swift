@@ -56,6 +56,8 @@ struct SessionTerminalView: View {
 
     @State private var settings = TerminalSettings.shared
     @State private var controller: LiveTerminalController?
+    /// Ventanas de tmux de la sesión (barra superior).
+    @State private var windows: [TmuxWindow] = []
     /// Nº de reconexiones automáticas consecutivas (se resetea al conectar).
     @State private var autoReconnectCount = 0
     @State private var isAutoReconnecting = false
@@ -65,20 +67,16 @@ struct SessionTerminalView: View {
     private static let maxAutoReconnects = 5
 
     var body: some View {
-        ZStack {
-            if let controller {
-                TerminalViewRepresentable(
-                    controller: controller,
-                    fontSize: settings.fontSize,
-                    theme: settings.theme
+        VStack(spacing: 0) {
+            if controller?.status == .connected && !windows.isEmpty {
+                WindowBar(
+                    windows: windows,
+                    onSelect: { selectWindow($0) },
+                    onNew: { newWindow() }
                 )
-                overlay(for: controller.status)
-                if controller.isUploading {
-                    uploadIndicator
-                }
-            } else {
-                connectingScreen
+                Divider()
             }
+            terminalArea
         }
         .navigationTitle(session.name)
         .navigationSubtitle("tmux attach")
@@ -94,12 +92,59 @@ struct SessionTerminalView: View {
                 controller = live
             }
         }
+        // Sondea las ventanas de tmux mientras esta sesión está a la vista.
+        .task(id: handle) { await pollWindows() }
         .onChange(of: controller?.status) { _, status in
             handleStatusChange(status)
         }
         .onDisappear {
             reconnectTask?.cancel()
             reconnectTask = nil
+        }
+    }
+
+    private var terminalArea: some View {
+        ZStack {
+            if let controller {
+                TerminalViewRepresentable(
+                    controller: controller,
+                    fontSize: settings.fontSize,
+                    theme: settings.theme
+                )
+                overlay(for: controller.status)
+                if controller.isUploading {
+                    uploadIndicator
+                }
+            } else {
+                connectingScreen
+            }
+        }
+    }
+
+    // MARK: - Ventanas de tmux
+
+    /// Sondea las ventanas cada pocos segundos mientras la sesión está conectada, para
+    /// reflejar ventanas creadas/renombradas o cambios de la activa desde el propio tmux.
+    private func pollWindows() async {
+        while !Task.isCancelled {
+            if controller?.status == .connected {
+                windows = (try? await service.listWindows(session: session.name)) ?? windows
+            }
+            do { try await Task.sleep(for: .seconds(3)) } catch { break }
+        }
+    }
+
+    private func selectWindow(_ window: TmuxWindow) {
+        Task {
+            try? await service.selectWindow(session: session.name, index: window.index)
+            windows = (try? await service.listWindows(session: session.name)) ?? windows
+        }
+    }
+
+    private func newWindow() {
+        Task {
+            try? await service.newWindow(session: session.name)
+            windows = (try? await service.listWindows(session: session.name)) ?? windows
         }
     }
 
@@ -272,4 +317,60 @@ struct SessionTerminalView: View {
         }
     }
 
+}
+
+// MARK: - Barra de ventanas de tmux
+
+struct WindowBar: View {
+    let windows: [TmuxWindow]
+    let onSelect: (TmuxWindow) -> Void
+    let onNew: () -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(windows) { window in
+                    Button { onSelect(window) } label: {
+                        HStack(spacing: 5) {
+                            Text("\(window.index)")
+                                .font(.caption.monospaced())
+                                .foregroundStyle(window.isActive ? Color.accentColor : .secondary)
+                            Text(window.name)
+                                .font(.callout)
+                                .lineLimit(1)
+                            if window.paneCount > 1 {
+                                Image(systemName: "rectangle.split.2x1")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            window.isActive ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08),
+                            in: Capsule()
+                        )
+                        .overlay(
+                            Capsule().strokeBorder(window.isActive ? Color.accentColor.opacity(0.6) : .clear, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .help("Cambiar a la ventana \(window.index): \(window.name)")
+                }
+
+                Button(action: onNew) {
+                    Image(systemName: "plus")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+                .help("Nueva ventana")
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+        }
+        .background(.bar)
+    }
 }
