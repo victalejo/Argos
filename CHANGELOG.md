@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-06-18
+
+### Añadido
+- **Conexiones persistentes**: las sesiones abiertas mantienen su terminal vivo en un
+  pool; volver a una sesión ya cargada es **instantáneo** (no se re-attacha cada vez).
+- **Estado visual por sesión** (el puntito): 🟢 viva · 🟡 conectando · 🔴 error ·
+  🔵 adjunta por otro cliente · 🌙 dormida. Menú contextual **"Desconectar (dormir)"**
+  para liberar recursos.
+
 ## [1.0.5] - 2026-06-18
 
 ### Corregido
