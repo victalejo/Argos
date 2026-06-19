@@ -9,6 +9,7 @@ name: Argos
 
 options:
   bundleIdPrefix: com.iaportafolio
+  developmentLanguage: es
   deploymentTarget:
     # El terminal en vivo usa Citadel.withPTY / TTYOutput, marcados
     # @available(macOS 15.0, *). Mínimo: macOS 15.
@@ -74,6 +75,11 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         NSHumanReadableCopyright: ""
         CFBundleIconName: AppIcon
+        # App en español: hace que AppKit muestre los menús estándar (Archivo, Edición,
+        # Visualización, Ventana, Ayuda…) y diálogos del sistema en español.
+        CFBundleDevelopmentRegion: es
+        CFBundleLocalizations:
+          - es
         # --- Sparkle (auto-actualización) ---
         SUFeedURL: https://github.com/victalejo/Argos/releases/latest/download/appcast.xml
         SUPublicEDKey: Sud7aRbwmy3N+CGAncEQdku4gCAEY6wYOMPHCM0SAN4=

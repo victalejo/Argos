@@ -237,11 +237,11 @@
 				};
 			};
 			buildConfigurationList = 35AE2D47A456E118AA240D21 /* Build configuration list for PBXProject "Argos" */;
-			developmentRegion = en;
+			developmentRegion = es;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
-				en,
+				es,
 			);
 			mainGroup = C23853C680ABD34E17F5BE8B;
 			minimizedProjectReferenceProxies = 1;
