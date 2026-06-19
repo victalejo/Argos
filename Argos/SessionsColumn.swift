@@ -11,6 +11,8 @@ import SwiftUI
 struct SessionsColumn: View {
     let servers: [Server]
     let vms: [Server.ID: SessionsViewModel]
+    /// Pool de terminales en vivo (estado de cada sesión).
+    let terminalStore: TerminalSessionStore
     /// Servidor activo en la sidebar (para "Nueva sesión").
     let activeServerID: Server.ID?
     @Binding var selection: SessionHandle?
@@ -28,6 +30,7 @@ struct SessionsColumn: View {
                         ServerSessionsSection(
                             server: server,
                             vm: vm,
+                            terminalStore: terminalStore,
                             filter: searchText,
                             renameTarget: $renameTarget,
                             killTarget: $killTarget
@@ -125,6 +128,7 @@ struct SessionsColumn: View {
 private struct ServerSessionsSection: View {
     let server: Server
     let vm: SessionsViewModel
+    let terminalStore: TerminalSessionStore
     let filter: String
     @Binding var renameTarget: SessionAction?
     @Binding var killTarget: SessionAction?
@@ -174,9 +178,17 @@ private struct ServerSessionsSection: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(filtered) { session in
-                    SessionRow(session: session)
-                        .tag(SessionHandle(serverID: server.id, sessionID: session.id))
+                    let handle = SessionHandle(serverID: server.id, sessionID: session.id)
+                    let state = terminalStore.connectionState(for: handle, isAttached: session.isAttached)
+                    SessionRow(session: session, state: state)
+                        .tag(handle)
                         .contextMenu {
+                            if state == .live || state == .connecting || state == .error {
+                                Button("Desconectar (dormir)") {
+                                    terminalStore.close(handle)
+                                }
+                                Divider()
+                            }
                             Button("Renombrar…") {
                                 renameTarget = SessionAction(server: server, session: session)
                             }
@@ -217,17 +229,43 @@ struct SessionAction: Identifiable {
 
 // MARK: - Fila de sesión
 
+extension SessionConnectionState {
+    /// Color del indicador. (`connecting` usa spinner y `dormant` usa luna en su lugar.)
+    var color: Color {
+        switch self {
+        case .live: return .green
+        case .connecting: return .yellow
+        case .error: return .red
+        case .attachedElsewhere: return .blue
+        case .dormant: return .secondary.opacity(0.4)
+        }
+    }
+
+    /// Texto del tooltip.
+    var label: String {
+        switch self {
+        case .live: return "Activa (cargada y conectada)"
+        case .connecting: return "Conectando…"
+        case .error: return "Error de conexión"
+        case .attachedElsewhere: return "Adjunta por otro cliente"
+        case .dormant: return "Dormida (no cargada)"
+        }
+    }
+}
+
 struct SessionRow: View {
     let session: TmuxSession
+    var state: SessionConnectionState = .dormant
     var displayName: String? = nil
 
     private var title: String { displayName ?? session.name }
+    private var isLoaded: Bool { state == .live || state == .connecting }
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: session.isAttached ? "terminal.fill" : "terminal")
+            Image(systemName: isLoaded ? "terminal.fill" : "terminal")
                 .font(.body)
-                .foregroundStyle(session.isAttached ? Color.accentColor : .secondary)
+                .foregroundStyle(isLoaded ? Color.accentColor : .secondary)
                 .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 1) {
@@ -242,11 +280,28 @@ struct SessionRow: View {
 
             Spacer()
 
-            Circle()
-                .fill(session.isAttached ? Color.green : Color.secondary.opacity(0.4))
-                .frame(width: 8, height: 8)
+            statusIndicator
+                .frame(width: 14, height: 14)
+                .help(state.label)
         }
         .padding(.vertical, 3)
+    }
+
+    @ViewBuilder
+    private var statusIndicator: some View {
+        switch state {
+        case .connecting:
+            ProgressView().controlSize(.mini)
+        case .dormant:
+            // 🌙 dormida
+            Image(systemName: "moon.fill")
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary.opacity(0.7))
+        default:
+            Circle()
+                .fill(state.color)
+                .frame(width: 8, height: 8)
+        }
     }
 
     private var subtitle: String {

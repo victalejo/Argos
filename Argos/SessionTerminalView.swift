@@ -48,12 +48,14 @@ struct TerminalViewRepresentable: NSViewRepresentable {
 // MARK: - Detalle con terminal en vivo
 
 struct SessionTerminalView: View {
+    let handle: SessionHandle
     let session: TmuxSession
     let service: any SSHServicing
+    /// Pool persistente: el controlador sobrevive al cambio de selección.
+    let store: TerminalSessionStore
 
     @State private var settings = TerminalSettings.shared
     @State private var controller: LiveTerminalController?
-    @State private var attempt = 0
     /// Nº de reconexiones automáticas consecutivas (se resetea al conectar).
     @State private var autoReconnectCount = 0
     @State private var isAutoReconnecting = false
@@ -80,14 +82,17 @@ struct SessionTerminalView: View {
         }
         .navigationTitle(session.name)
         .navigationSubtitle("tmux attach")
-        .task(id: "\(session.id)#\(attempt)") {
-            let controller = LiveTerminalController(service: service, sessionName: session.name)
-            self.controller = controller
-            defer {
-                controller.stop()
-                self.controller = nil
+        // Toma el controlador del pool (lo crea si es la primera vez). NO lo detiene al
+        // desaparecer: la conexión persiste para que volver a la sesión sea instantáneo.
+        .task(id: handle) {
+            let live = store.controller(for: handle, service: service, sessionName: session.name)
+            // Si quedó muerto (detach limpio o error previo), reconecta al reabrir.
+            switch live.status {
+            case .ended, .failed:
+                controller = store.reconnect(handle, service: service, sessionName: session.name)
+            case .connecting, .connected:
+                controller = live
             }
-            await Self.waitUntilCancelled()
         }
         .onChange(of: controller?.status) { _, status in
             handleStatusChange(status)
@@ -126,8 +131,16 @@ struct SessionTerminalView: View {
             guard !Task.isCancelled else { return }
             autoReconnectCount += 1
             reconnectTask = nil
-            attempt += 1 // recrea el controlador vía .task(id:)
+            controller = store.reconnect(handle, service: service, sessionName: session.name)
         }
+    }
+
+    /// Reconexión manual (botón del banner): resetea el backoff y recrea el controlador.
+    private func reconnectManually() {
+        autoReconnectCount = 0
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        controller = store.reconnect(handle, service: service, sessionName: session.name)
     }
 
     // MARK: - Indicador de subida (imagen pegada o archivos soltados)
@@ -249,13 +262,8 @@ struct SessionTerminalView: View {
                 }
                 Spacer()
                 if showsReconnect {
-                    Button("Reconectar") {
-                        autoReconnectCount = 0
-                        reconnectTask?.cancel()
-                        reconnectTask = nil
-                        attempt += 1
-                    }
-                    .buttonStyle(.borderedProminent)
+                    Button("Reconectar") { reconnectManually() }
+                        .buttonStyle(.borderedProminent)
                 }
             }
             .padding(14)
@@ -264,11 +272,4 @@ struct SessionTerminalView: View {
         }
     }
 
-    /// Suspende de forma cancelable hasta que la `.task` que la invoca sea cancelada.
-    private static func waitUntilCancelled() async {
-        while !Task.isCancelled {
-            do { try await Task.sleep(for: .seconds(3600)) }
-            catch { break } // CancellationError -> la vista se cierra / cambia de sesión.
-        }
-    }
 }

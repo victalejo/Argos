@@ -27,6 +27,10 @@ struct ContentView: View {
     @State private var serverFormMode: ServerFormSheet.Mode?
     @State private var serverToDelete: Server?
 
+    /// Pool persistente de terminales en vivo (conexiones que sobreviven al cambio de
+    /// selección) y fuente de los estados de cada sesión.
+    @State private var terminalStore = TerminalSessionStore()
+
     var body: some View {
         NavigationSplitView {
             serverSidebar
@@ -110,6 +114,7 @@ struct ContentView: View {
             SessionsColumn(
                 servers: store.servers,
                 vms: vms,
+                terminalStore: terminalStore,
                 activeServerID: selectedServerID,
                 selection: $selectedSession
             )
@@ -123,7 +128,7 @@ struct ContentView: View {
         if let handle = selectedSession,
            let vm = vms[handle.serverID],
            let session = vm.session(withID: handle.sessionID) {
-            SessionTerminalView(session: session, service: vm.service)
+            SessionTerminalView(handle: handle, session: session, service: vm.service, store: terminalStore)
                 .id(handle)
         } else {
             ContentUnavailableView(
@@ -170,6 +175,8 @@ struct ContentView: View {
             selectedServerID = server.id
         }
         // Reconstruye el VM del servidor editado (credenciales pueden haber cambiado).
+        // Cierra sus terminales: deben re-attacharse con el servicio nuevo.
+        terminalStore.closeAll(forServer: server.id)
         let vm = SessionsViewModel(service: Self.makeService(for: server))
         vms[server.id] = vm
         Task { await vm.load() }
@@ -178,6 +185,7 @@ struct ContentView: View {
     private func delete(_ server: Server) {
         store.remove(server)
         vms.removeValue(forKey: server.id)
+        terminalStore.closeAll(forServer: server.id)
         KeychainStore.deletePassphrase(for: server.id)
         KeychainStore.deletePassword(for: server.id)
         if selectedServerID == server.id {
