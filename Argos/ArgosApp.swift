@@ -24,10 +24,23 @@ struct ArgosApp: App {
             ContentView()
         }
         .commands {
-            // "Buscar actualizaciones…" de Sparkle, junto a "Acerca de". Sparkle muestra
-            // su propia UI (disponible / al día / error / progreso / instalar y reiniciar).
-            CommandGroup(after: .appInfo) {
+            // Menú de la app: "Acerca de Argos" propio (panel nativo con icono/enlaces)
+            // + "Buscar actualizaciones…" de Sparkle (que muestra su propia UI).
+            CommandGroup(replacing: .appInfo) {
+                Button("Acerca de Argos") { AboutPanel.show() }
                 CheckForUpdatesView(updater: updaterController.updater)
+            }
+
+            // Menú Ayuda funcional (reemplaza el "ayuda no disponible" por defecto).
+            CommandGroup(replacing: .help) {
+                Button("Documentación de Argos") { Self.open(AboutPanel.repoURL) }
+                Button("Novedades…") {
+                    Self.open(URL(string: "https://github.com/victalejo/Argos/releases")!)
+                }
+                Divider()
+                Button("Reportar un problema…") {
+                    Self.open(URL(string: "https://github.com/victalejo/Argos/issues/new")!)
+                }
             }
 
             // El terminal de SwiftTerm implementa copy:/paste:/selectAll: como acciones
@@ -58,7 +71,12 @@ struct ArgosApp: App {
         }
 
         Settings {
-            TerminalSettingsView()
+            SettingsView(updater: updaterController.updater)
         }
+    }
+
+    /// Abre una URL en el navegador por defecto (para los ítems del menú Ayuda).
+    private static func open(_ url: URL) {
+        NSWorkspace.shared.open(url)
     }
 }

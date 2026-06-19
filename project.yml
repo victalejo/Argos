@@ -73,7 +73,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         LSApplicationCategoryType: public.app-category.developer-tools
-        NSHumanReadableCopyright: ""
+        NSHumanReadableCopyright: "© 2026 Victor Alejandro · Licencia Apache-2.0"
         CFBundleIconName: AppIcon
         # App en español: hace que AppKit muestre los menús estándar (Archivo, Edición,
         # Visualización, Ventana, Ayuda…) y diálogos del sistema en español.
