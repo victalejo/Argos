@@ -72,6 +72,43 @@ extension SSHService {
         )
     }
 
+    // MARK: - Paneles
+    //
+    // Operan sobre el panel ACTIVO de la ventana actual de la sesión (target `-t '<sesión>'`).
+    // Como tmux es cliente-servidor, el terminal adjunto refleja el cambio en vivo.
+
+    /// Divide el panel activo. `vertical == true` apila arriba/abajo (`-v`); `false`
+    /// pone los paneles lado a lado (`-h`).
+    func splitPane(session: String, vertical: Bool) async throws {
+        let direction = vertical ? "-v" : "-h"
+        try await runManagementCommand(
+            "tmux split-window \(direction) -t \(ShellQuoting.singleQuoted(session))"
+        )
+    }
+
+    /// Mueve el foco al panel adyacente en la dirección dada (`select-pane -U/-D/-L/-R`).
+    func selectPane(session: String, direction: TmuxPaneDirection) async throws {
+        try await runManagementCommand(
+            "tmux select-pane \(direction.selectPaneFlag) -t \(ShellQuoting.singleQuoted(session))"
+        )
+    }
+
+    /// Alterna el zoom del panel activo a pantalla completa (`resize-pane -Z`).
+    func zoomPane(session: String) async throws {
+        try await runManagementCommand(
+            "tmux resize-pane -Z -t \(ShellQuoting.singleQuoted(session))"
+        )
+    }
+
+    /// Cierra el panel activo (`kill-pane`). Destructivo: la UI confirma antes y solo lo
+    /// ofrece cuando la ventana activa tiene más de un panel (cerrar el único panel
+    /// cerraría la ventana —y, si es la última, la sesión—).
+    func killPane(session: String) async throws {
+        try await runManagementCommand(
+            "tmux kill-pane -t \(ShellQuoting.singleQuoted(session))"
+        )
+    }
+
     /// Ejecuta un comando de gestión y lanza `commandFailed` si tmux sale con código
     /// distinto de cero (p. ej. nombre duplicado o sesión inexistente), propagando el
     /// mensaje de stderr de tmux para mostrarlo en la UI.

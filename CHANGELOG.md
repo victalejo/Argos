@@ -7,6 +7,9 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [Unreleased]
 
 ### Añadido
+- **Gestión de paneles tmux**: menú "Panel" en la barra del terminal para dividir
+  (derecha/abajo), navegar entre paneles (↑↓←→), hacer zoom y cerrar el panel activo
+  (con confirmación; solo si la ventana tiene más de un panel), sin teclear el prefijo.
 - **Agrupamiento de sesiones por prefijo**: la columna central agrupa las sesiones por el
   prefijo `grupo/nombre` (encabezados solo cuando hay grupos reales). Conecta la lógica
   `SessionGrouping`, que ya existía y estaba testeada pero la UI no usaba.

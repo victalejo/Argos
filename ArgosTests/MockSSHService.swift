@@ -75,6 +75,19 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func selectWindow(session: String, index: Int) async throws {}
     func newWindow(session: String) async throws {}
 
+    // MARK: - Paneles
+    private(set) var splitVerticalCalls: [Bool] = []
+    private(set) var selectedPaneDirections: [TmuxPaneDirection] = []
+    private(set) var zoomPaneCalls = 0
+    private(set) var killPaneCalls = 0
+
+    func splitPane(session: String, vertical: Bool) async throws { splitVerticalCalls.append(vertical) }
+    func selectPane(session: String, direction: TmuxPaneDirection) async throws {
+        selectedPaneDirections.append(direction)
+    }
+    func zoomPane(session: String) async throws { zoomPaneCalls += 1 }
+    func killPane(session: String) async throws { killPaneCalls += 1 }
+
     // MARK: - Transferencia de archivos
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String { "" }
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String { "" }

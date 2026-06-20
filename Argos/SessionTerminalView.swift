@@ -62,6 +62,7 @@ struct SessionTerminalView: View {
     @State private var autoReconnectCount = 0
     @State private var isAutoReconnecting = false
     @State private var reconnectTask: Task<Void, Never>?
+    @State private var showKillPaneConfirm = false
 
     /// Tope de reintentos automáticos antes de mostrar el banner manual.
     private static let maxAutoReconnects = 5
@@ -80,6 +81,17 @@ struct SessionTerminalView: View {
         }
         .navigationTitle(session.name)
         .navigationSubtitle("tmux attach")
+        .toolbar { paneToolbar }
+        .confirmationDialog(
+            "¿Cerrar el panel activo?",
+            isPresented: $showKillPaneConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Cerrar panel", role: .destructive) { killPane() }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Se cerrará el panel activo y se perderá lo que corra en él.")
+        }
         // Toma el controlador del pool (lo crea si es la primera vez). NO lo detiene al
         // desaparecer: la conexión persiste para que volver a la sesión sea instantáneo.
         .task(id: handle) {
@@ -100,6 +112,40 @@ struct SessionTerminalView: View {
         .onDisappear {
             reconnectTask?.cancel()
             reconnectTask = nil
+        }
+    }
+
+    /// Menú "Panel" en la toolbar del detalle: divide, navega, hace zoom o cierra el
+    /// panel activo de tmux sin teclear el prefijo. Deshabilitado mientras no hay conexión.
+    @ToolbarContentBuilder
+    private var paneToolbar: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button { splitPane(vertical: false) } label: {
+                    Label("Dividir a la derecha", systemImage: "rectangle.split.2x1")
+                }
+                Button { splitPane(vertical: true) } label: {
+                    Label("Dividir abajo", systemImage: "rectangle.split.1x2")
+                }
+                Divider()
+                Button { selectPane(.left) } label: { Label("Panel a la izquierda", systemImage: "arrow.left") }
+                Button { selectPane(.right) } label: { Label("Panel a la derecha", systemImage: "arrow.right") }
+                Button { selectPane(.up) } label: { Label("Panel de arriba", systemImage: "arrow.up") }
+                Button { selectPane(.down) } label: { Label("Panel de abajo", systemImage: "arrow.down") }
+                Divider()
+                Button { zoomPane() } label: {
+                    Label("Zoom del panel", systemImage: "arrow.up.left.and.arrow.down.right")
+                }
+                Button(role: .destructive) { showKillPaneConfirm = true } label: {
+                    Label("Cerrar panel", systemImage: "xmark.rectangle")
+                }
+                .disabled(!activeWindowHasMultiplePanes)
+            } label: {
+                Label("Panel", systemImage: "rectangle.split.2x2")
+            }
+            .menuIndicator(.hidden)
+            .disabled(controller?.status != .connected)
+            .help("Acciones de panel de tmux (dividir, navegar, zoom, cerrar)")
         }
     }
 
@@ -150,14 +196,50 @@ struct SessionTerminalView: View {
     private func selectWindow(_ window: TmuxWindow) {
         Task {
             try? await service.selectWindow(session: session.name, index: window.index)
-            windows = (try? await service.listWindows(session: session.name)) ?? windows
+            await refreshWindows()
         }
     }
 
     private func newWindow() {
         Task {
             try? await service.newWindow(session: session.name)
-            windows = (try? await service.listWindows(session: session.name)) ?? windows
+            await refreshWindows()
+        }
+    }
+
+    /// Vuelve a leer las ventanas tras una acción (helper único reutilizado por las
+    /// acciones de ventana y de panel).
+    private func refreshWindows() async {
+        windows = (try? await service.listWindows(session: session.name)) ?? windows
+    }
+
+    // MARK: - Paneles de tmux
+
+    /// ¿La ventana activa tiene más de un panel? (Para no ofrecer "Cerrar panel" cuando
+    /// cerraría la ventana entera —o la sesión, si es la última—.)
+    private var activeWindowHasMultiplePanes: Bool {
+        (windows.first { $0.isActive }?.paneCount ?? 1) > 1
+    }
+
+    private func splitPane(vertical: Bool) {
+        Task {
+            try? await service.splitPane(session: session.name, vertical: vertical)
+            await refreshWindows()
+        }
+    }
+
+    private func selectPane(_ direction: TmuxPaneDirection) {
+        Task { try? await service.selectPane(session: session.name, direction: direction) }
+    }
+
+    private func zoomPane() {
+        Task { try? await service.zoomPane(session: session.name) }
+    }
+
+    private func killPane() {
+        Task {
+            try? await service.killPane(session: session.name)
+            await refreshWindows()
         }
     }
 
