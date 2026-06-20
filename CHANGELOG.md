@@ -6,6 +6,18 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-20
+
+### Añadido
+- **Panel de Claude Code (opción "Agente")**: nueva pestaña en la columna de detalle, junto
+  al terminal tmux (que sigue siendo el modo por defecto). Ejecuta `claude` en el servidor
+  remoto vía SSH y muestra la conversación como UI nativa: mensajes, llamadas a herramientas
+  y **permisos con botones Permitir/Denegar** (estilo extensión de VS Code).
+- **Autenticación con tu suscripción Plan Max** (sin API key): pega el token de
+  `claude setup-token` una vez; se guarda en el Keychain y se usa en todos los servidores.
+- **Multi-agente**: cada sesión mantiene su propio agente vivo aunque cambies de sesión o de
+  modo.
+
 ## [1.1.0] - 2026-06-20
 
 ### Añadido
