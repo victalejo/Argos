@@ -111,4 +111,37 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     ) async throws {
         output.finish()
     }
+
+    // MARK: - Panel de agente
+
+    /// Ruta que devuelve `locateClaude` (nil simula "no instalado").
+    var claudePath: String? = "/usr/bin/claude"
+    /// Líneas NDJSON que `runAgentExec` emitirá por stdout al arrancar.
+    var agentScript: [String] = []
+    /// Líneas recibidas por stdin (prompts y control_response), para aserciones.
+    private(set) var agentStdinLines: [String] = []
+    /// Último comando recibido por `runAgentExec`.
+    private(set) var lastAgentCommand: String?
+
+    func locateClaude() async throws -> String? { claudePath }
+
+    func runAgentExec(
+        command: String,
+        stdin: AsyncStream<[UInt8]>,
+        output: AsyncStream<[UInt8]>.Continuation
+    ) async throws {
+        lastAgentCommand = command
+        for line in agentScript {
+            output.yield(Array((line + "\n").utf8))
+        }
+        // Drena stdin (registrándolo) hasta que el llamador lo finalice con `stop()`.
+        for await bytes in stdin {
+            if let text = String(bytes: bytes, encoding: .utf8) {
+                agentStdinLines.append(
+                    contentsOf: text.split(whereSeparator: \.isNewline).map(String.init)
+                )
+            }
+        }
+        output.finish()
+    }
 }

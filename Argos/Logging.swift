@@ -23,4 +23,6 @@ enum Log {
     static let hostKey = Logger(subsystem: subsystem, category: "hostkey")
     /// Almacén de servidores y Keychain.
     static let store = Logger(subsystem: subsystem, category: "store")
+    /// Panel de agente de Claude Code (proceso remoto, protocolo stream-json).
+    static let agent = Logger(subsystem: subsystem, category: "agent")
 }

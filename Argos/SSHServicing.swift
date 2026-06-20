@@ -62,6 +62,20 @@ protocol SSHServicing: Sendable {
         control: AsyncStream<TerminalControlEvent>,
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws
+
+    // MARK: - Panel de agente (Claude Code)
+
+    /// Localiza el binario `claude` en el servidor (ruta absoluta), o `nil` si no está.
+    func locateClaude() async throws -> String?
+
+    /// Ejecuta `command` por un canal exec bidireccional (8-bit safe, sin PTY):
+    /// escribe en stdin los bytes que llegan por `stdin` y entrega el stdout por
+    /// `output`. Para manejar `claude` headless en modo stream-json.
+    func runAgentExec(
+        command: String,
+        stdin: AsyncStream<[UInt8]>,
+        output: AsyncStream<[UInt8]>.Continuation
+    ) async throws
 }
 
 extension SSHService: SSHServicing {}

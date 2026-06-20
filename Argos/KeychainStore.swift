@@ -29,6 +29,10 @@ enum KeychainStore {
 
     private static let passphraseService = "com.iaportafolio.argos.ssh-passphrase"
     private static let passwordService = "com.iaportafolio.argos.ssh-password"
+    private static let claudeTokenService = "com.iaportafolio.argos.claude-oauth-token"
+    /// El token de Claude Code es global (suscripción del usuario del Mac), no por
+    /// servidor: se guarda bajo una cuenta fija.
+    private static let claudeTokenAccount = "subscription"
 
     // MARK: - Passphrase de clave SSH
 
@@ -62,6 +66,29 @@ enum KeychainStore {
     /// Borra la contraseña de login de un servidor (idempotente).
     static func deletePassword(for serverID: UUID) {
         deleteSecret(service: passwordService, account: serverID.uuidString)
+    }
+
+    // MARK: - Token OAuth de Claude Code (suscripción Plan Max)
+
+    /// Guarda (o actualiza) el token de larga duración generado con `claude setup-token`.
+    /// `nil` o vacío lo borra. Es global, no por servidor.
+    static func setClaudeOAuthToken(_ token: String?) throws {
+        try setSecret(token, service: claudeTokenService, account: claudeTokenAccount)
+    }
+
+    /// Devuelve el token OAuth de Claude Code, o `nil` si no hay ninguno.
+    static func claudeOAuthToken() -> String? {
+        secret(service: claudeTokenService, account: claudeTokenAccount)
+    }
+
+    /// `true` si hay un token de Claude Code guardado.
+    static func hasClaudeOAuthToken() -> Bool {
+        claudeOAuthToken()?.isEmpty == false
+    }
+
+    /// Borra el token OAuth de Claude Code (idempotente).
+    static func deleteClaudeOAuthToken() {
+        deleteSecret(service: claudeTokenService, account: claudeTokenAccount)
     }
 
     // MARK: - Núcleo genérico (service + account)

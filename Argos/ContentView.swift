@@ -15,6 +15,13 @@ struct SessionHandle: Hashable, Sendable {
     let sessionID: TmuxSession.ID
 }
 
+/// Modo de la 3ª columna para una sesión: el terminal tmux (por defecto) o el panel
+/// de agente de Claude Code. Es ADITIVO: el terminal no cambia.
+enum DetailMode: Hashable, Sendable {
+    case terminal
+    case agent
+}
+
 // MARK: - Root view
 
 struct ContentView: View {
@@ -30,6 +37,13 @@ struct ContentView: View {
     /// Pool persistente de terminales en vivo (conexiones que sobreviven al cambio de
     /// selección) y fuente de los estados de cada sesión.
     @State private var terminalStore = TerminalSessionStore()
+
+    /// Pool de agentes de Claude Code (opción "Agente" de la 3ª columna), vivos aunque
+    /// cambies de sesión o de modo.
+    @State private var agentStore = AgentSessionStore()
+
+    /// Modo elegido por sesión en la 3ª columna (terminal por defecto).
+    @State private var detailModes: [SessionHandle: DetailMode] = [:]
 
     @State private var quickSwitcher = QuickSwitcher.shared
     @State private var showSSHConfig = false
@@ -165,21 +179,60 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Columna 3: terminal
+    // MARK: - Columna 3: terminal (por defecto) o agente Claude Code
 
     @ViewBuilder
     private var terminalDetail: some View {
         if let handle = selectedSession,
            let vm = vms[handle.serverID],
            let session = vm.session(withID: handle.sessionID) {
-            SessionTerminalView(handle: handle, session: session, service: vm.service, store: terminalStore)
-                .id(handle)
+            VStack(spacing: 0) {
+                detailModePicker(for: handle)
+                Divider()
+                detailContent(handle: handle, session: session, service: vm.service)
+            }
         } else {
             ContentUnavailableView(
                 "Selecciona una sesión",
                 systemImage: "terminal",
-                description: Text("Elige una sesión de la lista para abrir su terminal en vivo.")
+                description: Text("Elige una sesión para abrir su terminal o un agente de Claude Code.")
             )
+        }
+    }
+
+    /// Conmutador Terminal | Agente. El terminal tmux es el modo por defecto.
+    private func detailModePicker(for handle: SessionHandle) -> some View {
+        Picker("Modo", selection: detailModeBinding(for: handle)) {
+            Label("Terminal", systemImage: "terminal").tag(DetailMode.terminal)
+            Label("Agente", systemImage: "sparkles").tag(DetailMode.agent)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .fixedSize()
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func detailModeBinding(for handle: SessionHandle) -> Binding<DetailMode> {
+        Binding(
+            get: { detailModes[handle] ?? .terminal },
+            set: { detailModes[handle] = $0 }
+        )
+    }
+
+    @ViewBuilder
+    private func detailContent(
+        handle: SessionHandle,
+        session: TmuxSession,
+        service: any SSHServicing
+    ) -> some View {
+        switch detailModes[handle] ?? .terminal {
+        case .terminal:
+            SessionTerminalView(handle: handle, session: session, service: service, store: terminalStore)
+                .id(handle)
+        case .agent:
+            AgentPanelView(handle: handle, service: service, store: agentStore)
+                .id(handle)
         }
     }
 
@@ -236,8 +289,9 @@ struct ContentView: View {
             selectedServerID = server.id
         }
         // Reconstruye el VM del servidor editado (credenciales pueden haber cambiado).
-        // Cierra sus terminales: deben re-attacharse con el servicio nuevo.
+        // Cierra sus terminales y agentes: deben re-attacharse con el servicio nuevo.
         terminalStore.closeAll(forServer: server.id)
+        agentStore.closeAll(forServer: server.id)
         let vm = SessionsViewModel(service: Self.makeService(for: server))
         vms[server.id] = vm
         Task { await vm.load() }
@@ -262,6 +316,7 @@ struct ContentView: View {
         store.remove(server)
         vms.removeValue(forKey: server.id)
         terminalStore.closeAll(forServer: server.id)
+        agentStore.closeAll(forServer: server.id)
         KeychainStore.deletePassphrase(for: server.id)
         KeychainStore.deletePassword(for: server.id)
         if selectedServerID == server.id {
