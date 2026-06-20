@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0484994EA74C094106DF308F /* ServerFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72F75B7F2615F16AF85003FD /* ServerFormSheet.swift */; };
 		082FF2631A3A4632E2D8FFD9 /* SessionsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB419067A72674C2B562CD8 /* SessionsViewModelTests.swift */; };
+		13BE1659C730822798172FAC /* TerminalPoolEvictionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B141663A032DDBE018951E /* TerminalPoolEvictionTests.swift */; };
 		192D3C31F4496A0D12998928 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = C9AC58752B09ADD31B61011B /* SwiftTerm */; };
 		1BF31293D1E160A4314A551B /* SSHConfigSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C50A322D11CBE7687006F31 /* SSHConfigSheet.swift */; };
 		1F49FD85008D7EBE730E6CF1 /* ServerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 843E63C9938F02D896D2ABEA /* ServerStore.swift */; };
@@ -114,6 +115,7 @@
 		AFD9D527CAB785756EB0FCB9 /* TmuxErrorClassificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxErrorClassificationTests.swift; sourceTree = "<group>"; };
 		B0CD355C55856CF39D5DF08F /* SessionGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionGroupingTests.swift; sourceTree = "<group>"; };
 		B52A0DF05049D85D634854BF /* ShellQuotingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellQuotingTests.swift; sourceTree = "<group>"; };
+		B5B141663A032DDBE018951E /* TerminalPoolEvictionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPoolEvictionTests.swift; sourceTree = "<group>"; };
 		B9307BD0AA5FF67DD40E900B /* SessionNameValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameValidatorTests.swift; sourceTree = "<group>"; };
 		BD746B3F53FF7EEB1749E4DF /* SSHServicing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHServicing.swift; sourceTree = "<group>"; };
 		CC329A38D26C812EA00D5407 /* SessionNameSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameSheet.swift; sourceTree = "<group>"; };
@@ -212,6 +214,7 @@
 				5BB419067A72674C2B562CD8 /* SessionsViewModelTests.swift */,
 				B52A0DF05049D85D634854BF /* ShellQuotingTests.swift */,
 				17F57F9814C545E3DE5A2D36 /* SSHConfigParserTests.swift */,
+				B5B141663A032DDBE018951E /* TerminalPoolEvictionTests.swift */,
 				AFD9D527CAB785756EB0FCB9 /* TmuxErrorClassificationTests.swift */,
 				E758EA6EA1D463B587C25B35 /* TmuxPaneTests.swift */,
 				2E8D2897CB2C59012C299625 /* TmuxSessionTests.swift */,
@@ -381,6 +384,7 @@
 				082FF2631A3A4632E2D8FFD9 /* SessionsViewModelTests.swift in Sources */,
 				E85B008DFD3F25098FCB5BD2 /* ShellQuotingTests.swift in Sources */,
 				9A6928FE88B58714BA6D0AC1 /* TOFUHostKeyValidatorTests.swift in Sources */,
+				13BE1659C730822798172FAC /* TerminalPoolEvictionTests.swift in Sources */,
 				DC7465DFF1450038B4484B9A /* TmuxErrorClassificationTests.swift in Sources */,
 				BBC26D2F01DF74B8CDBBCA91 /* TmuxPaneTests.swift in Sources */,
 				7696C2EECDEC523B7B55536D /* TmuxSessionTests.swift in Sources */,

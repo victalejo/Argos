@@ -32,6 +32,9 @@ El detalle por commit vive en el historial git (Conventional Commits):
   con la acción "Olvidar host key y reintentar" junto al error, no como un fallo genérico.
 
 ### Rendimiento
+- **Tope del pool de terminales (LRU)**: con muchas sesiones abiertas a la vez, el terminal
+  menos usado se desengancha automáticamente (vuelve a "dormido" y se reconecta al instante
+  al reabrirlo) en vez de mantener PTYs y scrollback creciendo sin límite.
 - **Arranque perezoso**: al abrir la app ya no se conecta a TODOS los servidores a la vez;
   solo se carga el seleccionado (los demás se conectan al seleccionarlos o pulsar "Conectar").
 - **Keepalive SSH**: un heartbeat mantiene viva la conexión idle (evita el "terminal

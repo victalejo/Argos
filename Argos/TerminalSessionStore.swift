@@ -36,6 +36,16 @@ final class TerminalSessionStore {
     /// Controladores vivos por sesión. Persisten hasta `close`/`closeAll`.
     private var controllers: [SessionHandle: LiveTerminalController] = [:]
 
+    /// Handles ordenados por uso, de MENOS a MÁS reciente (el último es el actual). Se usa
+    /// para desalojar (LRU) cuando el pool supera `maxLiveControllers`.
+    private var lruOrder: [SessionHandle] = []
+
+    /// Tope de terminales vivos a la vez. Cada uno mantiene un PTY abierto y ~50k líneas
+    /// de scrollback; sin tope, abrir muchas sesiones crece la memoria sin límite. Al
+    /// superarlo se desengancha (detach) el menos usado, que vuelve a "dormido" y se
+    /// reconecta instantáneamente al reabrirlo.
+    static let maxLiveControllers = 8
+
     /// Devuelve el controlador de `handle`, creándolo (y conectándolo) si no existe.
     /// Reutilizar el existente es lo que hace la conexión persistente.
     func controller(
@@ -43,9 +53,11 @@ final class TerminalSessionStore {
         service: any SSHServicing,
         sessionName: String
     ) -> LiveTerminalController {
+        touch(handle)
         if let existing = controllers[handle] { return existing }
         let controller = LiveTerminalController(service: service, sessionName: sessionName)
         controllers[handle] = controller
+        evictIfNeeded(keeping: handle)
         return controller
     }
 
@@ -63,6 +75,46 @@ final class TerminalSessionStore {
     func close(_ handle: SessionHandle) {
         controllers[handle]?.stop()
         controllers.removeValue(forKey: handle)
+        lruOrder.removeAll { $0 == handle }
+    }
+
+    // MARK: - LRU
+
+    /// Marca `handle` como el más recientemente usado.
+    private func touch(_ handle: SessionHandle) {
+        lruOrder.removeAll { $0 == handle }
+        lruOrder.append(handle)
+    }
+
+    /// Desengancha los terminales menos usados hasta respetar `maxLiveControllers`,
+    /// nunca el recién solicitado (`keep`).
+    private func evictIfNeeded(keeping keep: SessionHandle) {
+        let victims = Self.evictionVictims(
+            lruOrder: lruOrder,
+            keep: keep,
+            maxLive: Self.maxLiveControllers
+        )
+        for victim in victims {
+            Log.terminal.notice("Pool de terminales lleno: se desengancha la sesión menos usada.")
+            close(victim)
+        }
+    }
+
+    /// Lógica pura (testeable) de selección de víctimas LRU: si `lruOrder` (de menos a más
+    /// reciente) supera `maxLive`, devuelve los más antiguos a desalojar, excluyendo `keep`.
+    static func evictionVictims(
+        lruOrder: [SessionHandle],
+        keep: SessionHandle,
+        maxLive: Int
+    ) -> [SessionHandle] {
+        guard lruOrder.count > maxLive else { return [] }
+        let overflow = lruOrder.count - maxLive
+        var victims: [SessionHandle] = []
+        for handle in lruOrder where handle != keep {
+            victims.append(handle)
+            if victims.count == overflow { break }
+        }
+        return victims
     }
 
     /// Cierra todos los terminales de un servidor (al eliminarlo/editarlo).
