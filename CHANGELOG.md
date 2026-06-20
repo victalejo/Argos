@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-20
+
 ### Añadido
 - **Zoom de fuente del terminal**: ⌘+ / ⌘− para ajustar el tamaño y ⌘0 para volver al
   original (acotado a 9–24 pt), desde el menú Visualización.
