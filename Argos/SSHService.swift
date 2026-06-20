@@ -170,6 +170,17 @@ actor SSHService {
         self.client = nil
     }
 
+    /// Prueba la conexión con la configuración actual: conecta (verificando host key,
+    /// autenticando) y ejecuta `whoami`, devolviendo el usuario remoto. Lanza si la
+    /// conexión o la autenticación fallan. Pensado para el botón "Probar conexión": el
+    /// llamador debe hacer `disconnect()` después. El `SSHClient` (no-Sendable) no sale
+    /// del actor.
+    func testConnection() async throws -> String {
+        let client = try await connectedClient()
+        let result = try await capture(client, command: "whoami")
+        return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Reconoce los mensajes con los que tmux indica "no hay servidor / sesiones".
     ///
     /// El texto varía según versión/plataforma de tmux. Todos estos casos significan

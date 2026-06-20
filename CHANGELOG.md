@@ -7,6 +7,9 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [Unreleased]
 
 ### Añadido
+- **Probar conexión**: el formulario de servidor tiene un botón "Probar conexión" que
+  conecta, autentica y ejecuta `whoami` con los datos tecleados (sin guardar), mostrando
+  éxito (usuario remoto) o el error concreto. Evita guardar un servidor "a ciegas".
 - **Enviar comando / broadcast**: envía un comando (vía `tmux send-keys`) a una o varias
   sesiones a la vez (p. ej. `git pull` a backend+frontend) sin teclear en cada terminal.
   Botón en la toolbar (⌥⌘K) y entrada en el menú contextual de cada sesión; el sheet

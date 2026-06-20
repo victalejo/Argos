@@ -48,8 +48,17 @@ struct ServerFormSheet: View {
     @State private var passphrase: String
     @State private var password: String
     @State private var bookmarkError: String?
+    @State private var testState: TestState = .idle
 
     private let editingID: UUID?
+
+    /// Resultado de "Probar conexión".
+    enum TestState: Equatable {
+        case idle
+        case testing
+        case success(String)
+        case failure(String)
+    }
 
     init(mode: Mode, onSave: @escaping (Server, String?) -> Void) {
         self.mode = mode
@@ -114,7 +123,22 @@ struct ServerFormSheet: View {
             }
             .formStyle(.grouped)
 
+            testResultView
+
             HStack {
+                Button(action: testConnection) {
+                    if testState == .testing {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small)
+                            Text("Probando…")
+                        }
+                    } else {
+                        Text("Probar conexión")
+                    }
+                }
+                .disabled(!canSave || testState == .testing)
+                .help("Conecta y autentica con estos datos sin guardar el servidor")
+
                 Spacer()
                 Button("Cancelar", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
@@ -126,6 +150,34 @@ struct ServerFormSheet: View {
         }
         .padding(20)
         .frame(width: 480)
+        // Un cambio en los datos de conexión invalida el resultado anterior del test.
+        .onChange(of: connectionFingerprint) { _, _ in
+            if testState != .testing { testState = .idle }
+        }
+    }
+
+    /// Resultado de "Probar conexión" (oculto en estado inicial).
+    @ViewBuilder
+    private var testResultView: some View {
+        switch testState {
+        case .idle, .testing:
+            EmptyView()
+        case .success(let message):
+            Label(message, systemImage: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.green)
+        case .failure(let message):
+            Label(message, systemImage: "xmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.red)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Huella de los campos que afectan a la conexión: al cambiar cualquiera, el
+    /// resultado del test deja de ser válido.
+    private var connectionFingerprint: String {
+        "\(host)|\(port)|\(username)|\(authMethod.rawValue)|\(keyPath)|\(passphrase)|\(password)|\(keyBookmark?.count ?? 0)"
     }
 
     private var canSave: Bool {
@@ -169,16 +221,13 @@ struct ServerFormSheet: View {
         }
     }
 
-    private func save() {
-        guard canSave, let portValue = Int(port) else { return }
-
-        let secret: String?
-        let server: Server
+    /// Construye el `Server` y el secreto (passphrase/contraseña) a partir del estado
+    /// actual del formulario. Lo comparten `save()` y `testConnection()`.
+    private func buildServerAndSecret(portValue: Int) -> (server: Server, secret: String?) {
         switch authMethod {
         case .key:
             let trimmedPass = passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
-            secret = trimmedPass.isEmpty ? nil : trimmedPass
-            server = Server(
+            let server = Server(
                 id: editingID ?? UUID(),
                 name: name.trimmingCharacters(in: .whitespaces),
                 host: host.trimmingCharacters(in: .whitespaces),
@@ -189,9 +238,9 @@ struct ServerFormSheet: View {
                 privateKeyBookmark: keyBookmark,
                 requiresPassphrase: !trimmedPass.isEmpty
             )
+            return (server, trimmedPass.isEmpty ? nil : trimmedPass)
         case .password:
-            secret = password.isEmpty ? nil : password
-            server = Server(
+            let server = Server(
                 id: editingID ?? UUID(),
                 name: name.trimmingCharacters(in: .whitespaces),
                 host: host.trimmingCharacters(in: .whitespaces),
@@ -199,8 +248,37 @@ struct ServerFormSheet: View {
                 username: username.trimmingCharacters(in: .whitespaces),
                 authMethod: .password
             )
+            return (server, password.isEmpty ? nil : password)
         }
+    }
+
+    private func save() {
+        guard canSave, let portValue = Int(port) else { return }
+        let (server, secret) = buildServerAndSecret(portValue: portValue)
         onSave(server, secret)
         dismiss()
+    }
+
+    /// Prueba la conexión SSH con los datos del formulario (sin guardar): conecta,
+    /// autentica y ejecuta `whoami`. Usa el secreto TECLEADO en el formulario, no el de
+    /// Keychain, para validar lo que el usuario está a punto de guardar.
+    private func testConnection() {
+        guard canSave, let portValue = Int(port) else { return }
+        let (server, secret) = buildServerAndSecret(portValue: portValue)
+        testState = .testing
+        Task {
+            let config: SSHService.Configuration = server.authMethod == .key
+                ? SSHService.Configuration(server: server, passphrase: secret)
+                : SSHService.Configuration(server: server, password: secret)
+            let service = SSHService(configuration: config)
+            do {
+                let who = try await service.testConnection()
+                await service.disconnect()
+                testState = .success(who.isEmpty ? "Conexión correcta." : "Conectado como “\(who)”.")
+            } catch {
+                await service.disconnect()
+                testState = .failure(error.userMessage)
+            }
+        }
     }
 }
