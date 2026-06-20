@@ -32,6 +32,7 @@ struct ContentView: View {
     @State private var terminalStore = TerminalSessionStore()
 
     @State private var quickSwitcher = QuickSwitcher.shared
+    @State private var showSSHConfig = false
 
     var body: some View {
         NavigationSplitView {
@@ -51,6 +52,13 @@ struct ContentView: View {
             ServerFormSheet(mode: mode) { server, secret in
                 save(server, secret: secret)
             }
+        }
+        .sheet(isPresented: $showSSHConfig) {
+            SSHConfigSheet(
+                existingServers: store.servers,
+                onImport: { importHost($0) },
+                onClose: { showSSHConfig = false }
+            )
         }
         // Switcher en un subview propio para no competir con el sheet del formulario.
         .background(
@@ -108,6 +116,15 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .padding(.top, 4)
+
+            Button {
+                showSSHConfig = true
+            } label: {
+                Label("Importar de ~/.ssh/config…", systemImage: "list.bullet.rectangle")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            }
+            .buttonStyle(.borderless)
         }
         .navigationTitle("Argos")
         .navigationSplitViewColumnWidth(min: 200, ideal: 240)
@@ -196,6 +213,21 @@ struct ContentView: View {
         let vm = SessionsViewModel(service: Self.makeService(for: server))
         vms[server.id] = vm
         Task { await vm.load() }
+    }
+
+    /// Crea un servidor de Argos a partir de un host de `~/.ssh/config`. Auth por clave
+    /// (la passphrase, si la hubiera, se pide al editar). No cierra el visor: puedes
+    /// importar varios.
+    private func importHost(_ host: SSHConfigHost) {
+        let server = Server(
+            name: host.alias,
+            host: host.effectiveHost,
+            port: host.port ?? 22,
+            username: host.user ?? "",
+            authMethod: .key,
+            privateKeyPath: host.identityFile ?? "~/.ssh/id_ed25519"
+        )
+        save(server, secret: nil)
     }
 
     private func delete(_ server: Server) {
