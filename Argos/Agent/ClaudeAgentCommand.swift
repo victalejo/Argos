@@ -39,18 +39,18 @@ enum ClaudeAgentCommand {
     /// - Parameters:
     ///   - claudePath: ruta absoluta del binario `claude` en el servidor (de `locateClaude`).
     ///   - workingDirectory: directorio de trabajo remoto (repo) donde corre el agente.
-    ///   - oauthToken: token de suscripción (`claude setup-token`).
+    ///   - oauthToken: token de suscripción (`claude setup-token`). Si es `nil`/vacío, se
+    ///     omite y el CLI usa la credencial de `claude login` guardada en el SERVIDOR.
     ///   - sessionID: UUID de la sesión (permite reanudar luego con `--resume`).
     ///   - permissionMode: modo de permisos inicial.
     static func build(
         claudePath: String,
         workingDirectory: String,
-        oauthToken: String,
+        oauthToken: String?,
         sessionID: String,
         permissionMode: PermissionMode = .default
     ) -> String {
         let directory = ShellQuoting.singleQuoted(workingDirectory)
-        let token = ShellQuoting.singleQuoted(oauthToken)
         let binary = ShellQuoting.singleQuoted(claudePath)
 
         let flags = (baseFlags + [
@@ -58,10 +58,14 @@ enum ClaudeAgentCommand {
             "--session-id", sessionID,
         ]).joined(separator: " ")
 
-        // `cd` al repo; `env -u ANTHROPIC_API_KEY` evita que una API key del entorno
-        // gane sobre la suscripción (precedencia del CLI); el token va por entorno.
-        return "cd \(directory) && "
-            + "env -u ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN=\(token) "
-            + "\(binary) \(flags)"
+        // `env -u ANTHROPIC_API_KEY` GARANTIZA que nunca se facture contra la API: sin
+        // esa variable el CLI solo puede usar la suscripción (token o login del servidor).
+        // Si hay token, se inyecta; si no, se usa la credencial de `claude login` del server.
+        var environment = "env -u ANTHROPIC_API_KEY "
+        if let oauthToken, !oauthToken.isEmpty {
+            environment += "CLAUDE_CODE_OAUTH_TOKEN=\(ShellQuoting.singleQuoted(oauthToken)) "
+        }
+
+        return "cd \(directory) && \(environment)\(binary) \(flags)"
     }
 }

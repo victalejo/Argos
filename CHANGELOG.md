@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-06-20
+
+### Cambiado
+- **Panel de Agente: token opcional**. Ya no obliga a pegar un token. Si haces
+  `claude login` en el servidor (desde la propia pestaña Terminal), el agente funciona
+  sin token. El token de `claude setup-token` queda como alternativa.
+- Se aclara en la UI que el agente usa **siempre tu suscripción, nunca la API**: el
+  comando hace `env -u ANTHROPIC_API_KEY`, por lo que es imposible que facture contra la API.
+
 ## [1.2.0] - 2026-06-20
 
 ### Añadido

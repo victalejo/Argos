@@ -29,8 +29,6 @@ struct AgentPanelView: View {
         Group {
             if let session = store.existing(for: handle) {
                 AgentConversationView(session: session) { store.close(handle) }
-            } else if !tokenPresent {
-                tokenSetup
             } else {
                 startForm
             }
@@ -38,33 +36,96 @@ struct AgentPanelView: View {
         .onAppear { tokenPresent = KeychainStore.hasClaudeOAuthToken() }
     }
 
-    // MARK: - Fase 1: token de suscripción
+    // MARK: - Iniciar el agente
 
-    private var tokenSetup: some View {
+    private var startForm: some View {
         VStack(spacing: 16) {
-            Image(systemName: "key.horizontal.fill")
+            Image(systemName: "sparkles")
                 .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("Conecta tu cuenta de Claude")
+                .foregroundStyle(.tint)
+            Text("Iniciar agente de Claude Code")
                 .font(.headline)
-            Text("En tu Mac, ejecuta **`claude setup-token`** (usa tu suscripción Plan Max, "
-                 + "no una API key) y pega aquí el token generado. Se guarda en el Keychain.")
+            Text("Se ejecutará `claude` en ESTE servidor (no en tu Mac), en el directorio "
+                 + "que indiques. Siempre usa tu suscripción, nunca la API.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
+                .frame(maxWidth: 460)
 
-            HStack {
-                SecureField("Pega el token (claude setup-token)", text: $tokenInput)
-                    .textFieldStyle(.roundedBorder)
-                Button("Guardar") { saveToken() }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            TextField("Directorio de trabajo remoto (p. ej. ~/miproyecto)", text: $workingDirectory)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .onSubmit { startAgent() }
+                .frame(maxWidth: 460)
+
+            authSection
+
+            if let startError {
+                Text(startError)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 460)
             }
-            .frame(maxWidth: 420)
+
+            Button {
+                startAgent()
+            } label: {
+                if isStarting {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Label("Iniciar agente", systemImage: "play.fill")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isStarting || workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Autenticación (opcional: token o login del servidor)
+
+    private var authSection: some View {
+        DisclosureGroup("Autenticación de Claude") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("El agente usa la sesión de `claude` de este servidor — tu suscripción "
+                     + "Plan Max, **nunca** la API. Dos maneras de autenticarlo:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("1. **Recomendado:** abre la pestaña **Terminal** de esta sesión y ejecuta "
+                     + "`claude`, luego `/login` (una sola vez por servidor). Después no hace "
+                     + "falta token.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("2. O pega un token de `claude setup-token` (generado en tu Mac):")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if tokenPresent {
+                    HStack {
+                        Label("Token guardado", systemImage: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                        Spacer()
+                        Button("Quitar") {
+                            KeychainStore.deleteClaudeOAuthToken()
+                            tokenPresent = false
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    .font(.caption)
+                } else {
+                    HStack {
+                        SecureField("Token (claude setup-token)", text: $tokenInput)
+                            .textFieldStyle(.roundedBorder)
+                        Button("Guardar") { saveToken() }
+                            .disabled(tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+            }
+            .padding(.top, 6)
+        }
+        .frame(maxWidth: 460)
     }
 
     private func saveToken() {
@@ -79,65 +140,12 @@ struct AgentPanelView: View {
         }
     }
 
-    // MARK: - Fase 2: iniciar el agente
-
-    private var startForm: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "sparkles")
-                .font(.largeTitle)
-                .foregroundStyle(.tint)
-            Text("Iniciar agente de Claude Code")
-                .font(.headline)
-            Text("Se ejecutará `claude` en este servidor, en el directorio que indiques.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-
-            HStack {
-                TextField("Directorio de trabajo remoto", text: $workingDirectory)
-                    .textFieldStyle(.roundedBorder)
-                    .autocorrectionDisabled()
-                    .onSubmit { startAgent() }
-            }
-            .frame(maxWidth: 420)
-
-            if let startError {
-                Text(startError)
-                    .font(.callout)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 420)
-            }
-
-            Button {
-                startAgent()
-            } label: {
-                if isStarting {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Label("Iniciar agente", systemImage: "play.fill")
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(isStarting || workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-            Button("Cambiar token de Claude…") {
-                KeychainStore.deleteClaudeOAuthToken()
-                tokenPresent = false
-            }
-            .buttonStyle(.borderless)
-            .font(.caption)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     private func startAgent() {
-        guard let token = KeychainStore.claudeOAuthToken(), !token.isEmpty else {
-            tokenPresent = false
-            return
-        }
         let directory = workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !directory.isEmpty else { return }
+
+        // Token OPCIONAL: si no hay, se usa la credencial de `claude login` del servidor.
+        let token = KeychainStore.claudeOAuthToken()
 
         isStarting = true
         startError = nil

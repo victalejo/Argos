@@ -56,6 +56,28 @@ struct ClaudeAgentCommandTests {
         #expect(!command.contains("&& rm -rf"))
     }
 
+    @Test("sin token: usa el login del servidor y nunca la API")
+    func noTokenUsesServerLogin() {
+        let command = ClaudeAgentCommand.build(
+            claudePath: "/usr/bin/claude",
+            workingDirectory: "/repo",
+            oauthToken: nil,
+            sessionID: "s"
+        )
+        // Siempre quita la API key (garantiza facturación a la suscripción).
+        #expect(command.contains("env -u ANTHROPIC_API_KEY"))
+        // Sin token: no se inyecta la variable (se usa la credencial de `claude login`).
+        #expect(!command.contains("CLAUDE_CODE_OAUTH_TOKEN"))
+    }
+
+    @Test("token vacío se trata como ausente")
+    func emptyTokenOmitted() {
+        let command = ClaudeAgentCommand.build(
+            claudePath: "/c", workingDirectory: "/r", oauthToken: "", sessionID: "s"
+        )
+        #expect(!command.contains("CLAUDE_CODE_OAUTH_TOKEN"))
+    }
+
     @Test("el modo de permisos se refleja en la bandera")
     func permissionModeFlag() {
         let command = ClaudeAgentCommand.build(
