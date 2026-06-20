@@ -21,6 +21,20 @@ El detalle por commit vive en el historial git (Conventional Commits):
 - **Identidad de servidor cambiada (posible MitM)**: se presenta como un caso de seguridad
   con la acción "Olvidar host key y reintentar" junto al error, no como un fallo genérico.
 
+### Rendimiento
+- **Arranque perezoso**: al abrir la app ya no se conecta a TODOS los servidores a la vez;
+  solo se carga el seleccionado (los demás se conectan al seleccionarlos o pulsar "Conectar").
+- **Keepalive SSH**: un heartbeat mantiene viva la conexión idle (evita el "terminal
+  congelado" al volver tras un rato) y detecta antes una caída en vez de al próximo uso.
+- **Sondeo de ventanas adaptativo**: el polling de la barra de ventanas usa backoff (3→12s)
+  y solo re-renderiza si hay cambios, en vez de un sondeo fijo cada 3s.
+
+### Accesibilidad
+- **VoiceOver**: las filas de servidor y de sesión, las pestañas de ventana y el cambiador
+  rápido exponen etiquetas con nombre y estado (antes no había ningún modificador de
+  accesibilidad).
+- **Reducir movimiento**: el cambiador rápido (⌘K) respeta el ajuste del sistema.
+
 ### Seguridad
 - **Sin servidor sembrado**: se elimina el servidor de desarrollo hardcodeado que viajaba en
   cada build; el primer arranque muestra la lista vacía con un botón para añadir.

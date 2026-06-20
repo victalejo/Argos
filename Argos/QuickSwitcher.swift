@@ -76,6 +76,7 @@ struct QuickSwitcherView: View {
     @State private var query = ""
     @State private var selection = 0
     @FocusState private var fieldFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var filtered: [QuickSwitchItem] {
         let q = query.trimmingCharacters(in: .whitespaces)
@@ -127,7 +128,12 @@ struct QuickSwitcherView: View {
                     }
                     .frame(height: 300)
                     .onChange(of: clampedSelection) { _, new in
-                        withAnimation(.easeOut(duration: 0.1)) { proxy.scrollTo(new, anchor: .center) }
+                        // Respeta "Reducir movimiento": salta sin animar el scroll.
+                        if reduceMotion {
+                            proxy.scrollTo(new, anchor: .center)
+                        } else {
+                            withAnimation(.easeOut(duration: 0.1)) { proxy.scrollTo(new, anchor: .center) }
+                        }
                     }
                 }
             }
@@ -175,5 +181,8 @@ struct QuickSwitcherView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(selected ? Color.accentColor : .clear)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(item.sessionName), servidor \(item.serverName)")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

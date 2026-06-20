@@ -21,6 +21,7 @@
 		43E0940423BAAA02E337AD27 /* ServerStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BB45CA5EE03D980C943857 /* ServerStoreTests.swift */; };
 		50262D24381D99AB728C774F /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = FC6E54AE421077969B9E7E5B /* Citadel */; };
 		51B9D3CB0640B577A3D42A1E /* SessionsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BFC84ED4E86F5C928030D75 /* SessionsViewModel.swift */; };
+		58609851BBEC45D6D542FF3F /* AccessibilityLabelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCDCAA94C902FE2D4561CA06 /* AccessibilityLabelTests.swift */; };
 		5AC659C2D1B237B4D598248B /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C4EBDD425FE60CDB79376AB /* KeychainStore.swift */; };
 		5D0AF204087003414237DB35 /* TmuxWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCBCBC1B764C564DA55FF1C2 /* TmuxWindow.swift */; };
 		64F779B17ED5CC435EE4F915 /* CheckForUpdatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 816413CF1EAD669744469593 /* CheckForUpdatesView.swift */; };
@@ -121,6 +122,7 @@
 		EA0DC3F5782D3AF064AF61D7 /* SSHConfigHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfigHost.swift; sourceTree = "<group>"; };
 		EA22415AE599702BCE7F028E /* ErrorMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorMessage.swift; sourceTree = "<group>"; };
 		F3D4C35BD2EF9667D8B33C9E /* TerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettings.swift; sourceTree = "<group>"; };
+		FCDCAA94C902FE2D4561CA06 /* AccessibilityLabelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityLabelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -192,6 +194,7 @@
 		8F6D93E04397B7D87C9D1BD1 /* ArgosTests */ = {
 			isa = PBXGroup;
 			children = (
+				FCDCAA94C902FE2D4561CA06 /* AccessibilityLabelTests.swift */,
 				D373BD5CC9EBD53251E1B7C4 /* FuzzyMatcherTests.swift */,
 				DC724DB505B98A68667B540E /* MockSSHService.swift */,
 				96BB45CA5EE03D980C943857 /* ServerStoreTests.swift */,
@@ -356,6 +359,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				58609851BBEC45D6D542FF3F /* AccessibilityLabelTests.swift in Sources */,
 				3B5EC598924190FB12A74421 /* FuzzyMatcherTests.swift in Sources */,
 				DE3BDF69942A527B06CEE36F /* MockSSHService.swift in Sources */,
 				EB33DC4B64ABC1F4A60DA707 /* SSHConfigParserTests.swift in Sources */,
