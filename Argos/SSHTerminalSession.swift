@@ -21,7 +21,7 @@
 
 import Foundation
 import os
-import Citadel
+@preconcurrency import Citadel
 import NIOCore   // ByteBuffer
 import NIOSSH    // SSHChannelRequestEvent, SSHTerminalModes
 

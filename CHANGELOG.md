@@ -56,6 +56,11 @@ El detalle por commit vive en el historial git (Conventional Commits):
 - **`servers.json` corrupto**: se respalda a un `.corrupt-<epoch>` antes de continuar, en vez
   de sobrescribirse de forma irreversible en el siguiente guardado.
 
+### Interno
+- **Concurrencia estricta (data-race safety)**: se activa `SWIFT_STRICT_CONCURRENCY: complete`
+  para comprobar nuestro código. Los tipos no-Sendable de Citadel se reconocen con
+  `@preconcurrency import`; queda una sola fricción conocida de AppKit (`NSEvent`), documentada.
+
 ### Pruebas / CI
 - Tests de `SessionsViewModel` (con un `MockSSHService`), de `TOFUHostKeyValidator` y del
   arranque vacío/corrupto de `ServerStore`.

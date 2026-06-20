@@ -443,6 +443,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
 				PRODUCT_NAME = Argos;
 				SDKROOT = macosx;
+				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -469,6 +470,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
 				PRODUCT_NAME = Argos;
 				SDKROOT = macosx;
+				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;

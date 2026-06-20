@@ -90,6 +90,11 @@ final class LiveTerminalController: TerminalViewDelegate {
     /// y la app tiene mouse reporting activo, reenvía el scroll al PTY y consume el evento
     /// (devuelve `nil`) para que SwiftTerm no haga además su scroll local.
     private func installScrollMonitor() {
+        // Strict concurrency avisa de que `NSEvent` no es Sendable al cruzar al closure
+        // @MainActor de `assumeIsolated`. Es seguro: los monitores LOCALES de eventos se
+        // entregan SIEMPRE en el hilo principal, así que ya estamos en el MainActor; el
+        // `assumeIsolated` solo lo formaliza. Es la fricción conocida AppKit + Swift 6 con
+        // monitores de eventos (warning en modo Swift 5; no se sube a Swift 6 por esto).
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
             guard let self else { return event }
             return MainActor.assumeIsolated {
@@ -313,7 +318,7 @@ final class ArgosTerminalView: TerminalView {
             onPasteImage?(data, ext)
             return
         }
-        super.paste(sender)
+        super.paste(sender as Any)
     }
 
     // MARK: - Arrastrar y soltar archivos

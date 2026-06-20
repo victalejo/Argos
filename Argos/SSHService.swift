@@ -19,7 +19,7 @@
 
 import Foundation
 import os
-import Citadel
+@preconcurrency import Citadel
 import Crypto      // Curve25519.Signing.PrivateKey
 import NIOCore     // ByteBuffer, String(buffer:)
 

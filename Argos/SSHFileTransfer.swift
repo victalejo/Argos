@@ -8,7 +8,7 @@
 //
 
 import Foundation
-import Citadel
+@preconcurrency import Citadel
 import NIOCore
 
 extension SSHService {
