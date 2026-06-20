@@ -171,7 +171,17 @@ private struct ServerSessionsSection: View {
     var body: some View {
         switch vm.state {
         case .idle:
-            loadingRow("Conectando…")
+            // Arranque perezoso: este servidor aún no se ha cargado (no es el seleccionado).
+            // Ofrecemos conectar bajo demanda en vez de mostrar un spinner engañoso.
+            Button {
+                Task { await vm.load() }
+            } label: {
+                Label("Sin cargar — pulsa para conectar", systemImage: "powerplug")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.borderless)
+            .selectionDisabled()
         case .verifying:
             loadingRow("Verificando tmux…")
         case .installing:
@@ -403,8 +413,18 @@ struct SessionRow: View {
             statusIndicator
                 .frame(width: 14, height: 14)
                 .help(state.label)
+                .accessibilityHidden(true)
         }
         .padding(.vertical, 3)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    /// Etiqueta de VoiceOver: nombre + estado de conexión + nº de ventanas en una sola
+    /// frase (la fila se expone como un único elemento, no como piezas sueltas).
+    private var accessibilityText: String {
+        let windows = "\(session.windowCount) \(session.windowCount == 1 ? "ventana" : "ventanas")"
+        return "\(title), \(state.label), \(windows)"
     }
 
     @ViewBuilder

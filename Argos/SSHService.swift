@@ -107,6 +107,13 @@ actor SSHService {
     private let configuration: Configuration
     private var client: SSHClient?
 
+    /// Tarea de heartbeat de la conexión actual (keep-alive). Ver `startHeartbeat`.
+    private var heartbeatTask: Task<Void, Never>?
+
+    /// Intervalo del heartbeat: más corto que los timeouts típicos de NAT/firewall
+    /// (~60-120s) para que la conexión idle no se corte sin que la app lo sepa.
+    private static let heartbeatInterval: Duration = .seconds(30)
+
     /// Formato exacto requerido para `tmux list-sessions -F`.
     private static let sessionFormat =
         "#{session_name}|#{session_windows}|#{session_attached}|#{session_created}"
@@ -157,6 +164,7 @@ actor SSHService {
 
     /// Cierra la conexión SSH si está abierta.
     func disconnect() async {
+        stopHeartbeat()
         guard let client else { return }
         try? await client.close()
         self.client = nil
@@ -343,7 +351,45 @@ actor SSHService {
 
         self.client = client
         Log.ssh.notice("Conexión SSH establecida con \(self.configuration.host, privacy: .public):\(self.configuration.port)")
+        startHeartbeat()
         return client
+    }
+
+    // MARK: - Heartbeat (keep-alive)
+
+    /// Arranca el heartbeat de la conexión actual. Ejecuta un comando trivial cada
+    /// `heartbeatInterval` para: (a) evitar que NAT/firewall corten la conexión idle —la
+    /// causa del "terminal congelado" al volver tras un rato—, y (b) detectar pronto una
+    /// caída en vez de descubrirla al próximo uso (cuando el indicador seguiría "verde").
+    private func startHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: SSHService.heartbeatInterval)
+                guard let self else { return }
+                let alive = await self.beat()
+                if !alive { return }
+            }
+        }
+    }
+
+    /// Un latido: comprueba la conexión con un comando trivial. Devuelve `false` si la
+    /// conexión está caída y la limpia, forzando una reconexión en la próxima operación.
+    private func beat() async -> Bool {
+        guard let client, client.isConnected else { return false }
+        do {
+            _ = try await capture(client, command: "true")
+            return true
+        } catch {
+            Log.ssh.notice("Heartbeat falló en \(self.configuration.host, privacy: .public); se marca la conexión como caída.")
+            self.client = nil
+            return false
+        }
+    }
+
+    private func stopHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
     }
 
     /// Construye el método de autenticación según el `authMethod` configurado:

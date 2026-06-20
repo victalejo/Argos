@@ -123,14 +123,27 @@ struct SessionTerminalView: View {
 
     // MARK: - Ventanas de tmux
 
-    /// Sondea las ventanas cada pocos segundos mientras la sesión está conectada, para
-    /// reflejar ventanas creadas/renombradas o cambios de la activa desde el propio tmux.
+    /// Sondea las ventanas mientras la sesión está conectada, para reflejar ventanas
+    /// creadas/renombradas o cambios de la activa desde el propio tmux.
+    ///
+    /// Adaptativo: tras un sondeo sin cambios el intervalo crece (3→6→12s) para no gastar
+    /// round-trips en idle; ante un cambio vuelve a 3s. Además solo reasigna `windows` si
+    /// difiere, evitando re-renders innecesarios de la barra.
     private func pollWindows() async {
+        let minInterval: Duration = .seconds(3)
+        let maxInterval: Duration = .seconds(12)
+        var interval = minInterval
         while !Task.isCancelled {
-            if controller?.status == .connected {
-                windows = (try? await service.listWindows(session: session.name)) ?? windows
+            if controller?.status == .connected,
+               let fresh = try? await service.listWindows(session: session.name) {
+                if fresh != windows {
+                    windows = fresh
+                    interval = minInterval          // hubo cambios → sondea rápido de nuevo
+                } else {
+                    interval = min(interval * 2, maxInterval)  // sin cambios → ralentiza
+                }
             }
-            do { try await Task.sleep(for: .seconds(3)) } catch { break }
+            do { try await Task.sleep(for: interval) } catch { break }
         }
     }
 
@@ -326,6 +339,15 @@ struct WindowBar: View {
     let onSelect: (TmuxWindow) -> Void
     let onNew: () -> Void
 
+    /// Etiqueta de VoiceOver de una pestaña de ventana: índice, nombre, si está activa
+    /// y cuántos paneles tiene (el botón se expone con texto, no solo con color/forma).
+    static func accessibilityLabel(for window: TmuxWindow) -> String {
+        var parts = ["Ventana \(window.index): \(window.name)"]
+        if window.isActive { parts.append("activa") }
+        if window.paneCount > 1 { parts.append("\(window.paneCount) paneles") }
+        return parts.joined(separator: ", ")
+    }
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
@@ -356,6 +378,7 @@ struct WindowBar: View {
                     }
                     .buttonStyle(.plain)
                     .help("Cambiar a la ventana \(window.index): \(window.name)")
+                    .accessibilityLabel(Self.accessibilityLabel(for: window))
                 }
 
                 Button(action: onNew) {
@@ -367,6 +390,7 @@ struct WindowBar: View {
                 }
                 .buttonStyle(.plain)
                 .help("Nueva ventana")
+                .accessibilityLabel("Nueva ventana")
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)

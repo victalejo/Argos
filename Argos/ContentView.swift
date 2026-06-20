@@ -52,10 +52,12 @@ struct ContentView: View {
             if selectedServerID == nil {
                 selectedServerID = restoredServerID() ?? store.servers.first?.id
             }
+            loadSelectedIfNeeded()
         }
         .onChange(of: store.servers) { _, _ in syncVMs() }
         .onChange(of: selectedServerID) { _, newValue in
             persistedServerID = newValue?.uuidString ?? ""
+            loadSelectedIfNeeded()
         }
         .sheet(item: $serverFormMode) { mode in
             ServerFormSheet(mode: mode) { server, secret in
@@ -196,9 +198,20 @@ struct ContentView: View {
         for id in vms.keys where !serverIDs.contains(id) {
             vms.removeValue(forKey: id)
         }
+        // Arranque perezoso: solo se CREAN los VMs. La carga (bootstrap + listar) se
+        // dispara on-demand para el servidor seleccionado (ver `loadSelectedIfNeeded`),
+        // en vez de conectar a TODOS los servidores a la vez al abrir la app.
         for server in store.servers where vms[server.id] == nil {
-            let vm = SessionsViewModel(service: Self.makeService(for: server))
-            vms[server.id] = vm
+            vms[server.id] = SessionsViewModel(service: Self.makeService(for: server))
+        }
+    }
+
+    /// Carga el servidor seleccionado solo si su VM sigue sin cargar (`.idle`). No toca
+    /// los demás servidores: conectarse a ellos se difiere hasta que los selecciones (o
+    /// pulses "Conectar" en su sección).
+    private func loadSelectedIfNeeded() {
+        guard let id = selectedServerID, let vm = vms[id] else { return }
+        if case .idle = vm.state {
             Task { await vm.load() }
         }
     }
@@ -297,6 +310,7 @@ struct ServerRow: View {
     var body: some View {
         HStack(spacing: 10) {
             statusIcon
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(server.name).font(.headline)
                 Text("\(server.username)@\(server.host):\(server.port)")
@@ -307,6 +321,20 @@ struct ServerRow: View {
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(server.name), \(server.username) en \(server.host) puerto \(server.port), \(accessibilityStateText)")
+    }
+
+    /// Estado de conexión en texto, para VoiceOver (refuerza el color del icono).
+    private var accessibilityStateText: String {
+        switch connectionState {
+        case .failed: return "error de conexión"
+        case .hostKeyChanged: return "identidad del servidor cambiada"
+        case .tmuxMissing: return "tmux no instalado"
+        case .loaded: return "conectado"
+        case .some: return "conectando"
+        case nil: return "sin cargar"
+        }
     }
 
     @ViewBuilder
