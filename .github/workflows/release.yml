@@ -46,6 +46,15 @@ jobs:
       - name: Resolver dependencias SPM
         run: xcodebuild -resolvePackageDependencies -project Argos.xcodeproj -scheme Argos
 
+      # Gate: no publicar un release con tests en rojo. Corre la suite antes de compilar
+      # el Release (en Debug, sin firma) y aborta el workflow si falla algún test.
+      - name: Test (gate del release)
+        run: |
+          xcodebuild test \
+            -project Argos.xcodeproj -scheme Argos -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO | xcbeautify || exit ${PIPESTATUS[0]}
+
       # Build Release con firma ad-hoc ("-"). Style=Manual evita que el firmado
       # automático intente contactar a Apple (no hay equipo de desarrollo en CI).
       - name: Build (Release, ad-hoc)
@@ -60,6 +69,24 @@ jobs:
             CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
             | xcbeautify || exit ${PIPESTATUS[0]}
+
+      # Guard: en push de tag, la versión del binario (CFBundleShortVersionString, que
+      # sale de MARKETING_VERSION en project.yml) DEBE coincidir con el tag. Si no, se
+      # olvidó bumpear la versión: Sparkle no ofrecería la actualización a los usuarios.
+      - name: Verificar versión binario == tag
+        if: github.ref_type == 'tag'
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          APP="build/dd/Build/Products/Release/Argos.app"
+          SHORT="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+          EXPECTED="${TAG_NAME#v}"
+          if [ "$SHORT" != "$EXPECTED" ]; then
+            echo "::error::La versión del binario ($SHORT) no coincide con el tag ($EXPECTED). Actualiza MARKETING_VERSION en project.yml y regenera antes de etiquetar."
+            exit 1
+          fi
+          echo "Versión OK: binario $SHORT coincide con el tag $EXPECTED"
 
       # Empaqueta con hdiutil (sin Finder/AppleScript → fiable en runner headless).
       # La versión sale del tag (v1.0.2 → 1.0.2); en corridas manuales, del Info.plist.

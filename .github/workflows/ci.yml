@@ -47,4 +47,36 @@ jobs:
           xcodebuild test \
             -project Argos.xcodeproj -scheme Argos -configuration Debug \
             -destination 'platform=macOS' -enableCodeCoverage YES \
+            -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO | xcbeautify || exit ${PIPESTATUS[0]}
+
+      # Antes la cobertura se recolectaba (-enableCodeCoverage YES) pero se descartaba.
+      # Ahora se publica en el resumen del job y se avisa (sin bloquear) si baja del
+      # objetivo. Para convertirlo en gate, cambia el `::warning::` por `exit 1`.
+      - name: Reporte de cobertura
+        if: always()
+        run: |
+          set -uo pipefail
+          if [ ! -d TestResults.xcresult ]; then
+            echo "No se generó TestResults.xcresult; se omite el reporte."
+            exit 0
+          fi
+          {
+            echo "## Cobertura de tests"
+            echo '```'
+            xcrun xccov view --report --only-targets TestResults.xcresult || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Extrae el % de líneas del target Argos.app: primer campo que termine en '%'
+          # en su fila del reporte (robusto ante cambios menores de columnas).
+          TOTAL=$(xcrun xccov view --report --only-targets TestResults.xcresult \
+            | awk '/Argos\.app/ { for (i = 1; i <= NF; i++) if ($i ~ /%$/) { gsub(/%/, "", $i); print $i; exit } }')
+          echo "Cobertura de líneas (Argos.app): ${TOTAL:-desconocida}%"
+          TARGET=80
+          if [ -n "${TOTAL}" ]; then
+            awk -v t="$TOTAL" -v g="$TARGET" 'BEGIN {
+              if (t + 0 < g) printf("::warning::Cobertura %.2f%% por debajo del objetivo %d%%\n", t, g);
+              else printf("Cobertura %.2f%% cumple el objetivo %d%%\n", t, g)
+            }'
+          fi

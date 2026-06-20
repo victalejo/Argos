@@ -6,6 +6,36 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **Agrupamiento de sesiones por prefijo**: la columna central agrupa las sesiones por el
+  prefijo `grupo/nombre` (encabezados solo cuando hay grupos reales). Conecta la lógica
+  `SessionGrouping`, que ya existía y estaba testeada pero la UI no usaba.
+- **Atajos de teclado**: ⌘N (nueva sesión) y ⌘R (refrescar todo) en la columna de sesiones.
+- **Reapertura donde lo dejaste**: el servidor seleccionado se recuerda entre arranques.
+- **tmux no instalado**: la fila ahora muestra el comando de instalación copiable y un botón
+  de "Reintentar".
+
+### Cambiado
+- **Feedback de errores que antes se tragaban**: los fallos de "Matar sesión" (y otras
+  operaciones sin formulario) se muestran ahora en una alerta en vez de fallar en silencio.
+- **Identidad de servidor cambiada (posible MitM)**: se presenta como un caso de seguridad
+  con la acción "Olvidar host key y reintentar" junto al error, no como un fallo genérico.
+
+### Seguridad
+- **Sin servidor sembrado**: se elimina el servidor de desarrollo hardcodeado que viajaba en
+  cada build; el primer arranque muestra la lista vacía con un botón para añadir.
+- **Keychain más estricto**: las passphrases/contraseñas usan `WhenUnlocked` (no legibles con
+  la pantalla bloqueada) y se marcan como no sincronizables (nunca a iCloud).
+- **`servers.json` corrupto**: se respalda a un `.corrupt-<epoch>` antes de continuar, en vez
+  de sobrescribirse de forma irreversible en el siguiente guardado.
+
+### Pruebas / CI
+- Tests de `SessionsViewModel` (con un `MockSSHService`), de `TOFUHostKeyValidator` y del
+  arranque vacío/corrupto de `ServerStore`.
+- CI publica la cobertura de líneas en el resumen del job (antes se recolectaba y se descartaba).
+- El workflow de release corre la suite como gate y verifica que la versión del binario
+  coincida con el tag antes de publicar.
+
 ## [1.0.8] - 2026-06-19
 
 ### Añadido
