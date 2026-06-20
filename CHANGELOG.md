@@ -6,7 +6,17 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
-## [1.2.1] - 2026-06-20
+## [1.2.2] - 2026-06-20
+
+### Corregido
+- **Agente: `cd` al directorio `~` fallaba** (se entrecomillaba y `~` no se expande entre
+  comillas). Ahora `~` y `~/...` se traducen a `"$HOME"`, así el agente arranca en el home.
+- **Errores del agente ahora muestran el stderr real de `claude`** (p. ej. "not logged in",
+  opción desconocida) en vez del críptico `NIOCore.ChannelError`.
+
+### Añadido
+- **Aviso "(alfa)"** en la pestaña Agente: es una función experimental que puede fallar o
+  cambiar.
 
 ### Añadido
 - **Botón "Iniciar sesión en el servidor"** en el panel de Agente: abre `claude auth

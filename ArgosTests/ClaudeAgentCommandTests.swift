@@ -78,6 +78,23 @@ struct ClaudeAgentCommandTests {
         #expect(!command.contains("CLAUDE_CODE_OAUTH_TOKEN"))
     }
 
+    @Test("expande ~ a $HOME en vez de dejarlo entre comillas (cd '~' falla)")
+    func expandsTilde() {
+        #expect(ClaudeAgentCommand.cdTarget(for: "~") == "\"$HOME\"")
+        #expect(ClaudeAgentCommand.cdTarget(for: "~/mi proyecto") == "\"$HOME\"/'mi proyecto'")
+        #expect(ClaudeAgentCommand.cdTarget(for: "/abs/path") == "'/abs/path'")
+        #expect(ClaudeAgentCommand.cdTarget(for: "") == "\"$HOME\"")
+    }
+
+    @Test("build con directorio ~ usa $HOME (no cd '~')")
+    func buildTilde() {
+        let command = ClaudeAgentCommand.build(
+            claudePath: "/c", workingDirectory: "~", oauthToken: nil, sessionID: "s"
+        )
+        #expect(command.contains("cd \"$HOME\" &&"))
+        #expect(!command.contains("cd '~'"))
+    }
+
     @Test("el modo de permisos se refleja en la bandera")
     func permissionModeFlag() {
         let command = ClaudeAgentCommand.build(

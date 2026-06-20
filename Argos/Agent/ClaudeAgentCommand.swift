@@ -50,7 +50,7 @@ enum ClaudeAgentCommand {
         sessionID: String,
         permissionMode: PermissionMode = .default
     ) -> String {
-        let directory = ShellQuoting.singleQuoted(workingDirectory)
+        let directory = cdTarget(for: workingDirectory)
         let binary = ShellQuoting.singleQuoted(claudePath)
 
         let flags = (baseFlags + [
@@ -67,5 +67,20 @@ enum ClaudeAgentCommand {
         }
 
         return "cd \(directory) && \(environment)\(binary) \(flags)"
+    }
+
+    /// Construye el argumento de `cd` expandiendo `~` correctamente. `~` NO se expande
+    /// entre comillas simples, así que se traduce a `"$HOME"` y solo se entrecomilla el
+    /// resto de la ruta (anti-inyección).
+    static func cdTarget(for path: String) -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespaces)
+        if trimmed == "~" || trimmed.isEmpty {
+            return "\"$HOME\""
+        }
+        if trimmed.hasPrefix("~/") {
+            let rest = String(trimmed.dropFirst(2))
+            return "\"$HOME\"/\(ShellQuoting.singleQuoted(rest))"
+        }
+        return ShellQuoting.singleQuoted(trimmed)
     }
 }

@@ -204,7 +204,7 @@ struct ContentView: View {
     private func detailModePicker(for handle: SessionHandle) -> some View {
         Picker("Modo", selection: detailModeBinding(for: handle)) {
             Label("Terminal", systemImage: "terminal").tag(DetailMode.terminal)
-            Label("Agente", systemImage: "sparkles").tag(DetailMode.agent)
+            Label("Agente (alfa)", systemImage: "sparkles").tag(DetailMode.agent)
         }
         .pickerStyle(.segmented)
         .labelsHidden()

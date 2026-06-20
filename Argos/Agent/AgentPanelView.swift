@@ -34,12 +34,10 @@ struct AgentPanelView: View {
     @State private var showLogin = false
 
     var body: some View {
-        Group {
-            if let session = store.existing(for: handle) {
-                AgentConversationView(session: session) { store.close(handle) }
-            } else {
-                startForm
-            }
+        VStack(spacing: 0) {
+            alphaBanner
+            Divider()
+            content
         }
         .onAppear {
             tokenPresent = KeychainStore.hasClaudeOAuthToken()
@@ -53,6 +51,29 @@ struct AgentPanelView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let session = store.existing(for: handle) {
+            AgentConversationView(session: session) { store.close(handle) }
+        } else {
+            startForm
+        }
+    }
+
+    /// Aviso permanente de que el panel de agente es experimental.
+    private var alphaBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "flask.fill")
+            Text("Agente (alfa) — función experimental; puede fallar o cambiar.")
+            Spacer()
+        }
+        .font(.caption)
+        .foregroundStyle(.orange)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .background(.orange.opacity(0.12))
     }
 
     // MARK: - Iniciar el agente
