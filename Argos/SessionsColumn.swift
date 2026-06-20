@@ -6,6 +6,7 @@
 //  agrupadas por servidor. Cada sección muestra su estado de conexión propio.
 //
 
+import AppKit
 import SwiftUI
 
 struct SessionsColumn: View {
@@ -44,29 +45,7 @@ struct SessionsColumn: View {
         .searchable(text: $searchText, placement: .sidebar, prompt: "Buscar sesión")
         .navigationTitle("Sesiones tmux")
         .navigationSplitViewColumnWidth(min: 240, ideal: 300)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { isShowingCreateSheet = true } label: {
-                    Label("Nueva sesión", systemImage: "plus")
-                }
-                .help(activeServerID != nil
-                      ? "Crear una nueva sesión en \(activeServer?.name ?? "el servidor seleccionado")"
-                      : "Selecciona un servidor en la barra lateral")
-                .disabled(activeVM?.state.isBusy ?? true)
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    Task {
-                        await withTaskGroup(of: Void.self) { group in
-                            for vm in vms.values { group.addTask { await vm.load() } }
-                        }
-                    }
-                } label: {
-                    Label("Refrescar todo", systemImage: "arrow.clockwise")
-                }
-                .help("Volver a consultar las sesiones de todos los servidores")
-            }
-        }
+        .toolbar { toolbarContent }
         .sheet(isPresented: $isShowingCreateSheet) {
             if let vm = activeVM {
                 SessionNameSheet(mode: .create) { name in
@@ -96,6 +75,62 @@ struct SessionsColumn: View {
         } message: { _ in
             Text("Se cerrará y se perderá todo lo que corra en ella.")
         }
+        // Errores de operaciones sin formulario propio (matar): antes se asignaban a
+        // `vm.operationError` y NINGUNA vista los leía (fallo silencioso). Aquí se muestran.
+        .alert(
+            "No se pudo completar la operación",
+            isPresented: operationErrorBinding,
+            presenting: vmWithError?.operationError
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { message in
+            Text(message)
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button { isShowingCreateSheet = true } label: {
+                Label("Nueva sesión", systemImage: "plus")
+            }
+            .keyboardShortcut("n", modifiers: .command)
+            .help(activeServerID != nil
+                  ? "Crear una nueva sesión en \(activeServer?.name ?? "el servidor seleccionado") (⌘N)"
+                  : "Selecciona un servidor en la barra lateral")
+            .disabled(activeVM?.state.isBusy ?? true)
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                Task {
+                    await withTaskGroup(of: Void.self) { group in
+                        for vm in vms.values { group.addTask { await vm.load() } }
+                    }
+                }
+            } label: {
+                Label("Refrescar todo", systemImage: "arrow.clockwise")
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .help("Volver a consultar las sesiones de todos los servidores (⌘R)")
+        }
+    }
+
+    /// Primer VM con un error de operación pendiente (para el mensaje de la alerta).
+    private var vmWithError: SessionsViewModel? {
+        servers.compactMap { vms[$0.id] }.first { $0.operationError != nil }
+    }
+
+    /// Binding de presentación de la alerta: visible si algún VM tiene error; al
+    /// descartar, limpia el error de todos para que no reaparezca.
+    private var operationErrorBinding: Binding<Bool> {
+        Binding(
+            get: { servers.contains { vms[$0.id]?.operationError != nil } },
+            set: { presented in
+                if !presented {
+                    for server in servers { vms[server.id]?.operationError = nil }
+                }
+            }
+        )
     }
 
     private var activeServer: Server? {
@@ -147,9 +182,55 @@ private struct ServerSessionsSection: View {
             loadingRow("Listando sesiones…")
 
         case .tmuxMissing:
-            Label("tmux no instalado — instálalo manualmente", systemImage: "shippingbox")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                Label("tmux no está instalado", systemImage: "shippingbox")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(Self.installCommand)
+                        .font(.system(.caption, design: .monospaced))
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Button {
+                        Self.copyToClipboard(Self.installCommand)
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Copiar el comando de instalación")
+                    Spacer()
+                    Button("Reintentar") { Task { await vm.load() } }
+                        .font(.caption)
+                        .buttonStyle(.borderless)
+                }
+            }
+            .padding(.vertical, 2)
+
+        case .hostKeyChanged(let message):
+            VStack(alignment: .leading, spacing: 6) {
+                Label("La identidad del servidor cambió", systemImage: "exclamationmark.shield.fill")
+                    .font(.caption.bold())
+                    .foregroundStyle(.red)
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(4)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    // Resuelve el caso legítimo (reinstalación del servidor): olvida la
+                    // huella ANCLADA y reintenta, re-confiando en la nueva. La acción vive
+                    // aquí (junto al error) en vez de en el menú contextual de otra columna.
+                    Button("Olvidar host key y reintentar") {
+                        TOFUHostKeyValidator.forget(host: server.host, port: server.port)
+                        Task { await vm.load() }
+                    }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                    Spacer()
+                }
+            }
+            .padding(.vertical, 2)
 
         case .failed(let message):
             HStack(spacing: 8) {
@@ -177,28 +258,67 @@ private struct ServerSessionsSection: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(filtered) { session in
-                    let handle = SessionHandle(serverID: server.id, sessionID: session.id)
-                    let state = terminalStore.connectionState(for: handle, isAttached: session.isAttached)
-                    SessionRow(session: session, state: state)
-                        .tag(handle)
-                        .contextMenu {
-                            if state == .live || state == .connecting || state == .error {
-                                Button("Desconectar (dormir)") {
-                                    terminalStore.close(handle)
-                                }
-                                Divider()
-                            }
-                            Button("Renombrar…") {
-                                renameTarget = SessionAction(server: server, session: session)
-                            }
-                            Button("Matar…", role: .destructive) {
-                                killTarget = SessionAction(server: server, session: session)
-                            }
-                        }
+                // Agrupa por prefijo ("grupo/nombre"). Solo muestra encabezados de grupo
+                // cuando hay grupos reales (si todo cae en "General", no añade ruido).
+                let groups = SessionGrouping.groups(from: filtered)
+                let showGroupHeaders = groups.count > 1
+                    || (groups.first.map { $0.name != SessionGrouping.ungroupedName } ?? false)
+                ForEach(groups) { group in
+                    if showGroupHeaders {
+                        groupHeader(group.name)
+                    }
+                    ForEach(group.sessions) { session in
+                        sessionRow(
+                            session,
+                            displayName: showGroupHeaders ? SessionGrouping.shortName(for: session.name) : nil
+                        )
+                    }
                 }
             }
         }
+    }
+
+    /// Encabezado de un grupo de sesiones. No es seleccionable (no es una sesión).
+    @ViewBuilder
+    private func groupHeader(_ name: String) -> some View {
+        Text(name)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .padding(.top, 4)
+            .selectionDisabled()
+    }
+
+    /// Una fila de sesión con su menú contextual. `displayName` muestra el nombre corto
+    /// dentro de un grupo (el id real sigue siendo el nombre completo).
+    @ViewBuilder
+    private func sessionRow(_ session: TmuxSession, displayName: String?) -> some View {
+        let handle = SessionHandle(serverID: server.id, sessionID: session.id)
+        let state = terminalStore.connectionState(for: handle, isAttached: session.isAttached)
+        SessionRow(session: session, state: state, displayName: displayName)
+            .tag(handle)
+            .contextMenu {
+                if state == .live || state == .connecting || state == .error {
+                    Button("Desconectar (dormir)") {
+                        terminalStore.close(handle)
+                    }
+                    Divider()
+                }
+                Button("Renombrar…") {
+                    renameTarget = SessionAction(server: server, session: session)
+                }
+                Button("Matar…", role: .destructive) {
+                    killTarget = SessionAction(server: server, session: session)
+                }
+            }
+    }
+
+    /// Comando manual de instalación de tmux (Debian/Ubuntu; el bootstrap usa apt).
+    private static let installCommand = "sudo apt install -y tmux"
+
+    private static func copyToClipboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     /// Filtra por subcadena (case/diacritic-insensitive). Filtro vacío = todas.

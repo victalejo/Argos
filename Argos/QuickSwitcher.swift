@@ -152,18 +152,23 @@ struct QuickSwitcherView: View {
         onSelect(filtered[clampedSelection].handle)
     }
 
+    /// Texto sobre el fondo de selección (accent). El color del sistema para texto en
+    /// ítems de menú seleccionados se adapta al accent actual y al modo claro/oscuro,
+    /// a diferencia de un `.white` hardcodeado (ilegible con accents claros).
+    private var selectedForeground: Color { Color(nsColor: .selectedMenuItemTextColor) }
+
     @ViewBuilder
     private func row(_ item: QuickSwitchItem, selected: Bool) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "terminal")
-                .foregroundStyle(selected ? .white : .secondary)
+                .foregroundStyle(selected ? selectedForeground : .secondary)
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.sessionName)
                     .font(.headline)
-                    .foregroundStyle(selected ? .white : .primary)
+                    .foregroundStyle(selected ? selectedForeground : .primary)
                 Text(item.serverName)
                     .font(.caption)
-                    .foregroundStyle(selected ? .white.opacity(0.8) : .secondary)
+                    .foregroundStyle(selected ? selectedForeground.opacity(0.8) : .secondary)
             }
             Spacer()
         }

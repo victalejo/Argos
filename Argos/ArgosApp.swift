@@ -24,6 +24,11 @@ struct ArgosApp: App {
             ContentView()
         }
         .commands {
+            // Quita "Nueva ventana" (⌘N) por defecto: la app es de una sola ventana
+            // (cada ventana crearía su propio ServerStore aislado, confuso) y ⌘N se
+            // reasigna a "Nueva sesión" en la toolbar de la columna de sesiones.
+            CommandGroup(replacing: .newItem) {}
+
             // Menú de la app: "Acerca de Argos" propio (panel nativo con icono/enlaces)
             // + "Buscar actualizaciones…" de Sparkle (que muestra su propia UI).
             CommandGroup(replacing: .appInfo) {

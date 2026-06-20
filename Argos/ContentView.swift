@@ -34,6 +34,10 @@ struct ContentView: View {
     @State private var quickSwitcher = QuickSwitcher.shared
     @State private var showSSHConfig = false
 
+    /// Último servidor seleccionado (persistido entre arranques de la escena). Se guarda
+    /// como `uuidString` porque `@SceneStorage` no admite `UUID` directamente.
+    @SceneStorage("selectedServerID") private var persistedServerID = ""
+
     var body: some View {
         NavigationSplitView {
             serverSidebar
@@ -45,9 +49,14 @@ struct ContentView: View {
         .frame(minWidth: 980, minHeight: 560)
         .onAppear {
             syncVMs()
-            if selectedServerID == nil { selectedServerID = store.servers.first?.id }
+            if selectedServerID == nil {
+                selectedServerID = restoredServerID() ?? store.servers.first?.id
+            }
         }
         .onChange(of: store.servers) { _, _ in syncVMs() }
+        .onChange(of: selectedServerID) { _, newValue in
+            persistedServerID = newValue?.uuidString ?? ""
+        }
         .sheet(item: $serverFormMode) { mode in
             ServerFormSheet(mode: mode) { server, secret in
                 save(server, secret: secret)
@@ -173,6 +182,12 @@ struct ContentView: View {
     }
 
     // MARK: - Gestión de VMs
+
+    /// Servidor persistido de un arranque anterior, si todavía existe en el store.
+    private func restoredServerID() -> Server.ID? {
+        guard let uuid = UUID(uuidString: persistedServerID) else { return nil }
+        return store.servers.first { $0.id == uuid }?.id
+    }
 
     /// Mantiene `vms` en sync con `store.servers`: crea VMs para nuevos servidores,
     /// elimina las de servidores borrados.
@@ -300,6 +315,12 @@ struct ServerRow: View {
         case .failed:
             Image(systemName: "exclamationmark.circle.fill")
                 .foregroundStyle(.red)
+        case .hostKeyChanged:
+            Image(systemName: "exclamationmark.shield.fill")
+                .foregroundStyle(.red)
+        case .tmuxMissing:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
         case .loaded:
             Image(systemName: "server.rack")
                 .foregroundStyle(.green)

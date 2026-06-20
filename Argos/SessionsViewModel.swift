@@ -19,6 +19,7 @@ enum SessionsLoadState {
     case loading        // listando sesiones
     case tmuxMissing    // tmux ausente y sin sudo sin contraseña -> instrucción manual
     case loaded([TmuxSession])
+    case hostKeyChanged(String) // la host key cambió (posible MitM) -> acción dedicada
     case failed(String)
 
     /// La toolbar se deshabilita mientras hay una operación de red en curso.
@@ -59,6 +60,10 @@ final class SessionsViewModel {
             state = .loaded(sessions)
         } catch is CancelBootstrap {
             // Parada limpia: `state` ya quedó en `.tmuxMissing` con su instrucción manual.
+        } catch let mismatch as HostKeyMismatchError {
+            // La huella del servidor cambió: NO es un error de red genérico, es un caso
+            // de seguridad con una acción concreta ("Olvidar host key y reintentar").
+            state = .hostKeyChanged(mismatch.userMessage)
         } catch {
             state = .failed(error.userMessage)
         }
