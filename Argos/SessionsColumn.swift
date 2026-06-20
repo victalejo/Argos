@@ -22,6 +22,8 @@ struct SessionsColumn: View {
     @State private var renameTarget: SessionAction?
     @State private var killTarget: SessionAction?
     @State private var searchText = ""
+    @State private var isShowingBroadcast = false
+    @State private var broadcastPreselect: Set<SessionHandle> = []
 
     var body: some View {
         List(selection: $selection) {
@@ -34,7 +36,8 @@ struct SessionsColumn: View {
                             terminalStore: terminalStore,
                             filter: searchText,
                             renameTarget: $renameTarget,
-                            killTarget: $killTarget
+                            killTarget: $killTarget,
+                            onBroadcast: { presentBroadcast(preselecting: [$0]) }
                         )
                     }
                 } header: {
@@ -52,6 +55,13 @@ struct SessionsColumn: View {
                     try await vm.createSession(named: name)
                 }
             }
+        }
+        .sheet(isPresented: $isShowingBroadcast) {
+            SendCommandSheet(
+                targets: broadcastTargets,
+                initialSelection: broadcastPreselect,
+                onClose: { isShowingBroadcast = false }
+            )
         }
         .sheet(item: $renameTarget) { action in
             SessionNameSheet(mode: .rename(current: action.session.name)) { newName in
@@ -101,6 +111,14 @@ struct SessionsColumn: View {
             .disabled(activeVM?.state.isBusy ?? true)
         }
         ToolbarItem(placement: .primaryAction) {
+            Button { presentBroadcast(preselecting: selection.map { [$0] } ?? []) } label: {
+                Label("Enviar comando…", systemImage: "paperplane")
+            }
+            .keyboardShortcut("k", modifiers: [.command, .option])
+            .help("Enviar un comando a una o varias sesiones (⌥⌘K)")
+            .disabled(broadcastTargets.isEmpty)
+        }
+        ToolbarItem(placement: .primaryAction) {
             Button {
                 Task {
                     await withTaskGroup(of: Void.self) { group in
@@ -143,6 +161,26 @@ struct SessionsColumn: View {
         return vms[id]
     }
 
+    /// Todas las sesiones cargadas (de todos los servidores) como destinos de broadcast.
+    private var broadcastTargets: [BroadcastTarget] {
+        servers.flatMap { server -> [BroadcastTarget] in
+            guard let vm = vms[server.id] else { return [] }
+            return vm.sessions.map { session in
+                BroadcastTarget(
+                    handle: SessionHandle(serverID: server.id, sessionID: session.id),
+                    serverName: server.name,
+                    sessionName: session.name,
+                    service: vm.service
+                )
+            }
+        }
+    }
+
+    private func presentBroadcast(preselecting handles: Set<SessionHandle>) {
+        broadcastPreselect = handles
+        isShowingBroadcast = true
+    }
+
     @ViewBuilder
     private func serverHeader(_ server: Server) -> some View {
         HStack(spacing: 6) {
@@ -167,6 +205,7 @@ private struct ServerSessionsSection: View {
     let filter: String
     @Binding var renameTarget: SessionAction?
     @Binding var killTarget: SessionAction?
+    let onBroadcast: (SessionHandle) -> Void
 
     var body: some View {
         switch vm.state {
@@ -314,6 +353,7 @@ private struct ServerSessionsSection: View {
                     }
                     Divider()
                 }
+                Button("Enviar comando…") { onBroadcast(handle) }
                 Button("Renombrar…") {
                     renameTarget = SessionAction(server: server, session: session)
                 }

@@ -7,6 +7,10 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [Unreleased]
 
 ### Añadido
+- **Enviar comando / broadcast**: envía un comando (vía `tmux send-keys`) a una o varias
+  sesiones a la vez (p. ej. `git pull` a backend+frontend) sin teclear en cada terminal.
+  Botón en la toolbar (⌥⌘K) y entrada en el menú contextual de cada sesión; el sheet
+  permite elegir varias sesiones (agrupadas por servidor) y si pulsar Enter.
 - **Gestión de paneles tmux**: menú "Panel" en la barra del terminal para dividir
   (derecha/abajo), navegar entre paneles (↑↓←→), hacer zoom y cerrar el panel activo
   (con confirmación; solo si la ventana tiene más de un panel), sin teclear el prefijo.

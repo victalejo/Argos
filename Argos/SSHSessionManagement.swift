@@ -109,6 +109,28 @@ extension SSHService {
         )
     }
 
+    // MARK: - Envío de comandos (send-keys / broadcast)
+
+    /// Construye el comando `tmux send-keys` (lógica pura, testeable). El texto se
+    /// entrecomilla para el shell con `ShellQuoting`; tmux lo TECLEA literal en el panel
+    /// activo. `enter` añade la tecla `Enter` como argumento aparte (no entrecomillado,
+    /// para que tmux lo interprete como pulsación, no como texto literal).
+    static func sendKeysCommand(session: String, keys: String, enter: Bool) -> String {
+        var command =
+            "tmux send-keys -t \(ShellQuoting.singleQuoted(session)) "
+            + ShellQuoting.singleQuoted(keys)
+        if enter { command += " Enter" }
+        return command
+    }
+
+    /// Teclea `keys` en el panel activo de la sesión (`tmux send-keys`). Permite ejecutar
+    /// un comando en una o varias sesiones (broadcast) sin escribir en el PTY.
+    func sendKeys(session: String, keys: String, enter: Bool) async throws {
+        try await runManagementCommand(
+            Self.sendKeysCommand(session: session, keys: keys, enter: enter)
+        )
+    }
+
     /// Ejecuta un comando de gestión y lanza `commandFailed` si tmux sale con código
     /// distinto de cero (p. ej. nombre duplicado o sesión inexistente), propagando el
     /// mensaje de stderr de tmux para mostrarlo en la UI.

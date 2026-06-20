@@ -44,12 +44,14 @@
 		BBC26D2F01DF74B8CDBBCA91 /* TmuxPaneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E758EA6EA1D463B587C25B35 /* TmuxPaneTests.swift */; };
 		BE9CB128AC937244AA0B42D2 /* SSHConfigHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA0DC3F5782D3AF064AF61D7 /* SSHConfigHost.swift */; };
 		C064730BA9BFD0071C3BB89D /* Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ADDB372762CCE736CAC81A9 /* Logging.swift */; };
+		C6F4DC5E058C8C09101C6AAA /* SendCommandSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC7E2F69B701B9A38B3AB78B /* SendCommandSheet.swift */; };
 		C7708B036D3C8097551D7076 /* SessionsColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177E5F125A9E48EB8BD0C6C5 /* SessionsColumn.swift */; };
 		C7B6778AD95B861B188040BF /* SessionTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */; };
 		D06B69660D7ABA5FACAE51A9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220CBBB363C64472A8DE9188 /* SettingsView.swift */; };
 		D5855419ABBC95DE54D0B6E0 /* SSHFileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B808DACBF580444EB1E8B0 /* SSHFileTransfer.swift */; };
 		D91377E6937819F5032D9662 /* SSHSessionManagement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E0A20A19F7815044978FC19 /* SSHSessionManagement.swift */; };
 		D91C6FE8395FAD3F392BAE2E /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = BD3E31D594F719FB241208C0 /* Sparkle */; };
+		DA7F9B1E53CE8948D9CD1BA9 /* SendKeysTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2384985AC8C85824C96C46 /* SendKeysTests.swift */; };
 		DC7465DFF1450038B4484B9A /* TmuxErrorClassificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD9D527CAB785756EB0FCB9 /* TmuxErrorClassificationTests.swift */; };
 		DE3BDF69942A527B06CEE36F /* MockSSHService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC724DB505B98A68667B540E /* MockSSHService.swift */; };
 		E224B3D53EE2D7827A485CB5 /* HostKeyVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B62EB21A9B138B0A1CBD9C /* HostKeyVerifier.swift */; };
@@ -104,6 +106,7 @@
 		95550930274A4C5CBE898C48 /* TmuxWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxWindowTests.swift; sourceTree = "<group>"; };
 		96BB45CA5EE03D980C943857 /* ServerStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStoreTests.swift; sourceTree = "<group>"; };
 		9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTerminalView.swift; sourceTree = "<group>"; };
+		9B2384985AC8C85824C96C46 /* SendKeysTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendKeysTests.swift; sourceTree = "<group>"; };
 		9C50A322D11CBE7687006F31 /* SSHConfigSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfigSheet.swift; sourceTree = "<group>"; };
 		A17F27F1BDF8240FDE090119 /* ArgosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArgosApp.swift; sourceTree = "<group>"; };
 		A56204FF1A755CA9F351EA23 /* AboutPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutPanel.swift; sourceTree = "<group>"; };
@@ -124,6 +127,7 @@
 		EA0DC3F5782D3AF064AF61D7 /* SSHConfigHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfigHost.swift; sourceTree = "<group>"; };
 		EA22415AE599702BCE7F028E /* ErrorMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorMessage.swift; sourceTree = "<group>"; };
 		F3D4C35BD2EF9667D8B33C9E /* TerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettings.swift; sourceTree = "<group>"; };
+		FC7E2F69B701B9A38B3AB78B /* SendCommandSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendCommandSheet.swift; sourceTree = "<group>"; };
 		FCDCAA94C902FE2D4561CA06 /* AccessibilityLabelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityLabelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -166,6 +170,7 @@
 				445EC9A275BAC494A796B3E2 /* LiveTerminalController.swift */,
 				5ADDB372762CCE736CAC81A9 /* Logging.swift */,
 				5E4BF9725F48E501C0A92760 /* QuickSwitcher.swift */,
+				FC7E2F69B701B9A38B3AB78B /* SendCommandSheet.swift */,
 				8E28B3E384E55DECA5738BFF /* Server.swift */,
 				72F75B7F2615F16AF85003FD /* ServerFormSheet.swift */,
 				843E63C9938F02D896D2ABEA /* ServerStore.swift */,
@@ -199,6 +204,7 @@
 				FCDCAA94C902FE2D4561CA06 /* AccessibilityLabelTests.swift */,
 				D373BD5CC9EBD53251E1B7C4 /* FuzzyMatcherTests.swift */,
 				DC724DB505B98A68667B540E /* MockSSHService.swift */,
+				9B2384985AC8C85824C96C46 /* SendKeysTests.swift */,
 				96BB45CA5EE03D980C943857 /* ServerStoreTests.swift */,
 				69ED5D1C5866D4DD966B58FA /* SessionConnectionStateTests.swift */,
 				B0CD355C55856CF39D5DF08F /* SessionGroupingTests.swift */,
@@ -340,6 +346,7 @@
 				778DFD399E8221960C06F1C3 /* SSHServicing.swift in Sources */,
 				D91377E6937819F5032D9662 /* SSHSessionManagement.swift in Sources */,
 				42FA68FCB0EB89B1FF5DBE8B /* SSHTerminalSession.swift in Sources */,
+				C6F4DC5E058C8C09101C6AAA /* SendCommandSheet.swift in Sources */,
 				3FA72FAFFA836AA99216C41B /* Server.swift in Sources */,
 				0484994EA74C094106DF308F /* ServerFormSheet.swift in Sources */,
 				1F49FD85008D7EBE730E6CF1 /* ServerStore.swift in Sources */,
@@ -366,6 +373,7 @@
 				3B5EC598924190FB12A74421 /* FuzzyMatcherTests.swift in Sources */,
 				DE3BDF69942A527B06CEE36F /* MockSSHService.swift in Sources */,
 				EB33DC4B64ABC1F4A60DA707 /* SSHConfigParserTests.swift in Sources */,
+				DA7F9B1E53CE8948D9CD1BA9 /* SendKeysTests.swift in Sources */,
 				43E0940423BAAA02E337AD27 /* ServerStoreTests.swift in Sources */,
 				E4DF267715AA866DAD767A05 /* SessionConnectionStateTests.swift in Sources */,
 				6A51AC072F076B67E7B81B7F /* SessionGroupingTests.swift in Sources */,

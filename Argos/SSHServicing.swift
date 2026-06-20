@@ -50,6 +50,8 @@ protocol SSHServicing: Sendable {
     func zoomPane(session: String) async throws
     func killPane(session: String) async throws
 
+    func sendKeys(session: String, keys: String, enter: Bool) async throws
+
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String
 

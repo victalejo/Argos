@@ -88,6 +88,13 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func zoomPane(session: String) async throws { zoomPaneCalls += 1 }
     func killPane(session: String) async throws { killPaneCalls += 1 }
 
+    // MARK: - send-keys
+    /// Registro de envíos: (sesión, texto, enter).
+    private(set) var sentKeys: [(session: String, keys: String, enter: Bool)] = []
+    func sendKeys(session: String, keys: String, enter: Bool) async throws {
+        sentKeys.append((session, keys, enter))
+    }
+
     // MARK: - Transferencia de archivos
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String { "" }
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String { "" }
