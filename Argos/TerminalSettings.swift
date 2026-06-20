@@ -56,9 +56,25 @@ final class TerminalSettings {
 
     static let minFontSize: Double = 9
     static let maxFontSize: Double = 24
+    static let defaultFontSize: Double = 13
+    static let fontSizeStep: Double = 1
 
     var fontSize: Double {
         didSet { UserDefaults.standard.set(fontSize, forKey: Keys.fontSize) }
+    }
+
+    // MARK: - Zoom de fuente (⌘+ / ⌘- / ⌘0)
+
+    func increaseFontSize() { setFontSize(fontSize + Self.fontSizeStep) }
+    func decreaseFontSize() { setFontSize(fontSize - Self.fontSizeStep) }
+    func resetFontSize() { setFontSize(Self.defaultFontSize) }
+
+    /// Fija el tamaño de fuente acotado a `[min, max]`.
+    func setFontSize(_ value: Double) { fontSize = Self.clampFontSize(value) }
+
+    /// Acota un tamaño de fuente al rango válido (lógica pura, testeable).
+    static func clampFontSize(_ value: Double) -> Double {
+        min(max(value, minFontSize), maxFontSize)
     }
 
     var theme: TerminalTheme {
@@ -72,7 +88,7 @@ final class TerminalSettings {
 
     private init() {
         let stored = UserDefaults.standard.double(forKey: Keys.fontSize)
-        fontSize = stored == 0 ? 13 : stored
+        fontSize = stored == 0 ? Self.defaultFontSize : stored
         theme = TerminalTheme(rawValue: UserDefaults.standard.string(forKey: Keys.theme) ?? "") ?? .system
     }
 }

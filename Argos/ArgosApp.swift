@@ -48,10 +48,18 @@ struct ArgosApp: App {
                 }
             }
 
-            // Cambiador rápido de sesión (⌘K), en el menú Visualización.
+            // Cambiador rápido de sesión (⌘K) y zoom de fuente del terminal, en el
+            // menú Visualización.
             CommandGroup(after: .sidebar) {
                 Button("Cambiar de sesión…") { QuickSwitcher.shared.present() }
                     .keyboardShortcut("k", modifiers: .command)
+                Divider()
+                Button("Aumentar tamaño de fuente") { TerminalSettings.shared.increaseFontSize() }
+                    .keyboardShortcut("+", modifiers: .command)
+                Button("Reducir tamaño de fuente") { TerminalSettings.shared.decreaseFontSize() }
+                    .keyboardShortcut("-", modifiers: .command)
+                Button("Tamaño de fuente original") { TerminalSettings.shared.resetFontSize() }
+                    .keyboardShortcut("0", modifiers: .command)
             }
 
             // El terminal de SwiftTerm implementa copy:/paste:/selectAll: como acciones

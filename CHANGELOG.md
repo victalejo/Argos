@@ -7,6 +7,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [Unreleased]
 
 ### Añadido
+- **Zoom de fuente del terminal**: ⌘+ / ⌘− para ajustar el tamaño y ⌘0 para volver al
+  original (acotado a 9–24 pt), desde el menú Visualización.
 - **Probar conexión**: el formulario de servidor tiene un botón "Probar conexión" que
   conecta, autentica y ejecuta `whoami` con los datos tecleados (sin guardar), mostrando
   éxito (usuario remoto) o el error concreto. Evita guardar un servidor "a ciegas".
@@ -46,6 +48,9 @@ El detalle por commit vive en el historial git (Conventional Commits):
 - **VoiceOver**: las filas de servidor y de sesión, las pestañas de ventana y el cambiador
   rápido exponen etiquetas con nombre y estado (antes no había ningún modificador de
   accesibilidad).
+- **Estado por forma además de color** (daltonismo): el indicador de cada sesión usa una
+  forma distinta por estado (viva = punto, error = exclamación, adjunta por otro = persona,
+  conectando = spinner, dormida = luna), no solo color.
 - **Reducir movimiento**: el cambiador rápido (⌘K) respeta el ajuste del sistema.
 
 ### Seguridad

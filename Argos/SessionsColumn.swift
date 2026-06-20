@@ -469,18 +469,28 @@ struct SessionRow: View {
 
     @ViewBuilder
     private var statusIndicator: some View {
+        // Cada estado usa una FORMA distinta además del color, para que sea distinguible
+        // sin depender del color (daltonismo): viva = punto, error = exclamación,
+        // adjunta-por-otro = persona, conectando = spinner, dormida = luna.
         switch state {
         case .connecting:
             ProgressView().controlSize(.mini)
         case .dormant:
-            // 🌙 dormida
             Image(systemName: "moon.fill")
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary.opacity(0.7))
-        default:
-            Circle()
-                .fill(state.color)
-                .frame(width: 8, height: 8)
+        case .live:
+            Image(systemName: "circle.fill")
+                .font(.system(size: 8))
+                .foregroundStyle(state.color)
+        case .error:
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(state.color)
+        case .attachedElsewhere:
+            Image(systemName: "person.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(state.color)
         }
     }
 
