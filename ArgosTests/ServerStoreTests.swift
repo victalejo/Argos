@@ -38,13 +38,12 @@ struct ServerStoreTests {
             .appendingPathComponent("argos-test-\(UUID().uuidString).json")
     }
 
-    @Test("Primer arranque siembra el servidor de desarrollo")
-    func seedsOnFirstRun() {
+    @Test("Primer arranque arranca con la lista vacía (sin seed hardcodeado)")
+    func emptyOnFirstRun() {
         let url = tempURL()
         defer { try? FileManager.default.removeItem(at: url) }
         let store = ServerStore(storeURL: url)
-        #expect(store.servers.count == 1)
-        #expect(store.servers.first?.name == "dev")
+        #expect(store.servers.isEmpty)
     }
 
     @Test("add / update / remove persisten y se recargan")
@@ -55,7 +54,7 @@ struct ServerStoreTests {
         let store = ServerStore(storeURL: url)
         let nuevo = Server(name: "prod", host: "p", port: 22, username: "u", privateKeyPath: "/k")
         store.add(nuevo)
-        #expect(store.servers.count == 2)
+        #expect(store.servers.count == 1)
 
         var editado = nuevo
         editado.name = "producción"
@@ -63,12 +62,39 @@ struct ServerStoreTests {
 
         // Recarga desde el MISMO archivo: la persistencia debe reflejar los cambios.
         let recargado = ServerStore(storeURL: url)
-        #expect(recargado.servers.count == 2)
+        #expect(recargado.servers.count == 1)
         #expect(recargado.server(withID: nuevo.id)?.name == "producción")
 
         recargado.remove(editado)
         let recargado2 = ServerStore(storeURL: url)
         #expect(recargado2.server(withID: nuevo.id) == nil)
-        #expect(recargado2.servers.count == 1)
+        #expect(recargado2.servers.isEmpty)
+    }
+
+    @Test("servers.json corrupto se respalda en vez de sobrescribirse")
+    func corruptFileIsBackedUp() throws {
+        let url = tempURL()
+        let dir = url.deletingLastPathComponent()
+        let backupPrefix = url.lastPathComponent + ".corrupt-"
+        defer {
+            try? FileManager.default.removeItem(at: url)
+            // Limpia los backups generados por esta prueba.
+            let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+            for name in names where name.hasPrefix(backupPrefix) {
+                try? FileManager.default.removeItem(at: dir.appendingPathComponent(name))
+            }
+        }
+
+        // Archivo presente pero NO decodificable.
+        try Data("{ esto no es json válido".utf8).write(to: url)
+
+        let store = ServerStore(storeURL: url)
+        #expect(store.servers.isEmpty)
+        // El corrupto se movió a un backup (ya no está en su ruta original).
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+
+        let backups = (try? FileManager.default.contentsOfDirectory(atPath: dir.path))?
+            .filter { $0.hasPrefix(backupPrefix) } ?? []
+        #expect(!backups.isEmpty)
     }
 }
