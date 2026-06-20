@@ -17,6 +17,20 @@ import os
 import Citadel
 import NIOCore   // ByteBuffer
 
+/// Estado de autenticación de `claude` en un servidor (de `claude auth status --json`).
+struct ClaudeAuthStatus: Sendable, Equatable {
+    let loggedIn: Bool
+    /// Tipo de suscripción ("max", "pro", …) si está logueado con suscripción.
+    let subscriptionType: String?
+    let email: String?
+
+    /// `true` si usa una suscripción de pago (no API/console).
+    var usesSubscription: Bool {
+        guard let subscriptionType else { return false }
+        return !subscriptionType.isEmpty
+    }
+}
+
 extension SSHService {
 
     /// Localiza `claude` en el servidor probando shells de login (el binario suele
@@ -36,6 +50,33 @@ extension SSHService {
             }
         }
         return nil
+    }
+
+    /// Consulta `claude auth status --json` en el servidor. Devuelve `nil` si `claude` no
+    /// está instalado. La salida JSON incluye `loggedIn`, `subscriptionType`, `email`.
+    func claudeAuthStatus() async throws -> ClaudeAuthStatus? {
+        guard let claudePath = try await locateClaude() else { return nil }
+        let client = try await connectedClient()
+        let command = "\(ShellQuoting.singleQuoted(claudePath)) auth status --json"
+        let result = try await capture(client, command: command)
+
+        guard let data = result.stdout.data(using: .utf8),
+              let raw = try? JSONDecoder().decode(RawAuthStatus.self, from: data) else {
+            // Sin JSON parseable: lo tratamos como "no logueado" (p. ej. error del CLI).
+            return ClaudeAuthStatus(loggedIn: false, subscriptionType: nil, email: nil)
+        }
+        return ClaudeAuthStatus(
+            loggedIn: raw.loggedIn ?? false,
+            subscriptionType: raw.subscriptionType,
+            email: raw.email
+        )
+    }
+
+    /// Forma cruda del JSON de `claude auth status --json` (campos opcionales).
+    private struct RawAuthStatus: Decodable {
+        let loggedIn: Bool?
+        let subscriptionType: String?
+        let email: String?
     }
 
     /// Ejecuta un comando por canal exec bidireccional. Reenvía stdout a `output` y

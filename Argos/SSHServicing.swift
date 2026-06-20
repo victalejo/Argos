@@ -68,6 +68,20 @@ protocol SSHServicing: Sendable {
     /// Localiza el binario `claude` en el servidor (ruta absoluta), o `nil` si no está.
     func locateClaude() async throws -> String?
 
+    /// Estado de autenticación de `claude` en el servidor (`claude auth status --json`).
+    /// `nil` si `claude` no está instalado en el servidor.
+    func claudeAuthStatus() async throws -> ClaudeAuthStatus?
+
+    /// Abre un PTY y corre un comando arbitrario (p. ej. `claude auth login`), con el
+    /// mismo flujo bidireccional que `attachTerminal`.
+    func attachCommand(
+        command: String,
+        initialCols: Int,
+        initialRows: Int,
+        control: AsyncStream<TerminalControlEvent>,
+        output: AsyncStream<[UInt8]>.Continuation
+    ) async throws
+
     /// Ejecuta `command` por un canal exec bidireccional (8-bit safe, sin PTY):
     /// escribe en stdin los bytes que llegan por `stdin` y entrega el stdout por
     /// `output`. Para manejar `claude` headless en modo stream-json.

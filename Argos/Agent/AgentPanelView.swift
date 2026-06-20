@@ -25,6 +25,14 @@ struct AgentPanelView: View {
     @State private var isStarting = false
     @State private var startError: String?
 
+    // Estado de autenticación del servidor + flujo de login.
+    @State private var authStatus: ClaudeAuthStatus?
+    @State private var checkingAuth = false
+    @State private var authChecked = false
+    @State private var preparingLogin = false
+    @State private var loginCommand: String?
+    @State private var showLogin = false
+
     var body: some View {
         Group {
             if let session = store.existing(for: handle) {
@@ -33,7 +41,18 @@ struct AgentPanelView: View {
                 startForm
             }
         }
-        .onAppear { tokenPresent = KeychainStore.hasClaudeOAuthToken() }
+        .onAppear {
+            tokenPresent = KeychainStore.hasClaudeOAuthToken()
+            checkAuth()
+        }
+        .sheet(isPresented: $showLogin) {
+            if let loginCommand {
+                RemoteLoginSheet(service: service, command: loginCommand) {
+                    showLogin = false
+                    checkAuth()
+                }
+            }
+        }
     }
 
     // MARK: - Iniciar el agente
@@ -84,24 +103,54 @@ struct AgentPanelView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Autenticación (opcional: token o login del servidor)
+    // MARK: - Autenticación del servidor
 
     private var authSection: some View {
-        DisclosureGroup("Autenticación de Claude") {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("El agente usa la sesión de `claude` de este servidor — tu suscripción "
-                     + "Plan Max, **nunca** la API. Dos maneras de autenticarlo:")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("1. **Recomendado:** abre la pestaña **Terminal** de esta sesión y ejecuta "
-                     + "`claude`, luego `/login` (una sola vez por servidor). Después no hace "
-                     + "falta token.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("2. O pega un token de `claude setup-token` (generado en tu Mac):")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        VStack(spacing: 10) {
+            authStatusRow
 
+            if authChecked, authStatus?.loggedIn != true {
+                Button { startLogin() } label: {
+                    if preparingLogin {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Label("Iniciar sesión en el servidor", systemImage: "person.badge.key")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(preparingLogin)
+            }
+
+            tokenDisclosure
+        }
+        .frame(maxWidth: 460)
+    }
+
+    @ViewBuilder
+    private var authStatusRow: some View {
+        if checkingAuth {
+            Label("Comprobando sesión del servidor…", systemImage: "circle.dotted")
+                .font(.caption).foregroundStyle(.secondary)
+        } else if let authStatus, authStatus.loggedIn {
+            Label("Servidor autenticado" + (authStatus.subscriptionType.map { " · \($0)" } ?? ""),
+                  systemImage: "checkmark.seal.fill")
+                .font(.caption).foregroundStyle(.green)
+        } else if authChecked, authStatus == nil {
+            Label("`claude` no está instalado en el servidor", systemImage: "questionmark.circle")
+                .font(.caption).foregroundStyle(.orange)
+        } else if authChecked {
+            Label("Este servidor no tiene sesión de Claude", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption).foregroundStyle(.orange)
+        }
+    }
+
+    private var tokenDisclosure: some View {
+        DisclosureGroup("Usar un token en su lugar (avanzado)") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Alternativa al login del servidor: pega un token de `claude setup-token` "
+                     + "(generado en tu Mac). También usa tu plan, nunca la API.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 if tokenPresent {
                     HStack {
                         Label("Token guardado", systemImage: "checkmark.seal.fill")
@@ -125,7 +174,35 @@ struct AgentPanelView: View {
             }
             .padding(.top, 6)
         }
-        .frame(maxWidth: 460)
+    }
+
+    private func checkAuth() {
+        guard !checkingAuth else { return }
+        checkingAuth = true
+        Task {
+            defer { checkingAuth = false }
+            authStatus = try? await service.claudeAuthStatus()
+            authChecked = true
+        }
+    }
+
+    private func startLogin() {
+        guard !preparingLogin else { return }
+        preparingLogin = true
+        startError = nil
+        Task {
+            defer { preparingLogin = false }
+            do {
+                guard let claudePath = try await service.locateClaude() else {
+                    startError = "No se encontró 'claude' en el servidor para iniciar sesión."
+                    return
+                }
+                loginCommand = "\(ShellQuoting.singleQuoted(claudePath)) auth login --claudeai"
+                showLogin = true
+            } catch {
+                startError = error.userMessage
+            }
+        }
     }
 
     private func saveToken() {

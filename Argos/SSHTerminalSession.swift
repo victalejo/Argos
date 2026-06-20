@@ -65,6 +65,42 @@ extension SSHService {
         control: AsyncStream<TerminalControlEvent>,
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws {
+        try await runPTY(
+            launchCommand: "tmux attach -t \(ShellQuoting.singleQuoted(name))",
+            initialCols: initialCols,
+            initialRows: initialRows,
+            control: control,
+            output: output
+        )
+    }
+
+    /// Abre un PTY y corre un comando arbitrario (no tmux), p. ej. `claude auth login`.
+    /// Mismo flujo bidireccional que `attachTerminal`; al salir el comando, el PTY cierra.
+    func attachCommand(
+        command: String,
+        initialCols: Int,
+        initialRows: Int,
+        control: AsyncStream<TerminalControlEvent>,
+        output: AsyncStream<[UInt8]>.Continuation
+    ) async throws {
+        try await runPTY(
+            launchCommand: command,
+            initialCols: initialCols,
+            initialRows: initialRows,
+            control: control,
+            output: output
+        )
+    }
+
+    /// Núcleo compartido: abre el PTY, hace `exec` del comando y conecta el flujo
+    /// bidireccional PTY <-> UI. Lo usan `attachTerminal` (tmux) y `attachCommand`.
+    private func runPTY(
+        launchCommand: String,
+        initialCols: Int,
+        initialRows: Int,
+        control: AsyncStream<TerminalControlEvent>,
+        output: AsyncStream<[UInt8]>.Continuation
+    ) async throws {
         let client = try await connectedClient()
 
         let request = SSHChannelRequestEvent.PseudoTerminalRequest(
@@ -82,10 +118,9 @@ extension SSHService {
         defer { output.finish() }
 
         try await client.withPTY(request) { inbound, outbound in
-            // Lanzamos `tmux attach` dentro del shell del PTY. `exec` reemplaza el shell
-            // por tmux para que, al desengancharse, el canal se cierre limpiamente.
-            // El nombre va entrecomillado para resistir espacios/caracteres especiales.
-            let command = "exec tmux attach -t \(ShellQuoting.singleQuoted(name))\n"
+            // `exec` reemplaza el shell del PTY por el comando, para que al terminar este
+            // (detach de tmux, o fin de `claude auth login`) el canal se cierre limpiamente.
+            let command = "exec \(launchCommand)\n"
             try await outbound.write(ByteBuffer(string: command))
 
             try await withThrowingTaskGroup(of: Void.self) { group in

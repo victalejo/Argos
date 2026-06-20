@@ -125,6 +125,22 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
 
     func locateClaude() async throws -> String? { claudePath }
 
+    /// Estado de auth que devuelve el mock (por defecto: logueado con suscripción max).
+    var authStatus: ClaudeAuthStatus? = ClaudeAuthStatus(
+        loggedIn: true, subscriptionType: "max", email: "test@example.com"
+    )
+    func claudeAuthStatus() async throws -> ClaudeAuthStatus? { authStatus }
+
+    func attachCommand(
+        command: String,
+        initialCols: Int,
+        initialRows: Int,
+        control: AsyncStream<TerminalControlEvent>,
+        output: AsyncStream<[UInt8]>.Continuation
+    ) async throws {
+        output.finish()
+    }
+
     func runAgentExec(
         command: String,
         stdin: AsyncStream<[UInt8]>,

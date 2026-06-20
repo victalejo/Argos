@@ -19,6 +19,7 @@
 		2D48FFAF08E2D4C151BA16C9 /* ErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA22415AE599702BCE7F028E /* ErrorMessage.swift */; };
 		34670920388C9439DB318A7A /* AgentProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61E8132982069432DB6F6D7F /* AgentProtocol.swift */; };
 		36FD49CE37818A19FAC19F22 /* SessionNameValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9307BD0AA5FF67DD40E900B /* SessionNameValidatorTests.swift */; };
+		3A2DD723E96000B9C1BE1407 /* RemoteLoginSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763F8A450FB8A163C659121C /* RemoteLoginSheet.swift */; };
 		3B5EC598924190FB12A74421 /* FuzzyMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D373BD5CC9EBD53251E1B7C4 /* FuzzyMatcherTests.swift */; };
 		3FA72FAFFA836AA99216C41B /* Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E28B3E384E55DECA5738BFF /* Server.swift */; };
 		42FA68FCB0EB89B1FF5DBE8B /* SSHTerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 373E1FCA88FA61170D8B97F3 /* SSHTerminalSession.swift */; };
@@ -119,6 +120,7 @@
 		72F75B7F2615F16AF85003FD /* ServerFormSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFormSheet.swift; sourceTree = "<group>"; };
 		7479188CD1754968E7250B24 /* TOFUHostKeyValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TOFUHostKeyValidatorTests.swift; sourceTree = "<group>"; };
 		75AE7601077EF66F3CBBFC25 /* Argos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Argos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		763F8A450FB8A163C659121C /* RemoteLoginSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteLoginSheet.swift; sourceTree = "<group>"; };
 		792CDD043DC9EF3063ABAF4B /* SSHService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHService.swift; sourceTree = "<group>"; };
 		7C948E804CA1BE9CD40F3E36 /* AgentSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionStore.swift; sourceTree = "<group>"; };
 		816413CF1EAD669744469593 /* CheckForUpdatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckForUpdatesView.swift; sourceTree = "<group>"; };
@@ -241,6 +243,7 @@
 				C7E9422E11521B807F4EC6F5 /* ClaudeAgentCommand.swift */,
 				519F272D20A0064D9051378A /* ClaudeAgentSession.swift */,
 				C2192339636B63AFFCC29EF6 /* JSONValue.swift */,
+				763F8A450FB8A163C659121C /* RemoteLoginSheet.swift */,
 				506BD304DA35594F7513430B /* SSHAgentExec.swift */,
 			);
 			path = Agent;
@@ -400,6 +403,7 @@
 				9133E096190BE4C458431394 /* LiveTerminalController.swift in Sources */,
 				C064730BA9BFD0071C3BB89D /* Logging.swift in Sources */,
 				F196152A7EF6F710D99EC8D1 /* QuickSwitcher.swift in Sources */,
+				3A2DD723E96000B9C1BE1407 /* RemoteLoginSheet.swift in Sources */,
 				241B8F63EC7151345900B207 /* SSHAgentExec.swift in Sources */,
 				BE9CB128AC937244AA0B42D2 /* SSHConfigHost.swift in Sources */,
 				BBC113A189A4BEE1E8DA8C50 /* SSHConfigReader.swift in Sources */,

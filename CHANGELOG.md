@@ -8,10 +8,16 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [1.2.1] - 2026-06-20
 
+### Añadido
+- **Botón "Iniciar sesión en el servidor"** en el panel de Agente: abre `claude auth
+  login --claudeai` en un terminal embebido para autenticar el servidor con tu
+  suscripción (sin copiar/pegar tokens). El panel también **detecta y muestra** si el
+  servidor ya tiene sesión de Claude (`claude auth status`) y de qué tipo (p. ej. `max`).
+
 ### Cambiado
-- **Panel de Agente: token opcional**. Ya no obliga a pegar un token. Si haces
-  `claude login` en el servidor (desde la propia pestaña Terminal), el agente funciona
-  sin token. El token de `claude setup-token` queda como alternativa.
+- **Panel de Agente: token opcional**. Ya no obliga a pegar un token. Si el servidor
+  tiene sesión de `claude` (botón de login o `claude auth login`), el agente funciona
+  sin token. El token de `claude setup-token` queda como alternativa avanzada.
 - Se aclara en la UI que el agente usa **siempre tu suscripción, nunca la API**: el
   comando hace `env -u ANTHROPIC_API_KEY`, por lo que es imposible que facture contra la API.
 

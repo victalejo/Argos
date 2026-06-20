@@ -49,6 +49,9 @@ final class LiveTerminalController: TerminalViewDelegate {
 
     private let service: any SSHServicing
     private let sessionName: String
+    /// Si no es `nil`, el PTY corre este comando arbitrario (p. ej. `claude auth login`)
+    /// en vez de `tmux attach`. Usado por el flujo de login del panel de agente.
+    private let launchCommand: String?
 
     private var task: Task<Void, Never>?
     private var isStopping = false
@@ -66,9 +69,10 @@ final class LiveTerminalController: TerminalViewDelegate {
     private let controlStream: AsyncStream<TerminalControlEvent>
     private let controlContinuation: AsyncStream<TerminalControlEvent>.Continuation
 
-    init(service: any SSHServicing, sessionName: String) {
+    init(service: any SSHServicing, sessionName: String = "", command: String? = nil) {
         self.service = service
         self.sessionName = sessionName
+        self.launchCommand = command
         let (controlStream, controlContinuation) = AsyncStream<TerminalControlEvent>.makeStream()
         self.controlStream = controlStream
         self.controlContinuation = controlContinuation
@@ -196,6 +200,7 @@ final class LiveTerminalController: TerminalViewDelegate {
 
         let service = self.service
         let name = self.sessionName
+        let launchCommand = self.launchCommand
         let controlStream = self.controlStream
 
         task = Task { [weak self] in
@@ -212,13 +217,23 @@ final class LiveTerminalController: TerminalViewDelegate {
             }
 
             do {
-                try await service.attachTerminal(
-                    session: name,
-                    initialCols: initialCols,
-                    initialRows: initialRows,
-                    control: controlStream,
-                    output: outputCont
-                )
+                if let launchCommand {
+                    try await service.attachCommand(
+                        command: launchCommand,
+                        initialCols: initialCols,
+                        initialRows: initialRows,
+                        control: controlStream,
+                        output: outputCont
+                    )
+                } else {
+                    try await service.attachTerminal(
+                        session: name,
+                        initialCols: initialCols,
+                        initialRows: initialRows,
+                        control: controlStream,
+                        output: outputCont
+                    )
+                }
                 self?.finish(error: nil)
             } catch is CancellationError {
                 // Parada normal (cambio de sesión / cierre del detail): no es un error.
