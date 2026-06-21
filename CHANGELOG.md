@@ -6,6 +6,14 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-06-20
+
+### Corregido
+- **El agente se quedaba en "Conectando…" para siempre** (deadlock): `claude` en modo
+  stream-json no emite el evento `init` hasta recibir el primer mensaje, pero la UI
+  bloqueaba el input hasta "conectar". Ahora la sesión está **lista para escribir desde el
+  arranque** (con una pista "Escribe tu primer mensaje para empezar").
+
 ## [1.2.4] - 2026-06-20
 
 ### Añadido

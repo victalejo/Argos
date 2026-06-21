@@ -383,12 +383,16 @@ private struct AgentConversationView: View {
     private var transcript: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(session.state.items) { item in
-                        AgentItemRow(item: item).id(item.id)
+                if session.state.items.isEmpty {
+                    emptyHint
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(session.state.items) { item in
+                            AgentItemRow(item: item).id(item.id)
+                        }
                     }
+                    .padding(12)
                 }
-                .padding(12)
             }
             .onChange(of: session.state.items.count) { _, _ in
                 if let last = session.state.items.last {
@@ -396,6 +400,21 @@ private struct AgentConversationView: View {
                 }
             }
         }
+    }
+
+    private var emptyHint: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "sparkles")
+                .font(.largeTitle)
+                .foregroundStyle(.tint)
+            Text("Escribe tu primer mensaje para empezar.")
+                .foregroundStyle(.secondary)
+            Text(session.workingDirectory)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
     }
 
     private var inputBar: some View {

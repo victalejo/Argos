@@ -44,7 +44,9 @@ struct AgentTranscriptItem: Identifiable, Equatable, Sendable {
 /// Estado completo de una conversación de agente.
 struct AgentConversationState: Equatable, Sendable {
     private(set) var items: [AgentTranscriptItem] = []
-    var status: AgentStatus = .connecting
+    // Listo para recibir el primer mensaje desde el arranque: `claude` en modo stream-json
+    // NO emite `init` hasta recibir input, así que no hay que esperar a "conectar".
+    var status: AgentStatus = .idle
     var pendingPermission: AgentPermissionRequest?
     var sessionID: String?
 

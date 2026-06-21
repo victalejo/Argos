@@ -11,10 +11,10 @@ import Testing
 
 struct AgentReducerTests {
 
-    @Test("estado inicial: conectando y vacío")
+    @Test("estado inicial: listo (idle) y vacío")
     func initialState() {
         let state = AgentConversationState()
-        #expect(state.status == .connecting)
+        #expect(state.status == .idle)
         #expect(state.items.isEmpty)
         #expect(state.pendingPermission == nil)
     }
