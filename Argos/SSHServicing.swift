@@ -68,6 +68,9 @@ protocol SSHServicing: Sendable {
     /// Localiza el binario `claude` en el servidor (ruta absoluta), o `nil` si no está.
     func locateClaude() async throws -> String?
 
+    /// ¿`path` existe como directorio en el servidor? (Validación previa al arranque.)
+    func remoteDirectoryExists(_ path: String) async throws -> Bool
+
     /// Estado de autenticación de `claude` en el servidor (`claude auth status --json`).
     /// `nil` si `claude` no está instalado en el servidor.
     func claudeAuthStatus() async throws -> ClaudeAuthStatus?

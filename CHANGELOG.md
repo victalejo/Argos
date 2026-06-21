@@ -6,6 +6,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-06-20
+
+### Añadido
+- **Validación del directorio de trabajo** antes de arrancar el agente: si la ruta no
+  existe en el servidor, el formulario lo avisa ("El directorio 'X' no existe…") en vez de
+  arrancar y fallar con `cd: No such file or directory`.
+
 ## [1.2.3] - 2026-06-20
 
 ### Corregido

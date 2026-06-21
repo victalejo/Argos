@@ -125,6 +125,10 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
 
     func locateClaude() async throws -> String? { claudePath }
 
+    /// Si el directorio remoto existe (por defecto sí).
+    var directoryExists = true
+    func remoteDirectoryExists(_ path: String) async throws -> Bool { directoryExists }
+
     /// Estado de auth que devuelve el mock (por defecto: logueado con suscripción max).
     var authStatus: ClaudeAuthStatus? = ClaudeAuthStatus(
         loggedIn: true, subscriptionType: "max", email: "test@example.com"

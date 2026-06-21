@@ -255,6 +255,11 @@ struct AgentPanelView: View {
                         + "(p. ej. con el instalador oficial) e inténtalo de nuevo."
                     return
                 }
+                guard try await service.remoteDirectoryExists(directory) else {
+                    startError = "El directorio '\(directory)' no existe en el servidor. "
+                        + "Usa una ruta válida (por ejemplo ~ o la ruta de tu repo)."
+                    return
+                }
                 let command = ClaudeAgentCommand.build(
                     claudePath: claudePath,
                     workingDirectory: directory,

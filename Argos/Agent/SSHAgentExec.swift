@@ -71,6 +71,15 @@ extension SSHService {
             .last { $0.hasPrefix("/") }
     }
 
+    /// ¿Existe `path` como directorio en el servidor? Expande `~` igual que el comando
+    /// del agente (para validar antes de arrancar y evitar un `cd` fallido).
+    func remoteDirectoryExists(_ path: String) async throws -> Bool {
+        let client = try await connectedClient()
+        let target = ClaudeAgentCommand.cdTarget(for: path)
+        let result = try await capture(client, command: "[ -d \(target) ] && echo ARGOS_DIR_OK")
+        return result.stdout.contains("ARGOS_DIR_OK")
+    }
+
     /// Consulta `claude auth status --json` en el servidor. Devuelve `nil` si `claude` no
     /// está instalado. La salida JSON incluye `loggedIn`, `subscriptionType`, `email`.
     func claudeAuthStatus() async throws -> ClaudeAuthStatus? {
