@@ -10,6 +10,7 @@
 		0484994EA74C094106DF308F /* ServerFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72F75B7F2615F16AF85003FD /* ServerFormSheet.swift */; };
 		082FF2631A3A4632E2D8FFD9 /* SessionsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB419067A72674C2B562CD8 /* SessionsViewModelTests.swift */; };
 		13BE1659C730822798172FAC /* TerminalPoolEvictionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B141663A032DDBE018951E /* TerminalPoolEvictionTests.swift */; };
+		1848C1E7C5C78ADCDF59E8FF /* AgentAuthParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368FB2324B91C39D8A9D8988 /* AgentAuthParsingTests.swift */; };
 		192D3C31F4496A0D12998928 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = C9AC58752B09ADD31B61011B /* SwiftTerm */; };
 		1A3081415B798412A38BE852 /* TerminalSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9CFAFE51B7BEB72FA653861 /* TerminalSettingsTests.swift */; };
 		1BF31293D1E160A4314A551B /* SSHConfigSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C50A322D11CBE7687006F31 /* SSHConfigSheet.swift */; };
@@ -99,6 +100,7 @@
 		220CBBB363C64472A8DE9188 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2D433BD561BAFB67B3E3007D /* ShellQuoting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellQuoting.swift; sourceTree = "<group>"; };
 		2E8D2897CB2C59012C299625 /* TmuxSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxSessionTests.swift; sourceTree = "<group>"; };
+		368FB2324B91C39D8A9D8988 /* AgentAuthParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAuthParsingTests.swift; sourceTree = "<group>"; };
 		373E1FCA88FA61170D8B97F3 /* SSHTerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHTerminalSession.swift; sourceTree = "<group>"; };
 		38B808DACBF580444EB1E8B0 /* SSHFileTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHFileTransfer.swift; sourceTree = "<group>"; };
 		38CEB7C88E72A43CEC8A545F /* SessionNameValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameValidator.swift; sourceTree = "<group>"; };
@@ -253,6 +255,7 @@
 			isa = PBXGroup;
 			children = (
 				FCDCAA94C902FE2D4561CA06 /* AccessibilityLabelTests.swift */,
+				368FB2324B91C39D8A9D8988 /* AgentAuthParsingTests.swift */,
 				E02C1F5558B099A52344174C /* AgentProtocolTests.swift */,
 				BD3649128C092F654F1D437E /* AgentReducerTests.swift */,
 				6EB505950A24A675F5D87A4A /* ClaudeAgentCommandTests.swift */,
@@ -437,6 +440,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				58609851BBEC45D6D542FF3F /* AccessibilityLabelTests.swift in Sources */,
+				1848C1E7C5C78ADCDF59E8FF /* AgentAuthParsingTests.swift in Sources */,
 				F42EA014B910849E9B632CF8 /* AgentProtocolTests.swift in Sources */,
 				79B58FF6058AF51F89E75DB3 /* AgentReducerTests.swift in Sources */,
 				D9133F6112661892126C7B4B /* ClaudeAgentCommandTests.swift in Sources */,
@@ -497,7 +501,7 @@
 				CODE_SIGN_ENTITLEMENTS = Argos/Argos.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -507,7 +511,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.2.2;
+				MARKETING_VERSION = 1.2.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
 				PRODUCT_NAME = Argos;
 				SDKROOT = macosx;
@@ -524,7 +528,7 @@
 				CODE_SIGN_ENTITLEMENTS = Argos/Argos.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -534,7 +538,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.2.2;
+				MARKETING_VERSION = 1.2.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
 				PRODUCT_NAME = Argos;
 				SDKROOT = macosx;

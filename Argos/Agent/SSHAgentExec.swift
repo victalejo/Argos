@@ -43,23 +43,32 @@ struct ClaudeAuthStatus: Sendable, Equatable {
 
 extension SSHService {
 
-    /// Localiza `claude` en el servidor probando shells de login (el binario suele
-    /// estar en `~/.local/bin`, nvm, etc., fuera del PATH de un exec no interactivo).
+    /// Localiza `claude` en el servidor de forma robusta: prueba la shell de login del
+    /// usuario y varias shells comunes (para cargar el PATH donde vive `claude`, p. ej.
+    /// `~/.local/bin`, nvm…), y si eso falla, comprueba rutas de instalación conocidas.
+    /// Tolera el ruido que los perfiles de login imprimen en stdout (toma la última línea
+    /// que sea una ruta absoluta).
     func locateClaude() async throws -> String? {
         let client = try await connectedClient()
-        let probes = [
-            "bash -lc 'command -v claude'",
-            "zsh -lc 'command -v claude'",
-            "command -v claude",
-        ]
-        for probe in probes {
-            let result = try await capture(client, command: probe)
-            let path = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-            if result.exitCode == 0, !path.isEmpty {
-                return path.split(whereSeparator: \.isNewline).first.map(String.init) ?? path
-            }
-        }
-        return nil
+        // Nota: el `command -v claude` de cada shell de login puede ir precedido del MOTD/
+        // perfil; `tail -n1` se queda con la ruta. El `case /*` filtra a rutas absolutas.
+        let script = """
+        for s in "$SHELL" bash zsh sh; do
+          p=$("$s" -lc 'command -v claude' 2>/dev/null | tail -n1)
+          case "$p" in /*) echo "$p"; exit 0;; esac
+        done
+        for c in "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" \
+                 "$HOME/.claude/bin/claude" "$HOME/bin/claude" \
+                 "/usr/local/bin/claude" "/opt/homebrew/bin/claude" "/usr/bin/claude"; do
+          [ -x "$c" ] && { echo "$c"; exit 0; }
+        done
+        exit 1
+        """
+        let result = try await capture(client, command: script)
+        return result.stdout
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .last { $0.hasPrefix("/") }
     }
 
     /// Consulta `claude auth status --json` en el servidor. Devuelve `nil` si `claude` no
@@ -70,7 +79,9 @@ extension SSHService {
         let command = "\(ShellQuoting.singleQuoted(claudePath)) auth status --json"
         let result = try await capture(client, command: command)
 
-        guard let data = result.stdout.data(using: .utf8),
+        // Extrae el objeto JSON (por si hay ruido de perfil/avisos antes o después).
+        guard let json = Self.extractJSONObject(result.stdout),
+              let data = json.data(using: .utf8),
               let raw = try? JSONDecoder().decode(RawAuthStatus.self, from: data) else {
             // Sin JSON parseable: lo tratamos como "no logueado" (p. ej. error del CLI).
             return ClaudeAuthStatus(loggedIn: false, subscriptionType: nil, email: nil)
@@ -87,6 +98,14 @@ extension SSHService {
         let loggedIn: Bool?
         let subscriptionType: String?
         let email: String?
+    }
+
+    /// Extrae la subcadena del primer `{` al último `}` (descarta ruido de perfil/avisos).
+    static func extractJSONObject(_ text: String) -> String? {
+        guard let start = text.firstIndex(of: "{"),
+              let end = text.lastIndex(of: "}"),
+              start < end else { return nil }
+        return String(text[start...end])
     }
 
     /// Ejecuta un comando por canal exec bidireccional. Reenvía stdout a `output` y

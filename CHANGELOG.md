@@ -6,6 +6,17 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-06-20
+
+### Corregido
+- **Detección de `claude` en el servidor mucho más robusta**: antes el badge podía decir
+  "no instalado" aunque `claude` estuviera (si el server usa otra shell o el perfil de login
+  imprime texto antes de la ruta). Ahora prueba la shell de login del usuario y varias más,
+  comprueba rutas de instalación conocidas (`~/.local/bin`, `~/.claude/local`, …) y descarta
+  el ruido del perfil al parsear la ruta.
+- **Estado de autenticación tolerante a ruido**: el JSON de `claude auth status` se extrae
+  aunque el servidor imprima avisos alrededor.
+
 ## [1.2.2] - 2026-06-20
 
 ### Corregido

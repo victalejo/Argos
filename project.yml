@@ -89,8 +89,8 @@ targets:
       base:
         PRODUCT_NAME: Argos
         PRODUCT_BUNDLE_IDENTIFIER: com.iaportafolio.argos
-        MARKETING_VERSION: "1.2.2"
-        CURRENT_PROJECT_VERSION: "13"
+        MARKETING_VERSION: "1.2.3"
+        CURRENT_PROJECT_VERSION: "14"
         GENERATE_INFOPLIST_FILE: "NO"
         ENABLE_APP_SANDBOX: "YES"
         ENABLE_HARDENED_RUNTIME: "YES"
