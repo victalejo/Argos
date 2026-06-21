@@ -71,6 +71,9 @@ protocol SSHServicing: Sendable {
     /// ¿`path` existe como directorio en el servidor? (Validación previa al arranque.)
     func remoteDirectoryExists(_ path: String) async throws -> Bool
 
+    /// Lista las subcarpetas de `path` en el servidor (para el selector visual).
+    func listRemoteDirectories(at path: String) async throws -> RemoteDirectoryListing
+
     /// Estado de autenticación de `claude` en el servidor (`claude auth status --json`).
     /// `nil` si `claude` no está instalado en el servidor.
     func claudeAuthStatus() async throws -> ClaudeAuthStatus?

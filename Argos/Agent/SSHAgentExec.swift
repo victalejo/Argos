@@ -27,6 +27,12 @@ struct AgentExecError: LocalizedError {
     }
 }
 
+/// Resultado de listar un directorio remoto: su ruta absoluta y sus subcarpetas.
+struct RemoteDirectoryListing: Sendable, Equatable {
+    let path: String
+    let subdirectories: [String]
+}
+
 /// Estado de autenticación de `claude` en un servidor (de `claude auth status --json`).
 struct ClaudeAuthStatus: Sendable, Equatable {
     let loggedIn: Bool
@@ -69,6 +75,31 @@ extension SSHService {
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .last { $0.hasPrefix("/") }
+    }
+
+    /// Lista las subcarpetas de `path` en el servidor (para el selector visual). Devuelve
+    /// la ruta absoluta resuelta (`pwd`) y los nombres de subdirectorios ordenados.
+    func listRemoteDirectories(at path: String) async throws -> RemoteDirectoryListing {
+        let client = try await connectedClient()
+        let target = ClaudeAgentCommand.cdTarget(for: path)
+        // `pwd` da la ruta absoluta resuelta; `ls -1Ap | grep '/$'` lista subcarpetas.
+        let command = "cd \(target) 2>/dev/null && pwd && ls -1Ap 2>/dev/null | grep '/$'"
+        let result = try await capture(client, command: command)
+
+        let lines = result.stdout.split(whereSeparator: \.isNewline).map(String.init)
+        guard let pwd = lines.first(where: { $0.hasPrefix("/") }) else {
+            throw SSHServiceError.commandFailed(
+                exitCode: result.exitCode,
+                message: "No se pudo abrir el directorio '\(path)'."
+            )
+        }
+        let subdirectories = lines
+            .drop(while: { $0 != pwd })
+            .dropFirst()
+            .map { $0.hasSuffix("/") ? String($0.dropLast()) : $0 }
+            .filter { !$0.isEmpty }
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        return RemoteDirectoryListing(path: pwd, subdirectories: subdirectories)
     }
 
     /// ¿Existe `path` como directorio en el servidor? Expande `~` igual que el comando

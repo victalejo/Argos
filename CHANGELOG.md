@@ -9,6 +9,11 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [1.2.4] - 2026-06-20
 
 ### Añadido
+- **Selector visual de carpeta del servidor**: botón "Elegir…" que abre un navegador de
+  directorios remotos (entras/sales de carpetas con clics) en vez de teclear la ruta de
+  memoria. Empieza en la última carpeta usada.
+- **Recuerda la última carpeta por servidor**: el directorio de trabajo se precarga con el
+  último que usaste en ese servidor.
 - **Validación del directorio de trabajo** antes de arrancar el agente: si la ruta no
   existe en el servidor, el formulario lo avisa ("El directorio 'X' no existe…") en vez de
   arrancar y fallar con `cd: No such file or directory`.

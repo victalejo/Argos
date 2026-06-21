@@ -129,6 +129,13 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     var directoryExists = true
     func remoteDirectoryExists(_ path: String) async throws -> Bool { directoryExists }
 
+    /// Subcarpetas por ruta (para el selector). El mock resuelve `~` a /home/test.
+    var remoteDirs: [String: [String]] = [:]
+    func listRemoteDirectories(at path: String) async throws -> RemoteDirectoryListing {
+        let resolved = (path == "~" || path.isEmpty) ? "/home/test" : path
+        return RemoteDirectoryListing(path: resolved, subdirectories: remoteDirs[resolved] ?? [])
+    }
+
     /// Estado de auth que devuelve el mock (por defecto: logueado con suscripción max).
     var authStatus: ClaudeAuthStatus? = ClaudeAuthStatus(
         loggedIn: true, subscriptionType: "max", email: "test@example.com"

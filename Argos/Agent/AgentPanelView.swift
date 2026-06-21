@@ -22,6 +22,8 @@ struct AgentPanelView: View {
     @State private var tokenPresent = false
     @State private var tokenInput = ""
     @State private var workingDirectory = "~"
+    @State private var didInitDirectory = false
+    @State private var showDirPicker = false
     @State private var isStarting = false
     @State private var startError: String?
 
@@ -41,6 +43,10 @@ struct AgentPanelView: View {
         }
         .onAppear {
             tokenPresent = KeychainStore.hasClaudeOAuthToken()
+            if !didInitDirectory {
+                workingDirectory = AgentWorkingDirStore.directory(for: handle.serverID)
+                didInitDirectory = true
+            }
             checkAuth()
         }
         .sheet(isPresented: $showLogin) {
@@ -50,6 +56,18 @@ struct AgentPanelView: View {
                     checkAuth()
                 }
             }
+        }
+        .sheet(isPresented: $showDirPicker) {
+            RemoteDirectoryPicker(
+                service: service,
+                startPath: workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? "~" : workingDirectory,
+                onPick: { picked in
+                    workingDirectory = picked
+                    showDirPicker = false
+                },
+                onCancel: { showDirPicker = false }
+            )
         }
     }
 
@@ -92,11 +110,16 @@ struct AgentPanelView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 460)
 
-            TextField("Directorio de trabajo remoto (p. ej. ~/miproyecto)", text: $workingDirectory)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .onSubmit { startAgent() }
-                .frame(maxWidth: 460)
+            HStack {
+                TextField("Carpeta del proyecto (p. ej. ~ o ~/miapp)", text: $workingDirectory)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+                    .onSubmit { startAgent() }
+                Button { showDirPicker = true } label: {
+                    Label("Elegir…", systemImage: "folder")
+                }
+            }
+            .frame(maxWidth: 460)
 
             authSection
 
@@ -266,6 +289,7 @@ struct AgentPanelView: View {
                     oauthToken: token,
                     sessionID: UUID().uuidString
                 )
+                AgentWorkingDirStore.setDirectory(directory, for: handle.serverID)
                 store.start(
                     for: handle,
                     service: service,
