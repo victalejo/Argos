@@ -30,6 +30,13 @@ protocol SSHServicing: Sendable {
     func listSessions() async throws -> [TmuxSession]
     func disconnect() async
 
+    /// Pausa el keep-alive proactivo (heartbeat): no abre tráfico SSH nuevo hasta
+    /// `resumeHeartbeat()`. Las acciones explícitas del usuario siguen conectando.
+    func suspendHeartbeat() async
+    /// Reanuda el keep-alive si hay una conexión viva. No reconecta por sí solo:
+    /// la próxima acción del usuario reconecta de forma perezosa.
+    func resumeHeartbeat() async
+
     func isTmuxInstalled() async throws -> Bool
     func canUseSudoNonInteractive() async throws -> Bool
     func installTmuxWithApt() async throws

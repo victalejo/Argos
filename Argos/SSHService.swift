@@ -110,6 +110,10 @@ actor SSHService {
     /// Tarea de heartbeat de la conexión actual (keep-alive). Ver `startHeartbeat`.
     private var heartbeatTask: Task<Void, Never>?
 
+    /// `true` mientras la app está suspendida (Mac en reposo o app inactiva):
+    /// el heartbeat no hace red hasta `resumeHeartbeat()`.
+    private var heartbeatSuspended = false
+
     /// Intervalo del heartbeat: más corto que los timeouts típicos de NAT/firewall
     /// (~60-120s) para que la conexión idle no se corte sin que la app lo sepa.
     private static let heartbeatInterval: Duration = .seconds(30)
@@ -373,6 +377,7 @@ actor SSHService {
     /// causa del "terminal congelado" al volver tras un rato—, y (b) detectar pronto una
     /// caída en vez de descubrirla al próximo uso (cuando el indicador seguiría "verde").
     private func startHeartbeat() {
+        guard !heartbeatSuspended else { return }
         heartbeatTask?.cancel()
         heartbeatTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -387,6 +392,8 @@ actor SSHService {
     /// Un latido: comprueba la conexión con un comando trivial. Devuelve `false` si la
     /// conexión está caída y la limpia, forzando una reconexión en la próxima operación.
     private func beat() async -> Bool {
+        // Defensa: si la suspensión llegó con un latido ya programado, no tocar la red.
+        if heartbeatSuspended { return true }
         guard let client, client.isConnected else { return false }
         do {
             _ = try await capture(client, command: "true")
@@ -401,6 +408,24 @@ actor SSHService {
     private func stopHeartbeat() {
         heartbeatTask?.cancel()
         heartbeatTask = nil
+    }
+
+    /// Pausa el keep-alive sin cerrar la conexión: mientras está suspendido no se
+    /// ejecuta ningún comando proactivo (el `true` periódico), así que un Mac en
+    /// reposo o una app en segundo plano no genera tráfico SSH.
+    func suspendHeartbeat() async {
+        heartbeatSuspended = true
+        stopHeartbeat()
+    }
+
+    /// Reanuda el keep-alive solo si queda una conexión viva. Si la conexión se
+    /// cayó durante la suspensión, NO reconecta aquí: la próxima acción explícita
+    /// del usuario (`connectedClient()`) reconecta de forma perezosa.
+    func resumeHeartbeat() async {
+        heartbeatSuspended = false
+        if let client, client.isConnected {
+            startHeartbeat()
+        }
     }
 
     /// Construye el método de autenticación según el `authMethod` configurado:
