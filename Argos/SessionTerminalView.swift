@@ -11,6 +11,7 @@
 //    controlador hace detach (sin matar la sesión tmux).
 //
 
+import Combine
 import SwiftUI
 import SwiftTerm
 
@@ -63,6 +64,9 @@ struct SessionTerminalView: View {
     @State private var isAutoReconnecting = false
     @State private var reconnectTask: Task<Void, Never>?
     @State private var showKillPaneConfirm = false
+    /// Copia local de `SuspensionMonitor.isSuspended` (vía notificación): mientras
+    /// está suspendido no se sondea ni se reconecta solo.
+    @State private var isSuspended = SuspensionMonitor.shared.isSuspended
 
     /// Tope de reintentos automáticos antes de mostrar el banner manual.
     private static let maxAutoReconnects = 5
@@ -108,6 +112,16 @@ struct SessionTerminalView: View {
         .task(id: handle) { await pollWindows() }
         .onChange(of: controller?.status) { _, status in
             handleStatusChange(status)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .argosSuspensionChanged)) { note in
+            isSuspended = (note.userInfo?["suspended"] as? Bool) ?? false
+            if isSuspended {
+                // En reposo / app inactiva: cancela el reintento pendiente para no
+                // abrir conexiones SSH nuevas sin nadie delante.
+                isAutoReconnecting = false
+                reconnectTask?.cancel()
+                reconnectTask = nil
+            }
         }
         .onDisappear {
             reconnectTask?.cancel()
@@ -178,8 +192,15 @@ struct SessionTerminalView: View {
     private func pollWindows() async {
         let minInterval: Duration = .seconds(3)
         let maxInterval: Duration = .seconds(12)
+        /// Pausa entre comprobaciones mientras la app duerme: no hay red, solo espera.
+        let suspendedInterval: Duration = .seconds(10)
         var interval = minInterval
         while !Task.isCancelled {
+            if isSuspended {
+                // Mac en reposo o app inactiva: ni un solo comando SSH hasta volver.
+                do { try await Task.sleep(for: suspendedInterval) } catch { break }
+                continue
+            }
             if controller?.status == .connected,
                let fresh = try? await service.listWindows(session: session.name) {
                 if fresh != windows {
@@ -256,6 +277,9 @@ struct SessionTerminalView: View {
             reconnectTask?.cancel()
             reconnectTask = nil
         case .failed:
+            // Suspendido (reposo/inactiva): no reintentar solo; el usuario
+            // reconecta a mano al volver (botón "Reconectar").
+            guard !isSuspended else { return }
             guard autoReconnectCount < Self.maxAutoReconnects, reconnectTask == nil else { return }
             scheduleAutoReconnect()
         default:
@@ -269,6 +293,13 @@ struct SessionTerminalView: View {
         reconnectTask = Task {
             try? await Task.sleep(for: .seconds(delaySeconds))
             guard !Task.isCancelled else { return }
+            // Si el Mac se durmió (o la app pasó a inactiva) durante la espera,
+            // no abrir la conexión: queda el banner manual para al volver.
+            guard !isSuspended else {
+                isAutoReconnecting = false
+                reconnectTask = nil
+                return
+            }
             autoReconnectCount += 1
             reconnectTask = nil
             controller = store.reconnect(handle, service: service, sessionName: session.name)

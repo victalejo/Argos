@@ -48,6 +48,10 @@ struct ContentView: View {
     @State private var quickSwitcher = QuickSwitcher.shared
     @State private var showSSHConfig = false
 
+    /// Monitor de reposo del Mac / actividad de la app: mientras está suspendido
+    /// se pausa todo el tráfico SSH proactivo (heartbeats).
+    @State private var suspension = SuspensionMonitor.shared
+
     /// Último servidor seleccionado (persistido entre arranques de la escena). Se guarda
     /// como `uuidString` porque `@SceneStorage` no admite `UUID` directamente.
     @SceneStorage("selectedServerID") private var persistedServerID = ""
@@ -72,6 +76,9 @@ struct ContentView: View {
         .onChange(of: selectedServerID) { _, newValue in
             persistedServerID = newValue?.uuidString ?? ""
             loadSelectedIfNeeded()
+        }
+        .onChange(of: suspension.isSuspended) { _, suspended in
+            setHeartbeatSuspended(suspended)
         }
         .sheet(item: $serverFormMode) { mode in
             ServerFormSheet(mode: mode) { server, secret in
@@ -266,6 +273,24 @@ struct ContentView: View {
         guard let id = selectedServerID, let vm = vms[id] else { return }
         if case .idle = vm.state {
             Task { await vm.load() }
+        }
+    }
+
+    /// Pausa o reanuda el keep-alive de TODOS los servidores. Al suspender (Mac en
+    /// reposo o app inactiva) se acaba el `true` periódico de cada conexión: la app
+    /// deja de generar tráfico SSH hasta que vuelvas. Al reanudar NO se reconecta
+    /// nada por sí solo; cada servicio retoma su heartbeat si su conexión sigue
+    /// viva y el resto reconecta de forma perezosa con tu próxima acción.
+    private func setHeartbeatSuspended(_ suspended: Bool) {
+        let services = vms.values.map { $0.service }
+        Task {
+            for service in services {
+                if suspended {
+                    await service.suspendHeartbeat()
+                } else {
+                    await service.resumeHeartbeat()
+                }
+            }
         }
     }
 
