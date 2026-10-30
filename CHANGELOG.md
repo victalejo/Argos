@@ -6,6 +6,23 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-30
+
+### Añadido
+- **Proyectos**: cada sesión pasa a ser un proyecto anclado a una carpeta del servidor
+  (guardados en `~/.config/argos/projects.json`, compartidos entre Macs).
+  - **Abrir** un proyecto detenido crea su sesión en la carpeta y lanza el comando de
+    arranque (por defecto `cc --continue`; configurable en Ajustes → Proyectos y por proyecto).
+  - **Desconectar** (sigue corriendo) o **Detener** (cierra la sesión y libera memoria; el
+    proyecto se conserva). **Editar** y **Quitar** (no toca archivos).
+  - **Importar sesiones como proyectos** (con la carpeta en la que están) y "Convertir en
+    proyecto" para sesiones sueltas.
+  - **Detener proyectos en segundo plano** desde el menú del servidor (⋯).
+
+### Corregido
+- "Matar" y "Renombrar" usaban coincidencia por prefijo de tmux y podían actuar sobre otra
+  sesión cuyo nombre empezara igual; ahora usan el nombre exacto.
+
 ## [1.2.11] - 2026-10-30
 
 ### Añadido
