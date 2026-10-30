@@ -138,4 +138,16 @@ struct FileBrowserTests {
         let tokens = kinds("a = 'abc\nreturn b", "python")
         #expect(tokens.contains { $0 == (.keyword, "return") })
     }
+
+    // MARK: - Enlaces en Markdown
+
+    @Test("Solo se pueden abrir enlaces http/https/mailto")
+    func linkPolicy() throws {
+        #expect(SafeLinkPolicy.isAllowed(try #require(URL(string: "https://nextjs.org"))))
+        #expect(SafeLinkPolicy.isAllowed(try #require(URL(string: "mailto:a@b.co"))))
+        #expect(!SafeLinkPolicy.isAllowed(try #require(URL(string: "file:///etc/passwd"))))
+        #expect(!SafeLinkPolicy.isAllowed(try #require(URL(string: "x-apple-systempreferences:com.apple"))))
+        #expect(!SafeLinkPolicy.isAllowed(try #require(URL(string: "javascript:alert(1)"))))
+        #expect(!SafeLinkPolicy.isAllowed(try #require(URL(string: "docs/README.md"))))
+    }
 }

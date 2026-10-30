@@ -13,6 +13,7 @@
 		082FF2631A3A4632E2D8FFD9 /* SessionsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB419067A72674C2B562CD8 /* SessionsViewModelTests.swift */; };
 		0D422C6777A155C84C5F27F5 /* FileBrowserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F1EA27ECBCFA91BE590C33E /* FileBrowserModel.swift */; };
 		0FBF790718EA581E4D2AE132 /* FileIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E5D8144E0AFBAA72D6396BC /* FileIcon.swift */; };
+		11059C7266A85D3B7574CDB5 /* SafeMarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267A8EBF6AC77BD9C61BA26C /* SafeMarkdownView.swift */; };
 		1181F0FF40F30085478C7D6B /* RemotePrivateFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8554FB4F81138F7BE9F91937 /* RemotePrivateFile.swift */; };
 		13BE1659C730822798172FAC /* TerminalPoolEvictionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B141663A032DDBE018951E /* TerminalPoolEvictionTests.swift */; };
 		15C48A613BB79AF4F7B3A7B4 /* CodeTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F251957F678499F81BD72941 /* CodeTextView.swift */; };
@@ -148,6 +149,7 @@
 		2057FA3FC64EDDE81D1F6829 /* Argos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Argos.entitlements; sourceTree = "<group>"; };
 		220CBBB363C64472A8DE9188 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2290E5DAE385E8F47922CBA1 /* ClaudeActivityBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeActivityBadge.swift; sourceTree = "<group>"; };
+		267A8EBF6AC77BD9C61BA26C /* SafeMarkdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeMarkdownView.swift; sourceTree = "<group>"; };
 		26FAC4013C8FD7D733EE4A35 /* ProjectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectTests.swift; sourceTree = "<group>"; };
 		275EDB3B4F118505B4FEBB88 /* ClaudeActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeActivity.swift; sourceTree = "<group>"; };
 		2D433BD561BAFB67B3E3007D /* ShellQuoting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellQuoting.swift; sourceTree = "<group>"; };
@@ -307,6 +309,7 @@
 				50D2FE460795B4342E7429DB /* FilesPanelView.swift */,
 				D2F5B1B9C7410877FC6132DD /* LooseSessionFilesView.swift */,
 				E90A8302BBEBD11AC57F1858 /* RemoteFileEntry.swift */,
+				267A8EBF6AC77BD9C61BA26C /* SafeMarkdownView.swift */,
 				686B3C3A0A80F13F84FDB3FA /* SSHFileBrowser.swift */,
 				BC587172592EE8761E01E1B0 /* SyntaxHighlighter.swift */,
 			);
@@ -610,6 +613,7 @@
 				778DFD399E8221960C06F1C3 /* SSHServicing.swift in Sources */,
 				D91377E6937819F5032D9662 /* SSHSessionManagement.swift in Sources */,
 				42FA68FCB0EB89B1FF5DBE8B /* SSHTerminalSession.swift in Sources */,
+				11059C7266A85D3B7574CDB5 /* SafeMarkdownView.swift in Sources */,
 				C6F4DC5E058C8C09101C6AAA /* SendCommandSheet.swift in Sources */,
 				3FA72FAFFA836AA99216C41B /* Server.swift in Sources */,
 				0484994EA74C094106DF308F /* ServerFormSheet.swift in Sources */,

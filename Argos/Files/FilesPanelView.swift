@@ -7,7 +7,6 @@
 //  Solo lectura. ⌘P abre la búsqueda rápida de archivos.
 //
 
-import MarkdownUI
 import SwiftUI
 
 struct FilesPanelView: View {
@@ -196,8 +195,7 @@ private struct FileViewer: View {
         switch kind {
         case .markdown where !showSource:
             ScrollView {
-                Markdown(String(decoding: content.data, as: UTF8.self))
-                    .markdownTheme(.gitHub)
+                SafeMarkdownView(text: String(decoding: content.data, as: UTF8.self))
                     .textSelection(.enabled)
                     .padding(24)
                     .frame(maxWidth: 860, alignment: .leading)
