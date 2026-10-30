@@ -6,6 +6,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.8] - 2026-10-30
+
+### Añadido
+- **Monitor de recursos del servidor** (botón de la toolbar o ⌥⌘I): CPU, memoria, swap,
+  disco, carga, uptime y los procesos que más CPU consumen del servidor activo, refrescado
+  cada 3 s mientras está abierto. Requiere servidor Linux.
+
 ## [1.2.7] - 2026-10-30
 
 ### Añadido
