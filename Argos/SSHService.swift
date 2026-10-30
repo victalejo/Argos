@@ -107,6 +107,11 @@ actor SSHService {
     private let configuration: Configuration
     private var client: SSHClient?
 
+    /// Cliente SFTP persistente del explorador de archivos (abrir uno por operación
+    /// sería lento) y la conexión SSH a la que pertenece (al reconectar, se reabre).
+    var fileSFTP: SFTPClient?
+    var fileSFTPOwner: ObjectIdentifier?
+
     /// Tarea de heartbeat de la conexión actual (keep-alive). Ver `startHeartbeat`.
     private var heartbeatTask: Task<Void, Never>?
 
@@ -165,6 +170,9 @@ actor SSHService {
     /// Cierra la conexión SSH si está abierta.
     func disconnect() async {
         stopHeartbeat()
+        try? await fileSFTP?.close()
+        fileSFTP = nil
+        fileSFTPOwner = nil
         guard let client else { return }
         try? await client.close()
         self.client = nil

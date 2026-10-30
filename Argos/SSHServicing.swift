@@ -70,6 +70,12 @@ protocol SSHServicing: Sendable {
     func startProject(sessionName: String, path: String, startupCommand: String?) async throws
     func stopSession(named sessionName: String) async throws
 
+    // MARK: - Explorador de archivos (solo lectura, SFTP)
+
+    func listRemoteDirectory(_ path: String, root: String) async throws -> [RemoteFileEntry]
+    func readRemoteFile(_ path: String, root: String, maxBytes: UInt64) async throws -> RemoteFileContent
+    func indexProjectFiles(root: String) async throws -> [String]
+
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String
 

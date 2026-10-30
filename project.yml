@@ -32,6 +32,11 @@ packages:
     # (independiente de Apple), así que funciona con builds ad-hoc.
     url: https://github.com/sparkle-project/Sparkle
     majorVersion: 2.9.3
+  MarkdownUI:
+    # Render de Markdown (con tablas/GFM) en el visor de archivos y en el agente.
+    # En modo mantenimiento pero estable; pin a minor por seguridad.
+    url: https://github.com/gonzalezreal/swift-markdown-ui
+    minorVersion: 2.4.1
 
 targets:
   Argos:
@@ -109,6 +114,7 @@ targets:
       - package: Citadel
       - package: SwiftTerm
       - package: Sparkle
+      - package: MarkdownUI
 
   ArgosTests:
     type: bundle.unit-test

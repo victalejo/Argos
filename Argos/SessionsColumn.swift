@@ -51,7 +51,7 @@ struct SessionsColumn: View {
                 }
             }
         }
-        .searchable(text: $searchText, placement: .sidebar, prompt: "Buscar sesión")
+        .searchable(text: $searchText, placement: .sidebar, prompt: "Buscar proyecto")
         .task { await pollClaudeActivity() }
         .navigationTitle("Proyectos")
         .navigationSplitViewColumnWidth(min: 240, ideal: 300)

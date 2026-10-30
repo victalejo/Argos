@@ -118,6 +118,19 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         startedProjects.append((sessionName, path, startupCommand))
         sessions.append(TmuxSession(name: sessionName, windowCount: 1, isAttached: false, createdAt: Date()))
     }
+    var remoteTree: [String: [RemoteFileEntry]] = [:]
+    var remoteFiles: [String: Data] = [:]
+    func listRemoteDirectory(_ path: String, root: String) async throws -> [RemoteFileEntry] {
+        remoteTree[path] ?? []
+    }
+    func readRemoteFile(_ path: String, root: String, maxBytes: UInt64) async throws -> RemoteFileContent {
+        let data = remoteFiles[path] ?? Data()
+        return RemoteFileContent(data: data.prefix(Int(maxBytes)), size: UInt64(data.count),
+                                 modified: nil, isTruncated: UInt64(data.count) > maxBytes)
+    }
+    func indexProjectFiles(root: String) async throws -> [String] {
+        Array(remoteFiles.keys).map { RemotePath.relative($0, to: root) }.sorted()
+    }
     func stopSession(named sessionName: String) async throws {
         stoppedSessions.append(sessionName)
         sessions.removeAll { $0.name == sessionName }

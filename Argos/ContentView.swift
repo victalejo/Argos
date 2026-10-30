@@ -19,6 +19,7 @@ struct SessionHandle: Hashable, Sendable {
 /// de agente de Claude Code. Es ADITIVO: el terminal no cambia.
 enum DetailMode: Hashable, Sendable {
     case terminal
+    case files
     case agent
 }
 
@@ -221,18 +222,17 @@ struct ContentView: View {
     private var terminalDetail: some View {
         if let handle = selectedSession,
            let vm = vms[handle.serverID],
-           let session = vm.session(withID: handle.sessionID) {
+           vm.session(withID: handle.sessionID) != nil || vm.project(forSession: handle.sessionID) != nil {
             VStack(spacing: 0) {
                 detailModePicker(for: handle)
                 Divider()
-                detailContent(handle: handle, session: session, service: vm.service)
+                detailContent(
+                    handle: handle,
+                    session: vm.session(withID: handle.sessionID),
+                    project: vm.project(forSession: handle.sessionID),
+                    vm: vm
+                )
             }
-        } else if let handle = selectedSession,
-                  let vm = vms[handle.serverID],
-                  let project = vm.project(forSession: handle.sessionID) {
-            // Proyecto detenido: al abrirlo aparece su sesión y esta rama cede al terminal.
-            ProjectStoppedView(project: project, vm: vm)
-                .id(project.id)
         } else {
             ContentUnavailableView(
                 "Selecciona un proyecto",
@@ -242,10 +242,11 @@ struct ContentView: View {
         }
     }
 
-    /// Conmutador Terminal | Agente. El terminal tmux es el modo por defecto.
+    /// Conmutador Terminal | Archivos | Agente. El terminal tmux es el modo por defecto.
     private func detailModePicker(for handle: SessionHandle) -> some View {
         Picker("Modo", selection: detailModeBinding(for: handle)) {
             Label("Terminal", systemImage: "terminal").tag(DetailMode.terminal)
+            Label("Archivos", systemImage: "folder").tag(DetailMode.files)
             Label("Agente (alfa)", systemImage: "sparkles").tag(DetailMode.agent)
         }
         .pickerStyle(.segmented)
@@ -262,24 +263,41 @@ struct ContentView: View {
         )
     }
 
+    /// Contenido de la 3ª columna. `session` es `nil` si el proyecto está detenido;
+    /// `project` es `nil` si es una sesión suelta.
     @ViewBuilder
     private func detailContent(
         handle: SessionHandle,
-        session: TmuxSession,
-        service: any SSHServicing
+        session: TmuxSession?,
+        project: Project?,
+        vm: SessionsViewModel
     ) -> some View {
         switch detailModes[handle] ?? .terminal {
         case .terminal:
-            SessionTerminalView(
-                handle: handle,
-                session: session,
-                service: service,
-                store: terminalStore,
-                claudeByWindow: vms[handle.serverID]?.claudeActivity.windows(forSession: session.name) ?? [:]
-            )
-            .id(handle)
+            if let session {
+                SessionTerminalView(
+                    handle: handle,
+                    session: session,
+                    service: vm.service,
+                    store: terminalStore,
+                    claudeByWindow: vm.claudeActivity.windows(forSession: session.name)
+                )
+                .id(handle)
+            } else if let project {
+                // Proyecto detenido: al abrirlo aparece su sesión y esta rama cede al terminal.
+                ProjectStoppedView(project: project, vm: vm)
+                    .id(project.id)
+            }
+        case .files:
+            if let project {
+                FilesPanelView(root: project.path, service: vm.service)
+                    .id(handle)
+            } else {
+                LooseSessionFilesView(sessionName: handle.sessionID, service: vm.service)
+                    .id(handle)
+            }
         case .agent:
-            AgentPanelView(handle: handle, service: service, store: agentStore)
+            AgentPanelView(handle: handle, service: vm.service, store: agentStore)
                 .id(handle)
         }
     }
