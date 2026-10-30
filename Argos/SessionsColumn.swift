@@ -24,6 +24,7 @@ struct SessionsColumn: View {
     @State private var searchText = ""
     @State private var isShowingBroadcast = false
     @State private var broadcastPreselect: Set<SessionHandle> = []
+    @State private var isShowingResources = false
 
     var body: some View {
         List(selection: $selection) {
@@ -117,6 +118,21 @@ struct SessionsColumn: View {
             .keyboardShortcut("k", modifiers: [.command, .option])
             .help("Enviar un comando a una o varias sesiones (⌥⌘K)")
             .disabled(broadcastTargets.isEmpty)
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button { isShowingResources.toggle() } label: {
+                Label("Recursos del servidor", systemImage: "gauge.with.dots.needle.33percent")
+            }
+            .keyboardShortcut("i", modifiers: [.command, .option])
+            .help(activeServer.map { "CPU, memoria y disco de \($0.name) (⌥⌘I)" }
+                  ?? "Selecciona un servidor en la barra lateral")
+            .disabled(activeVM == nil)
+            .popover(isPresented: $isShowingResources, arrowEdge: .bottom) {
+                if let server = activeServer, let vm = activeVM {
+                    ServerResourcesView(serverName: server.name, service: vm.service)
+                        .id(server.id)
+                }
+            }
         }
         ToolbarItem(placement: .primaryAction) {
             Button {

@@ -98,6 +98,8 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     }
 
     // MARK: - Transferencia de archivos
+    func resourceSample() async throws -> ServerResourceSample { throw ServerResourceError.unsupported }
+
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String { "" }
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String { "" }
 

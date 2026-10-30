@@ -22,6 +22,7 @@
 		36FD49CE37818A19FAC19F22 /* SessionNameValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9307BD0AA5FF67DD40E900B /* SessionNameValidatorTests.swift */; };
 		3A2DD723E96000B9C1BE1407 /* RemoteLoginSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763F8A450FB8A163C659121C /* RemoteLoginSheet.swift */; };
 		3B5EC598924190FB12A74421 /* FuzzyMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D373BD5CC9EBD53251E1B7C4 /* FuzzyMatcherTests.swift */; };
+		3CC1AF57CC5BAD73A1DA94E0 /* ServerResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E710022F76825940B70E77E /* ServerResources.swift */; };
 		3D584DA1D3C3E58CCDDFC202 /* AgentWorkingDirStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83169AA1F65F85C080AB8A2 /* AgentWorkingDirStore.swift */; };
 		3FA72FAFFA836AA99216C41B /* Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E28B3E384E55DECA5738BFF /* Server.swift */; };
 		42FA68FCB0EB89B1FF5DBE8B /* SSHTerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 373E1FCA88FA61170D8B97F3 /* SSHTerminalSession.swift */; };
@@ -47,11 +48,13 @@
 		778DFD399E8221960C06F1C3 /* SSHServicing.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD746B3F53FF7EEB1749E4DF /* SSHServicing.swift */; };
 		79B58FF6058AF51F89E75DB3 /* AgentReducerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD3649128C092F654F1D437E /* AgentReducerTests.swift */; };
 		8AC026AA720A52F8A534CC41 /* SSHService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792CDD043DC9EF3063ABAF4B /* SSHService.swift */; };
+		90BEF023624EAAF777CEE6D8 /* ServerResourcesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495524C27F98A4B301748A4 /* ServerResourcesTests.swift */; };
 		9133E096190BE4C458431394 /* LiveTerminalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445EC9A275BAC494A796B3E2 /* LiveTerminalController.swift */; };
 		96BB2263E5EBCE167C214C1A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 65C5951389633CCA111B2D96 /* Assets.xcassets */; };
 		9A6928FE88B58714BA6D0AC1 /* TOFUHostKeyValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7479188CD1754968E7250B24 /* TOFUHostKeyValidatorTests.swift */; };
 		9BB2EC28C44ABE37A25840A7 /* TmuxSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5018CBF48657BB02BA165C22 /* TmuxSession.swift */; };
 		A480AC0B877A45888FBE98B1 /* AgentToolSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB3A5E5E5A2C60D2B81C40B3 /* AgentToolSummary.swift */; };
+		AA56FCF4EC3FA4100207ABA9 /* ServerResourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A3FF5CD86E296C2E241CDD /* ServerResourcesView.swift */; };
 		AC716ABE942D47935A88E4A4 /* WindowManagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BEEB470B3CCA2FF5C05799D /* WindowManagementTests.swift */; };
 		B1709EB6CD4C480A71B5EF13 /* SessionNameValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38CEB7C88E72A43CEC8A545F /* SessionNameValidator.swift */; };
 		B1A16FC47410366FB67C4E3C /* AgentStreamEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F7BF5C86E117CA7E3FFB4D0 /* AgentStreamEvent.swift */; };
@@ -83,6 +86,7 @@
 		EB33DC4B64ABC1F4A60DA707 /* SSHConfigParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17F57F9814C545E3DE5A2D36 /* SSHConfigParserTests.swift */; };
 		F196152A7EF6F710D99EC8D1 /* QuickSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4BF9725F48E501C0A92760 /* QuickSwitcher.swift */; };
 		F42EA014B910849E9B632CF8 /* AgentProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E02C1F5558B099A52344174C /* AgentProtocolTests.swift */; };
+		F90B316CEDE6CEB80B7AEFA3 /* SSHServerResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B69ADDE79D05715592ADF8F /* SSHServerResources.swift */; };
 		FF896C035275A08C0F4AD38B /* TmuxWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95550930274A4C5CBE898C48 /* TmuxWindowTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -97,11 +101,13 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0B69ADDE79D05715592ADF8F /* SSHServerResources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHServerResources.swift; sourceTree = "<group>"; };
 		0E0A20A19F7815044978FC19 /* SSHSessionManagement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHSessionManagement.swift; sourceTree = "<group>"; };
 		0FF54C2CDC2E33A8F1EF113D /* PTYSize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYSize.swift; sourceTree = "<group>"; };
 		177E5F125A9E48EB8BD0C6C5 /* SessionsColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsColumn.swift; sourceTree = "<group>"; };
 		17F57F9814C545E3DE5A2D36 /* SSHConfigParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfigParserTests.swift; sourceTree = "<group>"; };
 		1BBEDFA397323EAD761FBBBD /* AgentPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelView.swift; sourceTree = "<group>"; };
+		1E710022F76825940B70E77E /* ServerResources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerResources.swift; sourceTree = "<group>"; };
 		1FFEBA10AAB338D0821A7A7C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		2057FA3FC64EDDE81D1F6829 /* Argos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Argos.entitlements; sourceTree = "<group>"; };
 		220CBBB363C64472A8DE9188 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -147,6 +153,7 @@
 		9C50A322D11CBE7687006F31 /* SSHConfigSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfigSheet.swift; sourceTree = "<group>"; };
 		9FC935AAE1B389583E54E155 /* RemoteDirectoryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDirectoryPicker.swift; sourceTree = "<group>"; };
 		A17F27F1BDF8240FDE090119 /* ArgosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArgosApp.swift; sourceTree = "<group>"; };
+		A495524C27F98A4B301748A4 /* ServerResourcesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerResourcesTests.swift; sourceTree = "<group>"; };
 		A56204FF1A755CA9F351EA23 /* AboutPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutPanel.swift; sourceTree = "<group>"; };
 		AB3A5E5E5A2C60D2B81C40B3 /* AgentToolSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentToolSummary.swift; sourceTree = "<group>"; };
 		AFB081348202A1C599D6C7B3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -154,6 +161,7 @@
 		B0CD355C55856CF39D5DF08F /* SessionGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionGroupingTests.swift; sourceTree = "<group>"; };
 		B52A0DF05049D85D634854BF /* ShellQuotingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellQuotingTests.swift; sourceTree = "<group>"; };
 		B5B141663A032DDBE018951E /* TerminalPoolEvictionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPoolEvictionTests.swift; sourceTree = "<group>"; };
+		B7A3FF5CD86E296C2E241CDD /* ServerResourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerResourcesView.swift; sourceTree = "<group>"; };
 		B9307BD0AA5FF67DD40E900B /* SessionNameValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameValidatorTests.swift; sourceTree = "<group>"; };
 		BD3649128C092F654F1D437E /* AgentReducerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentReducerTests.swift; sourceTree = "<group>"; };
 		BD746B3F53FF7EEB1749E4DF /* SSHServicing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHServicing.swift; sourceTree = "<group>"; };
@@ -204,6 +212,7 @@
 			isa = PBXGroup;
 			children = (
 				865B6B1363975A707688EBAB /* Agent */,
+				C4897044CFFCAD5AB38BD02A /* Monitor */,
 				A56204FF1A755CA9F351EA23 /* AboutPanel.swift */,
 				2057FA3FC64EDDE81D1F6829 /* Argos.entitlements */,
 				A17F27F1BDF8240FDE090119 /* ArgosApp.swift */,
@@ -279,6 +288,7 @@
 				DC724DB505B98A68667B540E /* MockSSHService.swift */,
 				61C8B6DAF88142F2F16E8025 /* PTYSizeTests.swift */,
 				9B2384985AC8C85824C96C46 /* SendKeysTests.swift */,
+				A495524C27F98A4B301748A4 /* ServerResourcesTests.swift */,
 				96BB45CA5EE03D980C943857 /* ServerStoreTests.swift */,
 				69ED5D1C5866D4DD966B58FA /* SessionConnectionStateTests.swift */,
 				B0CD355C55856CF39D5DF08F /* SessionGroupingTests.swift */,
@@ -305,6 +315,16 @@
 				8F6D93E04397B7D87C9D1BD1 /* ArgosTests */,
 				3A1A98094DA95E37D3FD7134 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		C4897044CFFCAD5AB38BD02A /* Monitor */ = {
+			isa = PBXGroup;
+			children = (
+				1E710022F76825940B70E77E /* ServerResources.swift */,
+				B7A3FF5CD86E296C2E241CDD /* ServerResourcesView.swift */,
+				0B69ADDE79D05715592ADF8F /* SSHServerResources.swift */,
+			);
+			path = Monitor;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -433,6 +453,7 @@
 				BBC113A189A4BEE1E8DA8C50 /* SSHConfigReader.swift in Sources */,
 				1BF31293D1E160A4314A551B /* SSHConfigSheet.swift in Sources */,
 				D5855419ABBC95DE54D0B6E0 /* SSHFileTransfer.swift in Sources */,
+				F90B316CEDE6CEB80B7AEFA3 /* SSHServerResources.swift in Sources */,
 				8AC026AA720A52F8A534CC41 /* SSHService.swift in Sources */,
 				778DFD399E8221960C06F1C3 /* SSHServicing.swift in Sources */,
 				D91377E6937819F5032D9662 /* SSHSessionManagement.swift in Sources */,
@@ -440,6 +461,8 @@
 				C6F4DC5E058C8C09101C6AAA /* SendCommandSheet.swift in Sources */,
 				3FA72FAFFA836AA99216C41B /* Server.swift in Sources */,
 				0484994EA74C094106DF308F /* ServerFormSheet.swift in Sources */,
+				3CC1AF57CC5BAD73A1DA94E0 /* ServerResources.swift in Sources */,
+				AA56FCF4EC3FA4100207ABA9 /* ServerResourcesView.swift in Sources */,
 				1F49FD85008D7EBE730E6CF1 /* ServerStore.swift in Sources */,
 				6C96D300E599845D811DBCED /* SessionGroup.swift in Sources */,
 				EA55D8C0F5B98E84096DBE21 /* SessionNameSheet.swift in Sources */,
@@ -471,6 +494,7 @@
 				C55B46018E7A511296ECDE50 /* PTYSizeTests.swift in Sources */,
 				EB33DC4B64ABC1F4A60DA707 /* SSHConfigParserTests.swift in Sources */,
 				DA7F9B1E53CE8948D9CD1BA9 /* SendKeysTests.swift in Sources */,
+				90BEF023624EAAF777CEE6D8 /* ServerResourcesTests.swift in Sources */,
 				43E0940423BAAA02E337AD27 /* ServerStoreTests.swift in Sources */,
 				E4DF267715AA866DAD767A05 /* SessionConnectionStateTests.swift in Sources */,
 				6A51AC072F076B67E7B81B7F /* SessionGroupingTests.swift in Sources */,

@@ -54,6 +54,9 @@ protocol SSHServicing: Sendable {
 
     func sendKeys(session: String, keys: String, enter: Bool) async throws
 
+    /// Muestra de CPU, memoria, disco y procesos del servidor (monitor de recursos).
+    func resourceSample() async throws -> ServerResourceSample
+
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String
 
