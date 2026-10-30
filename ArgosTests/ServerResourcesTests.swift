@@ -101,6 +101,25 @@ struct ServerResourcesTests {
         }
     }
 
+    @Test("Valores hostiles (inf, nan, desbordes, negativos) se rechazan sin abortar", arguments: [
+        ("148367.93", "inf"), ("148367.93", "nan"), ("148367.93", "-5"), ("148367.93", "1e300"),
+        ("843449", "9223372036854775807"), ("843449", "-1"),
+    ])
+    func rejectsHostileValues(original: String, replacement: String) {
+        let hostile = Self.fixture.replacingOccurrences(of: original, with: replacement)
+        #expect(throws: ServerResourceError.unsupported) {
+            try ServerResourceParser.parse(hostile)
+        }
+    }
+
+    @Test("Memoria disponible mayor que la total se rechaza")
+    func rejectsInconsistentMemory() {
+        let hostile = Self.fixture.replacingOccurrences(of: "4599232", with: "99999999")
+        #expect(throws: ServerResourceError.unsupported) {
+            try ServerResourceParser.parse(hostile)
+        }
+    }
+
     @Test("Formato de bytes legible", arguments: [
         (512, "512 KB"), (2048, "2,0 MB"), (12_247_536, "11,7 GB"), (202_051_056, "192,7 GB"),
     ])

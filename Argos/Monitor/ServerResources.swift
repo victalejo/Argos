@@ -77,6 +77,10 @@ enum ServerResourceParser {
 
     static let separator = "@@"
 
+    /// Tope para cualquier contador/tamaño leído del servidor (2^53): de sobra para ticks
+    /// de CPU o KB reales, y lejos de `Int.max`, así sumas y restas nunca desbordan.
+    static let maxCounter = 1 << 53
+
     /// Parsea la salida de `SSHService.resourcesCommand`. Lanza `.unsupported` si falta
     /// alguna sección obligatoria (la lista de procesos es opcional).
     static func parse(_ output: String) throws -> ServerResourceSample {
@@ -90,7 +94,7 @@ enum ServerResourceParser {
               let cpu = parseCPU(sections[1]),
               let memory = parseMemory(sections[2]),
               let cores = sections[3].first.flatMap({ Int($0) }),
-              let uptime = sections[4].first.flatMap({ Double($0) }),
+              let uptime = sections[4].first.flatMap(parseUptime),
               let disk = parseDisk(sections[5])
         else {
             throw ServerResourceError.unsupported
@@ -104,13 +108,21 @@ enum ServerResourceParser {
             memory: memory.ram,
             swap: memory.swap,
             disk: disk,
-            uptimeSeconds: Int(uptime),
+            uptimeSeconds: uptime,
             topProcesses: processes
         )
     }
 
     private static func fields(_ line: String) -> [String] {
         line.split(whereSeparator: \.isWhitespace).map(String.init)
+    }
+
+    /// Segundos de `/proc/uptime`. Rechaza `inf`/`nan`/negativos: `Int(Double)` aborta
+    /// la app con valores no representables (la salida remota no es de confianza).
+    private static func parseUptime(_ text: String) -> Int? {
+        guard let value = Double(text), value.isFinite, value >= 0, value < Double(Int32.max) * 1000
+        else { return nil }
+        return Int(value)
     }
 
     private static func parseLoad(_ lines: [String]) -> (Double, Double, Double)? {
@@ -123,7 +135,8 @@ enum ServerResourceParser {
     /// `cpu user nice system idle iowait irq softirq steal …` — idle cuenta iowait.
     private static func parseCPU(_ lines: [String]) -> CPUTicks? {
         guard let f = lines.first.map(fields), f.first == "cpu", f.count >= 9 else { return nil }
-        let values = f[1...8].compactMap { Int($0) }
+        // Valores no negativos y acotados: la suma no puede desbordar (desbordar aborta).
+        let values = f[1...8].compactMap { Int($0) }.filter { (0...maxCounter).contains($0) }
         guard values.count == 8 else { return nil }
         return CPUTicks(total: values.reduce(0, +), idle: values[3] + values[4])
     }
@@ -132,12 +145,14 @@ enum ServerResourceParser {
         var kb: [String: Int] = [:]
         for line in lines {
             let f = fields(line)
-            guard f.count >= 2, let value = Int(f[1]) else { continue }
+            guard f.count >= 2, let value = Int(f[1]), (0...maxCounter).contains(value) else { continue }
             kb[String(f[0].dropLast())] = value   // "MemTotal:" -> "MemTotal"
         }
-        guard let memTotal = kb["MemTotal"], let memAvailable = kb["MemAvailable"] else { return nil }
+        guard let memTotal = kb["MemTotal"], let memAvailable = kb["MemAvailable"],
+              memAvailable <= memTotal
+        else { return nil }
         let swapTotal = kb["SwapTotal"] ?? 0
-        let swapFree = kb["SwapFree"] ?? 0
+        let swapFree = min(kb["SwapFree"] ?? 0, swapTotal)
         return (
             ResourceUsage(usedKB: memTotal - memAvailable, totalKB: memTotal),
             ResourceUsage(usedKB: swapTotal - swapFree, totalKB: swapTotal)
@@ -147,7 +162,8 @@ enum ServerResourceParser {
     /// Línea de `df -Pk /`: `fs 1024-blocks used available capacity mount`.
     private static func parseDisk(_ lines: [String]) -> ResourceUsage? {
         guard let f = lines.last.map(fields), f.count >= 4,
-              let total = Int(f[1]), let used = Int(f[2])
+              let total = Int(f[1]), let used = Int(f[2]),
+              (0...maxCounter).contains(total), (0...maxCounter).contains(used)
         else { return nil }
         return ResourceUsage(usedKB: used, totalKB: total)
     }
