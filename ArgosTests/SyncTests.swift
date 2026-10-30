@@ -172,27 +172,55 @@ struct SyncTests {
         #expect(SyncPath.withoutPathsUnderSymlinks(files).map(\.path) == ["A", "b"])
     }
 
-    @Test("El saneador quita las claves que ejecutan comandos y conserva el resto")
-    func sanitizesGitConfig() {
+    @Test("Config de git: lista blanca; descarta include, filtros, comandos y lo ambiguo")
+    func rebuildsGitConfig() {
         let config = """
         [core]
         \trepositoryformatversion = 0
+        \tfilemode = true
         \tfsmonitor = /tmp/evil.sh
         \tsshCommand = ssh -o ProxyCommand=evil
-        \thooksPath = /tmp/hooks
+        [include]
+        \tpath = /tmp/evil.config
+        [includeIf "gitdir:~/"]
+        \tpath = /tmp/evil2
         [remote "origin"]
         \turl = git@github.com:v/p.git
+        \tfetch = +refs/heads/*:refs/remotes/origin/*
+        [remote "x"]
+        \turl = ext::sh -c evil
+        [branch "main"]
+        \tremote = origin
+        \tmerge = refs/heads/main
         [filter "lfs"]
         \tsmudge = evil
         [alias]
-        \tst = status
         \tpwn = !rm -rf ~
+        [user]
+        \tname = "Víctor # Alejo" ; comentario
         """
-        let (clean, removed) = GitConfigSanitizer.sanitize(config)
-        #expect(removed.count == 5)
-        #expect(clean.contains("url = git@github.com:v/p.git"))
-        #expect(clean.contains("repositoryformatversion"))
-        #expect(clean.contains("st = status"))
-        #expect(!clean.contains("evil") && !clean.contains("rm -rf"))
+        let (clean, removed) = GitConfigSanitizer.rebuild(config)
+        #expect(clean.contains("[remote \"origin\"]"))
+        #expect(clean.contains("url = \"git@github.com:v/p.git\""))
+        #expect(clean.contains("merge = \"refs/heads/main\""))
+        #expect(clean.contains("repositoryformatversion = \"0\""))
+        #expect(clean.contains("name = \"Víctor # Alejo\""))
+        #expect(!clean.contains("evil") && !clean.contains("rm -rf") && !clean.contains("include"))
+        #expect(!clean.contains("[remote \"x\"]"))
+        #expect(removed == 7)
+    }
+
+    @Test("Estructura de git: hooks de submódulos y repos anidados, .git como archivo")
+    func gitStructure() {
+        #expect(SyncExclusions.isExcluded(".git/modules/lib/hooks/post-checkout"))
+        #expect(SyncExclusions.isExcluded("sub/.git/hooks/pre-commit"))
+        #expect(SyncExclusions.isExcluded(".git/hooks"))
+        #expect(!SyncExclusions.isExcluded(".git/objects/ab/cdef"))
+        #expect(SyncExclusions.isUploadExcluded(".git/modules/lib/config"))
+        #expect(SyncExclusions.isUploadExcluded(".git/config.worktree"))
+        #expect(!SyncExclusions.isUploadExcluded("src/config"))
+        #expect(SyncExclusions.isUnsafeGitEntry(file(".git")))
+        #expect(SyncExclusions.isUnsafeGitEntry(file("sub/.GIT", link: "/elsewhere")))
+        #expect(!SyncExclusions.isUnsafeGitEntry(file(".gitignore")))
     }
 }

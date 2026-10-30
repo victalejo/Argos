@@ -71,7 +71,7 @@ final class ProjectSyncEngine {
 
         // El listado viene del servidor: nada que cuelgue de un enlace (seguirlo podría
         // escribir fuera de la carpeta) y solo enlaces relativos que no salgan de ella.
-        let safe = SyncPath.withoutPathsUnderSymlinks(files)
+        let safe = SyncPath.withoutPathsUnderSymlinks(files).filter { !SyncExclusions.isUnsafeGitEntry($0) }
         let regular = safe.filter { !$0.isSymlink }
         let links = safe.filter { $0.isSymlink && SyncPath.isSafeSymlink(path: $0.path, target: $0.linkTarget ?? "") }
 
@@ -87,10 +87,15 @@ final class ProjectSyncEngine {
         try await forEachConcurrently(regular) { file in
             guard let url = LocalProjectFiles.url(for: file.path, in: localRoot),
                   LocalProjectFiles.parentIsInside(url, root: localRoot) else { return }
-            try await service.downloadSyncFile(root: remoteRoot, file: file, to: url)
             if SyncExclusions.isUploadExcluded(file.path) {
-                try LocalProjectFiles.sanitizeGitConfig(at: url)
+                // Config de git: se descarga a un temporal y se RECONSTRUYE (lista blanca);
+                // nunca existe en su sitio la versión cruda del servidor.
+                let raw = url.appendingPathExtension("argos-raw")
+                try await service.downloadSyncFile(root: remoteRoot, file: file, to: raw)
+                try LocalProjectFiles.rebuildGitConfig(from: raw, to: url)
+                return
             }
+            try await service.downloadSyncFile(root: remoteRoot, file: file, to: url)
             try LocalProjectFiles.applyMetadata(of: file, at: url)
         }
         for link in links {

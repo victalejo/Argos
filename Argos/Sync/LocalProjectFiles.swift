@@ -33,7 +33,9 @@ enum LocalProjectFiles {
                 continue
             }
             guard SyncPath.isSafeRelative(relative), !SyncExclusions.isExcluded(relative) else { continue }
-            if let file = try fileInfo(at: url.path, relative: relative) { files.append(file) }
+            if let file = try fileInfo(at: url.path, relative: relative), !SyncExclusions.isUnsafeGitEntry(file) {
+                files.append(file)
+            }
         }
         return files.sorted { $0.path < $1.path }
     }
@@ -87,12 +89,16 @@ enum LocalProjectFiles {
         return real == realRoot || real.hasPrefix(realRoot + "/")
     }
 
-    /// Sanea un `.git/config` descargado (ver `GitConfigSanitizer`).
-    static func sanitizeGitConfig(at url: URL) throws {
-        let text = try String(contentsOf: url, encoding: .utf8)
-        let (clean, removed) = GitConfigSanitizer.sanitize(text)
-        guard !removed.isEmpty else { return }
-        try clean.write(to: url, atomically: true, encoding: .utf8)
+    /// Reconstruye un config de git descargado (`raw`, temporal) en `destination` con la
+    /// lista blanca de `GitConfigSanitizer`. Fail-closed: pase lo que pase, el archivo
+    /// crudo se borra y solo existe el reconstruido (o ninguno).
+    static func rebuildGitConfig(from raw: URL, to destination: URL) throws {
+        defer { try? FileManager.default.removeItem(at: raw) }
+        guard let text = String(data: try Data(contentsOf: raw), encoding: .utf8) else {
+            try? FileManager.default.removeItem(at: destination)
+            return
+        }
+        try GitConfigSanitizer.rebuild(text).text.write(to: destination, atomically: true, encoding: .utf8)
     }
 
     /// URL local de una ruta relativa, garantizando que queda DENTRO de `root`.

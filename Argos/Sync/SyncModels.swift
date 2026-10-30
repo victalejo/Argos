@@ -40,56 +40,165 @@ enum SyncExclusions {
         let components = relativePath.split(separator: "/").map(String.init)
         guard let last = components.last else { return true }
         if files.contains(last) { return true }
-        // Los hooks de git ejecutan código al usar git: nunca viajan.
-        if relativePath.lowercased().hasPrefix(".git/hooks/") { return true }
+        if isGitExecutionVector(components) { return true }
         return components.dropLast().contains { directories.contains($0) }
     }
 
-    /// Se traen al Mac pero NUNCA se suben (en el Mac se guardan saneados).
-    static let downloadOnly: Set<String> = [".git/config"]
+    /// Hooks de git (en cualquier repo, también submódulos `.git/modules/*/hooks`): git los
+    /// EJECUTA al usarlo, así que nunca viajan.
+    private static func isGitExecutionVector(_ components: [String]) -> Bool {
+        let lower = components.map { $0.lowercased() }
+        guard let gitIndex = lower.firstIndex(of: ".git") else { return false }
+        return lower[(gitIndex + 1)...].contains("hooks")
+    }
 
+    /// Ficheros de configuración de git (en cualquier `.git`): se traen RECONSTRUIDOS con
+    /// una lista blanca (`GitConfigSanitizer`) y NUNCA se suben (no pisan el servidor).
     static func isUploadExcluded(_ relativePath: String) -> Bool {
-        downloadOnly.contains(relativePath.lowercased())
+        let lower = relativePath.lowercased().split(separator: "/").map(String.init)
+        guard lower.contains(".git"), let last = lower.last else { return false }
+        return last == "config" || last == "config.worktree"
+    }
+
+    /// Un `.git` que no es una carpeta (archivo `gitdir:` o enlace) puede llevar a git a
+    /// un repositorio de fuera, con sus hooks: se descarta.
+    static func isUnsafeGitEntry(_ file: SyncFile) -> Bool {
+        file.path.split(separator: "/").last?.lowercased() == ".git"
     }
 }
 
-/// Quita de un `.git/config` traído del servidor las claves que hacen que git ejecute
-/// comandos en el Mac (fsmonitor, hooksPath, sshCommand, pager/editor, filtros, textconv,
-/// alias con `!`…). El resto (remotos, ramas, usuario) se conserva.
+/// Reconstruye un config de git con una LISTA BLANCA de claves seguras (remotos, ramas,
+/// usuario y ajustes básicos de `core` con valores simples). Todo lo demás se descarta:
+/// claves desconocidas, `include`/`includeIf`, filtros, hooks, comandos, y cualquier
+/// línea que no se entienda (fail-closed). Escribe un archivo nuevo, no copia líneas.
 enum GitConfigSanitizer {
-    private static let dangerousCoreKeys: Set<String> = [
-        "fsmonitor", "hookspath", "sshcommand", "pager", "editor", "askpass", "gitproxy",
-    ]
 
-    static func sanitize(_ text: String) -> (text: String, removed: [String]) {
-        var section = ""
-        var removed: [String] = []
-        var kept: [String] = []
-        for line in text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("[") {
-                section = trimmed.lowercased()
-                kept.append(line)
+    struct Entry: Equatable {
+        let section: String
+        let subsection: String?
+        let key: String
+        let value: String
+    }
+
+    private static let simpleValue = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_./"))
+
+    static func isAllowed(_ entry: Entry) -> Bool {
+        let value = entry.value
+        guard !value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { return false }
+        let isSimple = !value.isEmpty && value.unicodeScalars.allSatisfy { simpleValue.contains($0) }
+        switch (entry.section, entry.subsection != nil, entry.key) {
+        case ("core", false, "repositoryformatversion"), ("core", false, "bare"), ("core", false, "filemode"),
+             ("core", false, "ignorecase"), ("core", false, "logallrefupdates"), ("core", false, "precomposeunicode"),
+             ("core", false, "symlinks"):
+            return isSimple
+        case ("extensions", false, "objectformat"):
+            return value == "sha1" || value == "sha256"
+        case ("remote", true, "url"), ("remote", true, "pushurl"):
+            let lower = value.lowercased()
+            return !lower.hasPrefix("ext::") && !lower.hasPrefix("fd::") && !value.hasPrefix("-")
+        case ("remote", true, "fetch"), ("remote", true, "push"):
+            return !value.isEmpty && !value.contains(" ")
+        case ("branch", true, "remote"), ("branch", true, "merge"), ("branch", true, "rebase"),
+             ("init", false, "defaultbranch"), ("pull", false, "rebase"), ("pull", false, "ff"),
+             ("push", false, "default"), ("push", false, "autosetupremote"):
+            return isSimple
+        case ("user", false, "name"), ("user", false, "email"):
+            return !value.isEmpty
+        default:
+            return false
+        }
+    }
+
+    /// Entradas que se entienden sin ambigüedad; lo dudoso se descarta.
+    static func parse(_ text: String) -> [Entry] {
+        var entries: [Entry] = []
+        var section: String?
+        var subsection: String?
+        for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty || line.hasPrefix("#") || line.hasPrefix(";") { continue }
+            if line.hasPrefix("[") {
+                (section, subsection) = parseHeader(line) ?? (nil, nil)
                 continue
             }
-            guard let equals = trimmed.firstIndex(of: "=") else { kept.append(line); continue }
-            let key = trimmed[..<equals].trimmingCharacters(in: .whitespaces).lowercased()
-            let value = trimmed[trimmed.index(after: equals)...].trimmingCharacters(in: .whitespaces)
-            let dangerous =
-                (section.hasPrefix("[core") && dangerousCoreKeys.contains(key))
-                || (section.hasPrefix("[filter") && ["clean", "smudge", "process"].contains(key))
-                || (section.hasPrefix("[diff") && ["textconv", "command"].contains(key))
-                || (section.hasPrefix("[merge") && key == "driver")
-                || (section.hasPrefix("[alias") && value.hasPrefix("!"))
-                || ((section.hasPrefix("[credential") || section.hasPrefix("[gpg")) && ["helper", "program"].contains(key))
-                || (section.hasPrefix("[sequence") && key == "editor")
-            if dangerous {
-                removed.append("\(section) \(key)")
+            guard let section, !line.hasSuffix("\\") else { continue }  // sin continuaciones
+            let key: String
+            let rawValue: String
+            if let equals = line.firstIndex(of: "=") {
+                key = line[..<equals].trimmingCharacters(in: .whitespaces).lowercased()
+                rawValue = line[line.index(after: equals)...].trimmingCharacters(in: .whitespaces)
             } else {
-                kept.append(line)
+                key = line.lowercased()
+                rawValue = "true"
+            }
+            guard key.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }),
+                  let value = unquote(rawValue) else { continue }
+            entries.append(Entry(section: section, subsection: subsection, key: key, value: value))
+        }
+        return entries
+    }
+
+    /// Config nuevo solo con las entradas permitidas.
+    static func rebuild(_ text: String) -> (text: String, removed: Int) {
+        let all = parse(text)
+        let allowed = all.filter(isAllowed)
+        var output: [String] = []
+        var currentHeader: String?
+        for entry in allowed {
+            let header = entry.subsection.map { "[\(entry.section) \"\(escape($0))\"]" } ?? "[\(entry.section)]"
+            if header != currentHeader {
+                output.append(header)
+                currentHeader = header
+            }
+            output.append("\t\(entry.key) = \"\(escape(entry.value))\"")
+        }
+        let totalLines = text.split(separator: "\n").filter {
+            let t = $0.trimmingCharacters(in: .whitespaces)
+            return !t.isEmpty && !t.hasPrefix("[") && !t.hasPrefix("#") && !t.hasPrefix(";")
+        }.count
+        return (output.joined(separator: "\n") + "\n", max(0, totalLines - allowed.count))
+    }
+
+    private static func parseHeader(_ line: String) -> (String, String?)? {
+        guard line.hasSuffix("]") else { return nil }
+        let inner = line.dropFirst().dropLast().trimmingCharacters(in: .whitespaces)
+        if let quote = inner.firstIndex(of: "\"") {
+            let name = inner[..<quote].trimmingCharacters(in: .whitespaces).lowercased()
+            let rest = inner[inner.index(after: quote)...]
+            guard rest.hasSuffix("\""), !rest.dropLast().contains("\""), !rest.contains("\\") else { return nil }
+            return (name, String(rest.dropLast()))
+        }
+        let parts = inner.split(separator: ".", maxSplits: 1).map(String.init)
+        return (parts[0].lowercased(), parts.count > 1 ? parts[1].lowercased() : nil)
+    }
+
+    /// Quita comillas y el comentario final; descarta valores con escapes raros.
+    private static func unquote(_ raw: String) -> String? {
+        var result = ""
+        var inQuotes = false
+        var iterator = raw.makeIterator()
+        while let character = iterator.next() {
+            switch character {
+            case "\"":
+                inQuotes.toggle()
+            case "\\":
+                guard let next = iterator.next(), next == "\"" || next == "\\" else { return nil }
+                result.append(next)
+            case "#", ";":
+                if inQuotes {
+                    result.append(character)
+                } else {
+                    return result.trimmingCharacters(in: .whitespaces)   // comentario final
+                }
+            default:
+                result.append(character)
             }
         }
-        return (kept.joined(separator: "\n"), removed)
+        return inQuotes ? nil : result.trimmingCharacters(in: .whitespaces)
+    }
+
+    private static func escape(_ value: String) -> String {
+        value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
     }
 }
 
