@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-10-30
+
+### Corregido
+- **El terminal mostraba `malloc(): invalid size (unsorted)` y no abría la sesión**: durante
+  el layout, el terminal reportaba tamaños transitorios (p. ej. 2x1) que se enviaban al
+  servidor; zsh 5.9 corrompe su memoria con terminales tan pequeños y abortaba antes de
+  `tmux attach`. Ahora se ignoran tamaños menores de 20x5 y el PTY arranca en 80x24 si aún
+  no hay un tamaño utilizable.
+
 ## [1.2.5] - 2026-06-20
 
 ### Corregido
