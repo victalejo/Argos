@@ -6,6 +6,20 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-30
+
+### Añadido
+- **Enviar al Mac**: clic derecho en un proyecto → copia su carpeta del servidor a este Mac para
+  trabajar en un dispositivo real (incluye `.git` y `.env`; no `node_modules`, builds ni cachés).
+  Se marca "en el Mac" (💻) para todos tus Macs y puede detener la sesión del servidor.
+- **Enviar al servidor**: devuelve los cambios (sube lo modificado, borra lo borrado, conserva lo
+  que cambió en el servidor) y detecta conflictos para que elijas qué versión gana.
+
+### Seguridad
+- La sincronización trata al servidor como no confiable: nunca escribe fuera de la carpeta del
+  proyecto (rutas y enlaces simbólicos validados), no trae hooks de git y reconstruye
+  `.git/config` con una lista blanca (remotos, ramas, usuario).
+
 ## [1.5.0] - 2026-10-30
 
 ### Añadido
