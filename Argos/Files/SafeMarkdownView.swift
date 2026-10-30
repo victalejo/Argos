@@ -15,11 +15,19 @@ import MarkdownUI
 import SwiftUI
 
 struct SafeMarkdownView: View {
+    enum Style {
+        /// Documento (README…): tema GitHub.
+        case document
+        /// Respuestas del agente: tema básico, sin fondo propio (va dentro del chat).
+        case chat
+    }
+
     let text: String
+    var style: Style = .document
 
     var body: some View {
         Markdown(text)
-            .markdownTheme(.gitHub)
+            .markdownTheme(style == .document ? .gitHub : .basic)
             .markdownImageProvider(BlockedImageProvider())
             .markdownInlineImageProvider(BlockedInlineImageProvider())
             .environment(\.openURL, OpenURLAction { url in

@@ -47,6 +47,10 @@ final class LiveTerminalController: TerminalViewDelegate {
     /// `true` mientras se sube una imagen pegada por SFTP (feedback en la UI).
     private(set) var isUploading = false
 
+    /// Observador opcional de la salida del PTY (p. ej. el login guiado de Claude lee de
+    /// aquí el enlace de autorización). Se invoca en el MainActor con cada chunk.
+    var onOutput: (@MainActor ([UInt8]) -> Void)?
+
     private let service: any SSHServicing
     private let sessionName: String
     /// Si no es `nil`, el PTY corre este comando arbitrario (p. ej. `claude auth login`)
@@ -212,6 +216,7 @@ final class LiveTerminalController: TerminalViewDelegate {
                     // overlay se retira con un margen tras la primera salida, no de golpe
                     // en el primer byte (que es solo el eco de `exec tmux attach`).
                     self.terminalView.feed(byteArray: bytes[...])
+                    self.onOutput?(bytes)
                     self.scheduleRevealIfNeeded()
                 }
             }
@@ -243,6 +248,12 @@ final class LiveTerminalController: TerminalViewDelegate {
 
             feeder.cancel()
         }
+    }
+
+    /// Teclea `text` en el PTY como si lo escribiera el usuario (p. ej. el código del
+    /// login guiado, seguido de "\r" para confirmarlo).
+    func sendText(_ text: String) {
+        controlContinuation.yield(.input(Array(text.utf8)))
     }
 
     /// Detach + limpieza. Cancela la tarea (cierra el canal -> tmux desengancha este

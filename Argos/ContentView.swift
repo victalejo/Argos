@@ -210,6 +210,7 @@ struct ContentView: View {
                 servers: store.servers,
                 vms: vms,
                 terminalStore: terminalStore,
+                agentStore: agentStore,
                 activeServerID: selectedServerID,
                 selection: $selectedSession
             )
@@ -247,7 +248,7 @@ struct ContentView: View {
         Picker("Modo", selection: detailModeBinding(for: handle)) {
             Label("Terminal", systemImage: "terminal").tag(DetailMode.terminal)
             Label("Archivos", systemImage: "folder").tag(DetailMode.files)
-            Label("Agente (alfa)", systemImage: "sparkles").tag(DetailMode.agent)
+            Label("Agente", systemImage: "sparkles").tag(DetailMode.agent)
         }
         .pickerStyle(.segmented)
         .labelsHidden()
@@ -297,8 +298,15 @@ struct ContentView: View {
                     .id(handle)
             }
         case .agent:
-            AgentPanelView(handle: handle, service: vm.service, store: agentStore)
-                .id(handle)
+            AgentPanelView(
+                handle: handle,
+                service: vm.service,
+                store: agentStore,
+                title: project?.name ?? handle.sessionID,
+                serverName: store.servers.first { $0.id == handle.serverID }?.name ?? "el servidor",
+                projectPath: project?.path
+            )
+            .id(handle)
         }
     }
 

@@ -49,6 +49,22 @@ struct ClaudeAuthStatus: Sendable, Equatable {
 
 extension SSHService {
 
+    /// Mata el proceso `claude` de un agente por su PID, comprobando ANTES que ese PID
+    /// sigue siendo un agente stream-json (el PID podría haberse reutilizado).
+    func killAgentProcess(pid: Int32) async {
+        let command = "ps -o args= -p \(pid) | grep -q -- '--input-format stream-json' "
+            + "&& { kill -TERM \(pid); sleep 2; kill -KILL \(pid) 2>/dev/null; } ; true"
+        guard let client = try? await connectedClient() else { return }
+        _ = try? await capture(client, command: command)
+    }
+
+    /// Memoria disponible en el servidor (KB, `MemAvailable`), o `nil` si no es Linux.
+    func availableMemoryKB() async throws -> Int? {
+        let client = try await connectedClient()
+        let result = try await capture(client, command: "awk '/^MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null")
+        return Int(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     /// Localiza `claude` en el servidor de forma robusta: prueba la shell de login del
     /// usuario y varias shells comunes (para cargar el PATH donde vive `claude`, p. ej.
     /// `~/.local/bin`, nvm…), y si eso falla, comprueba rutas de instalación conocidas.

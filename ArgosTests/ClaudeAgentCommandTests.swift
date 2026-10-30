@@ -106,4 +106,22 @@ struct ClaudeAgentCommandTests {
         )
         #expect(command.contains("--permission-mode acceptEdits"))
     }
+
+    @Test("El comando anuncia el PID antes del exec (para matarlo sin huérfanos)")
+    func announcesPID() {
+        let command = ClaudeAgentCommand.build(
+            claudePath: "/u/bin/claude", workingDirectory: "~/p", oauthToken: nil, sessionID: "s"
+        )
+        #expect(command.contains("argos_pid"))
+        #expect(command.contains("&& exec env -u ANTHROPIC_API_KEY"))
+    }
+
+    @Test("Lee el PID anunciado y rechaza líneas ajenas o PIDs inválidos")
+    func parsesAnnouncedPID() {
+        #expect(ClaudeAgentCommand.announcedPID(in: #"{"type":"argos_pid","pid":361972}"#) == 361972)
+        #expect(ClaudeAgentCommand.announcedPID(in: #"{"type":"system","subtype":"init"}"#) == nil)
+        #expect(ClaudeAgentCommand.announcedPID(in: #"{"type":"argos_pid","pid":1}"#) == nil)
+        #expect(ClaudeAgentCommand.announcedPID(in: #"{"type":"argos_pid","pid":"x"}"#) == nil)
+        #expect(ClaudeAgentCommand.announcedPID(in: "texto argos_pid suelto") == nil)
+    }
 }

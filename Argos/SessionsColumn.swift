@@ -14,6 +14,8 @@ struct SessionsColumn: View {
     let vms: [Server.ID: SessionsViewModel]
     /// Pool de terminales en vivo (estado de cada sesión).
     let terminalStore: TerminalSessionStore
+    /// Agentes de Claude (se cierran al detener un proyecto para liberar memoria).
+    let agentStore: AgentSessionStore
     /// Servidor activo en la sidebar (para "Nueva sesión").
     let activeServerID: Server.ID?
     @Binding var selection: SessionHandle?
@@ -276,12 +278,18 @@ struct SessionsColumn: View {
             do {
                 switch confirmation {
                 case .stop(_, let project):
-                    // Cierra antes el terminal para que no quede mostrando una sesión muerta.
-                    terminalStore.close(SessionHandle(serverID: serverID, sessionID: project.sessionName))
+                    // Cierra antes el terminal (para que no muestre una sesión muerta) y sus
+                    // agentes de Claude (cada uno es un proceso que ocupa memoria).
+                    let handle = SessionHandle(serverID: serverID, sessionID: project.sessionName)
+                    terminalStore.close(handle)
+                    agentStore.closeAll(for: handle)
                     try await vm.stopProject(project)
                 case .remove(_, let project):
                     try await vm.removeProject(project)
                 case .stopBackground(_, let projects):
+                    for project in projects {
+                        agentStore.closeAll(for: SessionHandle(serverID: serverID, sessionID: project.sessionName))
+                    }
                     let failed = await vm.stopSessions(named: projects.map(\.sessionName))
                     if !failed.isEmpty {
                         vm.operationError = "No se pudieron detener: \(failed.joined(separator: ", "))"

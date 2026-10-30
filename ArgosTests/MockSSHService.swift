@@ -165,6 +165,11 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
 
     func locateClaude() async throws -> String? { claudePath }
 
+    var availableMemory: Int? = 8_000_000
+    private(set) var killedAgentPIDs: [Int32] = []
+    func killAgentProcess(pid: Int32) async { killedAgentPIDs.append(pid) }
+    func availableMemoryKB() async throws -> Int? { availableMemory }
+
     /// Si el directorio remoto existe (por defecto sí).
     var directoryExists = true
     func remoteDirectoryExists(_ path: String) async throws -> Bool { directoryExists }

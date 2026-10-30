@@ -92,6 +92,11 @@ protocol SSHServicing: Sendable {
     /// Localiza el binario `claude` en el servidor (ruta absoluta), o `nil` si no está.
     func locateClaude() async throws -> String?
 
+    /// Mata el `claude` de un agente (verificando que el PID sigue siendo un agente).
+    func killAgentProcess(pid: Int32) async
+    /// Memoria disponible del servidor en KB (`nil` si no se puede saber).
+    func availableMemoryKB() async throws -> Int?
+
     /// ¿`path` existe como directorio en el servidor? (Validación previa al arranque.)
     func remoteDirectoryExists(_ path: String) async throws -> Bool
 

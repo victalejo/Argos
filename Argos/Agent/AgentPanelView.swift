@@ -2,14 +2,11 @@
 //  AgentPanelView.swift
 //  Argos
 //
-//  Panel de Claude Code (opción "Agente" de la 3ª columna; el terminal tmux sigue
-//  siendo el modo por defecto). Renderiza la conversación stream-json como UI nativa:
-//  mensajes, tool calls y permisos con botones Permitir/Denegar.
-//
-//  Tres fases:
-//   1. Sin token de suscripción guardado → instrucciones + pegar token.
-//   2. Token presente, agente no iniciado → elegir directorio remoto + iniciar.
-//   3. Agente vivo → conversación.
+//  Pestaña "Agente" de un proyecto: Claude Code headless en la CARPETA DEL PROYECTO
+//  (sin elegir carpetas), con varias conversaciones en pestañas. Arranca solo en cuanto
+//  el servidor tiene Claude instalado y con sesión iniciada; si no, guía para
+//  instalarlo o conectarlo (`ClaudeSetupSheet`). Antes de arrancar un agente comprueba
+//  que el servidor tenga memoria libre (cada `claude` ocupa ~0,5 GB).
 //
 
 import SwiftUI
@@ -18,534 +15,408 @@ struct AgentPanelView: View {
     let handle: SessionHandle
     let service: any SSHServicing
     let store: AgentSessionStore
+    /// Nombre visible (proyecto o sesión) y servidor, para los textos.
+    let title: String
+    let serverName: String
+    /// Carpeta del proyecto; `nil` en una sesión suelta (se usa la de su primer panel).
+    let projectPath: String?
 
-    @State private var tokenPresent = false
-    @State private var tokenInput = ""
-    @State private var workingDirectory = "~"
-    @State private var didInitDirectory = false
-    @State private var showDirPicker = false
-    @State private var isStarting = false
-    @State private var startError: String?
+    private enum Readiness: Equatable {
+        case checking
+        case noFolder
+        case notInstalled
+        case loggedOut
+        case ready
+        case lowMemory(String)
+        case failed(String)
+    }
 
-    // Estado de autenticación del servidor + flujo de login.
+    @State private var readiness: Readiness = .checking
+    @State private var folder: String?
+    @State private var claudePath: String?
     @State private var authStatus: ClaudeAuthStatus?
-    @State private var checkingAuth = false
-    @State private var authChecked = false
-    @State private var preparingLogin = false
-    @State private var loginCommand: String?
-    @State private var showLogin = false
+    @State private var setupPurpose: ClaudeSetupSheet.Purpose?
+    @State private var showTokenSheet = false
+    @State private var isStartingTab = false
 
-    var body: some View {
-        VStack(spacing: 0) {
-            alphaBanner
-            Divider()
-            content
-        }
-        .onAppear {
-            tokenPresent = KeychainStore.hasClaudeOAuthToken()
-            if !didInitDirectory {
-                workingDirectory = AgentWorkingDirStore.directory(for: handle.serverID)
-                didInitDirectory = true
-            }
-            checkAuth()
-        }
-        .sheet(isPresented: $showLogin) {
-            if let loginCommand {
-                RemoteLoginSheet(service: service, command: loginCommand) {
-                    showLogin = false
-                    checkAuth()
-                }
-            }
-        }
-        .sheet(isPresented: $showDirPicker) {
-            RemoteDirectoryPicker(
-                service: service,
-                startPath: workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ? "~" : workingDirectory,
-                onPick: { picked in
-                    workingDirectory = picked
-                    showDirPicker = false
-                },
-                onCancel: { showDirPicker = false }
-            )
-        }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if let session = store.existing(for: handle) {
-            AgentConversationView(session: session) { store.close(handle) }
-        } else {
-            startForm
-        }
-    }
-
-    /// Aviso permanente de que el panel de agente es experimental.
-    private var alphaBanner: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "flask.fill")
-            Text("Agente (alfa) — función experimental; puede fallar o cambiar.")
-            Spacer()
-        }
-        .font(.caption)
-        .foregroundStyle(.orange)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 5)
-        .background(.orange.opacity(0.12))
-    }
-
-    // MARK: - Iniciar el agente
-
-    private var startForm: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "sparkles")
-                .font(.largeTitle)
-                .foregroundStyle(.tint)
-            Text("Iniciar agente de Claude Code")
-                .font(.headline)
-            Text("Se ejecutará `claude` en ESTE servidor (no en tu Mac), en el directorio "
-                 + "que indiques. Siempre usa tu suscripción, nunca la API.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 460)
-
-            HStack {
-                TextField("Carpeta del proyecto (p. ej. ~ o ~/miapp)", text: $workingDirectory)
-                    .textFieldStyle(.roundedBorder)
-                    .autocorrectionDisabled()
-                    .onSubmit { startAgent() }
-                Button { showDirPicker = true } label: {
-                    Label("Elegir…", systemImage: "folder")
-                }
-            }
-            .frame(maxWidth: 460)
-
-            authSection
-
-            if let startError {
-                Text(startError)
-                    .font(.callout)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 460)
-            }
-
-            Button {
-                startAgent()
-            } label: {
-                if isStarting {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Label("Iniciar agente", systemImage: "play.fill")
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(isStarting || workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: - Autenticación del servidor
-
-    private var authSection: some View {
-        VStack(spacing: 10) {
-            authStatusRow
-
-            if authChecked, authStatus?.loggedIn != true {
-                Button { startLogin() } label: {
-                    if preparingLogin {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Label("Iniciar sesión en el servidor", systemImage: "person.badge.key")
-                    }
-                }
-                .buttonStyle(.bordered)
-                .disabled(preparingLogin)
-            }
-
-            tokenDisclosure
-        }
-        .frame(maxWidth: 460)
-    }
-
-    @ViewBuilder
-    private var authStatusRow: some View {
-        if checkingAuth {
-            Label("Comprobando sesión del servidor…", systemImage: "circle.dotted")
-                .font(.caption).foregroundStyle(.secondary)
-        } else if let authStatus, authStatus.loggedIn {
-            Label("Servidor autenticado" + (authStatus.subscriptionType.map { " · \($0)" } ?? ""),
-                  systemImage: "checkmark.seal.fill")
-                .font(.caption).foregroundStyle(.green)
-        } else if authChecked, authStatus == nil {
-            Label("`claude` no está instalado en el servidor", systemImage: "questionmark.circle")
-                .font(.caption).foregroundStyle(.orange)
-        } else if authChecked {
-            Label("Este servidor no tiene sesión de Claude", systemImage: "exclamationmark.triangle.fill")
-                .font(.caption).foregroundStyle(.orange)
-        }
-    }
-
-    private var tokenDisclosure: some View {
-        DisclosureGroup("Usar un token en su lugar (avanzado)") {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Alternativa al login del servidor: pega un token de `claude setup-token` "
-                     + "(generado en tu Mac). También usa tu plan, nunca la API.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if tokenPresent {
-                    HStack {
-                        Label("Token guardado", systemImage: "checkmark.seal.fill")
-                            .foregroundStyle(.green)
-                        Spacer()
-                        Button("Quitar") {
-                            KeychainStore.deleteClaudeOAuthToken()
-                            tokenPresent = false
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    .font(.caption)
-                } else {
-                    HStack {
-                        SecureField("Token (claude setup-token)", text: $tokenInput)
-                            .textFieldStyle(.roundedBorder)
-                        Button("Guardar") { saveToken() }
-                            .disabled(tokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                }
-            }
-            .padding(.top, 6)
-        }
-    }
-
-    private func checkAuth() {
-        guard !checkingAuth else { return }
-        checkingAuth = true
-        Task {
-            defer { checkingAuth = false }
-            authStatus = try? await service.claudeAuthStatus()
-            authChecked = true
-        }
-    }
-
-    private func startLogin() {
-        guard !preparingLogin else { return }
-        preparingLogin = true
-        startError = nil
-        Task {
-            defer { preparingLogin = false }
-            do {
-                guard let claudePath = try await service.locateClaude() else {
-                    startError = "No se encontró 'claude' en el servidor para iniciar sesión."
-                    return
-                }
-                loginCommand = "\(ShellQuoting.singleQuoted(claudePath)) auth login --claudeai"
-                showLogin = true
-            } catch {
-                startError = error.userMessage
-            }
-        }
-    }
-
-    private func saveToken() {
-        let token = tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else { return }
-        do {
-            try KeychainStore.setClaudeOAuthToken(token)
-            tokenInput = ""
-            tokenPresent = true
-        } catch {
-            startError = error.userMessage
-        }
-    }
-
-    private func startAgent() {
-        let directory = workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !directory.isEmpty else { return }
-
-        // Token OPCIONAL: si no hay, se usa la credencial de `claude login` del servidor.
-        let token = KeychainStore.claudeOAuthToken()
-
-        isStarting = true
-        startError = nil
-        Task {
-            defer { isStarting = false }
-            do {
-                guard let claudePath = try await service.locateClaude() else {
-                    startError = "No se encontró 'claude' en el servidor. Instálalo allí "
-                        + "(p. ej. con el instalador oficial) e inténtalo de nuevo."
-                    return
-                }
-                guard try await service.remoteDirectoryExists(directory) else {
-                    startError = "El directorio '\(directory)' no existe en el servidor. "
-                        + "Usa una ruta válida (por ejemplo ~ o la ruta de tu repo)."
-                    return
-                }
-                let command = ClaudeAgentCommand.build(
-                    claudePath: claudePath,
-                    workingDirectory: directory,
-                    oauthToken: token,
-                    sessionID: UUID().uuidString
-                )
-                AgentWorkingDirStore.setDirectory(directory, for: handle.serverID)
-                store.start(
-                    for: handle,
-                    service: service,
-                    command: command,
-                    workingDirectory: directory
-                )
-            } catch {
-                startError = error.userMessage
-            }
-        }
-    }
-}
-
-// MARK: - Conversación
-
-private struct AgentConversationView: View {
-    let session: ClaudeAgentSession
-    let onClose: () -> Void
-
-    @State private var draft = ""
-
-    private var inputDisabled: Bool {
-        if session.state.pendingPermission != nil { return true }
-        switch session.state.status {
-        case .working, .connecting, .finished, .failed: return true
-        case .idle: return false
-        }
-    }
+    /// Por debajo de esto no se arranca un agente sin confirmación (KB).
+    static let minimumFreeMemoryKB = 900_000
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            transcript
-            if let request = session.state.pendingPermission {
-                Divider()
-                AgentPermissionCard(
-                    request: request,
-                    onAllow: { session.allowPendingPermission() },
-                    onDeny: { session.denyPendingPermission() }
-                )
+            content
+        }
+        .task(id: handle) { await prepare() }
+        .sheet(item: Binding(
+            get: { setupPurpose.map(SetupRequest.init) },
+            set: { setupPurpose = $0?.purpose }
+        )) { request in
+            ClaudeSetupSheet(service: service, serverName: serverName, purpose: request.purpose) { _ in
+                setupPurpose = nil
+                Task { await prepare() }
             }
-            Divider()
-            inputBar
+        }
+        .sheet(isPresented: $showTokenSheet) {
+            AgentTokenSheet {
+                showTokenSheet = false
+                Task { await prepare() }
+            }
         }
     }
+
+    // MARK: - Cabecera
 
     private var header: some View {
-        HStack(spacing: 8) {
-            statusBadge
-            Text(session.workingDirectory)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer()
-            Button(role: .destructive) {
-                onClose()
-            } label: {
-                Label("Detener", systemImage: "stop.circle")
+        HStack(spacing: 10) {
+            Image(systemName: "sparkles").foregroundStyle(.orange)
+            Text("Claude Code").font(.headline)
+            Text("Beta")
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.orange.opacity(0.15), in: Capsule())
+                .foregroundStyle(.orange)
+            if let folder {
+                Label(ProjectRow.shortPath(folder), systemImage: "folder")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .help("El agente trabaja en \(folder)")
             }
-            .buttonStyle(.borderless)
-            .controlSize(.small)
+            Spacer()
+            authChip
+            Menu {
+                Button("Comprobar de nuevo") { Task { await prepare() } }
+                Button("Usar un token de suscripción…") { showTokenSheet = true }
+                if claudePath != nil {
+                    Button("Volver a iniciar sesión en \(serverName)…") { startLogin() }
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-    }
-
-    private var statusBadge: some View {
-        badgeLabel.font(.caption)
+        .padding(.vertical, 8)
     }
 
     @ViewBuilder
-    private var badgeLabel: some View {
-        switch session.state.status {
-        case .connecting:
-            Label("Conectando…", systemImage: "circle.dotted").foregroundStyle(.secondary)
-        case .idle:
-            Label("Listo", systemImage: "circle.fill").foregroundStyle(.green)
-        case .working:
-            Label("Trabajando…", systemImage: "circle.fill").foregroundStyle(.orange)
-        case .finished:
-            Label("Sesión terminada", systemImage: "circle").foregroundStyle(.secondary)
+    private var authChip: some View {
+        if let authStatus, authStatus.loggedIn {
+            Label(authStatus.subscriptionType.map { "Conectado · \($0.capitalized)" } ?? "Conectado",
+                  systemImage: "checkmark.seal.fill")
+                .font(.caption)
+                .foregroundStyle(.green)
+                .help(authStatus.email ?? "Sesión de Claude iniciada en \(serverName)")
+        } else if KeychainStore.hasClaudeOAuthToken() {
+            Label("Token", systemImage: "key.fill").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Contenido
+
+    @ViewBuilder
+    private var content: some View {
+        switch readiness {
+        case .checking:
+            ProgressView("Preparando Claude en \(serverName)…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .noFolder:
+            card(icon: "questionmark.folder", tint: .orange,
+                 title: "No se sabe en qué carpeta trabajar",
+                 text: "Esta sesión no es un proyecto y no se pudo leer su carpeta. Conviértela en proyecto para fijarla.")
+        case .notInstalled:
+            card(icon: "arrow.down.circle", tint: .blue,
+                 title: "Claude Code no está instalado en \(serverName)",
+                 text: "Argos puede instalarlo con el instalador oficial de Anthropic.",
+                 action: ("Instalar Claude Code", { setupPurpose = .install }))
+        case .loggedOut:
+            card(icon: "person.badge.key", tint: .blue,
+                 title: "Conecta tu cuenta de Claude",
+                 text: "\(serverName) todavía no tiene sesión de Claude. Se usa tu suscripción, nunca la API de pago.",
+                 action: ("Conectar Claude", { startLogin() }))
+        case .lowMemory(let message):
+            card(icon: "memorychip", tint: .orange,
+                 title: "Poca memoria libre en \(serverName)",
+                 text: message,
+                 action: ("Iniciar de todos modos", { Task { await newConversation(force: true) } }))
         case .failed(let message):
-            Label(message, systemImage: "exclamationmark.circle.fill")
-                .foregroundStyle(.red)
-                .lineLimit(1)
+            card(icon: "exclamationmark.triangle", tint: .red,
+                 title: "No se pudo preparar el agente",
+                 text: message,
+                 action: ("Reintentar", { Task { await prepare() } }))
+        case .ready:
+            conversations
         }
     }
 
-    private var transcript: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                if session.state.items.isEmpty {
-                    emptyHint
-                } else {
-                    LazyVStack(alignment: .leading, spacing: 10) {
-                        ForEach(session.state.items) { item in
-                            AgentItemRow(item: item).id(item.id)
-                        }
-                    }
-                    .padding(12)
-                }
-            }
-            .onChange(of: session.state.items.count) { _, _ in
-                if let last = session.state.items.last {
-                    withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-                }
-            }
+    @ViewBuilder
+    private var conversations: some View {
+        let tabs = store.tabs(for: handle)
+        AgentTabBar(
+            tabs: tabs,
+            selectedID: store.selectedTab(for: handle)?.id,
+            isAdding: isStartingTab,
+            onSelect: { store.select($0, for: handle) },
+            onClose: { store.closeTab($0, for: handle) },
+            onNew: { Task { await newConversation(force: false) } }
+        )
+        Divider()
+        if let tab = store.selectedTab(for: handle) {
+            AgentConversationView(session: tab.session, title: title)
+                .id(tab.id)
+        } else {
+            card(icon: "bubble.left.and.text.bubble.right", tint: .accentColor,
+                 title: "Sin conversaciones abiertas",
+                 text: "Empieza una conversación con Claude en \(title).",
+                 action: ("Nueva conversación", { Task { await newConversation(force: false) } }))
         }
     }
 
-    private var emptyHint: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.largeTitle)
-                .foregroundStyle(.tint)
-            Text("Escribe tu primer mensaje para empezar.")
-                .foregroundStyle(.secondary)
-            Text(session.workingDirectory)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 60)
-    }
-
-    private var inputBar: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextField("Escribe un mensaje para el agente…", text: $draft, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(1...6)
-                .onSubmit(send)
-                .disabled(inputDisabled)
-            Button {
-                send()
-            } label: {
-                Image(systemName: "arrow.up.circle.fill").font(.title2)
-            }
-            .buttonStyle(.borderless)
-            .disabled(inputDisabled || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        }
-        .padding(10)
-    }
-
-    private func send() {
-        let text = draft
-        draft = ""
-        session.sendUserText(text)
-    }
-}
-
-// MARK: - Filas del transcript
-
-private struct AgentItemRow: View {
-    let item: AgentTranscriptItem
-
-    var body: some View {
-        switch item.kind {
-        case .userText(let text):
-            bubble(text, alignment: .trailing, role: "Tú", color: .blue.opacity(0.15))
-        case .assistantText(let text):
-            bubble(text, alignment: .leading, role: "Claude", color: .gray.opacity(0.12))
-        case .thinking(let text):
-            Label(text, systemImage: "brain")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .italic()
-        case .toolUse(let name, let input):
-            toolRow(name: name, detail: AgentToolSummary.summary(name: name, input: input))
-        case .toolResult(let text, let isError):
+    private func card(
+        icon: String,
+        tint: Color,
+        title: String,
+        text: String,
+        action: (String, () -> Void)? = nil
+    ) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(tint)
+            Text(title).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
             Text(text)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(isError ? .red : .secondary)
-                .lineLimit(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        case .result(let result):
-            resultRow(result)
-        case .error(let text):
-            Label(text, systemImage: "exclamationmark.triangle.fill")
                 .font(.callout)
-                .foregroundStyle(.red)
-        }
-    }
-
-    private func bubble(_ text: String, alignment: HorizontalAlignment, role: String, color: Color) -> some View {
-        VStack(alignment: alignment, spacing: 2) {
-            Text(role).font(.caption2).foregroundStyle(.secondary)
-            Text(.init(text))                       // Markdown básico
-                .textSelection(.enabled)
-                .padding(8)
-                .background(color, in: RoundedRectangle(cornerRadius: 8))
-        }
-        .frame(maxWidth: .infinity, alignment: alignment == .trailing ? .trailing : .leading)
-    }
-
-    private func toolRow(name: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 6) {
-            Image(systemName: "wrench.and.screwdriver.fill")
-                .foregroundStyle(.tint)
-                .font(.caption)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name).font(.caption.bold())
-                if !detail.isEmpty {
-                    Text(detail)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(3)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func resultRow(_ result: AgentResult) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: result.isError ? "xmark.circle" : "checkmark.circle")
-                .foregroundStyle(result.isError ? .red : .green)
-            Text(result.isError ? "Turno con error" : "Turno completado")
-            if let cost = result.totalCostUSD {
-                Text(String(format: "· $%.4f", cost)).foregroundStyle(.secondary)
-            }
-        }
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-    }
-}
-
-// MARK: - Tarjeta de permiso
-
-private struct AgentPermissionCard: View {
-    let request: AgentPermissionRequest
-    let onAllow: () -> Void
-    let onDeny: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Permiso solicitado", systemImage: "lock.shield")
-                .font(.caption.bold())
-                .foregroundStyle(.orange)
-            HStack(spacing: 6) {
-                Text(request.displayName ?? request.toolName).font(.callout.bold())
-                Text(AgentToolSummary.summary(name: request.toolName, input: request.input))
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            HStack {
-                Spacer()
-                Button("Denegar", role: .cancel) { onDeny() }
-                Button("Permitir") { onAllow() }
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+            if let action {
+                Button(action.0, action: action.1)
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(12)
-        .background(.orange.opacity(0.08))
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Flujo
+
+    /// Resuelve carpeta, instalación y sesión; si todo está listo y no hay
+    /// conversaciones, arranca la primera automáticamente.
+    private func prepare() async {
+        readiness = .checking
+        do {
+            if let projectPath {
+                folder = projectPath
+            } else {
+                folder = try await service.sessionFirstPanePaths()[handle.sessionID]
+            }
+            guard folder != nil else { readiness = .noFolder; return }
+
+            claudePath = try await service.locateClaude()
+            guard claudePath != nil else { readiness = .notInstalled; return }
+
+            authStatus = try await service.claudeAuthStatus()
+            guard authStatus?.loggedIn == true || KeychainStore.hasClaudeOAuthToken() else {
+                readiness = .loggedOut
+                return
+            }
+            readiness = .ready
+            if store.tabs(for: handle).isEmpty {
+                await newConversation(force: false)
+            }
+        } catch {
+            readiness = .failed(error.userMessage)
+        }
+    }
+
+    /// Abre una conversación nueva (nueva pestaña) en la carpeta del proyecto.
+    private func newConversation(force: Bool) async {
+        guard let folder, let claudePath, !isStartingTab else { return }
+        isStartingTab = true
+        defer { isStartingTab = false }
+
+        if !force, let free = try? await service.availableMemoryKB(), free < Self.minimumFreeMemoryKB {
+            readiness = .lowMemory(
+                "Quedan \(ResourceFormat.kilobytes(free)) libres y cada conversación de Claude ocupa "
+                + "unos 0,5 GB. Detén proyectos en segundo plano (menú ⋯ del servidor) para liberar memoria."
+            )
+            return
+        }
+        readiness = .ready
+        let command = ClaudeAgentCommand.build(
+            claudePath: claudePath,
+            workingDirectory: folder,
+            oauthToken: KeychainStore.claudeOAuthToken(),
+            sessionID: UUID().uuidString.lowercased()
+        )
+        store.newTab(for: handle, service: service, command: command, workingDirectory: folder)
+    }
+
+    private func startLogin() {
+        guard let claudePath else { return }
+        setupPurpose = .login(command: "\(ShellQuoting.singleQuoted(claudePath)) auth login --claudeai")
+    }
+}
+
+/// Envoltorio `Identifiable` para presentar `ClaudeSetupSheet` con `.sheet(item:)`.
+private struct SetupRequest: Identifiable {
+    let purpose: ClaudeSetupSheet.Purpose
+    var id: String {
+        switch purpose {
+        case .install: return "install"
+        case .login: return "login"
+        }
+    }
+}
+
+// MARK: - Barra de conversaciones
+
+private struct AgentTabBar: View {
+    let tabs: [AgentTab]
+    let selectedID: UUID?
+    let isAdding: Bool
+    let onSelect: (UUID) -> Void
+    let onClose: (UUID) -> Void
+    let onNew: () -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(tabs) { tab in
+                    AgentTabChip(
+                        tab: tab,
+                        isSelected: tab.id == selectedID,
+                        onSelect: { onSelect(tab.id) },
+                        onClose: { onClose(tab.id) }
+                    )
+                }
+                Button(action: onNew) {
+                    if isAdding {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "plus").foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 8)
+                .disabled(isAdding)
+                .help("Nueva conversación (⌘T)")
+                .keyboardShortcut("t", modifiers: .command)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+        }
+        .background(.bar)
+    }
+}
+
+private struct AgentTabChip: View {
+    let tab: AgentTab
+    let isSelected: Bool
+    let onSelect: () -> Void
+    let onClose: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            statusDot
+            Text(tab.title).font(.callout).lineLimit(1)
+            Button(action: onClose) {
+                Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .opacity(isHovering || isSelected ? 1 : 0)
+            .help("Cerrar conversación (detiene su Claude en el servidor)")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(isSelected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08), in: Capsule())
+        .overlay(Capsule().strokeBorder(isSelected ? Color.accentColor.opacity(0.6) : .clear))
+        .contentShape(Capsule())
+        .onTapGesture(perform: onSelect)
+        .onHover { isHovering = $0 }
+    }
+
+    @ViewBuilder
+    private var statusDot: some View {
+        let state = tab.session.state
+        if state.pendingPermission != nil {
+            Image(systemName: "bell.badge.fill").font(.system(size: 9)).foregroundStyle(.orange)
+        } else {
+            switch state.status {
+            case .working, .connecting:
+                ProgressView().controlSize(.mini)
+            case .failed:
+                Image(systemName: "exclamationmark.circle.fill").font(.system(size: 9)).foregroundStyle(.red)
+            case .finished:
+                Image(systemName: "stop.circle").font(.system(size: 9)).foregroundStyle(.secondary)
+            case .idle:
+                Circle().fill(.green).frame(width: 6, height: 6)
+            }
+        }
+    }
+}
+
+// MARK: - Token (avanzado)
+
+private struct AgentTokenSheet: View {
+    let onClose: () -> Void
+    @State private var token = ""
+    @State private var hasToken = KeychainStore.hasClaudeOAuthToken()
+    @State private var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Token de suscripción").font(.title3.weight(.semibold))
+            Text("Alternativa a conectar el servidor: genera un token en tu Mac con `claude setup-token` "
+                 + "y pégalo aquí. Se guarda en el Llavero y usa tu plan, nunca la API de pago.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if hasToken {
+                HStack {
+                    Label("Hay un token guardado", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
+                    Spacer()
+                    Button("Quitar", role: .destructive) {
+                        KeychainStore.deleteClaudeOAuthToken()
+                        hasToken = false
+                    }
+                }
+            } else {
+                SecureField("Token (claude setup-token)", text: $token)
+                    .textFieldStyle(.roundedBorder)
+            }
+            if let error { Text(error).font(.caption).foregroundStyle(.red) }
+            HStack {
+                Spacer()
+                Button("Cerrar", role: .cancel, action: onClose).keyboardShortcut(.cancelAction)
+                if !hasToken {
+                    Button("Guardar") { save() }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
+    }
+
+    private func save() {
+        do {
+            try KeychainStore.setClaudeOAuthToken(token.trimmingCharacters(in: .whitespacesAndNewlines))
+            onClose()
+        } catch {
+            self.error = error.userMessage
+        }
     }
 }

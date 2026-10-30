@@ -98,6 +98,10 @@ final class ClaudeAgentSession {
                 var buffer = NDJSONLineBuffer()
                 for await chunk in outputStream {
                     for line in buffer.append(chunk) {
+                        if let pid = ClaudeAgentCommand.announcedPID(in: line) {
+                            self?.remotePID = pid
+                            continue
+                        }
                         guard let event = AgentProtocol.decode(line: line) else { continue }
                         guard let self else { continue }
                         AgentReducer.apply(event, to: &self.state)
@@ -122,12 +126,21 @@ final class ClaudeAgentSession {
         }
     }
 
-    /// Detiene el agente: finaliza stdin (EOF -> el proceso remoto sale) y cancela.
+    /// PID del `claude` remoto (lo anuncia el comando al arrancar).
+    private(set) var remotePID: Int32?
+
+    /// Detiene el agente: finaliza stdin (EOF -> el proceso remoto sale), cancela y,
+    /// por si el proceso no saliera solo (p. ej. bloqueado en un hook), lo mata por PID.
+    /// Así no quedan `claude` huérfanos consumiendo memoria en el servidor.
     func stop() {
         isStopping = true
         stdinContinuation.finish()
         task?.cancel()
         task = nil
+        if let pid = remotePID {
+            let service = self.service
+            Task.detached { await service.killAgentProcess(pid: pid) }
+        }
     }
 
     private func finish(error: Error?) {

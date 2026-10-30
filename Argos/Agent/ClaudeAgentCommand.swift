@@ -66,7 +66,24 @@ enum ClaudeAgentCommand {
             environment += "CLAUDE_CODE_OAUTH_TOKEN=\(ShellQuoting.singleQuoted(oauthToken)) "
         }
 
-        return "cd \(directory) && \(environment)\(binary) \(flags)"
+        // Antes de nada se anuncia el PID: `exec` conserva el PID de la shell, así que es
+        // el del propio `claude`. Permite matarlo al cerrar la pestaña (sin huérfanos).
+        let announcePID = "echo \"{\\\"type\\\":\\\"\(pidEventType)\\\",\\\"pid\\\":$$}\""
+        return "cd \(directory) && \(announcePID) && exec \(environment)\(binary) \(flags)"
+    }
+
+    /// Tipo de la línea NDJSON con la que el comando anuncia el PID del agente.
+    static let pidEventType = "argos_pid"
+
+    /// PID anunciado por el comando, si `line` es esa línea.
+    static func announcedPID(in line: String) -> Int32? {
+        guard line.contains(pidEventType),
+              let data = line.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              object["type"] as? String == pidEventType,
+              let pid = object["pid"] as? Int, pid > 1, pid <= Int(Int32.max)
+        else { return nil }
+        return Int32(pid)
     }
 
     /// Construye el argumento de `cd` expandiendo `~` correctamente. `~` NO se expande
