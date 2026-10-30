@@ -57,6 +57,7 @@ final class SessionsViewModel {
 
             state = .loading
             let sessions = try await service.listSessions()
+            await reloadProjects()
             state = .loaded(sessions)
         } catch is CancelBootstrap {
             // Parada limpia: `state` ya quedó en `.tmuxMissing` con su instrucción manual.
@@ -152,11 +153,19 @@ final class SessionsViewModel {
 
     private var hasPolledClaude = false
 
+    // MARK: - Proyectos (ver SessionsViewModel+Projects.swift)
+
+    /// Proyectos del servidor (`~/.config/argos/projects.json`).
+    var projects: [Project] = []
+    /// Error al leer/guardar proyectos (no impide listar sesiones).
+    var projectsError: String?
+
     /// Re-lista las sesiones sin repetir el bootstrap.
     func refresh() async {
         state = .loading
         do {
             let sessions = try await service.listSessions()
+            await reloadProjects()
             state = .loaded(sessions)
         } catch {
             state = .failed(error.userMessage)

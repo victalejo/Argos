@@ -105,6 +105,24 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func claudeHooksInstalled() async throws -> Bool { false }
     func installClaudeHooks() async throws {}
 
+    var storedProjects: [Project] = []
+    var panePaths: [String: String] = [:]
+    var missingFolders: Set<String> = []
+    private(set) var startedProjects: [(session: String, path: String, command: String?)] = []
+    private(set) var stoppedSessions: [String] = []
+    func loadProjects() async throws -> [Project] { storedProjects }
+    func saveProjects(_ projects: [Project]) async throws { storedProjects = projects }
+    func sessionFirstPanePaths() async throws -> [String: String] { panePaths }
+    func startProject(sessionName: String, path: String, startupCommand: String?) async throws {
+        if missingFolders.contains(path) { throw ProjectError.missingFolder(path) }
+        startedProjects.append((sessionName, path, startupCommand))
+        sessions.append(TmuxSession(name: sessionName, windowCount: 1, isAttached: false, createdAt: Date()))
+    }
+    func stopSession(named sessionName: String) async throws {
+        stoppedSessions.append(sessionName)
+        sessions.removeAll { $0.name == sessionName }
+    }
+
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String { "" }
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String { "" }
 

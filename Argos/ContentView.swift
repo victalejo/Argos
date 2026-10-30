@@ -3,7 +3,7 @@
 //  Argos
 //
 //  Raíz de la app: NavigationSplitView de 3 columnas —
-//  servidores → sesiones tmux de TODOS los servidores → terminal en vivo.
+//  servidores → proyectos y sesiones de TODOS los servidores → terminal en vivo.
 //
 
 import SwiftUI
@@ -227,11 +227,17 @@ struct ContentView: View {
                 Divider()
                 detailContent(handle: handle, session: session, service: vm.service)
             }
+        } else if let handle = selectedSession,
+                  let vm = vms[handle.serverID],
+                  let project = vm.project(forSession: handle.sessionID) {
+            // Proyecto detenido: al abrirlo aparece su sesión y esta rama cede al terminal.
+            ProjectStoppedView(project: project, vm: vm)
+                .id(project.id)
         } else {
             ContentUnavailableView(
-                "Selecciona una sesión",
-                systemImage: "terminal",
-                description: Text("Elige una sesión para abrir su terminal o un agente de Claude Code.")
+                "Selecciona un proyecto",
+                systemImage: "folder",
+                description: Text("Elige un proyecto o una sesión para abrir su terminal o un agente de Claude Code.")
             )
         }
     }

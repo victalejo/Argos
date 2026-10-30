@@ -62,6 +62,14 @@ protocol SSHServicing: Sendable {
     func claudeHooksInstalled() async throws -> Bool
     func installClaudeHooks() async throws
 
+    // MARK: - Proyectos (carpetas con sesión tmux efímera)
+
+    func loadProjects() async throws -> [Project]
+    func saveProjects(_ projects: [Project]) async throws
+    func sessionFirstPanePaths() async throws -> [String: String]
+    func startProject(sessionName: String, path: String, startupCommand: String?) async throws
+    func stopSession(named sessionName: String) async throws
+
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String
 

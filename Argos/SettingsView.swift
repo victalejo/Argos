@@ -2,7 +2,7 @@
 //  SettingsView.swift
 //  Argos
 //
-//  Ventana de Ajustes (⌘,) con pestañas: apariencia del Terminal y Actualizaciones.
+//  Ventana de Ajustes (⌘,) con pestañas: Terminal, Proyectos y Actualizaciones.
 //
 
 import Sparkle
@@ -15,6 +15,9 @@ struct SettingsView: View {
         TabView {
             TerminalSettingsView()
                 .tabItem { Label("Terminal", systemImage: "terminal") }
+
+            ProjectSettingsView()
+                .tabItem { Label("Proyectos", systemImage: "folder") }
 
             UpdateSettingsView(updater: updater)
                 .tabItem { Label("Actualizaciones", systemImage: "arrow.triangle.2.circlepath") }

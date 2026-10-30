@@ -2,8 +2,8 @@
 //  SessionsColumn.swift
 //  Argos
 //
-//  Columna central: sesiones tmux de TODOS los servidores configurados,
-//  agrupadas por servidor. Cada sección muestra su estado de conexión propio.
+//  Columna central: proyectos (carpetas con sesión tmux efímera) y sesiones sueltas
+//  de TODOS los servidores, agrupados por servidor y grupo.
 //
 
 import AppKit
@@ -18,7 +18,9 @@ struct SessionsColumn: View {
     let activeServerID: Server.ID?
     @Binding var selection: SessionHandle?
 
-    @State private var isShowingCreateSheet = false
+    @State private var projectForm: ProjectFormRequest?
+    @State private var projectConfirmation: ProjectConfirmation?
+    @State private var importServer: Server?
     @State private var renameTarget: SessionAction?
     @State private var killTarget: SessionAction?
     @State private var searchText = ""
@@ -38,6 +40,9 @@ struct SessionsColumn: View {
                             filter: searchText,
                             renameTarget: $renameTarget,
                             killTarget: $killTarget,
+                            projectForm: $projectForm,
+                            projectConfirmation: $projectConfirmation,
+                            importServer: $importServer,
                             onBroadcast: { presentBroadcast(preselecting: [$0]) }
                         )
                     }
@@ -48,15 +53,32 @@ struct SessionsColumn: View {
         }
         .searchable(text: $searchText, placement: .sidebar, prompt: "Buscar sesión")
         .task { await pollClaudeActivity() }
-        .navigationTitle("Sesiones tmux")
+        .navigationTitle("Proyectos")
         .navigationSplitViewColumnWidth(min: 240, ideal: 300)
         .toolbar { toolbarContent }
-        .sheet(isPresented: $isShowingCreateSheet) {
-            if let vm = activeVM {
-                SessionNameSheet(mode: .create) { name in
-                    try await vm.createSession(named: name)
-                }
+        .sheet(item: $projectForm) { request in
+            if let vm = vms[request.server.id] {
+                ProjectFormSheet(request: request, vm: vm)
             }
+        }
+        .sheet(item: $importServer) { server in
+            if let vm = vms[server.id] {
+                ImportProjectsSheet(server: server, vm: vm)
+            }
+        }
+        .confirmationDialog(
+            projectConfirmation?.title ?? "",
+            isPresented: Binding(
+                get: { projectConfirmation != nil },
+                set: { if !$0 { projectConfirmation = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: projectConfirmation
+        ) { confirmation in
+            Button(confirmation.actionLabel, role: .destructive) { perform(confirmation) }
+            Button("Cancelar", role: .cancel) {}
+        } message: { confirmation in
+            Text(confirmation.message)
         }
         .sheet(isPresented: $isShowingBroadcast) {
             SendCommandSheet(
@@ -103,12 +125,14 @@ struct SessionsColumn: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
-            Button { isShowingCreateSheet = true } label: {
-                Label("Nueva sesión", systemImage: "plus")
+            Button {
+                if let server = activeServer { projectForm = .new(server) }
+            } label: {
+                Label("Nuevo proyecto", systemImage: "folder.badge.plus")
             }
             .keyboardShortcut("n", modifiers: .command)
             .help(activeServerID != nil
-                  ? "Crear una nueva sesión en \(activeServer?.name ?? "el servidor seleccionado") (⌘N)"
+                  ? "Crear un proyecto en \(activeServer?.name ?? "el servidor seleccionado") (⌘N)"
                   : "Selecciona un servidor en la barra lateral")
             .disabled(activeVM?.state.isBusy ?? true)
         }
@@ -205,6 +229,67 @@ struct SessionsColumn: View {
             if let vm = vms[server.id], vm.state.isBusy {
                 ProgressView().controlSize(.mini)
             }
+            Spacer()
+            if let vm = vms[server.id], case .loaded = vm.state {
+                serverMenu(server, vm: vm)
+            }
+        }
+    }
+
+    /// Acciones de proyectos del servidor (crear, importar, liberar memoria).
+    private func serverMenu(_ server: Server, vm: SessionsViewModel) -> some View {
+        let background = backgroundProjects(of: server, vm: vm)
+        let looseCount = vm.projectListing.looseSessions.count
+        return Menu {
+            Button("Nuevo proyecto…") { projectForm = .new(server) }
+            Button("Importar sesiones como proyectos…") { importServer = server }
+                .disabled(looseCount == 0)
+            Divider()
+            Button("Detener proyectos en segundo plano (\(background.count))…") {
+                projectConfirmation = .stopBackground(server, background)
+            }
+            .disabled(background.isEmpty)
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Acciones de proyectos en \(server.name)")
+    }
+
+    /// Proyectos que corren sin estar abiertos en ningún terminal (ni de Argos ni de
+    /// otro cliente): siguen consumiendo memoria sin que nadie los mire.
+    private func backgroundProjects(of server: Server, vm: SessionsViewModel) -> [Project] {
+        vm.projectListing.entries.compactMap { entry in
+            guard let session = entry.session else { return nil }
+            let handle = SessionHandle(serverID: server.id, sessionID: session.name)
+            let state = terminalStore.connectionState(for: handle, isAttached: session.isAttached)
+            return state == .dormant ? entry.project : nil
+        }
+    }
+
+    private func perform(_ confirmation: ProjectConfirmation) {
+        guard let vm = vms[confirmation.server.id] else { return }
+        let serverID = confirmation.server.id
+        Task {
+            do {
+                switch confirmation {
+                case .stop(_, let project):
+                    // Cierra antes el terminal para que no quede mostrando una sesión muerta.
+                    terminalStore.close(SessionHandle(serverID: serverID, sessionID: project.sessionName))
+                    try await vm.stopProject(project)
+                case .remove(_, let project):
+                    try await vm.removeProject(project)
+                case .stopBackground(_, let projects):
+                    let failed = await vm.stopSessions(named: projects.map(\.sessionName))
+                    if !failed.isEmpty {
+                        vm.operationError = "No se pudieron detener: \(failed.joined(separator: ", "))"
+                    }
+                }
+            } catch {
+                vm.operationError = error.userMessage
+            }
         }
     }
 
@@ -226,240 +311,6 @@ struct SessionsColumn: View {
 
     private var killDialogBinding: Binding<Bool> {
         Binding(get: { killTarget != nil }, set: { if !$0 { killTarget = nil } })
-    }
-}
-
-// MARK: - Sección de sesiones de un servidor
-
-private struct ServerSessionsSection: View {
-    let server: Server
-    let vm: SessionsViewModel
-    let terminalStore: TerminalSessionStore
-    let filter: String
-    @Binding var renameTarget: SessionAction?
-    @Binding var killTarget: SessionAction?
-    let onBroadcast: (SessionHandle) -> Void
-
-    @State private var collapsedGroups = CollapsedSessionGroups.shared
-
-    var body: some View {
-        switch vm.state {
-        case .idle:
-            // Arranque perezoso: este servidor aún no se ha cargado (no es el seleccionado).
-            // Ofrecemos conectar bajo demanda en vez de mostrar un spinner engañoso.
-            Button {
-                Task { await vm.load() }
-            } label: {
-                Label("Sin cargar — pulsa para conectar", systemImage: "powerplug")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.borderless)
-            .selectionDisabled()
-        case .verifying:
-            loadingRow("Verificando tmux…")
-        case .installing:
-            loadingRow("Instalando tmux…")
-        case .configuring:
-            loadingRow("Configurando tmux…")
-        case .loading:
-            loadingRow("Listando sesiones…")
-
-        case .tmuxMissing:
-            VStack(alignment: .leading, spacing: 6) {
-                Label("tmux no está instalado", systemImage: "shippingbox")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                HStack(spacing: 6) {
-                    Text(Self.installCommand)
-                        .font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Button {
-                        Self.copyToClipboard(Self.installCommand)
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Copiar el comando de instalación")
-                    Spacer()
-                    Button("Reintentar") { Task { await vm.load() } }
-                        .font(.caption)
-                        .buttonStyle(.borderless)
-                }
-            }
-            .padding(.vertical, 2)
-
-        case .hostKeyChanged(let message):
-            VStack(alignment: .leading, spacing: 6) {
-                Label("La identidad del servidor cambió", systemImage: "exclamationmark.shield.fill")
-                    .font(.caption.bold())
-                    .foregroundStyle(.red)
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(4)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
-                    // Resuelve el caso legítimo (reinstalación del servidor): olvida la
-                    // huella ANCLADA y reintenta, re-confiando en la nueva. La acción vive
-                    // aquí (junto al error) en vez de en el menú contextual de otra columna.
-                    Button("Olvidar host key y reintentar") {
-                        TOFUHostKeyValidator.forget(host: server.host, port: server.port)
-                        Task { await vm.load() }
-                    }
-                    .font(.caption)
-                    .buttonStyle(.borderless)
-                    Spacer()
-                }
-            }
-            .padding(.vertical, 2)
-
-        case .failed(let message):
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.circle")
-                    .foregroundStyle(.red)
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                Spacer()
-                Button("Reintentar") { Task { await vm.load() } }
-                    .font(.caption)
-                    .buttonStyle(.borderless)
-            }
-
-        case .loaded(let sessions) where sessions.isEmpty:
-            Label("Sin sesiones activas", systemImage: "moon.zzz")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-        case .loaded(let sessions):
-            let filtered = Self.matching(sessions, filter: filter)
-            if filtered.isEmpty {
-                Label("Sin coincidencias", systemImage: "magnifyingglass")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                // Agrupa por prefijo ("grupo/nombre"). Solo muestra encabezados de grupo
-                // cuando hay grupos reales (si todo cae en "General", no añade ruido).
-                let groups = SessionGrouping.groups(from: filtered)
-                let showGroupHeaders = groups.count > 1
-                    || (groups.first.map { $0.name != SessionGrouping.ungroupedName } ?? false)
-                ForEach(groups) { group in
-                    if showGroupHeaders {
-                        groupHeader(group)
-                    }
-                    // Con búsqueda activa se muestran siempre (si no, una coincidencia
-                    // dentro de un grupo colapsado quedaría oculta).
-                    let isCollapsed = showGroupHeaders && filter.isEmpty
-                        && collapsedGroups.isCollapsed(serverID: server.id, group: group.name)
-                    ForEach(isCollapsed ? [] : group.sessions) { session in
-                        sessionRow(
-                            session,
-                            displayName: showGroupHeaders ? SessionGrouping.shortName(for: session.name) : nil
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    /// Encabezado de un grupo de sesiones: clic para colapsar/expandir. Colapsado
-    /// muestra cuántas sesiones oculta y el aviso de Claude más urgente del grupo.
-    /// No es seleccionable (no es una sesión).
-    @ViewBuilder
-    private func groupHeader(_ group: SessionGroup) -> some View {
-        let isCollapsed = collapsedGroups.isCollapsed(serverID: server.id, group: group.name)
-        let claude = vm.claudeActivity.activity(forSessions: group.sessions.map(\.name))
-        Button {
-            withAnimation(.snappy(duration: 0.2)) {
-                collapsedGroups.toggle(serverID: server.id, group: group.name)
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 8, weight: .bold))
-                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
-                Text(group.name)
-                    .textCase(.uppercase)
-                if isCollapsed {
-                    Text("\(group.sessions.count)")
-                        .monospacedDigit()
-                        .padding(.horizontal, 5)
-                        .background(Color.secondary.opacity(0.15), in: Capsule())
-                    if let claude {
-                        ClaudeActivityBadge(activity: claude, size: 10)
-                    }
-                }
-                Spacer()
-            }
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .padding(.top, 4)
-        .selectionDisabled()
-        .help(isCollapsed ? "Expandir el grupo \(group.name)" : "Colapsar el grupo \(group.name)")
-        .accessibilityLabel("Grupo \(group.name), \(group.sessions.count) sesiones")
-        .accessibilityValue(isCollapsed ? "colapsado" : "expandido")
-    }
-
-    /// Una fila de sesión con su menú contextual. `displayName` muestra el nombre corto
-    /// dentro de un grupo (el id real sigue siendo el nombre completo).
-    @ViewBuilder
-    private func sessionRow(_ session: TmuxSession, displayName: String?) -> some View {
-        let handle = SessionHandle(serverID: server.id, sessionID: session.id)
-        let state = terminalStore.connectionState(for: handle, isAttached: session.isAttached)
-        SessionRow(
-            session: session,
-            state: state,
-            displayName: displayName,
-            claude: vm.claudeActivity.activity(forSession: session.name)
-        )
-            .tag(handle)
-            .contextMenu {
-                if state == .live || state == .connecting || state == .error {
-                    Button("Desconectar (dormir)") {
-                        terminalStore.close(handle)
-                    }
-                    Divider()
-                }
-                Button("Enviar comando…") { onBroadcast(handle) }
-                Button("Renombrar…") {
-                    renameTarget = SessionAction(server: server, session: session)
-                }
-                Button("Matar…", role: .destructive) {
-                    killTarget = SessionAction(server: server, session: session)
-                }
-            }
-    }
-
-    /// Comando manual de instalación de tmux (Debian/Ubuntu; el bootstrap usa apt).
-    private static let installCommand = "sudo apt install -y tmux"
-
-    private static func copyToClipboard(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-    }
-
-    /// Filtra por subcadena (case/diacritic-insensitive). Filtro vacío = todas.
-    private static func matching(_ sessions: [TmuxSession], filter: String) -> [TmuxSession] {
-        let query = filter.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return sessions }
-        return sessions.filter {
-            $0.name.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
-        }
-    }
-
-    @ViewBuilder
-    private func loadingRow(_ label: String) -> some View {
-        HStack(spacing: 8) {
-            ProgressView().controlSize(.small)
-            Text(label).font(.caption).foregroundStyle(.secondary)
-        }
     }
 }
 
@@ -530,10 +381,7 @@ struct SessionRow: View {
                 ClaudeActivityBadge(activity: claude)
             }
 
-            statusIndicator
-                .frame(width: 14, height: 14)
-                .help(state.label)
-                .accessibilityHidden(true)
+            ConnectionIndicator(state: state)
         }
         .padding(.vertical, 3)
         .accessibilityElement(children: .ignore)
@@ -548,37 +396,46 @@ struct SessionRow: View {
         return "\(title), \(state.label), \(windows)\(claudeText)"
     }
 
-    @ViewBuilder
-    private var statusIndicator: some View {
-        // Cada estado usa una FORMA distinta además del color, para que sea distinguible
-        // sin depender del color (daltonismo): viva = punto, error = exclamación,
-        // adjunta-por-otro = persona, conectando = spinner, dormida = luna.
-        switch state {
-        case .connecting:
-            ProgressView().controlSize(.mini)
-        case .dormant:
-            Image(systemName: "moon.fill")
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary.opacity(0.7))
-        case .live:
-            Image(systemName: "circle.fill")
-                .font(.system(size: 8))
-                .foregroundStyle(state.color)
-        case .error:
-            Image(systemName: "exclamationmark.circle.fill")
-                .font(.system(size: 11))
-                .foregroundStyle(state.color)
-        case .attachedElsewhere:
-            Image(systemName: "person.fill")
-                .font(.system(size: 10))
-                .foregroundStyle(state.color)
-        }
-    }
-
     private var subtitle: String {
         let windows = "\(session.windowCount) \(session.windowCount == 1 ? "ventana" : "ventanas")"
         let age = session.createdAt.formatted(.relative(presentation: .named, unitsStyle: .abbreviated))
         return "\(windows) · \(age)"
+    }
+}
+
+/// Indicador del estado de conexión de una sesión. Cada estado usa una FORMA distinta
+/// además del color, para que sea distinguible sin depender del color (daltonismo):
+/// viva = punto, error = exclamación, adjunta-por-otro = persona, conectando = spinner,
+/// dormida = luna.
+struct ConnectionIndicator: View {
+    let state: SessionConnectionState
+
+    var body: some View {
+        Group {
+            switch state {
+            case .connecting:
+                ProgressView().controlSize(.mini)
+            case .dormant:
+                Image(systemName: "moon.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary.opacity(0.7))
+            case .live:
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(state.color)
+            case .error:
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(state.color)
+            case .attachedElsewhere:
+                Image(systemName: "person.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(state.color)
+            }
+        }
+        .frame(width: 14, height: 14)
+        .help(state.label)
+        .accessibilityHidden(true)
     }
 }
 

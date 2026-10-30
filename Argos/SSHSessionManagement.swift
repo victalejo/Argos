@@ -28,15 +28,16 @@ extension SSHService {
     /// Renombra una sesión (`tmux rename-session -t '<viejo>' '<nuevo>'`).
     func renameSession(from oldName: String, to newName: String) async throws {
         try await runManagementCommand(
-            "tmux rename-session -t \(ShellQuoting.singleQuoted(oldName)) "
+            "tmux rename-session -t \(Self.exactSessionTarget(oldName)) "
             + ShellQuoting.singleQuoted(newName)
         )
     }
 
-    /// Mata una sesión (`tmux kill-session -t '<nombre>'`). Operación destructiva.
+    /// Mata una sesión (`tmux kill-session -t '=<nombre>'`). Operación destructiva.
+    /// Target EXACTO: sin '=', tmux podría matar otra sesión por coincidencia de prefijo.
     func killSession(named name: String) async throws {
         try await runManagementCommand(
-            "tmux kill-session -t \(ShellQuoting.singleQuoted(name))"
+            "tmux kill-session -t \(Self.exactSessionTarget(name))"
         )
     }
 
