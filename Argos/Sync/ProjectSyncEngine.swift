@@ -71,7 +71,8 @@ final class ProjectSyncEngine {
 
         // El listado viene del servidor: nada que cuelgue de un enlace (seguirlo podría
         // escribir fuera de la carpeta) y solo enlaces relativos que no salgan de ella.
-        let safe = SyncPath.withoutPathsUnderSymlinks(files).filter { !SyncExclusions.isUnsafeGitEntry($0) }
+        let safe = SyncGitFilter.apply(SyncPath.withoutPathsUnderSymlinks(files))
+            .filter { !SyncExclusions.isUnsafeGitEntry($0) }
         let regular = safe.filter { !$0.isSymlink }
         let links = safe.filter { $0.isSymlink && SyncPath.isSafeSymlink(path: $0.path, target: $0.linkTarget ?? "") }
 

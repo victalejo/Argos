@@ -216,11 +216,33 @@ struct SyncTests {
         #expect(SyncExclusions.isExcluded("sub/.git/hooks/pre-commit"))
         #expect(SyncExclusions.isExcluded(".git/hooks"))
         #expect(!SyncExclusions.isExcluded(".git/objects/ab/cdef"))
-        #expect(SyncExclusions.isUploadExcluded(".git/modules/lib/config"))
-        #expect(SyncExclusions.isUploadExcluded(".git/config.worktree"))
+        #expect(SyncExclusions.isUploadExcluded(".git/config"))
+        #expect(!SyncExclusions.isUploadExcluded(".git/modules/lib/config"))
         #expect(!SyncExclusions.isUploadExcluded("src/config"))
         #expect(SyncExclusions.isUnsafeGitEntry(file(".git")))
         #expect(SyncExclusions.isUnsafeGitEntry(file("sub/.GIT", link: "/elsewhere")))
         #expect(!SyncExclusions.isUnsafeGitEntry(file(".gitignore")))
+    }
+
+    @Test("Lista blanca de git: solo lo necesario del .git raíz; fuera anidados, commondir, enlaces y bare")
+    func gitAllowlist() {
+        let files = [
+            file(".git/HEAD"), file(".git/config"), file(".git/index"), file(".git/packed-refs"),
+            file(".git/objects/ab/cdef"), file(".git/refs/heads/main"), file(".git/logs/HEAD"),
+            file(".git/info/exclude"),
+            file(".git/commondir"), file(".git/gitdir"), file(".git/worktrees/w/gitdir"),
+            file(".git/modules/lib/config"), file(".git/info/attributes"), file(".git/description"),
+            file(".git/objects", link: "../fuera"),
+            file("sub/.git/HEAD"), file("vendor/lib/.git/config"),
+            file("trampa/HEAD"), file("trampa/objects/x"), file("trampa/hooks/pre-commit"),
+            file("trampa/config"), file("trampa/commondir"),
+            file("src/app.ts"), file("docs/HEAD.md"),
+        ]
+        let kept = Set(SyncGitFilter.apply(files).map(\.path))
+        #expect(kept == [
+            ".git/HEAD", ".git/config", ".git/index", ".git/packed-refs",
+            ".git/objects/ab/cdef", ".git/refs/heads/main", ".git/logs/HEAD", ".git/info/exclude",
+            "trampa/HEAD", "trampa/objects/x", "src/app.ts", "docs/HEAD.md",
+        ])
     }
 }

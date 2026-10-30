@@ -52,18 +52,69 @@ enum SyncExclusions {
         return lower[(gitIndex + 1)...].contains("hooks")
     }
 
-    /// Ficheros de configuración de git (en cualquier `.git`): se traen RECONSTRUIDOS con
-    /// una lista blanca (`GitConfigSanitizer`) y NUNCA se suben (no pisan el servidor).
+    /// El config de git del proyecto: se trae RECONSTRUIDO con una lista blanca
+    /// (`GitConfigSanitizer`) y NUNCA se sube (no pisa la config del servidor).
     static func isUploadExcluded(_ relativePath: String) -> Bool {
-        let lower = relativePath.lowercased().split(separator: "/").map(String.init)
-        guard lower.contains(".git"), let last = lower.last else { return false }
-        return last == "config" || last == "config.worktree"
+        relativePath.lowercased() == ".git/config"
     }
 
     /// Un `.git` que no es una carpeta (archivo `gitdir:` o enlace) puede llevar a git a
     /// un repositorio de fuera, con sus hooks: se descarta.
     static func isUnsafeGitEntry(_ file: SyncFile) -> Bool {
         file.path.split(separator: "/").last?.lowercased() == ".git"
+    }
+}
+
+/// Filtro de metadatos de git por LISTA BLANCA (el servidor no es de confianza: git
+/// ejecuta hooks, sigue `commondir`/`gitdir`, usa worktrees y repos bare incrustados…).
+///  - Solo se acepta el `.git` de la raíz y, dentro, solo lo necesario para trabajar:
+///    HEAD, index, packed-refs, ORIG_HEAD, FETCH_HEAD, objects/, refs/, logs/,
+///    info/exclude y config (este último se reconstruye).
+///  - Cualquier `.git` anidado (submódulos, repos dentro del proyecto) se descarta.
+///  - Ningún enlace simbólico cuya ruta pase por un `.git`.
+///  - En carpetas que PARECEN un repo bare (HEAD + objects/ o refs/) se descartan
+///    hooks/, config, commondir y gitdir.
+enum SyncGitFilter {
+    private static let allowedTopLevel: Set<String> = [
+        "head", "index", "packed-refs", "orig_head", "fetch_head", "config",
+    ]
+    private static let allowedTrees: Set<String> = ["objects", "refs", "logs"]
+    private static let bareDangerous: Set<String> = ["hooks", "config", "commondir", "gitdir", "config.worktree"]
+
+    /// `components` en minúsculas, con `components[0] == ".git"`.
+    static func isAllowedGitPath(_ components: [String]) -> Bool {
+        guard components.count >= 2 else { return false }
+        if components.count == 2 { return allowedTopLevel.contains(components[1]) }
+        if allowedTrees.contains(components[1]) { return true }
+        return components.count == 3 && components[1] == "info" && components[2] == "exclude"
+    }
+
+    static func apply(_ files: [SyncFile]) -> [SyncFile] {
+        let lowerPaths = files.map { $0.path.lowercased() }
+        let pathSet = Set(lowerPaths)
+        // Carpetas que parecen un repo bare: tienen HEAD y objects/ o refs/.
+        var bareCandidates: Set<String> = []
+        for path in lowerPaths where path == "head" || path.hasSuffix("/head") {
+            let directory = (path as NSString).deletingLastPathComponent
+            let prefix = directory.isEmpty ? "" : directory + "/"
+            if pathSet.contains(where: { $0.hasPrefix(prefix + "objects/") || $0.hasPrefix(prefix + "refs/") }) {
+                bareCandidates.insert(directory)
+            }
+        }
+        return zip(files, lowerPaths).compactMap { file, lower in
+            let components = lower.split(separator: "/").map(String.init)
+            if let gitIndex = components.firstIndex(of: ".git") {
+                guard gitIndex == 0, !file.isSymlink, isAllowedGitPath(components) else { return nil }
+                return file
+            }
+            for bare in bareCandidates {
+                let prefix = bare.isEmpty ? "" : bare + "/"
+                guard lower.hasPrefix(prefix) else { continue }
+                let rest = lower.dropFirst(prefix.count).split(separator: "/").map(String.init)
+                if let first = rest.first, bareDangerous.contains(first) { return nil }
+            }
+            return file
+        }
     }
 }
 
@@ -258,6 +309,10 @@ enum ServerFileList {
     }
 
     static func parse(_ output: String) -> [SyncFile] {
+        SyncGitFilter.apply(parseRecords(output))
+    }
+
+    private static func parseRecords(_ output: String) -> [SyncFile] {
         output.split(separator: "\0").compactMap { record in
             let fields = record.split(separator: "\t", maxSplits: 5, omittingEmptySubsequences: false)
             guard fields.count == 6,

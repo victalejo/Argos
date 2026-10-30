@@ -37,7 +37,7 @@ enum LocalProjectFiles {
                 files.append(file)
             }
         }
-        return files.sorted { $0.path < $1.path }
+        return SyncGitFilter.apply(files).sorted { $0.path < $1.path }
     }
 
     /// Info de un archivo o enlace (sin seguir el enlace).
