@@ -33,7 +33,9 @@ extension SSHService {
     }
 
     /// Escribe `data` en `remotePath` vía SFTP (crea/trunca). Lanza `uploadFailed`.
-    private func upload(data: Data, toRemotePath remotePath: String) async throws -> String {
+    /// El contenido viaja por el canal SFTP, nunca por la línea de comandos (no queda
+    /// expuesto en `ps` a otros usuarios del servidor).
+    func upload(data: Data, toRemotePath remotePath: String) async throws -> String {
         let client = try await connectedClient()
         do {
             try await client.withSFTP { sftp in
