@@ -48,6 +48,8 @@ struct ProjectFormSheet: View {
 
     private let projectID: UUID
     private let createdAt: Date
+    /// Se conserva al editar (si no, se perdería la marca de "en el Mac").
+    private var macCheckout: MacCheckout?
 
     /// Comando de arranque elegido en el formulario.
     enum CommandMode: Hashable {
@@ -63,6 +65,7 @@ struct ProjectFormSheet: View {
         case .edit(_, let project):
             projectID = project.id
             createdAt = project.createdAt
+            macCheckout = project.macCheckout
             _name = State(initialValue: project.name)
             _group = State(initialValue: project.group ?? "")
             _path = State(initialValue: project.path)
@@ -225,7 +228,8 @@ struct ProjectFormSheet: View {
             group: group,
             path: path,
             startupCommand: startupCommand,
-            createdAt: createdAt
+            createdAt: createdAt,
+            macCheckout: macCheckout
         )
         let adopted: String? = if case .convert(_, let session) = request { session.name } else { nil }
         Task {

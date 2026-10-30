@@ -23,6 +23,7 @@ struct SessionsColumn: View {
     @State private var projectForm: ProjectFormRequest?
     @State private var projectConfirmation: ProjectConfirmation?
     @State private var importServer: Server?
+    @State private var projectSync: ProjectSyncRequest?
     @State private var renameTarget: SessionAction?
     @State private var killTarget: SessionAction?
     @State private var searchText = ""
@@ -45,6 +46,7 @@ struct SessionsColumn: View {
                             projectForm: $projectForm,
                             projectConfirmation: $projectConfirmation,
                             importServer: $importServer,
+                            projectSync: $projectSync,
                             onBroadcast: { presentBroadcast(preselecting: [$0]) }
                         )
                     }
@@ -61,6 +63,20 @@ struct SessionsColumn: View {
         .sheet(item: $projectForm) { request in
             if let vm = vms[request.server.id] {
                 ProjectFormSheet(request: request, vm: vm)
+            }
+        }
+        .sheet(item: $projectSync) { request in
+            if let vm = vms[request.server.id] {
+                ProjectSyncSheet(
+                    request: request,
+                    vm: vm,
+                    closeLiveViews: { project in
+                        let handle = SessionHandle(serverID: request.server.id, sessionID: project.sessionName)
+                        terminalStore.close(handle)
+                        agentStore.closeAll(for: handle)
+                    },
+                    onClose: { projectSync = nil }
+                )
             }
         }
         .sheet(item: $importServer) { server in

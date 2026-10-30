@@ -76,6 +76,14 @@ protocol SSHServicing: Sendable {
     func readRemoteFile(_ path: String, root: String, maxBytes: UInt64) async throws -> RemoteFileContent
     func indexProjectFiles(root: String) async throws -> [String]
 
+    // MARK: - Enviar al Mac / al servidor
+
+    func syncFileList(root: String) async throws -> [SyncFile]
+    func downloadSyncFile(root: String, file: SyncFile, to localURL: URL) async throws
+    func makeRemoteDirectories(root: String, relativeDirectories: [String]) async throws
+    func uploadSyncFile(root: String, file: SyncFile, from localURL: URL) async throws
+    func deleteRemoteSyncFile(root: String, relativePath: String) async throws
+
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String
 

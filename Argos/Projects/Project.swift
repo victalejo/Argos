@@ -24,6 +24,8 @@ struct Project: Identifiable, Codable, Hashable, Sendable {
     /// Comando al abrir: `nil` = el predeterminado de Ajustes; `""` = ninguno.
     var startupCommand: String?
     var createdAt: Date
+    /// Si el proyecto se envió a un Mac para trabajar allí ("Enviar al Mac").
+    var macCheckout: MacCheckout?
 
     init(
         id: UUID = UUID(),
@@ -31,7 +33,8 @@ struct Project: Identifiable, Codable, Hashable, Sendable {
         group: String? = nil,
         path: String,
         startupCommand: String? = nil,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        macCheckout: MacCheckout? = nil
     ) {
         self.id = id
         self.name = name
@@ -39,6 +42,7 @@ struct Project: Identifiable, Codable, Hashable, Sendable {
         self.path = path
         self.startupCommand = startupCommand
         self.createdAt = createdAt
+        self.macCheckout = macCheckout
     }
 
     /// Nombre de la sesión tmux que representa al proyecto mientras corre.
@@ -52,6 +56,16 @@ struct Project: Identifiable, Codable, Hashable, Sendable {
         let command = (startupCommand ?? defaultCommand).trimmingCharacters(in: .whitespacesAndNewlines)
         return command.isEmpty ? nil : command
     }
+}
+
+/// Marca de "este proyecto se está trabajando en un Mac". Vive en projects.json del
+/// servidor, así que la ven todos los Mac con Argos.
+struct MacCheckout: Codable, Hashable, Sendable {
+    /// Nombre del Mac (para mostrar "En el Mac de …").
+    let macName: String
+    /// Identificador estable del Mac que lo tiene (para saber si es ESTE Mac).
+    let macID: String
+    let date: Date
 }
 
 /// Fichero `projects.json` de un servidor (versionado para poder migrarlo).

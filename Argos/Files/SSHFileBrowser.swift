@@ -35,7 +35,7 @@ enum FileBrowserError: LocalizedError, Equatable {
 extension SSHService {
 
     /// SFTP del explorador, reutilizado mientras la conexión SSH siga siendo la misma.
-    private func browserSFTP() async throws -> SFTPClient {
+    func browserSFTPClient() async throws -> SFTPClient {
         let client = try await connectedClient()
         if let sftp = fileSFTP, sftp.isActive, fileSFTPOwner == ObjectIdentifier(client) {
             return sftp
@@ -56,7 +56,7 @@ extension SSHService {
 
     /// Entradas de `path` (ordenadas, sin `.`/`..`). `root` acota la navegación.
     func listRemoteDirectory(_ path: String, root: String) async throws -> [RemoteFileEntry] {
-        let sftp = try await browserSFTP()
+        let sftp = try await browserSFTPClient()
         let real = try await containedRealPath(path, root: root, sftp: sftp)
         let names = try await sftp.listDirectory(atPath: real)
         let entries = names.flatMap(\.components)
@@ -75,7 +75,7 @@ extension SSHService {
 
     /// Lee hasta `maxBytes` de un archivo del proyecto.
     func readRemoteFile(_ path: String, root: String, maxBytes: UInt64) async throws -> RemoteFileContent {
-        let sftp = try await browserSFTP()
+        let sftp = try await browserSFTPClient()
         let real = try await containedRealPath(path, root: root, sftp: sftp)
         let attributes = try await sftp.getAttributes(at: real)
         let size = attributes.size ?? 0

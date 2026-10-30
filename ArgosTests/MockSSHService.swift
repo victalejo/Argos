@@ -131,6 +131,25 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func indexProjectFiles(root: String) async throws -> [String] {
         Array(remoteFiles.keys).map { RemotePath.relative($0, to: root) }.sorted()
     }
+    var syncServerFiles: [SyncFile] = []
+    var syncServerData: [String: Data] = [:]
+    private(set) var uploadedSyncPaths: [String] = []
+    private(set) var deletedSyncPaths: [String] = []
+    func syncFileList(root: String) async throws -> [SyncFile] { syncServerFiles }
+    func downloadSyncFile(root: String, file: SyncFile, to localURL: URL) async throws {
+        try (syncServerData[file.path] ?? Data()).write(to: localURL)
+    }
+    func makeRemoteDirectories(root: String, relativeDirectories: [String]) async throws {}
+    func uploadSyncFile(root: String, file: SyncFile, from localURL: URL) async throws {
+        uploadedSyncPaths.append(file.path)
+        syncServerData[file.path] = try Data(contentsOf: localURL)
+        syncServerFiles.removeAll { $0.path == file.path }
+        syncServerFiles.append(file)
+    }
+    func deleteRemoteSyncFile(root: String, relativePath: String) async throws {
+        deletedSyncPaths.append(relativePath)
+        syncServerFiles.removeAll { $0.path == relativePath }
+    }
     func stopSession(named sessionName: String) async throws {
         stoppedSessions.append(sessionName)
         sessions.removeAll { $0.name == sessionName }

@@ -120,6 +120,15 @@ extension SessionsViewModel {
         return failed
     }
 
+    /// Marca (o desmarca con `nil`) el proyecto como enviado a un Mac.
+    func setMacCheckout(_ checkout: MacCheckout?, for project: Project) async throws {
+        try await mutateProjects { list in
+            if let index = list.firstIndex(where: { $0.id == project.id }) {
+                list[index].macCheckout = checkout
+            }
+        }
+    }
+
     // MARK: - Persistencia
 
     /// Lee-modifica-escribe sobre la versión ACTUAL del servidor (otro Mac pudo

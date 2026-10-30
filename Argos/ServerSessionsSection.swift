@@ -22,6 +22,7 @@ struct ServerSessionsSection: View {
     @Binding var projectForm: ProjectFormRequest?
     @Binding var projectConfirmation: ProjectConfirmation?
     @Binding var importServer: Server?
+    @Binding var projectSync: ProjectSyncRequest?
     let onBroadcast: (SessionHandle) -> Void
 
     @State private var collapsedGroups = CollapsedSessionGroups.shared
@@ -221,6 +222,20 @@ struct ServerSessionsSection: View {
                 Button("Detener…") { projectConfirmation = .stop(server, project) }
             } else {
                 Button("Abrir") { open(project) }
+            }
+            Divider()
+            if let checkout = project.macCheckout {
+                if checkout.macID == MacSyncStore.macID {
+                    Button("Enviar al servidor…") { projectSync = .toServer(server, project) }
+                    if let manifest = MacSyncStore.manifest(for: project.id),
+                       let folder = MacSyncStore.localFolder(of: manifest) {
+                        Button("Mostrar en Finder") { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
+                    }
+                } else {
+                    Text("Está en el Mac «\(checkout.macName)»")
+                }
+            } else {
+                Button("Enviar al Mac…") { projectSync = .toMac(server, project) }
             }
             Divider()
             Button("Editar proyecto…") { projectForm = .edit(server, project) }

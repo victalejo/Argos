@@ -38,6 +38,12 @@ struct ProjectRow: View {
 
             Spacer()
 
+            if let checkout = entry.project.macCheckout {
+                Image(systemName: "laptopcomputer")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.blue)
+                    .help("En el Mac «\(checkout.macName)» desde \(checkout.date.formatted(.relative(presentation: .named)))")
+            }
             if let claude {
                 ClaudeActivityBadge(activity: claude)
             }
@@ -59,6 +65,9 @@ struct ProjectRow: View {
 
     private var subtitle: String {
         let folder = Self.shortPath(entry.project.path)
+        if let checkout = entry.project.macCheckout, entry.session == nil {
+            return "En el Mac «\(checkout.macName)»"
+        }
         guard let session = entry.session else { return "Detenido · \(folder)" }
         let windows = "\(session.windowCount) \(session.windowCount == 1 ? "ventana" : "ventanas")"
         return "\(windows) · \(folder)"

@@ -53,7 +53,8 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
-        com.apple.security.files.user-selected.read-only: true
+        # read-write: «Enviar al Mac» escribe la copia del proyecto en la carpeta elegida.
+        com.apple.security.files.user-selected.read-write: true
         com.apple.security.files.bookmarks.app-scope: true
         com.apple.security.temporary-exception.files.home-relative-path.read-only:
           - /.ssh/
