@@ -80,6 +80,11 @@ struct ClaudeActivitySnapshot: Equatable, Sendable {
         bySession[session]?.values.max { $0.priority < $1.priority }
     }
 
+    /// Estado más urgente entre varias sesiones (p. ej. un grupo colapsado).
+    func activity(forSessions sessions: [String]) -> ClaudeActivity? {
+        sessions.compactMap(activity(forSession:)).max { $0.priority < $1.priority }
+    }
+
     /// Estado por índice de ventana de la sesión.
     func windows(forSession session: String) -> [Int: ClaudeActivity] {
         bySession[session] ?? [:]

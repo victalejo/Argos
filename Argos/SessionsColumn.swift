@@ -240,6 +240,8 @@ private struct ServerSessionsSection: View {
     @Binding var killTarget: SessionAction?
     let onBroadcast: (SessionHandle) -> Void
 
+    @State private var collapsedGroups = CollapsedSessionGroups.shared
+
     var body: some View {
         switch vm.state {
         case .idle:
@@ -347,9 +349,13 @@ private struct ServerSessionsSection: View {
                     || (groups.first.map { $0.name != SessionGrouping.ungroupedName } ?? false)
                 ForEach(groups) { group in
                     if showGroupHeaders {
-                        groupHeader(group.name)
+                        groupHeader(group)
                     }
-                    ForEach(group.sessions) { session in
+                    // Con búsqueda activa se muestran siempre (si no, una coincidencia
+                    // dentro de un grupo colapsado quedaría oculta).
+                    let isCollapsed = showGroupHeaders && filter.isEmpty
+                        && collapsedGroups.isCollapsed(serverID: server.id, group: group.name)
+                    ForEach(isCollapsed ? [] : group.sessions) { session in
                         sessionRow(
                             session,
                             displayName: showGroupHeaders ? SessionGrouping.shortName(for: session.name) : nil
@@ -360,15 +366,45 @@ private struct ServerSessionsSection: View {
         }
     }
 
-    /// Encabezado de un grupo de sesiones. No es seleccionable (no es una sesión).
+    /// Encabezado de un grupo de sesiones: clic para colapsar/expandir. Colapsado
+    /// muestra cuántas sesiones oculta y el aviso de Claude más urgente del grupo.
+    /// No es seleccionable (no es una sesión).
     @ViewBuilder
-    private func groupHeader(_ name: String) -> some View {
-        Text(name)
+    private func groupHeader(_ group: SessionGroup) -> some View {
+        let isCollapsed = collapsedGroups.isCollapsed(serverID: server.id, group: group.name)
+        let claude = vm.claudeActivity.activity(forSessions: group.sessions.map(\.name))
+        Button {
+            withAnimation(.snappy(duration: 0.2)) {
+                collapsedGroups.toggle(serverID: server.id, group: group.name)
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .bold))
+                    .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                Text(group.name)
+                    .textCase(.uppercase)
+                if isCollapsed {
+                    Text("\(group.sessions.count)")
+                        .monospacedDigit()
+                        .padding(.horizontal, 5)
+                        .background(Color.secondary.opacity(0.15), in: Capsule())
+                    if let claude {
+                        ClaudeActivityBadge(activity: claude, size: 10)
+                    }
+                }
+                Spacer()
+            }
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.secondary)
-            .textCase(.uppercase)
-            .padding(.top, 4)
-            .selectionDisabled()
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
+        .selectionDisabled()
+        .help(isCollapsed ? "Expandir el grupo \(group.name)" : "Colapsar el grupo \(group.name)")
+        .accessibilityLabel("Grupo \(group.name), \(group.sessions.count) sesiones")
+        .accessibilityValue(isCollapsed ? "colapsado" : "expandido")
     }
 
     /// Una fila de sesión con su menú contextual. `displayName` muestra el nombre corto
