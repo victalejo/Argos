@@ -105,7 +105,8 @@ struct ProjectLifecycleTests {
 
         #expect(vm.projectListing.looseSessions.isEmpty)
         #expect(Set(mock.storedProjects.map(\.sessionName)) == ["ia portafolio/coro", "roomies"])
-        #expect(vm.projectListing.entries.allSatisfy(\.isRunning))
+        let allRunning = vm.projectListing.entries.allSatisfy { $0.isRunning }
+        #expect(allRunning)
     }
 
     @Test("Renombrar un proyecto en marcha renombra también su sesión tmux")
