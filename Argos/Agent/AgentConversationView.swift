@@ -118,6 +118,9 @@ struct AgentConversationView: View {
                         .lineLimit(1...8)
                         .focused($isInputFocused)
                         .onSubmit(send)
+                        // Con un permiso pendiente, el ⏎ de lo que estabas escribiendo no
+                        // debe llegar a la tarjeta de permiso.
+                        .disabled(session.state.pendingPermission != nil)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 9)
                         .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
@@ -281,6 +284,11 @@ private struct AgentPermissionCard: View {
     let onAllow: () -> Void
     let onDeny: () -> Void
 
+    /// La tarjeta ignora acciones durante un instante tras aparecer, para que un clic o
+    /// tecla que iba a otra cosa no apruebe sin querer.
+    @State private var isArmed = false
+    static let armingDelay: Duration = .milliseconds(600)
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -300,13 +308,24 @@ private struct AgentPermissionCard: View {
             .padding(10)
             .background(.background.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
             HStack {
+                Text("Permitir: clic o ⌘⏎ · Denegar: esc")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Button("Denegar", role: .cancel, action: onDeny)
                     .keyboardShortcut(.cancelAction)
+                    .disabled(!isArmed)
+                // Aprobar NUNCA es la acción por defecto (⏎): requiere clic o ⌘⏎.
                 Button("Permitir", action: onAllow)
                     .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(!isArmed)
             }
+        }
+        .task(id: request.id) {
+            isArmed = false
+            try? await Task.sleep(for: Self.armingDelay)
+            isArmed = true
         }
         .padding(14)
         .background(.orange.opacity(0.10))
