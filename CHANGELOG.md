@@ -6,6 +6,12 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.9] - 2026-10-30
+
+### Seguridad
+- **Monitor de recursos más robusto**: valores anómalos del servidor (infinitos, negativos o
+  enormes) se rechazan con un aviso en vez de cerrar la app.
+
 ## [1.2.8] - 2026-10-30
 
 ### Añadido
