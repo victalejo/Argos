@@ -72,14 +72,14 @@ enum SyncExclusions {
 ///    info/exclude y config (este último se reconstruye).
 ///  - Cualquier `.git` anidado (submódulos, repos dentro del proyecto) se descarta.
 ///  - Ningún enlace simbólico cuya ruta pase por un `.git`.
-///  - En carpetas que PARECEN un repo bare (HEAD + objects/ o refs/) se descartan
-///    hooks/, config, commondir y gitdir.
+///  - Fuera del `.git` raíz: nunca commondir/gitdir/config.worktree; en carpetas con un
+///    HEAD (archivo o enlace) se descartan su config y su hooks/; y no se aceptan enlaces
+///    llamados HEAD/objects/refs/config/commondir/gitdir/hooks.
 enum SyncGitFilter {
     private static let allowedTopLevel: Set<String> = [
         "head", "index", "packed-refs", "orig_head", "fetch_head", "config",
     ]
     private static let allowedTrees: Set<String> = ["objects", "refs", "logs"]
-    private static let bareDangerous: Set<String> = ["hooks", "config", "commondir", "gitdir", "config.worktree"]
 
     /// `components` en minúsculas, con `components[0] == ".git"`.
     static func isAllowedGitPath(_ components: [String]) -> Bool {
@@ -89,29 +89,36 @@ enum SyncGitFilter {
         return components.count == 3 && components[1] == "info" && components[2] == "exclude"
     }
 
+    /// Fuera del `.git` raíz: nunca viajan (git los usa para redirigir a otro repo).
+    private static let neverOutsideRoot: Set<String> = ["commondir", "gitdir", "config.worktree"]
+    /// Fuera del `.git` raíz: no se aceptan como enlaces simbólicos.
+    private static let noSymlinkNames: Set<String> = ["head", "objects", "refs", "config", "commondir", "gitdir", "hooks"]
+
     static func apply(_ files: [SyncFile]) -> [SyncFile] {
         let lowerPaths = files.map { $0.path.lowercased() }
-        let pathSet = Set(lowerPaths)
-        // Carpetas que parecen un repo bare: tienen HEAD y objects/ o refs/.
-        var bareCandidates: Set<String> = []
-        for path in lowerPaths where path == "head" || path.hasSuffix("/head") {
-            let directory = (path as NSString).deletingLastPathComponent
-            let prefix = directory.isEmpty ? "" : directory + "/"
-            if pathSet.contains(where: { $0.hasPrefix(prefix + "objects/") || $0.hasPrefix(prefix + "refs/") }) {
-                bareCandidates.insert(directory)
-            }
-        }
+        // Carpetas con un HEAD (archivo o enlace): git podría tratarlas como repo, así que
+        // su config y sus hooks/ no viajan. No depende de objects/ ni refs/ (esquivables).
+        let gitLikeDirectories = Set(lowerPaths.compactMap { path -> String? in
+            let components = path.split(separator: "/")
+            guard components.last == "head" else { return nil }
+            return components.dropLast().joined(separator: "/")
+        })
+
         return zip(files, lowerPaths).compactMap { file, lower in
             let components = lower.split(separator: "/").map(String.init)
             if let gitIndex = components.firstIndex(of: ".git") {
                 guard gitIndex == 0, !file.isSymlink, isAllowedGitPath(components) else { return nil }
                 return file
             }
-            for bare in bareCandidates {
-                let prefix = bare.isEmpty ? "" : bare + "/"
-                guard lower.hasPrefix(prefix) else { continue }
-                let rest = lower.dropFirst(prefix.count).split(separator: "/").map(String.init)
-                if let first = rest.first, bareDangerous.contains(first) { return nil }
+            guard let name = components.last else { return nil }
+            if neverOutsideRoot.contains(name) { return nil }
+            if file.isSymlink && noSymlinkNames.contains(name) { return nil }
+            for index in components.indices {
+                let directory = components[..<index].joined(separator: "/")
+                guard gitLikeDirectories.contains(directory) else { continue }
+                let rest = components[index...]
+                if rest.first == "hooks" { return nil }
+                if rest.count == 1 && (name == "config") { return nil }
             }
             return file
         }

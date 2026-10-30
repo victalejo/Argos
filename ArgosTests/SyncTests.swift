@@ -245,4 +245,17 @@ struct SyncTests {
             "trampa/HEAD", "trampa/objects/x", "src/app.ts", "docs/HEAD.md",
         ])
     }
+
+    @Test("Repo bare 'disfrazado' (objects/refs como enlaces o vacíos) tampoco cuela config ni hooks")
+    func disguisedBareRepo() {
+        let files = [
+            file("x/HEAD"), file("x/config"), file("x/hooks/post-checkout"),
+            file("x/objects", link: "/tmp/o"), file("x/refs", link: "/tmp/r"),
+            file("y/HEAD", link: "z"), file("y/config"),
+            file("w/commondir"), file("w/sub/gitdir"), file("w/config.worktree"),
+            file("app/config"), file("app/settings.json"),
+        ]
+        let kept = Set(SyncGitFilter.apply(files).map(\.path))
+        #expect(kept == ["x/HEAD", "app/config", "app/settings.json"])
+    }
 }
