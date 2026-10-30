@@ -102,12 +102,13 @@ extension SSHService {
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws {
         let client = try await connectedClient()
+        let size = PTYSize.initial(cols: initialCols, rows: initialRows)
 
         let request = SSHChannelRequestEvent.PseudoTerminalRequest(
             wantReply: true,
             term: "xterm-256color",
-            terminalCharacterWidth: max(initialCols, 1),
-            terminalRowHeight: max(initialRows, 1),
+            terminalCharacterWidth: size.cols,
+            terminalRowHeight: size.rows,
             terminalPixelWidth: 0,
             terminalPixelHeight: 0,
             terminalModes: SSHTerminalModes([.ECHO: 1, .ICRNL: 1])
@@ -149,7 +150,8 @@ extension SSHService {
                             case .input(let bytes):
                                 try await outbound.write(ByteBuffer(bytes: bytes))
                             case .resize(let cols, let rows):
-                                guard cols > 0, rows > 0 else { continue }
+                                // Tamaños transitorios del layout (p. ej. 2x1) tumban zsh.
+                                guard PTYSize.isUsable(cols: cols, rows: rows) else { continue }
                                 try await outbound.changeSize(
                                     cols: cols,
                                     rows: rows,

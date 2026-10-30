@@ -36,6 +36,7 @@
 		5AC659C2D1B237B4D598248B /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C4EBDD425FE60CDB79376AB /* KeychainStore.swift */; };
 		5D0AF204087003414237DB35 /* TmuxWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCBCBC1B764C564DA55FF1C2 /* TmuxWindow.swift */; };
 		5E0EC50EA3197DD0E593E21F /* ClaudeAgentCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E9422E11521B807F4EC6F5 /* ClaudeAgentCommand.swift */; };
+		636B37921002B060393FFB54 /* PTYSize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF54C2CDC2E33A8F1EF113D /* PTYSize.swift */; };
 		64F779B17ED5CC435EE4F915 /* CheckForUpdatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 816413CF1EAD669744469593 /* CheckForUpdatesView.swift */; };
 		6A51AC072F076B67E7B81B7F /* SessionGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0CD355C55856CF39D5DF08F /* SessionGroupingTests.swift */; };
 		6B78960D933DD7F03DBBA69E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB081348202A1C599D6C7B3 /* ContentView.swift */; };
@@ -59,6 +60,7 @@
 		BBC26D2F01DF74B8CDBBCA91 /* TmuxPaneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E758EA6EA1D463B587C25B35 /* TmuxPaneTests.swift */; };
 		BE9CB128AC937244AA0B42D2 /* SSHConfigHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA0DC3F5782D3AF064AF61D7 /* SSHConfigHost.swift */; };
 		C064730BA9BFD0071C3BB89D /* Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ADDB372762CCE736CAC81A9 /* Logging.swift */; };
+		C55B46018E7A511296ECDE50 /* PTYSizeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61C8B6DAF88142F2F16E8025 /* PTYSizeTests.swift */; };
 		C6F4DC5E058C8C09101C6AAA /* SendCommandSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC7E2F69B701B9A38B3AB78B /* SendCommandSheet.swift */; };
 		C7708B036D3C8097551D7076 /* SessionsColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177E5F125A9E48EB8BD0C6C5 /* SessionsColumn.swift */; };
 		C7B6778AD95B861B188040BF /* SessionTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */; };
@@ -94,6 +96,7 @@
 
 /* Begin PBXFileReference section */
 		0E0A20A19F7815044978FC19 /* SSHSessionManagement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHSessionManagement.swift; sourceTree = "<group>"; };
+		0FF54C2CDC2E33A8F1EF113D /* PTYSize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYSize.swift; sourceTree = "<group>"; };
 		177E5F125A9E48EB8BD0C6C5 /* SessionsColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsColumn.swift; sourceTree = "<group>"; };
 		17F57F9814C545E3DE5A2D36 /* SSHConfigParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfigParserTests.swift; sourceTree = "<group>"; };
 		1BBEDFA397323EAD761FBBBD /* AgentPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelView.swift; sourceTree = "<group>"; };
@@ -117,6 +120,7 @@
 		5ADDB372762CCE736CAC81A9 /* Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logging.swift; sourceTree = "<group>"; };
 		5BB419067A72674C2B562CD8 /* SessionsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsViewModelTests.swift; sourceTree = "<group>"; };
 		5E4BF9725F48E501C0A92760 /* QuickSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickSwitcher.swift; sourceTree = "<group>"; };
+		61C8B6DAF88142F2F16E8025 /* PTYSizeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYSizeTests.swift; sourceTree = "<group>"; };
 		61E8132982069432DB6F6D7F /* AgentProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProtocol.swift; sourceTree = "<group>"; };
 		65C5951389633CCA111B2D96 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		69ED5D1C5866D4DD966B58FA /* SessionConnectionStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConnectionStateTests.swift; sourceTree = "<group>"; };
@@ -208,6 +212,7 @@
 				3C4EBDD425FE60CDB79376AB /* KeychainStore.swift */,
 				445EC9A275BAC494A796B3E2 /* LiveTerminalController.swift */,
 				5ADDB372762CCE736CAC81A9 /* Logging.swift */,
+				0FF54C2CDC2E33A8F1EF113D /* PTYSize.swift */,
 				5E4BF9725F48E501C0A92760 /* QuickSwitcher.swift */,
 				FC7E2F69B701B9A38B3AB78B /* SendCommandSheet.swift */,
 				8E28B3E384E55DECA5738BFF /* Server.swift */,
@@ -267,6 +272,7 @@
 				6EB505950A24A675F5D87A4A /* ClaudeAgentCommandTests.swift */,
 				D373BD5CC9EBD53251E1B7C4 /* FuzzyMatcherTests.swift */,
 				DC724DB505B98A68667B540E /* MockSSHService.swift */,
+				61C8B6DAF88142F2F16E8025 /* PTYSizeTests.swift */,
 				9B2384985AC8C85824C96C46 /* SendKeysTests.swift */,
 				96BB45CA5EE03D980C943857 /* ServerStoreTests.swift */,
 				69ED5D1C5866D4DD966B58FA /* SessionConnectionStateTests.swift */,
@@ -412,6 +418,7 @@
 				5AC659C2D1B237B4D598248B /* KeychainStore.swift in Sources */,
 				9133E096190BE4C458431394 /* LiveTerminalController.swift in Sources */,
 				C064730BA9BFD0071C3BB89D /* Logging.swift in Sources */,
+				636B37921002B060393FFB54 /* PTYSize.swift in Sources */,
 				F196152A7EF6F710D99EC8D1 /* QuickSwitcher.swift in Sources */,
 				4624E450642CD852F90C06A4 /* RemoteDirectoryPicker.swift in Sources */,
 				3A2DD723E96000B9C1BE1407 /* RemoteLoginSheet.swift in Sources */,
@@ -454,6 +461,7 @@
 				D9133F6112661892126C7B4B /* ClaudeAgentCommandTests.swift in Sources */,
 				3B5EC598924190FB12A74421 /* FuzzyMatcherTests.swift in Sources */,
 				DE3BDF69942A527B06CEE36F /* MockSSHService.swift in Sources */,
+				C55B46018E7A511296ECDE50 /* PTYSizeTests.swift in Sources */,
 				EB33DC4B64ABC1F4A60DA707 /* SSHConfigParserTests.swift in Sources */,
 				DA7F9B1E53CE8948D9CD1BA9 /* SendKeysTests.swift in Sources */,
 				43E0940423BAAA02E337AD27 /* ServerStoreTests.swift in Sources */,
