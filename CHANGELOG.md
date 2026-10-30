@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.10] - 2026-10-30
+
+### Añadido
+- **Indicador de Claude Code** por sesión (barra lateral) y por ventana (pestañas):
+  esperando tu respuesta, terminó o trabajando, más notificación de macOS con la app en
+  segundo plano. Se activa por servidor: clic derecho → "Activar indicador de Claude
+  Code…" (añade hooks a `~/.claude/settings.json` conservando los existentes, con copia
+  `.argos-backup` y permisos 600).
+
 ## [1.2.9] - 2026-10-30
 
 ### Seguridad
