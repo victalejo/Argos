@@ -6,6 +6,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.11] - 2026-10-30
+
+### Añadido
+- **Grupos de sesiones colapsables**: clic en el encabezado del grupo. Se recuerda por
+  servidor y grupo; colapsado muestra cuántas sesiones tiene y el aviso de Claude más
+  urgente. Con búsqueda activa los grupos se expanden.
+
 ## [1.2.10] - 2026-10-30
 
 ### Añadido
