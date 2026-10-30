@@ -6,6 +6,19 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-30
+
+### Añadido
+- **Pestaña Archivos** en cada proyecto (también detenido) y sesión suelta: árbol de la carpeta
+  del servidor con **iconos por tipo de carpeta** (src, docs, tests, .github, public…) y archivo,
+  visor de **Markdown renderizado** (con modo Fuente), **código resaltado** con números de línea,
+  imágenes, y **⌘P** para buscar archivos por nombre. Solo lectura.
+- Oculta por defecto archivos ocultos y carpetas generadas (`node_modules`, `.git`, `dist`…).
+
+### Seguridad
+- El visor nunca sale de la carpeta del proyecto (los symlinks se resuelven y se comprueban).
+- El Markdown no carga imágenes remotas y solo abre enlaces http/https/mailto tras confirmar.
+
 ## [1.3.0] - 2026-10-30
 
 ### Añadido
