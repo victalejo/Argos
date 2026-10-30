@@ -258,4 +258,18 @@ struct SyncTests {
         let kept = Set(SyncGitFilter.apply(files).map(\.path))
         #expect(kept == ["x/HEAD", "app/config", "app/settings.json"])
     }
+
+    @Test("Nombres Unicode que el Mac trata como HEAD/hooks/.git tampoco cuelan")
+    func unicodeFolding() {
+        // Ancho completo (ＨＥＡＤ / ｈｏｏｋｓ) y mayúsculas mezcladas.
+        let files = [
+            file("x/\u{FF28}\u{FF25}\u{FF21}\u{FF24}"), file("x/config"), file("x/\u{FF48}\u{FF4F}\u{FF4F}\u{FF4B}\u{FF53}/pre-commit"),
+            file(".GiT/hooks/post-checkout"), file("ok.txt"),
+        ]
+        let kept = Set(SyncGitFilter.apply(files).map(\.path))
+        #expect(!kept.contains("x/config"))
+        #expect(!kept.contains(".GiT/hooks/post-checkout"))
+        #expect(kept.contains("ok.txt"))
+        #expect(SyncExclusions.isUploadExcluded(".GIT/Config"))
+    }
 }

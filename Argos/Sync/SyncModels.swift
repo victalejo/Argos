@@ -47,7 +47,7 @@ enum SyncExclusions {
     /// Hooks de git (en cualquier repo, también submódulos `.git/modules/*/hooks`): git los
     /// EJECUTA al usarlo, así que nunca viajan.
     private static func isGitExecutionVector(_ components: [String]) -> Bool {
-        let lower = components.map { $0.lowercased() }
+        let lower = components.map(SyncPath.folded)
         guard let gitIndex = lower.firstIndex(of: ".git") else { return false }
         return lower[(gitIndex + 1)...].contains("hooks")
     }
@@ -55,13 +55,13 @@ enum SyncExclusions {
     /// El config de git del proyecto: se trae RECONSTRUIDO con una lista blanca
     /// (`GitConfigSanitizer`) y NUNCA se sube (no pisa la config del servidor).
     static func isUploadExcluded(_ relativePath: String) -> Bool {
-        relativePath.lowercased() == ".git/config"
+        SyncPath.folded(relativePath) == ".git/config"
     }
 
     /// Un `.git` que no es una carpeta (archivo `gitdir:` o enlace) puede llevar a git a
     /// un repositorio de fuera, con sus hooks: se descarta.
     static func isUnsafeGitEntry(_ file: SyncFile) -> Bool {
-        file.path.split(separator: "/").last?.lowercased() == ".git"
+        file.path.split(separator: "/").last.map { SyncPath.folded(String($0)) } == ".git"
     }
 }
 
@@ -95,7 +95,7 @@ enum SyncGitFilter {
     private static let noSymlinkNames: Set<String> = ["head", "objects", "refs", "config", "commondir", "gitdir", "hooks"]
 
     static func apply(_ files: [SyncFile]) -> [SyncFile] {
-        let lowerPaths = files.map { $0.path.lowercased() }
+        let lowerPaths = files.map { SyncPath.folded($0.path) }
         // Carpetas con un HEAD (archivo o enlace): git podría tratarlas como repo, así que
         // su config y sus hooks/ no viajan. No depende de objects/ ni refs/ (esquivables).
         let gitLikeDirectories = Set(lowerPaths.compactMap { path -> String? in
@@ -271,15 +271,24 @@ enum SyncPath {
 }
 
 extension SyncPath {
+    /// Nombre "plegado" como lo compara el sistema de archivos del Mac (APFS: sin
+    /// distinguir mayúsculas, normalización Unicode y anchura). Para filtros de
+    /// seguridad: plegar de más solo hace que se descarte más, nunca menos.
+    static func folded(_ path: String) -> String {
+        path.precomposedStringWithCanonicalMapping
+            .folding(options: [.caseInsensitive, .widthInsensitive], locale: nil)
+            .precomposedStringWithCanonicalMapping
+    }
+
     /// Quita las entradas que cuelgan de un enlace simbólico del propio listado: escribir
     /// "enlace/archivo" seguiría el enlace y podría escribir FUERA de la carpeta.
     static func withoutPathsUnderSymlinks(_ files: [SyncFile]) -> [SyncFile] {
         // Sin distinguir mayúsculas: el sistema de archivos del Mac no las distingue
         // ("A" y "a" son la misma carpeta).
-        let links = Set(files.filter(\.isSymlink).map { $0.path.lowercased() })
+        let links = Set(files.filter(\.isSymlink).map { folded($0.path) })
         guard !links.isEmpty else { return files }
         return files.filter { file in
-            let path = file.path.lowercased()
+            let path = folded(file.path)
             return !links.contains { path.hasPrefix($0 + "/") }
         }
     }
