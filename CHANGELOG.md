@@ -6,6 +6,25 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-30
+
+### Añadido
+- **Agente de Claude Code integrado con el proyecto**: trabaja en la carpeta del proyecto (sin
+  elegir carpetas) y arranca solo al abrir la pestaña Agente.
+- **Varias conversaciones en pestañas** por proyecto (+ o ⌘T), con el título de su primer mensaje.
+- **Login guiado**: abre la página de autorización en tu navegador, pegas el código en un campo
+  y se verifica solo. Si Claude no está instalado en el servidor, Argos lo instala.
+- Interfaz renovada: respuestas en Markdown, herramientas con icono y resultados plegables,
+  indicador de trabajo y tarjeta de permisos.
+
+### Corregido
+- Los agentes ya no dejan procesos `claude` huérfanos en el servidor: al cerrar una conversación
+  o detener el proyecto se detiene su proceso.
+- El agente no arranca si el servidor tiene poca memoria libre (avisa y permite forzarlo).
+
+### Seguridad
+- Un permiso nunca se aprueba con ⏎ por accidente: requiere clic o ⌘⏎.
+
 ## [1.4.0] - 2026-10-30
 
 ### Añadido
