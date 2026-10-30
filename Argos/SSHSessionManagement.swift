@@ -48,7 +48,7 @@ extension SSHService {
         let client = try await connectedClient()
         let command =
             "tmux list-windows -t \(ShellQuoting.singleQuoted(session)) "
-            + "-F '#{window_index}|#{window_name}|#{window_active}|#{window_panes}'"
+            + "-F \(ShellQuoting.singleQuoted(Self.listWindowsFormat))"
         let result = try await capture(client, command: command)
         guard result.exitCode == 0 else { return [] }
         return result.stdout
@@ -65,10 +65,48 @@ extension SSHService {
         )
     }
 
-    /// Crea una nueva ventana en la sesión (`tmux new-window -t '<sesión>'`).
+    /// Formato de `list-windows` que parsea `TmuxWindow(line:)`. El nombre va al final
+    /// para tolerar '|' dentro de él; `@argos_color` es el color elegido en Argos.
+    static let listWindowsFormat =
+        "#{window_index}|#{window_active}|#{window_panes}|#{@argos_color}|#{window_name}"
+
+    /// `tmux new-window` en el directorio del panel activo (como hace `prefix c` con
+    /// `-c '#{pane_current_path}'`), en vez de abrir siempre en `~`.
+    static func newWindowCommand(session: String) -> String {
+        "tmux new-window -t \(ShellQuoting.singleQuoted(session)) -c '#{pane_current_path}'"
+    }
+
+    /// `tmux rename-window` de la ventana `índice` de la sesión.
+    static func renameWindowCommand(session: String, index: Int, name: String) -> String {
+        "tmux rename-window -t \(ShellQuoting.singleQuoted(session)):\(index) "
+            + ShellQuoting.singleQuoted(name)
+    }
+
+    /// Guarda (o borra, con `nil`) el color de la ventana en la opción de usuario
+    /// `@argos_color`. Vive en el servidor tmux: persiste y lo ven todos los clientes.
+    static func windowColorCommand(session: String, index: Int, color: WindowColor?) -> String {
+        let target = "\(ShellQuoting.singleQuoted(session)):\(index)"
+        guard let color else { return "tmux set-option -wu -t \(target) @argos_color" }
+        return "tmux set-option -w -t \(target) @argos_color \(ShellQuoting.singleQuoted(color.rawValue))"
+    }
+
+    /// Crea una nueva ventana en la sesión, en el directorio del panel activo.
     func newWindow(session: String) async throws {
+        try await runManagementCommand(Self.newWindowCommand(session: session))
+    }
+
+    /// Renombra una ventana (desactiva el auto-renombrado de tmux para ella).
+    func renameWindow(session: String, index: Int, to name: String) async throws {
+        let validName = try WindowNameValidator.validate(name)
         try await runManagementCommand(
-            "tmux new-window -t \(ShellQuoting.singleQuoted(session))"
+            Self.renameWindowCommand(session: session, index: index, name: validName)
+        )
+    }
+
+    /// Cambia (o quita) el color de una ventana.
+    func setWindowColor(session: String, index: Int, color: WindowColor?) async throws {
+        try await runManagementCommand(
+            Self.windowColorCommand(session: session, index: index, color: color)
         )
     }
 

@@ -44,6 +44,8 @@ protocol SSHServicing: Sendable {
     func listWindows(session: String) async throws -> [TmuxWindow]
     func selectWindow(session: String, index: Int) async throws
     func newWindow(session: String) async throws
+    func renameWindow(session: String, index: Int, to name: String) async throws
+    func setWindowColor(session: String, index: Int, color: WindowColor?) async throws
 
     func splitPane(session: String, vertical: Bool) async throws
     func selectPane(session: String, direction: TmuxPaneDirection) async throws

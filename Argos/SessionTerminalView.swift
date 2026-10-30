@@ -63,6 +63,8 @@ struct SessionTerminalView: View {
     @State private var isAutoReconnecting = false
     @State private var reconnectTask: Task<Void, Never>?
     @State private var showKillPaneConfirm = false
+    /// Ventana cuyo nombre se está editando (presenta el sheet de renombrar).
+    @State private var renamingWindow: TmuxWindow?
 
     /// Tope de reintentos automáticos antes de mostrar el banner manual.
     private static let maxAutoReconnects = 5
@@ -73,7 +75,9 @@ struct SessionTerminalView: View {
                 WindowBar(
                     windows: windows,
                     onSelect: { selectWindow($0) },
-                    onNew: { newWindow() }
+                    onNew: { newWindow() },
+                    onRename: { renamingWindow = $0 },
+                    onSetColor: { setColor($1, for: $0) }
                 )
                 Divider()
             }
@@ -82,6 +86,12 @@ struct SessionTerminalView: View {
         .navigationTitle(session.name)
         .navigationSubtitle("tmux attach")
         .toolbar { paneToolbar }
+        .sheet(item: $renamingWindow) { window in
+            SessionNameSheet(mode: .renameWindow(current: window.name)) { newName in
+                try await service.renameWindow(session: session.name, index: window.index, to: newName)
+                await refreshWindows()
+            }
+        }
         .confirmationDialog(
             "¿Cerrar el panel activo?",
             isPresented: $showKillPaneConfirm,
@@ -203,6 +213,17 @@ struct SessionTerminalView: View {
     private func newWindow() {
         Task {
             try? await service.newWindow(session: session.name)
+            await refreshWindows()
+        }
+    }
+
+    private func setColor(_ color: WindowColor?, for window: TmuxWindow) {
+        Task {
+            do {
+                try await service.setWindowColor(session: session.name, index: window.index, color: color)
+            } catch {
+                Log.terminal.error("No se pudo cambiar el color de la ventana: \(error.userMessage, privacy: .public)")
+            }
             await refreshWindows()
         }
     }
@@ -412,71 +433,4 @@ struct SessionTerminalView: View {
         }
     }
 
-}
-
-// MARK: - Barra de ventanas de tmux
-
-struct WindowBar: View {
-    let windows: [TmuxWindow]
-    let onSelect: (TmuxWindow) -> Void
-    let onNew: () -> Void
-
-    /// Etiqueta de VoiceOver de una pestaña de ventana: índice, nombre, si está activa
-    /// y cuántos paneles tiene (el botón se expone con texto, no solo con color/forma).
-    static func accessibilityLabel(for window: TmuxWindow) -> String {
-        var parts = ["Ventana \(window.index): \(window.name)"]
-        if window.isActive { parts.append("activa") }
-        if window.paneCount > 1 { parts.append("\(window.paneCount) paneles") }
-        return parts.joined(separator: ", ")
-    }
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(windows) { window in
-                    Button { onSelect(window) } label: {
-                        HStack(spacing: 5) {
-                            Text("\(window.index)")
-                                .font(.caption.monospaced())
-                                .foregroundStyle(window.isActive ? Color.accentColor : .secondary)
-                            Text(window.name)
-                                .font(.callout)
-                                .lineLimit(1)
-                            if window.paneCount > 1 {
-                                Image(systemName: "rectangle.split.2x1")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(
-                            window.isActive ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08),
-                            in: Capsule()
-                        )
-                        .overlay(
-                            Capsule().strokeBorder(window.isActive ? Color.accentColor.opacity(0.6) : .clear, lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .help("Cambiar a la ventana \(window.index): \(window.name)")
-                    .accessibilityLabel(Self.accessibilityLabel(for: window))
-                }
-
-                Button(action: onNew) {
-                    Image(systemName: "plus")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                }
-                .buttonStyle(.plain)
-                .help("Nueva ventana")
-                .accessibilityLabel("Nueva ventana")
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-        }
-        .background(.bar)
-    }
 }

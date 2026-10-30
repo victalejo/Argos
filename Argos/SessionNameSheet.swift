@@ -2,7 +2,7 @@
 //  SessionNameSheet.swift
 //  Argos
 //
-//  Sheet único para crear o renombrar una sesión tmux. Unifica los antiguos
+//  Sheet único para crear o renombrar una sesión tmux (o renombrar una ventana). Unifica los antiguos
 //  CreateSessionSheet y RenameSessionSheet, que eran ~85% código duplicado.
 //  Valida en vivo (vacío, ':' '.', caracteres de control, prefijo '-') y muestra
 //  los errores del servidor (p. ej. nombre duplicado) en el propio formulario.
@@ -15,32 +15,34 @@ struct SessionNameSheet: View {
     enum Mode: Equatable {
         case create
         case rename(current: String)
+        case renameWindow(current: String)
 
         var title: String {
             switch self {
             case .create: return "Nueva sesión"
             case .rename: return "Renombrar sesión"
+            case .renameWindow: return "Renombrar ventana"
             }
         }
 
         var actionLabel: String {
             switch self {
             case .create: return "Crear"
-            case .rename: return "Renombrar"
+            case .rename, .renameWindow: return "Renombrar"
             }
         }
 
         var fieldLabel: String {
             switch self {
             case .create: return "Nombre de la sesión"
-            case .rename: return "Nuevo nombre"
+            case .rename, .renameWindow: return "Nuevo nombre"
             }
         }
 
         var initialName: String {
             switch self {
             case .create: return ""
-            case .rename(let current): return current
+            case .rename(let current), .renameWindow(let current): return current
             }
         }
 
@@ -50,6 +52,8 @@ struct SessionNameSheet: View {
                 return "Escribe \"grupo/nombre\" para agruparla, p. ej. \"magic-agents/backend\"."
             case .rename:
                 return "Usa \"grupo/nombre\" para moverla de grupo, p. ej. \"magic-agents/backend\"."
+            case .renameWindow:
+                return "tmux dejará de renombrarla automáticamente según el comando en curso."
             }
         }
 
@@ -57,7 +61,22 @@ struct SessionNameSheet: View {
         func isUnchanged(_ trimmedName: String) -> Bool {
             switch self {
             case .create: return false
-            case .rename(let current): return trimmedName == current
+            case .rename(let current), .renameWindow(let current): return trimmedName == current
+            }
+        }
+
+        /// Las ventanas admiten ':' y '.' (se apuntan por índice); las sesiones no.
+        func isValid(_ rawName: String) -> Bool {
+            switch self {
+            case .create, .rename: return SessionNameValidator.isValid(rawName)
+            case .renameWindow: return WindowNameValidator.isValid(rawName)
+            }
+        }
+
+        func liveValidationMessage(for rawName: String) -> String? {
+            switch self {
+            case .create, .rename: return SessionNameValidator.liveValidationMessage(for: rawName)
+            case .renameWindow: return WindowNameValidator.liveValidationMessage(for: rawName)
             }
         }
     }
@@ -121,13 +140,13 @@ struct SessionNameSheet: View {
 
     /// El error del servidor (si lo hay) tiene prioridad sobre la validación en vivo.
     private var inlineMessage: String? {
-        errorMessage ?? SessionNameValidator.liveValidationMessage(for: name)
+        errorMessage ?? mode.liveValidationMessage(for: name)
     }
 
     private var canSubmit: Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return !isSubmitting
-            && SessionNameValidator.isValid(name)
+            && mode.isValid(name)
             && !mode.isUnchanged(trimmed)
     }
 
