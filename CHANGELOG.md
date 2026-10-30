@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-10-30
+
+### Añadido
+- **Nueva ventana en el mismo directorio**: el botón "+" de la barra de ventanas abre la
+  ventana en el directorio del panel activo (como `prefix c`), no en `~`.
+- **Renombrar ventanas**: clic derecho en una pestaña → "Renombrar…".
+- **Color por ventana**: clic derecho → "Color". Se guarda en tmux (`@argos_color`), así
+  que persiste en el servidor y se ve desde cualquier Mac.
+
 ## [1.2.6] - 2026-10-30
 
 ### Corregido
