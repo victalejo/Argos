@@ -130,6 +130,28 @@ final class SessionsViewModel {
         }
     }
 
+    // MARK: - Estado de Claude Code
+
+    /// Estado de Claude Code por sesión/ventana (vía hooks -> `@argos_claude` en tmux).
+    private(set) var claudeActivity = ClaudeActivitySnapshot.empty
+
+    /// Relee el estado de Claude y devuelve las sesiones que acaban de pasar a
+    /// "esperando" o "terminó" (para notificar). El primer sondeo no notifica nada:
+    /// no sabemos si esos estados son nuevos. Fallos de red: se conserva lo último.
+    func refreshClaudeActivity() async -> [ClaudeTransition] {
+        guard case .loaded = state,
+              let fresh = try? await service.claudeActivity()
+        else { return [] }
+        let isFirstPoll = !hasPolledClaude
+        hasPolledClaude = true
+        guard fresh != claudeActivity else { return [] }
+        let transitions = isFirstPoll ? [] : fresh.notableTransitions(since: claudeActivity)
+        claudeActivity = fresh
+        return transitions
+    }
+
+    private var hasPolledClaude = false
+
     /// Re-lista las sesiones sin repetir el bootstrap.
     func refresh() async {
         state = .loading

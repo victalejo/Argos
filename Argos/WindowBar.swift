@@ -11,6 +11,8 @@ import SwiftUI
 
 struct WindowBar: View {
     let windows: [TmuxWindow]
+    /// Estado de Claude Code por índice de ventana.
+    var claudeByWindow: [Int: ClaudeActivity] = [:]
     let onSelect: (TmuxWindow) -> Void
     let onNew: () -> Void
     let onRename: (TmuxWindow) -> Void
@@ -64,6 +66,9 @@ struct WindowBar: View {
                 Text(window.name)
                     .font(.callout)
                     .lineLimit(1)
+                if let claude = claudeByWindow[window.index] {
+                    ClaudeActivityBadge(activity: claude, size: 10)
+                }
                 if window.paneCount > 1 {
                     Image(systemName: "rectangle.split.2x1")
                         .font(.caption2)

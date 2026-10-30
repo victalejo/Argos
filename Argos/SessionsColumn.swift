@@ -47,6 +47,7 @@ struct SessionsColumn: View {
             }
         }
         .searchable(text: $searchText, placement: .sidebar, prompt: "Buscar sesión")
+        .task { await pollClaudeActivity() }
         .navigationTitle("Sesiones tmux")
         .navigationSplitViewColumnWidth(min: 240, ideal: 300)
         .toolbar { toolbarContent }
@@ -207,6 +208,22 @@ struct SessionsColumn: View {
         }
     }
 
+    /// Sondea el estado de Claude Code de todos los servidores cargados (un comando
+    /// por servidor cada pocos segundos) y notifica las transiciones relevantes.
+    private func pollClaudeActivity() async {
+        while !Task.isCancelled {
+            for server in servers {
+                guard let vm = vms[server.id] else { continue }
+                let transitions = await vm.refreshClaudeActivity()
+                if vm.claudeActivity != .empty {
+                    ClaudeActivityNotifier.shared.requestAuthorizationIfNeeded()
+                }
+                ClaudeActivityNotifier.shared.notify(serverName: server.name, transitions: transitions)
+            }
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+        }
+    }
+
     private var killDialogBinding: Binding<Bool> {
         Binding(get: { killTarget != nil }, set: { if !$0 { killTarget = nil } })
     }
@@ -360,7 +377,12 @@ private struct ServerSessionsSection: View {
     private func sessionRow(_ session: TmuxSession, displayName: String?) -> some View {
         let handle = SessionHandle(serverID: server.id, sessionID: session.id)
         let state = terminalStore.connectionState(for: handle, isAttached: session.isAttached)
-        SessionRow(session: session, state: state, displayName: displayName)
+        SessionRow(
+            session: session,
+            state: state,
+            displayName: displayName,
+            claude: vm.claudeActivity.activity(forSession: session.name)
+        )
             .tag(handle)
             .contextMenu {
                 if state == .live || state == .connecting || state == .error {
@@ -443,6 +465,8 @@ struct SessionRow: View {
     let session: TmuxSession
     var state: SessionConnectionState = .dormant
     var displayName: String? = nil
+    /// Estado de Claude Code en la sesión (si tiene los hooks de Argos).
+    var claude: ClaudeActivity? = nil
 
     private var title: String { displayName ?? session.name }
     private var isLoaded: Bool { state == .live || state == .connecting }
@@ -466,6 +490,10 @@ struct SessionRow: View {
 
             Spacer()
 
+            if let claude {
+                ClaudeActivityBadge(activity: claude)
+            }
+
             statusIndicator
                 .frame(width: 14, height: 14)
                 .help(state.label)
@@ -480,7 +508,8 @@ struct SessionRow: View {
     /// frase (la fila se expone como un único elemento, no como piezas sueltas).
     private var accessibilityText: String {
         let windows = "\(session.windowCount) \(session.windowCount == 1 ? "ventana" : "ventanas")"
-        return "\(title), \(state.label), \(windows)"
+        let claudeText = claude.map { ", \($0.label)" } ?? ""
+        return "\(title), \(state.label), \(windows)\(claudeText)"
     }
 
     @ViewBuilder

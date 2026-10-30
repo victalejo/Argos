@@ -57,6 +57,11 @@ protocol SSHServicing: Sendable {
     /// Muestra de CPU, memoria, disco y procesos del servidor (monitor de recursos).
     func resourceSample() async throws -> ServerResourceSample
 
+    /// Estado de Claude Code en los paneles de tmux (indicador por sesión/ventana).
+    func claudeActivity() async throws -> ClaudeActivitySnapshot
+    func claudeHooksInstalled() async throws -> Bool
+    func installClaudeHooks() async throws
+
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String
 

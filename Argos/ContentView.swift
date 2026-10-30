@@ -33,6 +33,10 @@ struct ContentView: View {
 
     @State private var serverFormMode: ServerFormSheet.Mode?
     @State private var serverToDelete: Server?
+    /// Servidor en el que se va a activar el indicador de Claude Code (confirmación).
+    @State private var claudeHooksServer: Server?
+    /// Resultado de activar el indicador (alerta).
+    @State private var claudeHooksResult: String?
 
     /// Pool persistente de terminales en vivo (conexiones que sobreviven al cambio de
     /// selección) y fuente de los estados de cada sesión.
@@ -110,6 +114,35 @@ struct ContentView: View {
         } message: { _ in
             Text("Se borrará su configuración y su passphrase del Keychain. No afecta al servidor remoto.")
         }
+        .confirmationDialog(
+            claudeHooksServer.map { "¿Activar el indicador de Claude Code en '\($0.name)'?" } ?? "",
+            isPresented: Binding(
+                get: { claudeHooksServer != nil },
+                set: { if !$0 { claudeHooksServer = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: claudeHooksServer
+        ) { server in
+            Button("Activar") { installClaudeHooks(on: server) }
+            Button("Cancelar", role: .cancel) {}
+        } message: { _ in
+            Text("Se añadirán hooks a ~/.claude/settings.json del servidor (con copia en "
+                 + "settings.json.argos-backup; tus hooks actuales se conservan). Avisan a Argos "
+                 + "cuando Claude trabaja, termina o espera tu respuesta. Las sesiones de Claude "
+                 + "ya abiertas deben reiniciarse para usarlos.")
+        }
+        .alert(
+            "Indicador de Claude Code",
+            isPresented: Binding(
+                get: { claudeHooksResult != nil },
+                set: { if !$0 { claudeHooksResult = nil } }
+            ),
+            presenting: claudeHooksResult
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { message in
+            Text(message)
+        }
     }
 
     // MARK: - Columna 1: servidores
@@ -121,6 +154,9 @@ struct ContentView: View {
                     .tag(server.id)
                     .contextMenu {
                         Button("Editar…") { serverFormMode = .edit(server) }
+                        Divider()
+                        Button("Activar indicador de Claude Code…") { claudeHooksServer = server }
+                            .disabled(vms[server.id] == nil)
                         Divider()
                         Button("Olvidar host key") {
                             TOFUHostKeyValidator.forget(host: server.host, port: server.port)
@@ -228,11 +264,37 @@ struct ContentView: View {
     ) -> some View {
         switch detailModes[handle] ?? .terminal {
         case .terminal:
-            SessionTerminalView(handle: handle, session: session, service: service, store: terminalStore)
-                .id(handle)
+            SessionTerminalView(
+                handle: handle,
+                session: session,
+                service: service,
+                store: terminalStore,
+                claudeByWindow: vms[handle.serverID]?.claudeActivity.windows(forSession: session.name) ?? [:]
+            )
+            .id(handle)
         case .agent:
             AgentPanelView(handle: handle, service: service, store: agentStore)
                 .id(handle)
+        }
+    }
+
+    // MARK: - Indicador de Claude Code
+
+    private func installClaudeHooks(on server: Server) {
+        guard let vm = vms[server.id] else { return }
+        Task {
+            do {
+                if try await vm.service.claudeHooksInstalled() {
+                    claudeHooksResult = "El indicador ya estaba activo en \(server.name)."
+                    return
+                }
+                try await vm.service.installClaudeHooks()
+                claudeHooksResult = "Indicador activado en \(server.name). Reinicia las sesiones de "
+                    + "Claude Code que ya estuvieran abiertas para que empiecen a reportar su estado."
+            } catch {
+                Log.ssh.error("Instalar hooks de Claude: \(error.userMessage, privacy: .public)")
+                claudeHooksResult = "No se pudo activar el indicador: \(error.userMessage)"
+            }
         }
     }
 

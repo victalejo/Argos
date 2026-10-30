@@ -53,6 +53,8 @@ struct SessionTerminalView: View {
     let service: any SSHServicing
     /// Pool persistente: el controlador sobrevive al cambio de selección.
     let store: TerminalSessionStore
+    /// Estado de Claude Code por índice de ventana (indicador en las pestañas).
+    var claudeByWindow: [Int: ClaudeActivity] = [:]
 
     @State private var settings = TerminalSettings.shared
     @State private var controller: LiveTerminalController?
@@ -74,6 +76,7 @@ struct SessionTerminalView: View {
             if controller?.status == .connected && !windows.isEmpty {
                 WindowBar(
                     windows: windows,
+                    claudeByWindow: claudeByWindow,
                     onSelect: { selectWindow($0) },
                     onNew: { newWindow() },
                     onRename: { renamingWindow = $0 },

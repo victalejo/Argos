@@ -160,4 +160,22 @@ struct SessionsViewModelTests {
         }
         #expect(mock.createdNames.isEmpty)
     }
+
+    @Test("Claude: el primer sondeo no notifica; luego sí las nuevas transiciones")
+    func claudeActivityTransitions() async {
+        let mock = MockSSHService()
+        mock.sessions = [session("api")]
+        let vm = SessionsViewModel(service: mock)
+        await vm.load()
+
+        mock.claudeSnapshot = ClaudeActivitySnapshot(listPanesOutput: "done|1|api")
+        #expect(await vm.refreshClaudeActivity().isEmpty)
+        #expect(vm.claudeActivity.activity(forSession: "api") == .done)
+
+        mock.claudeSnapshot = ClaudeActivitySnapshot(listPanesOutput: "working|1|api")
+        #expect(await vm.refreshClaudeActivity().isEmpty)
+
+        mock.claudeSnapshot = ClaudeActivitySnapshot(listPanesOutput: "waiting|1|api")
+        #expect(await vm.refreshClaudeActivity() == [ClaudeTransition(session: "api", activity: .waiting)])
+    }
 }
