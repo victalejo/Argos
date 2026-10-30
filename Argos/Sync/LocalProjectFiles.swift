@@ -80,6 +80,21 @@ enum LocalProjectFiles {
         return realParent == realRoot || realParent.hasPrefix(realRoot + "/")
     }
 
+    /// ¿El enlace `url`, resuelto del todo, apunta dentro de `root`?
+    static func resolvesInside(_ url: URL, root: URL) -> Bool {
+        let realRoot = root.resolvingSymlinksInPath().standardizedFileURL.path
+        let real = url.resolvingSymlinksInPath().standardizedFileURL.path
+        return real == realRoot || real.hasPrefix(realRoot + "/")
+    }
+
+    /// Sanea un `.git/config` descargado (ver `GitConfigSanitizer`).
+    static func sanitizeGitConfig(at url: URL) throws {
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let (clean, removed) = GitConfigSanitizer.sanitize(text)
+        guard !removed.isEmpty else { return }
+        try clean.write(to: url, atomically: true, encoding: .utf8)
+    }
+
     /// URL local de una ruta relativa, garantizando que queda DENTRO de `root`.
     static func url(for relative: String, in root: URL) -> URL? {
         guard SyncPath.isSafeRelative(relative) else { return nil }

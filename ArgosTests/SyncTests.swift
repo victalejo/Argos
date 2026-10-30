@@ -153,4 +153,46 @@ struct SyncTests {
         #expect(!SyncPath.isSafeSymlink(path: "a/l", target: "../../fuera"))
         #expect(!SyncPath.isSafeSymlink(path: "../l", target: "x"))
     }
+
+    // MARK: - Git
+
+    @Test("Los hooks de git no viajan; .git/config se trae pero nunca se sube")
+    func gitHooksAndConfig() {
+        #expect(SyncExclusions.isExcluded(".git/hooks/pre-commit"))
+        #expect(SyncExclusions.isExcluded(".GIT/HOOKS/post-checkout"))
+        #expect(!SyncExclusions.isExcluded(".git/config"))
+        let config = file(".git/config")
+        let plan = SyncPlanner.plan(manifest: [".git/config": config], local: [file(".git/config", size: 5)], server: [config])
+        #expect(plan.isEmpty)
+    }
+
+    @Test("Enlace en mayúsculas no deja pasar archivos 'a través' (Mac sin distinguir mayúsculas)")
+    func caseInsensitiveSymlinkFilter() {
+        let files = [file("A", link: "x"), file("a/pwned"), file("b")]
+        #expect(SyncPath.withoutPathsUnderSymlinks(files).map(\.path) == ["A", "b"])
+    }
+
+    @Test("El saneador quita las claves que ejecutan comandos y conserva el resto")
+    func sanitizesGitConfig() {
+        let config = """
+        [core]
+        \trepositoryformatversion = 0
+        \tfsmonitor = /tmp/evil.sh
+        \tsshCommand = ssh -o ProxyCommand=evil
+        \thooksPath = /tmp/hooks
+        [remote "origin"]
+        \turl = git@github.com:v/p.git
+        [filter "lfs"]
+        \tsmudge = evil
+        [alias]
+        \tst = status
+        \tpwn = !rm -rf ~
+        """
+        let (clean, removed) = GitConfigSanitizer.sanitize(config)
+        #expect(removed.count == 5)
+        #expect(clean.contains("url = git@github.com:v/p.git"))
+        #expect(clean.contains("repositoryformatversion"))
+        #expect(clean.contains("st = status"))
+        #expect(!clean.contains("evil") && !clean.contains("rm -rf"))
+    }
 }

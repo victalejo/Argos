@@ -88,6 +88,9 @@ final class ProjectSyncEngine {
             guard let url = LocalProjectFiles.url(for: file.path, in: localRoot),
                   LocalProjectFiles.parentIsInside(url, root: localRoot) else { return }
             try await service.downloadSyncFile(root: remoteRoot, file: file, to: url)
+            if SyncExclusions.isUploadExcluded(file.path) {
+                try LocalProjectFiles.sanitizeGitConfig(at: url)
+            }
             try LocalProjectFiles.applyMetadata(of: file, at: url)
         }
         for link in links {
@@ -95,6 +98,12 @@ final class ProjectSyncEngine {
             guard let url = LocalProjectFiles.url(for: link.path, in: localRoot),
                   LocalProjectFiles.parentIsInside(url, root: localRoot) else { continue }
             try LocalProjectFiles.makeSymlink(link, at: url)
+            // Comprobación final sobre el sistema de archivos REAL: si el enlace (p. ej.
+            // encadenado con otro) acaba fuera de la carpeta, se borra.
+            if !LocalProjectFiles.resolvesInside(url, root: localRoot) {
+                try? FileManager.default.removeItem(at: url)
+                continue
+            }
             completed(link)
         }
         // El manifiesto solo recoge lo que realmente se trajo.

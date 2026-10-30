@@ -40,7 +40,56 @@ enum SyncExclusions {
         let components = relativePath.split(separator: "/").map(String.init)
         guard let last = components.last else { return true }
         if files.contains(last) { return true }
+        // Los hooks de git ejecutan código al usar git: nunca viajan.
+        if relativePath.lowercased().hasPrefix(".git/hooks/") { return true }
         return components.dropLast().contains { directories.contains($0) }
+    }
+
+    /// Se traen al Mac pero NUNCA se suben (en el Mac se guardan saneados).
+    static let downloadOnly: Set<String> = [".git/config"]
+
+    static func isUploadExcluded(_ relativePath: String) -> Bool {
+        downloadOnly.contains(relativePath.lowercased())
+    }
+}
+
+/// Quita de un `.git/config` traído del servidor las claves que hacen que git ejecute
+/// comandos en el Mac (fsmonitor, hooksPath, sshCommand, pager/editor, filtros, textconv,
+/// alias con `!`…). El resto (remotos, ramas, usuario) se conserva.
+enum GitConfigSanitizer {
+    private static let dangerousCoreKeys: Set<String> = [
+        "fsmonitor", "hookspath", "sshcommand", "pager", "editor", "askpass", "gitproxy",
+    ]
+
+    static func sanitize(_ text: String) -> (text: String, removed: [String]) {
+        var section = ""
+        var removed: [String] = []
+        var kept: [String] = []
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("[") {
+                section = trimmed.lowercased()
+                kept.append(line)
+                continue
+            }
+            guard let equals = trimmed.firstIndex(of: "=") else { kept.append(line); continue }
+            let key = trimmed[..<equals].trimmingCharacters(in: .whitespaces).lowercased()
+            let value = trimmed[trimmed.index(after: equals)...].trimmingCharacters(in: .whitespaces)
+            let dangerous =
+                (section.hasPrefix("[core") && dangerousCoreKeys.contains(key))
+                || (section.hasPrefix("[filter") && ["clean", "smudge", "process"].contains(key))
+                || (section.hasPrefix("[diff") && ["textconv", "command"].contains(key))
+                || (section.hasPrefix("[merge") && key == "driver")
+                || (section.hasPrefix("[alias") && value.hasPrefix("!"))
+                || ((section.hasPrefix("[credential") || section.hasPrefix("[gpg")) && ["helper", "program"].contains(key))
+                || (section.hasPrefix("[sequence") && key == "editor")
+            if dangerous {
+                removed.append("\(section) \(key)")
+            } else {
+                kept.append(line)
+            }
+        }
+        return (kept.joined(separator: "\n"), removed)
     }
 }
 
@@ -58,10 +107,13 @@ extension SyncPath {
     /// Quita las entradas que cuelgan de un enlace simbólico del propio listado: escribir
     /// "enlace/archivo" seguiría el enlace y podría escribir FUERA de la carpeta.
     static func withoutPathsUnderSymlinks(_ files: [SyncFile]) -> [SyncFile] {
-        let links = Set(files.filter(\.isSymlink).map(\.path))
+        // Sin distinguir mayúsculas: el sistema de archivos del Mac no las distingue
+        // ("A" y "a" son la misma carpeta).
+        let links = Set(files.filter(\.isSymlink).map { $0.path.lowercased() })
         guard !links.isEmpty else { return files }
         return files.filter { file in
-            !links.contains { file.path.hasPrefix($0 + "/") }
+            let path = file.path.lowercased()
+            return !links.contains { path.hasPrefix($0 + "/") }
         }
     }
 
@@ -169,6 +221,7 @@ enum SyncPlanner {
             let base = manifest[path]
             let mac = localByPath[path]
             let srv = serverByPath[path]
+            if SyncExclusions.isUploadExcluded(path) { continue }
             let macChanged = !sameState(mac, base)
             let serverChanged = !sameState(srv, base)
 
