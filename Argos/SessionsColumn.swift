@@ -30,6 +30,8 @@ struct SessionsColumn: View {
     @State private var isShowingBroadcast = false
     @State private var broadcastPreselect: Set<SessionHandle> = []
     @State private var isShowingResources = false
+    @FocusState private var searchFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         List(selection: $selection) {
@@ -55,10 +57,22 @@ struct SessionsColumn: View {
                 }
             }
         }
-        .searchable(text: $searchText, placement: .sidebar, prompt: "Buscar proyecto")
+        .listStyle(.inset)
+        .scrollContentBackground(.hidden)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .safeAreaInset(edge: .top, spacing: 0) { workspaceHeader }
+        .safeAreaInset(edge: .bottom, spacing: 0) { workspaceFooter }
+        .background {
+            Button("Buscar proyectos y sesiones") { searchFocused = true }
+                .keyboardShortcut("f", modifiers: .command)
+                .hidden()
+        }
         .task { await pollClaudeActivity() }
+        .onChange(of: selection) { _, handle in
+            revealSelection(handle)
+        }
         .navigationTitle("Proyectos")
-        .navigationSplitViewColumnWidth(min: 240, ideal: 300)
+        .navigationSplitViewColumnWidth(min: 280, ideal: 330)
         .toolbar { toolbarContent }
         .sheet(item: $projectForm) { request in
             if let vm = vms[request.server.id] {
@@ -138,6 +152,171 @@ struct SessionsColumn: View {
         } message: { message in
             Text(message)
         }
+    }
+
+    private var projectCount: Int {
+        servers.reduce(0) { $0 + (vms[$1.id]?.projectListing.entries.count ?? 0) }
+    }
+
+    /// A selection from ⌘K can be outside the current search or a collapsed group.
+    private func revealSelection(_ handle: SessionHandle?) {
+        guard let handle, let vm = vms[handle.serverID] else { return }
+        let project = vm.project(forSession: handle.sessionID)
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        let values = [handle.sessionID, project?.path ?? ""]
+        if !query.isEmpty && !values.contains(where: {
+            $0.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        }) {
+            searchText = ""
+        }
+        let group = project?.group ?? (project == nil ? "Sesiones sueltas" : SessionGrouping.ungroupedName)
+        let collapsed = CollapsedSessionGroups.shared
+        if collapsed.isCollapsed(serverID: handle.serverID, group: group) {
+            collapsed.toggle(serverID: handle.serverID, group: group)
+        }
+    }
+
+    private var runningCount: Int {
+        servers.reduce(0) { $0 + (vms[$1.id]?.sessions.count ?? 0) }
+    }
+
+    private var workspaceHeader: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("ESPACIO DE TRABAJO")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .tracking(1.5)
+                        .foregroundStyle(.secondary)
+                    Text("Proyectos")
+                        .font(.system(size: 25, weight: .bold, design: .rounded))
+                }
+                Spacer()
+                Button {
+                    if let server = activeServer { projectForm = .new(server) }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.roundedRectangle(radius: 9))
+                .disabled(activeVM?.state.isBusy ?? true)
+                .help("Nuevo proyecto (⌘N)")
+                .accessibilityLabel("Nuevo proyecto")
+            }
+
+            HStack(spacing: 14) {
+                Label("\(projectCount) proyectos", systemImage: "folder")
+                Label("\(runningCount) en marcha", systemImage: "bolt.fill")
+                    .foregroundStyle(.teal)
+            }
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                TextField("Buscar proyectos o sesiones…", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                    .focused($searchFocused)
+                    .onKeyPress(.escape) {
+                        if searchText.isEmpty { searchFocused = false }
+                        else { searchText = "" }
+                        return .handled
+                    }
+                    .onKeyPress(.return) {
+                        if let handle = firstVisibleSearchResult {
+                            selection = handle
+                            searchFocused = false
+                        }
+                        // Enter belongs to search, including when there are no results.
+                        // Do not let a project's default Open button receive this key.
+                        return .handled
+                    }
+                    .accessibilityLabel("Buscar proyectos o sesiones")
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                        searchFocused = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Borrar búsqueda")
+                    .accessibilityLabel("Borrar búsqueda")
+                } else {
+                    Text("⌘F")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(10)
+            .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(searchFocused ? Color.accentColor.opacity(0.65) : Color.primary.opacity(0.07), lineWidth: 1)
+            }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: searchFocused)
+        }
+        .padding(18)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    /// Mirrors the rendered server/group order and skips collapsed groups, so Return
+    /// never selects an item that the list is currently hiding.
+    private var firstVisibleSearchResult: SessionHandle? {
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        let collapsed = CollapsedSessionGroups.shared
+        func matches(_ value: String) -> Bool {
+            query.isEmpty || value.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        }
+        for server in servers {
+            guard let vm = vms[server.id], case .loaded = vm.state else { continue }
+            let listing = vm.projectListing
+            let entries = listing.entries.filter {
+                matches($0.project.sessionName) || matches($0.project.path)
+            }
+            let loose = listing.looseSessions.filter { matches($0.name) }
+            let groups = ProjectListing.groups(entries)
+            let showHeaders = groups.count > 1 || !loose.isEmpty
+                || (groups.first.map { $0.name != SessionGrouping.ungroupedName } ?? false)
+            for group in groups {
+                let isCollapsed = showHeaders && searchText.isEmpty
+                    && collapsed.isCollapsed(serverID: server.id, group: group.name)
+                if !isCollapsed, let entry = group.entries.first {
+                    return SessionHandle(serverID: server.id, sessionID: entry.project.sessionName)
+                }
+            }
+            let looseIsCollapsed = searchText.isEmpty
+                && collapsed.isCollapsed(serverID: server.id, group: "Sesiones sueltas")
+            if !looseIsCollapsed, let session = loose.first {
+                return SessionHandle(serverID: server.id, sessionID: session.id)
+            }
+        }
+        return nil
+    }
+
+    private var workspaceFooter: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "cursorarrow")
+            Text("Selecciona para abrir · Clic derecho para más")
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+            Spacer(minLength: 0)
+        }
+        .font(.system(size: 10))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .overlay(alignment: .top) { Divider() }
     }
 
     @ToolbarContentBuilder
@@ -242,8 +421,14 @@ struct SessionsColumn: View {
 
     @ViewBuilder
     private func serverHeader(_ server: Server) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 7) {
+            Image(systemName: "server.rack")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
             Text(server.name)
+                .font(.system(size: 12, weight: .semibold))
+                .textCase(nil)
+                .foregroundStyle(.primary)
             if let vm = vms[server.id], vm.state.isBusy {
                 ProgressView().controlSize(.mini)
             }
@@ -252,6 +437,7 @@ struct SessionsColumn: View {
                 serverMenu(server, vm: vm)
             }
         }
+        .padding(.vertical, 5)
     }
 
     /// Acciones de proyectos del servidor (crear, importar, liberar memoria).
@@ -381,17 +567,20 @@ struct SessionRow: View {
 
     private var title: String { displayName ?? session.name }
     private var isLoaded: Bool { state == .live || state == .connecting }
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: isLoaded ? "terminal.fill" : "terminal")
-                .font(.body)
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(isLoaded ? Color.accentColor : .secondary)
-                .frame(width: 20)
+                .frame(width: 34, height: 34)
+                .background(isLoaded ? Color.accentColor.opacity(0.1) : Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.headline)
+                    .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
                 Text(subtitle)
                     .font(.caption)
@@ -407,7 +596,12 @@ struct SessionRow: View {
 
             ConnectionIndicator(state: state)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 7)
+        .padding(.horizontal, 2)
+        .contentShape(RoundedRectangle(cornerRadius: 9))
+        .background(isHovered ? Color.primary.opacity(0.035) : .clear, in: RoundedRectangle(cornerRadius: 9))
+        .onHover { isHovered = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
     }

@@ -52,12 +52,13 @@ struct ContentView: View {
 
     @State private var quickSwitcher = QuickSwitcher.shared
     @State private var showSSHConfig = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Último servidor seleccionado (persistido entre arranques de la escena). Se guarda
     /// como `uuidString` porque `@SceneStorage` no admite `UUID` directamente.
     @SceneStorage("selectedServerID") private var persistedServerID = ""
 
-    var body: some View {
+    private var workspace: some View {
         NavigationSplitView {
             serverSidebar
         } content: {
@@ -65,7 +66,8 @@ struct ContentView: View {
         } detail: {
             terminalDetail
         }
-        .frame(minWidth: 980, minHeight: 560)
+        .tint(ArgosTheme.controlAccent)
+        .frame(minWidth: 1040, minHeight: 640)
         .onAppear {
             syncVMs()
             if selectedServerID == nil {
@@ -104,6 +106,10 @@ struct ContentView: View {
                 )
             }
         )
+    }
+
+    var body: some View {
+        workspace
         .confirmationDialog(
             serverToDelete.map { "¿Eliminar el servidor '\($0.name)'?" } ?? "",
             isPresented: deleteDialogBinding,
@@ -149,47 +155,126 @@ struct ContentView: View {
     // MARK: - Columna 1: servidores
 
     private var serverSidebar: some View {
+        VStack(spacing: 0) {
+            sidebarHeader
+            Divider().padding(.horizontal, 16)
+            serverList
+            sidebarActions
+        }
+        .background(ArgosTheme.canvas.opacity(0.6))
+        .navigationTitle("Argos")
+        .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 320)
+    }
+
+    private var sidebarHeader: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 10) {
+                WorkspaceIcon(symbol: "square.stack.3d.up.fill", size: 38)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Argos").font(.system(size: 21, weight: .bold, design: .rounded))
+                    Text("Tu espacio de trabajo remoto")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            HStack {
+                Text("SERVIDORES")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.3)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(store.servers.count)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(.primary.opacity(0.05), in: Capsule())
+            }
+        }
+        .padding(16)
+    }
+
+    private var serverList: some View {
         List(selection: $selectedServerID) {
             ForEach(store.servers) { server in
-                ServerRow(server: server, connectionState: vms[server.id]?.state)
-                    .tag(server.id)
-                    .contextMenu {
-                        Button("Editar…") { serverFormMode = .edit(server) }
-                        Divider()
-                        Button("Activar indicador de Claude Code…") { claudeHooksServer = server }
-                            .disabled(vms[server.id] == nil)
-                        Divider()
-                        Button("Olvidar host key") {
-                            TOFUHostKeyValidator.forget(host: server.host, port: server.port)
-                        }
-                        Divider()
-                        Button("Eliminar…", role: .destructive) { serverToDelete = server }
+                HStack(spacing: 2) {
+                    ServerRow(server: server, connectionState: vms[server.id]?.state)
+                    Menu {
+                        serverActions(for: server)
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 12, weight: .semibold))
+                            .frame(width: 22, height: 28)
                     }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .help("Opciones de \(server.name)")
+                    .accessibilityLabel("Opciones del servidor \(server.name)")
+                }
+                .tag(server.id)
+                .contextMenu { serverActions(for: server) }
             }
 
-            // Botón "Añadir servidor" dentro de la lista para no confundir con el
-            // "+" de la columna de sesiones que va en el toolbar principal.
-            Button {
-                serverFormMode = .add
-            } label: {
-                Label("Añadir servidor", systemImage: "plus.circle")
-                    .foregroundStyle(.secondary)
-                    .font(.subheadline)
-            }
-            .buttonStyle(.borderless)
-            .padding(.top, 4)
-
-            Button {
-                showSSHConfig = true
-            } label: {
-                Label("Importar de ~/.ssh/config…", systemImage: "list.bullet.rectangle")
-                    .foregroundStyle(.secondary)
-                    .font(.subheadline)
-            }
-            .buttonStyle(.borderless)
         }
-        .navigationTitle("Argos")
-        .navigationSplitViewColumnWidth(min: 200, ideal: 240)
+        .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .overlay {
+            if store.servers.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "server.rack").font(.title2).foregroundStyle(.tertiary)
+                    Text("Tus servidores aparecerán aquí")
+                        .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                }
+                .padding(20)
+                .allowsHitTesting(false)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func serverActions(for server: Server) -> some View {
+        Button("Editar servidor…", systemImage: "pencil") { serverFormMode = .edit(server) }
+        Divider()
+        Button("Activar indicador de Claude Code…") { claudeHooksServer = server }
+            .disabled(vms[server.id] == nil)
+        Divider()
+        Button("Olvidar host key") {
+            TOFUHostKeyValidator.forget(host: server.host, port: server.port)
+        }
+        Divider()
+        Button("Eliminar servidor…", role: .destructive) { serverToDelete = server }
+    }
+
+    private var sidebarActions: some View {
+        VStack(spacing: 8) {
+            Button { serverFormMode = .add } label: {
+                Label("Añadir servidor", systemImage: "plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            Button { showSSHConfig = true } label: {
+                Label("Importar configuración SSH", systemImage: "square.and.arrow.down")
+                    .font(.caption)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .help("Importar servidores de ~/.ssh/config")
+            Divider().padding(.vertical, 3)
+            Button { quickSwitcher.present() } label: {
+                HStack {
+                    Label("Cambiar de sesión", systemImage: "magnifyingglass")
+                        .font(.caption)
+                    Spacer(minLength: 2)
+                    KeyboardHint(keys: "⌘ K")
+                }
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Buscar una sesión en todos tus servidores (⌘K)")
+        }
+        .padding(14)
+        .background(.bar)
     }
 
     // MARK: - Columna 2: sesiones (todos los servidores)
@@ -197,14 +282,21 @@ struct ContentView: View {
     @ViewBuilder
     private var sessionsContent: some View {
         if store.servers.isEmpty {
-            ContentUnavailableView {
-                Label("Sin servidores", systemImage: "server.rack")
-            } description: {
-                Text("Añade un servidor para ver sus sesiones tmux.")
-            } actions: {
+            VStack(spacing: 20) {
+                WorkspaceIcon(symbol: "server.rack", size: 64)
+                VStack(spacing: 7) {
+                    Text("Conecta tu primer servidor")
+                        .font(.title3.weight(.semibold))
+                    Text("Reúne tus proyectos y sesiones SSH en un solo lugar.")
+                        .font(.callout).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
                 Button("Añadir servidor") { serverFormMode = .add }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.borderedProminent).controlSize(.large)
             }
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(WorkspaceBackdrop())
         } else {
             SessionsColumn(
                 servers: store.servers,
@@ -235,17 +327,48 @@ struct ContentView: View {
                 )
             }
         } else {
-            ContentUnavailableView(
-                "Selecciona un proyecto",
-                systemImage: "folder",
-                description: Text("Elige un proyecto o una sesión para abrir su terminal o un agente de Claude Code.")
-            )
+            welcomeWorkspace
         }
     }
 
     /// Conmutador Terminal | Archivos | Agente. El terminal tmux es el modo por defecto.
     private func detailModePicker(for handle: SessionHandle) -> some View {
-        Picker("Modo", selection: detailModeBinding(for: handle)) {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 16) {
+                detailIdentity(for: handle)
+                Spacer(minLength: 12)
+                modeControl(for: handle)
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                detailIdentity(for: handle)
+                modeControl(for: handle)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+    }
+
+    private func detailIdentity(for handle: SessionHandle) -> some View {
+        let project = vms[handle.serverID]?.project(forSession: handle.sessionID)
+        let serverName = store.server(withID: handle.serverID)?.name ?? "Servidor"
+        return HStack(spacing: 10) {
+            WorkspaceIcon(symbol: project == nil ? "terminal" : "folder.fill", size: 32)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(project?.name ?? handle.sessionID)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1).truncationMode(.middle)
+                    .help(project?.name ?? handle.sessionID)
+                Label(serverName, systemImage: "server.rack")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func modeControl(for handle: SessionHandle) -> some View {
+        Picker("Modo de trabajo", selection: detailModeBinding(for: handle)) {
             Label("Terminal", systemImage: "terminal").tag(DetailMode.terminal)
             Label("Archivos", systemImage: "folder").tag(DetailMode.files)
             Label("Agente", systemImage: "sparkles").tag(DetailMode.agent)
@@ -253,14 +376,70 @@ struct ContentView: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .fixedSize()
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity)
+        .controlSize(.large)
+        .help("Elige cómo trabajar en este proyecto")
+    }
+
+    private var welcomeWorkspace: some View {
+        ScrollView {
+            VStack(spacing: 28) {
+                WorkspaceIcon(symbol: "square.stack.3d.up.fill", size: 80)
+                VStack(spacing: 10) {
+                    Text("Todo listo para trabajar")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                    Text("Selecciona un proyecto y continúa donde lo dejaste.")
+                        .font(.title3).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                VStack(spacing: 0) {
+                    workspaceFeature("Tu terminal, siempre a mano", detail: "Abre sesiones y cambia entre ventanas.", icon: "terminal")
+                    Divider().padding(.leading, 62)
+                    workspaceFeature("Explora tus archivos", detail: "Consulta código, imágenes y documentos.", icon: "folder")
+                    Divider().padding(.leading, 62)
+                    workspaceFeature("Dale una tarea a tu agente", detail: "Trabaja con Claude Code en cada proyecto.", icon: "sparkles")
+                }
+                .background(ArgosTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+                .overlay { RoundedRectangle(cornerRadius: 18).strokeBorder(ArgosTheme.border) }
+                Button { quickSwitcher.present() } label: {
+                    HStack(spacing: 10) {
+                        Label("Buscar una sesión", systemImage: "magnifyingglass")
+                        KeyboardHint(keys: "⌘ K")
+                    }
+                }
+                .buttonStyle(.bordered).controlSize(.large)
+                .disabled(quickSwitchItems.isEmpty)
+            }
+            .frame(maxWidth: 450)
+            .padding(.horizontal, 36).padding(.vertical, 64)
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(WorkspaceBackdrop())
+    }
+
+    private func workspaceFeature(_ title: String, detail: String, icon: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 19, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.callout.weight(.semibold))
+                Text(detail).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(18)
     }
 
     private func detailModeBinding(for handle: SessionHandle) -> Binding<DetailMode> {
         Binding(
             get: { detailModes[handle] ?? .terminal },
-            set: { detailModes[handle] = $0 }
+            set: { mode in
+                withAnimation(ArgosTheme.motion(reduceMotion: reduceMotion)) {
+                    detailModes[handle] = mode
+                }
+            }
         )
     }
 
@@ -459,17 +638,22 @@ struct ServerRow: View {
     var body: some View {
         HStack(spacing: 10) {
             statusIcon
+                .font(.system(size: 17, weight: .medium))
+                .frame(width: 36, height: 36)
+                .background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(server.name).font(.headline)
-                Text("\(server.username)@\(server.host):\(server.port)")
-                    .font(.caption)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(server.name).font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                Text(accessibilityStateText.capitalized)
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .truncationMode(.middle)
             }
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 7)
+        .help("\(server.username)@\(server.host):\(server.port)")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(server.name), \(server.username) en \(server.host) puerto \(server.port), \(accessibilityStateText)")
     }
@@ -481,8 +665,8 @@ struct ServerRow: View {
         case .hostKeyChanged: return "identidad del servidor cambiada"
         case .tmuxMissing: return "tmux no instalado"
         case .loaded: return "conectado"
+        case .idle, nil: return "sin conectar"
         case .some: return "conectando"
-        case nil: return "sin cargar"
         }
     }
 
@@ -501,13 +685,13 @@ struct ServerRow: View {
         case .loaded:
             Image(systemName: "server.rack")
                 .foregroundStyle(.green)
+        case .idle, nil:
+            Image(systemName: "server.rack")
+                .foregroundStyle(.secondary)
         case .some:
             ProgressView()
                 .controlSize(.small)
                 .frame(width: 16, height: 16)
-        case nil:
-            Image(systemName: "server.rack")
-                .foregroundStyle(.secondary)
         }
     }
 }

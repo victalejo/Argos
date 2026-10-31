@@ -34,6 +34,8 @@ struct ProjectFormSheet: View {
     let vm: SessionsViewModel
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var nameFocused: Bool
     @State private var settings = ProjectSettings.shared
 
     @State private var name = ""
@@ -99,38 +101,79 @@ struct ProjectFormSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(title).font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 0) {
+            ArgosSheetHeader(
+                title: title,
+                subtitle: "Organiza tu trabajo en \(request.server.name).",
+                symbol: "folder.badge.plus"
+            )
+            .padding(24)
+
+            Divider()
 
             Form {
-                TextField("Nombre", text: $name, prompt: Text("coro"))
-                groupField
-                folderField
-                commandField
+                Section {
+                    TextField("Nombre", text: $name, prompt: Text("Nombre de tu proyecto"))
+                        .focused($nameFocused)
+                    groupField
+                } header: {
+                    Label("Identidad", systemImage: "square.stack.3d.up")
+                } footer: {
+                    Text("El grupo es opcional y te ayuda a reunir proyectos relacionados.")
+                        .font(.caption)
+                }
+
+                Section {
+                    folderField
+                } header: {
+                    Label("Carpeta del servidor", systemImage: "folder")
+                } footer: {
+                    Text("Elige una carpeta o escribe una ruta completa que empiece por /.")
+                        .font(.caption)
+                }
+
+                Section {
+                    commandField
+                } header: {
+                    Label("Al iniciar el proyecto", systemImage: "play.circle")
+                }
             }
             .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .frame(minHeight: 280, idealHeight: commandMode == .custom ? 415 : 380,
+                   maxHeight: commandMode == .custom ? 415 : 380)
             .disabled(isSubmitting)
 
-            if let errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.circle")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Divider()
+            VStack(alignment: .leading, spacing: 12) {
+                if let errorMessage {
+                    ArgosFormNotice(message: errorMessage, symbol: "exclamationmark.circle.fill", tint: .red)
+                }
 
-            HStack {
-                if isSubmitting { ProgressView().controlSize(.small) }
-                Spacer()
-                Button("Cancelar", role: .cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                Button(submitLabel, action: submit)
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canSubmit)
+                HStack(spacing: 10) {
+                    if isSubmitting {
+                        ProgressView().controlSize(.small)
+                        Text("Guardando proyecto…").font(.callout).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Cancelar", role: .cancel) { dismiss() }
+                        .keyboardShortcut(.cancelAction)
+                        .disabled(isSubmitting)
+                    Button(submitLabel, action: submit)
+                        .keyboardShortcut(.defaultAction)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!canSubmit)
+                }
+                .controlSize(.large)
             }
+            .padding(.top, 16)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
         }
-        .padding(20)
-        .frame(width: 520)
+        .frame(width: 560)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: commandMode)
+        .onAppear { nameFocused = true }
         .task { await prefillFolderIfNeeded() }
         .sheet(isPresented: $isPickingFolder) {
             RemoteDirectoryPicker(
@@ -155,7 +198,7 @@ struct ProjectFormSheet: View {
 
     private var groupField: some View {
         HStack {
-            TextField("Grupo", text: $group, prompt: Text("opcional, p. ej. ia portafolio"))
+            TextField("Grupo", text: $group, prompt: Text("Opcional · equipo, cliente…"))
             let existing = existingGroups
             if !existing.isEmpty {
                 Menu {
@@ -166,8 +209,10 @@ struct ProjectFormSheet: View {
                     Image(systemName: "chevron.down")
                 }
                 .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
                 .fixedSize()
                 .help("Elegir un grupo existente")
+                .accessibilityLabel("Elegir un grupo existente")
             }
         }
     }
@@ -176,7 +221,8 @@ struct ProjectFormSheet: View {
         HStack {
             TextField("Carpeta", text: $path, prompt: Text("/home/usuario/proyecto"))
                 .font(.body.monospaced())
-            Button("Elegir…") { isPickingFolder = true }
+            Button("Explorar…") { isPickingFolder = true }
+                .help("Explorar las carpetas de \(request.server.name)")
         }
     }
 

@@ -11,6 +11,15 @@ import SwiftUI
 
 @main
 struct ArgosApp: App {
+    @AppStorage("appearance") private var appearance = "system"
+
+    private var colorScheme: ColorScheme? {
+        switch appearance {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
     // Sparkle: controlador del actualizador (OTA). `startingUpdater: true` arranca los
     // chequeos programados en segundo plano (gobernados por SUEnableAutomaticChecks).
     private let updaterController = SPUStandardUpdaterController(
@@ -22,7 +31,10 @@ struct ArgosApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(colorScheme)
+                .tint(ArgosTheme.controlAccent)
         }
+        .defaultSize(width: 1380, height: 860)
         .commands {
             // Quita "Nueva ventana" (⌘N) por defecto: la app es de una sola ventana
             // (cada ventana crearía su propio ServerStore aislado, confuso) y ⌘N se
@@ -91,6 +103,7 @@ struct ArgosApp: App {
 
         Settings {
             SettingsView(updater: updaterController.updater)
+                .preferredColorScheme(colorScheme)
         }
     }
 

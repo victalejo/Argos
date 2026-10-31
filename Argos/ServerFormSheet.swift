@@ -37,6 +37,10 @@ struct ServerFormSheet: View {
     let onSave: (Server, String?) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var focusedField: Field?
+
+    private enum Field: Hashable { case name, host, port, username, key, passphrase, password }
 
     @State private var name: String
     @State private var host: String
@@ -90,66 +94,105 @@ struct ServerFormSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(mode.title).font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 0) {
+            ArgosSheetHeader(
+                title: mode.title,
+                subtitle: "Tu espacio de trabajo empieza con una conexión SSH.",
+                symbol: "server.rack"
+            )
+            .padding(24)
+
+            Divider()
 
             Form {
-                TextField("Nombre", text: $name, prompt: Text("dev"))
-                TextField("Host", text: $host, prompt: Text("192.168.1.10 o ejemplo.com"))
-                TextField("Puerto", text: $port, prompt: Text("22"))
-                TextField("Usuario", text: $username, prompt: Text("usuario"))
-
-                Picker("Autenticación", selection: $authMethod) {
-                    Text("Clave SSH").tag(AuthMethod.key)
-                    Text("Contraseña").tag(AuthMethod.password)
+                Section {
+                    TextField("Nombre", text: $name, prompt: Text("Desarrollo, Producción…"))
+                        .focused($focusedField, equals: .name)
+                    TextField("Host", text: $host, prompt: Text("192.168.1.10 o ejemplo.com"))
+                        .focused($focusedField, equals: .host)
+                    TextField("Puerto", text: $port, prompt: Text("22"))
+                        .focused($focusedField, equals: .port)
+                    TextField("Usuario", text: $username, prompt: Text("usuario SSH"))
+                        .focused($focusedField, equals: .username)
+                } header: {
+                    Label("Conexión", systemImage: "network")
                 }
-                .pickerStyle(.segmented)
 
-                switch authMethod {
-                case .key:
-                    HStack {
-                        TextField("Clave privada", text: $keyPath)
-                        Button("Elegir…") { openKeyFilePicker() }
+                Section {
+                    Picker("Autenticación", selection: $authMethod) {
+                        Text("Clave SSH").tag(AuthMethod.key)
+                        Text("Contraseña").tag(AuthMethod.password)
                     }
-                    if let err = bookmarkError {
-                        Text(err)
-                            .font(.caption)
-                            .foregroundStyle(.red)
+                    .pickerStyle(.segmented)
+
+                    switch authMethod {
+                    case .key:
+                        HStack {
+                            TextField("Clave privada", text: $keyPath)
+                                .focused($focusedField, equals: .key)
+                            Button("Elegir archivo…") { openKeyFilePicker() }
+                                .help("Selecciona tu clave privada SSH para autorizar el acceso al archivo")
+                        }
+                        if let err = bookmarkError {
+                            Label(err, systemImage: "exclamationmark.circle")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                        SecureField("Passphrase (opcional)", text: $passphrase)
+                            .focused($focusedField, equals: .passphrase)
+                    case .password:
+                        SecureField("Contraseña", text: $password)
+                            .focused($focusedField, equals: .password)
                     }
-                    SecureField("Passphrase (opcional)", text: $passphrase)
-                case .password:
-                    SecureField("Contraseña", text: $password)
+                } header: {
+                    Label("Acceso seguro", systemImage: "lock.shield")
+                } footer: {
+                    Text("Tus credenciales se guardan de forma segura en el Llavero de macOS.")
+                        .font(.caption)
                 }
             }
             .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .frame(minHeight: 280, idealHeight: authMethod == .key ? 415 : 365,
+                   maxHeight: authMethod == .key ? 415 : 365)
+            .disabled(testState == .testing)
 
-            testResultView
+            Divider()
+            VStack(alignment: .leading, spacing: 12) {
+                testResultView
 
-            HStack {
-                Button(action: testConnection) {
-                    if testState == .testing {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            Text("Probando…")
+                HStack(spacing: 10) {
+                    Button(action: testConnection) {
+                        if testState == .testing {
+                            HStack(spacing: 6) {
+                                ProgressView().controlSize(.small)
+                                Text("Probando…")
+                            }
+                        } else {
+                            Label("Probar conexión", systemImage: "bolt.horizontal.circle")
                         }
-                    } else {
-                        Text("Probar conexión")
                     }
-                }
-                .disabled(!canSave || testState == .testing)
-                .help("Conecta y autentica con estos datos sin guardar el servidor")
+                    .disabled(!canSave || testState == .testing)
+                    .help("Comprueba el acceso con estos datos antes de guardar")
 
-                Spacer()
-                Button("Cancelar", role: .cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                Button(mode.actionLabel, action: save)
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canSave)
+                    Spacer()
+                    Button("Cancelar", role: .cancel) { dismiss() }
+                        .keyboardShortcut(.cancelAction)
+                    Button(mode.actionLabel, action: save)
+                        .keyboardShortcut(.defaultAction)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!canSave || testState == .testing)
+                }
+                .controlSize(.large)
             }
+            .padding(.top, 12)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
         }
-        .padding(20)
-        .frame(width: 480)
+        .frame(width: 560)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: authMethod)
+        .onAppear { focusedField = .name }
         // Un cambio en los datos de conexión invalida el resultado anterior del test.
         .onChange(of: connectionFingerprint) { _, _ in
             if testState != .testing { testState = .idle }
@@ -163,14 +206,9 @@ struct ServerFormSheet: View {
         case .idle, .testing:
             EmptyView()
         case .success(let message):
-            Label(message, systemImage: "checkmark.circle.fill")
-                .font(.caption)
-                .foregroundStyle(.green)
+            ArgosFormNotice(message: message, symbol: "checkmark.circle.fill", tint: .green)
         case .failure(let message):
-            Label(message, systemImage: "xmark.circle.fill")
-                .font(.caption)
-                .foregroundStyle(.red)
-                .fixedSize(horizontal: false, vertical: true)
+            ArgosFormNotice(message: message, symbol: "exclamationmark.circle.fill", tint: .red)
         }
     }
 
@@ -280,5 +318,47 @@ struct ServerFormSheet: View {
                 testState = .failure(error.userMessage)
             }
         }
+    }
+}
+
+/// Shared visual language for the creation sheets; native controls retain keyboard behavior.
+struct ArgosSheetHeader: View {
+    let title: String
+    let subtitle: String
+    let symbol: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: 23, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 50, height: 50)
+                .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title).font(.title2.weight(.semibold))
+                Text(subtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+struct ArgosFormNotice: View {
+    let message: String
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        Label(message, systemImage: symbol)
+            .font(.callout)
+            .foregroundStyle(tint)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
     }
 }

@@ -99,8 +99,42 @@ struct TerminalSettingsView: View {
     @Bindable private var settings = TerminalSettings.shared
 
     var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    WorkspaceIcon(symbol: "terminal", size: 40)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Un terminal a tu medida").font(.headline)
+                        Text("Los cambios se aplican al instante.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 5) {
+                        ForEach([Color.red, .orange, .green], id: \.self) { color in
+                            Circle().fill(color.opacity(0.8)).frame(width: 7, height: 7)
+                        }
+                        Spacer()
+                        Text("VISTA PREVIA").font(.system(size: 8, weight: .semibold)).tracking(1)
+                    }
+                    .foregroundStyle(Color(nsColor: settings.theme.foreground).opacity(0.6))
+                    Text("~/proyectos ❯ git status")
+                        .foregroundStyle(Color(nsColor: settings.theme.foreground))
+                    Text("✓ Tu espacio de trabajo está listo")
+                        .foregroundStyle(settings.theme == .light ? Color.teal : Color(nsColor: settings.theme.foreground).opacity(0.75))
+                }
+                .font(.system(size: settings.fontSize, design: .monospaced))
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(nsColor: settings.theme.background), in: RoundedRectangle(cornerRadius: 12))
+                .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(ArgosTheme.border) }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Vista previa del terminal con tema \(settings.theme.label) y fuente de \(Int(settings.fontSize)) puntos")
+            }
+            .padding(.horizontal, 22).padding(.top, 20)
         Form {
-            Section("Terminal") {
+            Section("Apariencia") {
                 LabeledContent("Tamaño de fuente") {
                     HStack(spacing: 12) {
                         Slider(
@@ -122,9 +156,20 @@ struct TerminalSettingsView: View {
                     }
                 }
             }
+            Section {
+                HStack {
+                    Text("Zoom del terminal").foregroundStyle(.secondary)
+                    Spacer()
+                    KeyboardHint(keys: "⌘ +")
+                    KeyboardHint(keys: "⌘ −")
+                    KeyboardHint(keys: "⌘ 0")
+                }
+                Button("Restablecer tamaño de fuente") { settings.resetFontSize() }
+                    .disabled(settings.fontSize == TerminalSettings.defaultFontSize)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 420)
         .padding(.vertical, 8)
+        }
     }
 }

@@ -38,6 +38,7 @@ struct AgentPanelView: View {
     @State private var setupPurpose: ClaudeSetupSheet.Purpose?
     @State private var showTokenSheet = false
     @State private var isStartingTab = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Por debajo de esto no se arranca un agente sin confirmación (KB).
     static let minimumFreeMemoryKB = 900_000
@@ -64,26 +65,36 @@ struct AgentPanelView: View {
                 Task { await prepare() }
             }
         }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: readiness)
     }
 
     // MARK: - Cabecera
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "sparkles").foregroundStyle(.orange)
-            Text("Claude Code").font(.headline)
-            Text("Beta")
-                .font(.caption2.weight(.semibold))
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(.orange.opacity(0.15), in: Capsule())
-                .foregroundStyle(.orange)
-            if let folder {
-                Label(ProjectRow.shortPath(folder), systemImage: "folder")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .help("El agente trabaja en \(folder)")
+        HStack(spacing: 11) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(.tint)
+                .frame(width: 36, height: 36)
+                .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 11))
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 7) {
+                    Text("Claude Code").font(.headline)
+                    Text("BETA")
+                        .font(.system(size: 8, weight: .bold, design: .rounded))
+                        .tracking(0.6)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 3)
+                        .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 4))
+                        .foregroundStyle(.tint)
+                }
+                if let folder {
+                    Label(ProjectRow.shortPath(folder), systemImage: "folder")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .help("El agente trabaja en \(folder)")
+                }
             }
             Spacer()
             authChip
@@ -99,9 +110,12 @@ struct AgentPanelView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .accessibilityLabel("Opciones de Claude Code")
+            .help("Opciones y cuenta de Claude Code")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.bar)
     }
 
     @ViewBuilder
@@ -110,7 +124,7 @@ struct AgentPanelView: View {
             Label(authStatus.subscriptionType.map { "Conectado · \($0.capitalized)" } ?? "Conectado",
                   systemImage: "checkmark.seal.fill")
                 .font(.caption)
-                .foregroundStyle(.green)
+                .foregroundStyle(.teal)
                 .help(authStatus.email ?? "Sesión de Claude iniciada en \(serverName)")
         } else if KeychainStore.hasClaudeOAuthToken() {
             Label("Token", systemImage: "key.fill").font(.caption).foregroundStyle(.secondary)
@@ -123,7 +137,15 @@ struct AgentPanelView: View {
     private var content: some View {
         switch readiness {
         case .checking:
-            ProgressView("Preparando Claude en \(serverName)…")
+            VStack(spacing: 16) {
+                ProgressView().controlSize(.small)
+                Text("Preparando tu agente")
+                    .font(.headline)
+                Text("Comprobando Claude Code en \(serverName)…")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+                .padding(28)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .noFolder:
             card(icon: "questionmark.folder", tint: .orange,
@@ -186,8 +208,10 @@ struct AgentPanelView: View {
     ) -> some View {
         VStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 40, weight: .light))
+                .font(.system(size: 30, weight: .medium))
                 .foregroundStyle(tint)
+                .frame(width: 76, height: 76)
+                .background(tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 22))
             Text(title).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
             Text(text)
                 .font(.callout)
@@ -198,7 +222,6 @@ struct AgentPanelView: View {
                 Button(action.0, action: action.1)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(32)
@@ -307,11 +330,12 @@ private struct AgentTabBar: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 8)
                 .disabled(isAdding)
+                .accessibilityLabel("Nueva conversación")
                 .help("Nueva conversación (⌘T)")
                 .keyboardShortcut("t", modifiers: .command)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
         }
         .background(.bar)
     }
@@ -324,26 +348,42 @@ private struct AgentTabChip: View {
     let onClose: () -> Void
 
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 6) {
-            statusDot
-            Text(tab.title).font(.callout).lineLimit(1)
+        HStack(spacing: 7) {
+            Button(action: onSelect) {
+                HStack(spacing: 7) {
+                    statusDot
+                    Text(tab.title)
+                        .font(.callout.weight(isSelected ? .semibold : .regular))
+                        .lineLimit(1)
+                        .frame(maxWidth: 180)
+                }
+                .padding(.vertical, 7)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Conversación: \(tab.title)")
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
             Button(action: onClose) {
-                Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .frame(width: 18, height: 22)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .opacity(isHovering || isSelected ? 1 : 0)
+            .opacity(isHovering || isSelected ? 1 : 0.4)
             .help("Cerrar conversación (detiene su Claude en el servidor)")
+            .accessibilityLabel("Cerrar conversación \(tab.title)")
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(isSelected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08), in: Capsule())
-        .overlay(Capsule().strokeBorder(isSelected ? Color.accentColor.opacity(0.6) : .clear))
-        .contentShape(Capsule())
-        .onTapGesture(perform: onSelect)
+        .background(isSelected ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(isHovering ? 0.10 : 0.05), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(isSelected ? Color.accentColor.opacity(0.3) : Color.primary.opacity(0.05)))
         .onHover { isHovering = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: isHovering)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isSelected)
     }
 
     @ViewBuilder

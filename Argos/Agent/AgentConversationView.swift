@@ -14,6 +14,7 @@ struct AgentConversationView: View {
 
     @State private var draft = ""
     @FocusState private var isInputFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isBusy: Bool {
         if session.state.pendingPermission != nil { return true }
@@ -39,11 +40,12 @@ struct AgentConversationView: View {
                     onAllow: { session.allowPendingPermission() },
                     onDeny: { session.denyPendingPermission() }
                 )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
             inputBar
         }
-        .animation(.snappy(duration: 0.2), value: session.state.pendingPermission?.id)
+        .background(Color(nsColor: .textBackgroundColor))
+        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: session.state.pendingPermission?.id)
         .onAppear { isInputFocused = true }
     }
 
@@ -55,7 +57,7 @@ struct AgentConversationView: View {
                 if session.state.items.isEmpty {
                     emptyHint
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 12) {
+                    LazyVStack(alignment: .leading, spacing: 18) {
                         ForEach(session.state.items) { item in
                             AgentItemRow(item: item).id(item.id)
                         }
@@ -63,13 +65,13 @@ struct AgentConversationView: View {
                             WorkingIndicator().id("working")
                         }
                     }
-                    .padding(16)
+                    .padding(24)
                     .frame(maxWidth: 900)
                     .frame(maxWidth: .infinity)
                 }
             }
             .onChange(of: session.state.items.count) { _, _ in
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     if session.state.status == .working {
                         proxy.scrollTo("working", anchor: .bottom)
                     } else if let last = session.state.items.last {
@@ -81,12 +83,15 @@ struct AgentConversationView: View {
     }
 
     private var emptyHint: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 16) {
             Image(systemName: "sparkles")
-                .font(.system(size: 36, weight: .light))
-                .foregroundStyle(.orange)
+                .font(.system(size: 30, weight: .medium))
+                .foregroundStyle(.tint)
+                .frame(width: 72, height: 72)
+                .background(Color.accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 22))
             Text("¿En qué trabajamos en \(title)?")
-                .font(.title3.weight(.semibold))
+                .font(.system(size: 23, weight: .semibold, design: .rounded))
+                .multilineTextAlignment(.center)
             Text("Claude lee y edita los archivos de la carpeta del proyecto. Te pedirá permiso antes de "
                  + "ejecutar comandos o escribir.")
                 .font(.callout)
@@ -95,10 +100,40 @@ struct AgentConversationView: View {
                 .frame(maxWidth: 420)
             Text(session.workingDirectory)
                 .font(.caption.monospaced())
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+            VStack(spacing: 8) {
+                promptSuggestion("Explícame cómo está organizado este proyecto", icon: "square.stack.3d.up")
+                promptSuggestion("Revisa el código y encuentra posibles errores", icon: "ladybug")
+            }
+            .padding(.top, 8)
+            .frame(maxWidth: 420)
         }
+        .padding(.horizontal, 28)
         .frame(maxWidth: .infinity)
-        .padding(.top, 80)
+        .padding(.top, 52)
+        .padding(.bottom, 28)
+    }
+
+    private func promptSuggestion(_ text: String, icon: String) -> some View {
+        Button {
+            draft = text
+            isInputFocused = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: icon).foregroundStyle(.tint).frame(width: 20)
+                Text(text).font(.callout).multilineTextAlignment(.leading)
+                Spacer(minLength: 4)
+                Image(systemName: "arrow.up.left").font(.caption).foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.06)))
+        }
+        .buttonStyle(.plain)
+        .disabled(isClosed)
+        .help("Usar este mensaje como borrador")
     }
 
     // MARK: - Entrada
@@ -112,7 +147,7 @@ struct AgentConversationView: View {
                     .foregroundStyle(.secondary)
                     .padding(12)
             } else {
-                HStack(alignment: .bottom, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
                     TextField(isBusy ? "Claude está trabajando…" : "Escribe a Claude…", text: $draft, axis: .vertical)
                         .textFieldStyle(.plain)
                         .lineLimit(1...8)
@@ -121,19 +156,30 @@ struct AgentConversationView: View {
                         // Con un permiso pendiente, el ⏎ de lo que estabas escribiendo no
                         // debe llegar a la tarjeta de permiso.
                         .disabled(session.state.pendingPermission != nil)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 9)
-                        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
-                    Button(action: send) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 26))
-                            .foregroundStyle(canSend ? Color.accentColor : Color.secondary.opacity(0.4))
+                        .font(.body)
+                        .accessibilityLabel("Mensaje para Claude")
+                    HStack(spacing: 8) {
+                        Text(isBusy ? "Puedes preparar tu siguiente mensaje" : "⏎ enviar · ⇧⏎ nueva línea")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        Button(action: send) {
+                            Label("Enviar", systemImage: "arrow.up")
+                                .font(.callout.weight(.semibold))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.regular)
+                        .disabled(!canSend)
+                        .help("Enviar (⏎). Mayús+⏎ para salto de línea.")
                     }
-                    .buttonStyle(.plain)
-                    .disabled(!canSend)
-                    .help("Enviar (⏎). Mayús+⏎ para salto de línea.")
                 }
-                .padding(12)
+                .padding(14)
+                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(isInputFocused ? Color.accentColor.opacity(0.45) : Color.primary.opacity(0.10)))
+                .shadow(color: .black.opacity(0.035), radius: 8, y: 2)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
             }
         }
         .background(.bar)
@@ -170,9 +216,9 @@ private struct AgentItemRow: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 13))
-                    .foregroundStyle(.orange)
-                    .frame(width: 22, height: 22)
-                    .background(.orange.opacity(0.12), in: Circle())
+                    .foregroundStyle(.tint)
+                    .frame(width: 24, height: 24)
+                    .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
                 SafeMarkdownView(text: text, style: .chat)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -264,11 +310,13 @@ private struct ToolResultRow: View {
 }
 
 private struct WorkingIndicator: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "sparkles")
-                .foregroundStyle(.orange)
-                .symbolEffect(.pulse, options: .repeating)
+                .foregroundStyle(.tint)
+                .symbolEffect(.pulse, options: .repeating, isActive: !reduceMotion)
             Text("Claude está trabajando…")
                 .font(.callout)
                 .foregroundStyle(.secondary)

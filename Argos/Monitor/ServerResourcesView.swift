@@ -17,6 +17,7 @@ struct ServerResourcesView: View {
     /// Uso de CPU calculado entre las dos últimas muestras (`nil` hasta la segunda).
     @State private var cpuUsage: Double?
     @State private var errorMessage: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let refreshInterval: Duration = .seconds(3)
 
@@ -24,6 +25,13 @@ struct ServerResourcesView: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             if let sample {
+                if let errorMessage {
+                    Label("No se pudo actualizar. Se muestran los últimos datos: \(errorMessage)", systemImage: "exclamationmark.arrow.triangle.2.circlepath")
+                        .font(.caption).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(10)
+                        .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 9))
+                }
                 metrics(for: sample)
                 Divider()
                 processList(sample.topProcesses)
@@ -36,15 +44,20 @@ struct ServerResourcesView: View {
                     .frame(maxWidth: .infinity, minHeight: 120)
             }
         }
-        .padding(16)
-        .frame(width: 380)
+        .padding(20)
+        .frame(width: 410)
+        .animation(ArgosTheme.motion(reduceMotion: reduceMotion), value: cpuUsage)
         .task { await poll() }
     }
 
     private var header: some View {
         HStack {
-            Label(serverName, systemImage: "server.rack")
-                .font(.headline)
+            WorkspaceIcon(symbol: "gauge.with.dots.needle.50percent", size: 36)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Recursos de \(serverName)").font(.headline)
+                Text("Actualización cada 3 segundos")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
             Spacer()
             if let sample {
                 Text("Encendido \(ResourceFormat.uptime(sample.uptimeSeconds))")
@@ -73,6 +86,8 @@ struct ServerResourcesView: View {
             }
             MetricRow(title: "Disco /", fraction: sample.disk.fraction, detail: usageText(sample.disk))
         }
+        .padding(14)
+        .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func loadText(_ sample: ServerResourceSample) -> String {

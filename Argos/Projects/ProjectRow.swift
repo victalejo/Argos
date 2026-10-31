@@ -16,17 +16,20 @@ struct ProjectRow: View {
 
     private var isRunning: Bool { connection != nil }
     private var isOpenHere: Bool { connection == .live || connection == .connecting }
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: isRunning ? "folder.fill" : "folder")
-                .font(.body)
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(isOpenHere ? Color.accentColor : isRunning ? .primary : .secondary)
-                .frame(width: 20)
+                .frame(width: 34, height: 34)
+                .background(isOpenHere ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(entry.project.name)
-                    .font(.headline)
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(isRunning ? .primary : .secondary)
                     .lineLimit(1)
                 Text(subtitle)
@@ -58,7 +61,12 @@ struct ProjectRow: View {
                     .accessibilityHidden(true)
             }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 7)
+        .padding(.horizontal, 2)
+        .contentShape(RoundedRectangle(cornerRadius: 9))
+        .background(isHovered ? Color.primary.opacity(0.035) : .clear, in: RoundedRectangle(cornerRadius: 9))
+        .onHover { isHovered = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isHovered)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
     }

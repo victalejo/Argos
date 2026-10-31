@@ -13,6 +13,9 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
+            AppearanceSettingsView()
+                .tabItem { Label("Apariencia", systemImage: "paintpalette") }
+
             TerminalSettingsView()
                 .tabItem { Label("Terminal", systemImage: "terminal") }
 
@@ -22,7 +25,62 @@ struct SettingsView: View {
             UpdateSettingsView(updater: updater)
                 .tabItem { Label("Actualizaciones", systemImage: "arrow.triangle.2.circlepath") }
         }
-        .frame(width: 460)
+        .tint(ArgosTheme.controlAccent)
+        .frame(width: 540, height: 480)
+    }
+}
+
+private struct AppearanceSettingsView: View {
+    @AppStorage("appearance") private var appearance = "system"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                WorkspaceIcon(symbol: "paintpalette", size: 40)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Tu espacio, tu estilo").font(.headline)
+                    Text("Elige la apariencia que te resulte más cómoda.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(22)
+            Form {
+                Section {
+                    Picker("Apariencia", selection: $appearance) {
+                        Label("Sistema", systemImage: "desktopcomputer").tag("system")
+                        Label("Clara", systemImage: "sun.max").tag("light")
+                        Label("Oscura", systemImage: "moon").tag("dark")
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                } header: {
+                    Text("Apariencia de la aplicación")
+                } footer: {
+                    Text("El tema del terminal se configura por separado en la pestaña Terminal.")
+                }
+                Section("Muévete más rápido") {
+                    shortcut("Buscar una sesión", keys: "⌘ K")
+                    shortcut("Buscar proyectos", keys: "⌘ F")
+                    shortcut("Crear un proyecto", keys: "⌘ N")
+                    shortcut("Buscar archivos", keys: "⌘ P")
+                }
+                Section {
+                    Label("Las animaciones respetan Reducir movimiento de macOS.", systemImage: "accessibility")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .formStyle(.grouped)
+        }
+    }
+
+    private func shortcut(_ title: String, keys: String) -> some View {
+        HStack {
+            Text(title).font(.callout)
+            Spacer()
+            KeyboardHint(keys: keys)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(keys)")
     }
 }
 
@@ -40,6 +98,16 @@ struct UpdateSettingsView: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                WorkspaceIcon(symbol: "arrow.triangle.2.circlepath", size: 40)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Argos, siempre al día").font(.headline)
+                    Text("Elige cómo recibir las próximas mejoras.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(22)
         Form {
             Section {
                 Toggle("Buscar actualizaciones automáticamente", isOn: $autoCheck)
@@ -73,5 +141,6 @@ struct UpdateSettingsView: View {
         }
         .formStyle(.grouped)
         .padding(.vertical, 8)
+        }
     }
 }

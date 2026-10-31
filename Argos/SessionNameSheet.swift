@@ -86,6 +86,7 @@ struct SessionNameSheet: View {
     let onSubmit: (String) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var nameFocused: Bool
     @State private var name: String
     @State private var isSubmitting = false
     @State private var errorMessage: String?
@@ -97,28 +98,42 @@ struct SessionNameSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(mode.title)
-                .font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 22) {
+            ArgosSheetHeader(
+                title: mode.title,
+                subtitle: subtitle,
+                symbol: "terminal"
+            )
 
-            VStack(alignment: .leading, spacing: 6) {
-                TextField(mode.fieldLabel, text: $name)
-                    .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 9) {
+                Text(mode.fieldLabel)
+                    .font(.callout.weight(.medium))
+                TextField(mode.fieldLabel, text: $name, prompt: Text("mi-proyecto/backend"))
+                    .labelsHidden()
+                    .textFieldStyle(.plain)
+                    .font(.system(.body, design: .monospaced))
+                    .padding(12)
+                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 9))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 9)
+                            .strokeBorder(nameFocused ? Color.accentColor.opacity(0.7) : Color.secondary.opacity(0.18))
+                    }
+                    .focused($nameFocused)
                     .onSubmit(submit)
                     .disabled(isSubmitting)
                     .onChange(of: name) { errorMessage = nil }
 
-                Text(mode.hint)
-                    .font(.caption)
+                Label(mode.hint, systemImage: "info.circle")
+                    .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if let message = inlineMessage {
-                Label(message, systemImage: "exclamationmark.circle")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .fixedSize(horizontal: false, vertical: true)
+                ArgosFormNotice(message: message, symbol: "exclamationmark.circle.fill", tint: .red)
             }
+
+            Divider()
 
             HStack(spacing: 12) {
                 if isSubmitting {
@@ -133,9 +148,20 @@ struct SessionNameSheet: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(!canSubmit)
             }
+            .controlSize(.large)
         }
-        .padding(20)
-        .frame(width: 440)
+        .padding(24)
+        .frame(width: 490)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear { nameFocused = true }
+    }
+
+    private var subtitle: String {
+        switch mode {
+        case .create: return "Abre un nuevo espacio para trabajar en tu servidor."
+        case .rename: return "Un nombre claro hace más fácil encontrar tu trabajo."
+        case .renameWindow: return "Identifica esta ventana de un vistazo."
+        }
     }
 
     /// El error del servidor (si lo hay) tiene prioridad sobre la validación en vivo.

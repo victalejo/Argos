@@ -12,6 +12,16 @@ struct ProjectSettingsView: View {
     @State private var settings = ProjectSettings.shared
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                WorkspaceIcon(symbol: "folder", size: 40)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Empieza a trabajar con un clic").font(.headline)
+                    Text("Personaliza lo que ocurre al abrir tus proyectos.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(22)
         Form {
             Section {
                 TextField("Comando al abrir", text: $settings.defaultStartupCommand, prompt: Text("nada"))
@@ -44,6 +54,7 @@ struct ProjectSettingsView: View {
         }
         .formStyle(.grouped)
         .padding(.vertical, 8)
+        }
     }
 
     /// Atajo seleccionado si el comando coincide con uno; `nil` = personalizado.

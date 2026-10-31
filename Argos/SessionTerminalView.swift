@@ -67,6 +67,7 @@ struct SessionTerminalView: View {
     @State private var showKillPaneConfirm = false
     /// Ventana cuyo nombre se está editando (presenta el sheet de renombrar).
     @State private var renamingWindow: TmuxWindow?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Tope de reintentos automáticos antes de mostrar el banner manual.
     private static let maxAutoReconnects = 5
@@ -85,9 +86,10 @@ struct SessionTerminalView: View {
                 Divider()
             }
             terminalArea
+            terminalStatusBar
         }
         .navigationTitle(session.name)
-        .navigationSubtitle("tmux attach")
+        .navigationSubtitle("Terminal remoto")
         .toolbar { paneToolbar }
         .sheet(item: $renamingWindow) { window in
             SessionNameSheet(mode: .renameWindow(current: window.name)) { newName in
@@ -177,6 +179,41 @@ struct SessionTerminalView: View {
             } else {
                 connectingScreen
             }
+        }
+    }
+
+    private var terminalStatusBar: some View {
+        HStack(spacing: 7) {
+            Circle()
+                .fill(controller?.status == .connected ? Color.teal : Color.secondary)
+                .frame(width: 6, height: 6)
+                .accessibilityHidden(true)
+            Text(terminalStatusText)
+                .font(.caption.weight(.medium))
+            if !windows.isEmpty {
+                Text("·")
+                Text("\(windows.count) \(windows.count == 1 ? "ventana" : "ventanas")")
+                    .font(.caption)
+            }
+            Spacer(minLength: 8)
+            Text("⌘V pegar · Arrastra archivos para subir")
+                .font(.caption2)
+                .lineLimit(1)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+    }
+
+    private var terminalStatusText: String {
+        guard let status = controller?.status else { return "Preparando terminal" }
+        switch status {
+        case .connecting: return "Conectando por SSH…"
+        case .connected: return "Conexión segura · SSH"
+        case .ended: return "Terminal desconectado"
+        case .failed: return isAutoReconnecting ? "Reconectando…" : "Error de conexión"
         }
     }
 
@@ -326,21 +363,32 @@ struct SessionTerminalView: View {
     // MARK: - Pantalla de carga inicial (antes de que exista el controlador)
 
     private var connectingScreen: some View {
+        connectionProgress(title: "Abriendo sesión")
+    }
+
+    private func connectionProgress(title: String) -> some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
-            VStack(spacing: 20) {
-                ProgressView()
-                    .controlSize(.large)
-                    .scaleEffect(1.4)
-                VStack(spacing: 6) {
-                    Text("Abriendo sesión")
-                        .font(.title3.weight(.medium))
+            Color(nsColor: .windowBackgroundColor)
+            VStack(spacing: 22) {
+                Image(systemName: "terminal")
+                    .font(.system(size: 30, weight: .medium))
+                    .foregroundStyle(.tint)
+                    .frame(width: 76, height: 76)
+                    .background(Color.accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 22))
+                VStack(spacing: 8) {
+                    Text(title)
+                        .font(.title3.weight(.semibold))
                     Text(session.name)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .monospaced()
                 }
+                ProgressView().controlSize(.small)
+                Text("Tu espacio de trabajo estará listo en un momento.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
+            .padding(28)
         }
     }
 
@@ -350,23 +398,8 @@ struct SessionTerminalView: View {
     private func overlay(for status: LiveTerminalStatus) -> some View {
         switch status {
         case .connecting:
-            ZStack {
-                Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
-                VStack(spacing: 20) {
-                    ProgressView()
-                        .controlSize(.large)
-                        .scaleEffect(1.4)
-                    VStack(spacing: 6) {
-                        Text("Conectando a la sesión")
-                            .font(.title3.weight(.medium))
-                        Text(session.name)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .monospaced()
-                    }
-                }
-            }
-            .transition(.opacity.animation(.easeOut(duration: 0.25)))
+            connectionProgress(title: "Conectando a la sesión")
+                .transition(.opacity.animation(reduceMotion ? nil : .easeOut(duration: 0.25)))
 
         case .connected:
             EmptyView()
@@ -376,7 +409,7 @@ struct SessionTerminalView: View {
                 icon: "bolt.horizontal.circle",
                 tint: .secondary,
                 title: "Sesión desconectada",
-                message: "Te desenganchaste de la sesión (sigue viva en el servidor)."
+                message: "La sesión sigue abierta en el servidor. Reconecta para continuar."
             )
 
         case .failed(let message):
@@ -431,7 +464,9 @@ struct SessionTerminalView: View {
                 }
             }
             .padding(14)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(tint.opacity(0.18)))
+            .shadow(color: .black.opacity(0.08), radius: 16, y: 5)
             .padding(16)
         }
     }

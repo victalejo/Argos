@@ -27,20 +27,36 @@ struct ServerSessionsSection: View {
 
     @State private var collapsedGroups = CollapsedSessionGroups.shared
     @State private var projectSettings = ProjectSettings.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         switch vm.state {
         case .idle:
             // Arranque perezoso: este servidor aún no se ha cargado (no es el seleccionado).
             // Ofrecemos conectar bajo demanda en vez de mostrar un spinner engañoso.
-            Button {
-                Task { await vm.load() }
-            } label: {
-                Label("Sin cargar — pulsa para conectar", systemImage: "powerplug")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 11) {
+                HStack(spacing: 9) {
+                    Image(systemName: "network")
+                        .foregroundStyle(Color.accentColor)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Listo para conectar")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Carga los proyectos de este servidor.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Button {
+                    Task { await vm.load() }
+                } label: {
+                    Label("Conectar servidor", systemImage: "bolt.horizontal")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
-            .buttonStyle(.borderless)
+            .padding(12)
+            .background(Color.accentColor.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
             .selectionDisabled()
         case .verifying:
             loadingRow("Verificando tmux…")
@@ -75,7 +91,9 @@ struct ServerSessionsSection: View {
                         .buttonStyle(.borderless)
                 }
             }
-            .padding(.vertical, 2)
+            .padding(12)
+            .background(Color.orange.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+            .selectionDisabled()
 
         case .hostKeyChanged(let message):
             VStack(alignment: .leading, spacing: 6) {
@@ -100,21 +118,33 @@ struct ServerSessionsSection: View {
                     Spacer()
                 }
             }
-            .padding(.vertical, 2)
+            .padding(12)
+            .background(Color.red.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+            .selectionDisabled()
 
         case .failed(let message):
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.circle")
+            VStack(alignment: .leading, spacing: 10) {
+                Label("No se pudo conectar", systemImage: "wifi.exclamationmark")
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.red)
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                Spacer()
-                Button("Reintentar") { Task { await vm.load() } }
-                    .font(.caption)
-                    .buttonStyle(.borderless)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                Button {
+                    Task { await vm.load() }
+                } label: {
+                    Label("Reintentar conexión", systemImage: "arrow.clockwise")
+                }
+                .font(.caption.weight(.medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.red.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+            .selectionDisabled()
 
         case .loaded:
             projectList
@@ -145,17 +175,34 @@ struct ServerSessionsSection: View {
         }
 
         if listing.entries.isEmpty && listing.looseSessions.isEmpty {
-            Button { projectForm = .new(server) } label: {
-                Label("Sin proyectos — crear uno", systemImage: "folder.badge.plus")
+            VStack(alignment: .leading, spacing: 11) {
+                Image(systemName: "folder.badge.plus")
+                    .font(.system(size: 24, weight: .light))
+                    .foregroundStyle(Color.accentColor)
+                Text("Tu próximo proyecto empieza aquí")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Organiza una carpeta del servidor y vuelve a ella con un clic.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Crear primer proyecto") { projectForm = .new(server) }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            }
+            .padding(15)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.accentColor.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+            .selectionDisabled()
+        } else if entries.isEmpty && loose.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Sin coincidencias", systemImage: "magnifyingglass")
+                    .font(.system(size: 12, weight: .medium))
+                Text("Prueba con otro nombre o carpeta.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .buttonStyle(.borderless)
+            .padding(.vertical, 12)
             .selectionDisabled()
-        } else if entries.isEmpty && loose.isEmpty {
-            Label("Sin coincidencias", systemImage: "magnifyingglass")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
 
         if filter.isEmpty && !listing.looseSessions.isEmpty {
@@ -189,13 +236,25 @@ struct ServerSessionsSection: View {
 
     private func importBanner(count: Int) -> some View {
         Button { importServer = server } label: {
-            Label(
-                "Importar \(count) \(count == 1 ? "sesión suelta" : "sesiones sueltas") como proyectos…",
-                systemImage: "square.and.arrow.down.on.square"
-            )
-            .font(.caption)
+            HStack(spacing: 8) {
+                Image(systemName: "square.and.arrow.down.on.square")
+                    .font(.system(size: 13))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(count) \(count == 1 ? "sesión sin organizar" : "sesiones sin organizar")")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("Convertir en proyectos")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .foregroundStyle(Color.accentColor)
+            .padding(10)
+            .background(Color.accentColor.opacity(0.065), in: RoundedRectangle(cornerRadius: 10))
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.plain)
         .selectionDisabled()
         .help("Guarda cada sesión como proyecto anclado a su carpeta actual")
     }
@@ -262,7 +321,7 @@ struct ServerSessionsSection: View {
         let isCollapsed = collapsedGroups.isCollapsed(serverID: server.id, group: name)
         let claude = vm.claudeActivity.activity(forSessions: sessionNames)
         Button {
-            withAnimation(.snappy(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
                 collapsedGroups.toggle(serverID: server.id, group: group.name)
             }
         } label: {
@@ -271,24 +330,25 @@ struct ServerSessionsSection: View {
                     .font(.system(size: 8, weight: .bold))
                     .rotationEffect(.degrees(isCollapsed ? 0 : 90))
                 Text(group.name)
-                    .textCase(.uppercase)
-                if isCollapsed {
-                    Text("\(group.count)")
-                        .monospacedDigit()
-                        .padding(.horizontal, 5)
-                        .background(Color.secondary.opacity(0.15), in: Capsule())
-                    if let claude {
-                        ClaudeActivityBadge(activity: claude, size: 10)
-                    }
-                }
+                    .lineLimit(1)
+                Text("\(group.count)")
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.09), in: Capsule())
                 Spacer()
+                if isCollapsed, let claude {
+                    ClaudeActivityBadge(activity: claude, size: 10)
+                }
             }
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.secondary)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.top, 4)
+        .padding(.top, 8)
+        .padding(.bottom, 3)
         .selectionDisabled()
         .help(isCollapsed ? "Expandir el grupo \(group.name)" : "Colapsar el grupo \(group.name)")
         .accessibilityLabel("Grupo \(group.name), \(group.count) elementos")
@@ -357,9 +417,20 @@ struct ServerSessionsSection: View {
 
     @ViewBuilder
     private func loadingRow(_ label: String) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             ProgressView().controlSize(.small)
-            Text(label).font(.caption).foregroundStyle(.secondary)
+                .frame(width: 30, height: 30)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+                Text("Preparando tu espacio de trabajo")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
         }
+        .padding(12)
+        .background(Color.accentColor.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
+        .selectionDisabled()
     }
 }

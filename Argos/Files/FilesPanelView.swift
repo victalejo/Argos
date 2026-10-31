@@ -19,10 +19,10 @@ struct FilesPanelView: View {
 
     var body: some View {
         HSplitView {
-            FileTreeView(model: model)
-                .frame(minWidth: 200, idealWidth: 260, maxWidth: 420)
+            FileTreeView(model: model, onQuickOpen: { isQuickOpenPresented = true })
+                .frame(minWidth: 180, idealWidth: 260, maxWidth: 420)
             FileViewer(model: model)
-                .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 260, maxWidth: .infinity, maxHeight: .infinity)
         }
         .task { await model.loadRootIfNeeded() }
         .sheet(isPresented: $isQuickOpenPresented) {
@@ -42,10 +42,27 @@ struct FilesPanelView: View {
 
 private struct FileTreeView: View {
     let model: FileBrowserModel
+    let onQuickOpen: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             header
+            Button(action: onQuickOpen) {
+                HStack(spacing: 7) {
+                    Image(systemName: "magnifyingglass")
+                    Text("Buscar archivo…")
+                    Spacer(minLength: 0)
+                    Text("⌘P").font(.caption2.monospaced())
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
             Divider()
             if let error = model.directoryErrors[model.root] {
                 ContentUnavailableView {
@@ -56,7 +73,15 @@ private struct FileTreeView: View {
                     Button("Reintentar") { Task { await model.refresh() } }
                 }
             } else if model.loadingDirectories.contains(model.root) && model.rows.isEmpty {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                ProgressView("Cargando archivos…")
+                    .font(.callout)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if model.rows.isEmpty {
+                ContentUnavailableView {
+                    Label("Carpeta vacía", systemImage: "folder")
+                } description: {
+                    Text(model.showHidden ? "No hay archivos en esta carpeta." : "No hay archivos visibles. Puedes mostrar los archivos ocultos con el botón del ojo.")
+                }
             } else {
                 List(model.rows) { row in
                     FileTreeRowView(row: row, model: model)
@@ -65,6 +90,7 @@ private struct FileTreeView: View {
                 .listStyle(.sidebar)
             }
         }
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.45))
     }
 
     private var header: some View {
@@ -82,20 +108,24 @@ private struct FileTreeView: View {
             .toggleStyle(.button)
             .buttonStyle(.borderless)
             .help(model.showHidden ? "Ocultar archivos ocultos y carpetas generadas" : "Mostrar ocultos, .git, node_modules…")
+            .accessibilityLabel("Mostrar archivos ocultos")
             Button { Task { await model.refresh() } } label: {
                 Image(systemName: "arrow.clockwise")
             }
             .buttonStyle(.borderless)
             .help("Recargar (por si Claude cambió archivos)")
+            .accessibilityLabel("Recargar archivos")
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.vertical, 12)
     }
 }
 
 private struct FileTreeRowView: View {
     let row: FileTreeRow
     let model: FileBrowserModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovering = false
 
     private var entry: RemoteFileEntry { row.entry }
     private var isExpanded: Bool { model.expanded.contains(entry.path) }
@@ -139,13 +169,18 @@ private struct FileTreeRowView: View {
                     .foregroundStyle(entry.isHidden ? .secondary : .primary)
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, 5)
             .padding(.horizontal, 4)
-            .background(isSelected ? Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 5))
+            .background(isSelected ? Color.accentColor.opacity(0.14) : (isHovering ? Color.primary.opacity(0.045) : .clear), in: RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(RemotePath.relative(entry.path, to: model.root))
+        .accessibilityLabel(entry.isDirectory ? "Carpeta \(entry.name), \(isExpanded ? "expandida" : "contraída")" : entry.name)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .onHover { isHovering = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: isHovering)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isExpanded)
     }
 }
 
@@ -159,22 +194,43 @@ private struct FileViewer: View {
     var body: some View {
         switch model.preview {
         case .empty:
-            ContentUnavailableView {
-                Label("Elige un archivo", systemImage: "doc.text.magnifyingglass")
-            } description: {
-                Text("Haz clic en un archivo del árbol o pulsa ⌘P para buscarlo por nombre.")
+            VStack(spacing: 15) {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.system(size: 30, weight: .medium))
+                    .foregroundStyle(.tint)
+                    .frame(width: 76, height: 76)
+                    .background(Color.accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 22))
+                Text("Explora tu proyecto").font(.title3.weight(.semibold))
+                Text("Elige un archivo del explorador o pulsa ⌘P para buscarlo por nombre.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 330)
+                Label("Vista de solo lectura", systemImage: "lock")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
+            .padding(30)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .loading(let entry):
             VStack(spacing: 0) {
                 FileViewerHeader(entry: entry, root: model.root, content: nil, showSource: nil)
                 Divider()
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                ProgressView("Abriendo \(entry.name)…")
+                    .font(.callout)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         case .failed(let entry, let message):
             VStack(spacing: 0) {
                 FileViewerHeader(entry: entry, root: model.root, content: nil, showSource: nil)
                 Divider()
-                ContentUnavailableView("No se pudo abrir", systemImage: "exclamationmark.triangle", description: Text(message))
+                ContentUnavailableView {
+                    Label("No se pudo abrir", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(message)
+                } actions: {
+                    Button("Reintentar") { Task { await model.open(entry) } }
+                }
             }
         case .loaded(let entry, let content, let kind):
             VStack(spacing: 0) {
@@ -275,9 +331,11 @@ private struct FileViewerHeader: View {
             }
             .buttonStyle(.borderless)
             .help("Copiar la ruta en el servidor")
+            .accessibilityLabel("Copiar ruta del archivo")
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.vertical, 10)
+        .background(.bar)
     }
 
     private func metadata(_ content: RemoteFileContent) -> String {
@@ -310,9 +368,10 @@ private struct QuickOpenSheet: View {
                     .font(.title3)
                     .focused($isFieldFocused)
                     .onSubmit { open(selection ?? results.first) }
+                    .accessibilityLabel("Buscar archivo por nombre")
                 if model.fileIndex == nil { ProgressView().controlSize(.small) }
             }
-            .padding(12)
+            .padding(18)
             Divider()
             List(results, id: \.self, selection: $selection) { path in
                 let name = (path as NSString).lastPathComponent
@@ -329,6 +388,15 @@ private struct QuickOpenSheet: View {
                 .tag(path)
             }
             .listStyle(.plain)
+            .overlay {
+                if results.isEmpty && model.fileIndex != nil {
+                    ContentUnavailableView {
+                        Label("Sin archivos disponibles", systemImage: "doc.text.magnifyingglass")
+                    } description: {
+                        Text(query.isEmpty ? "No hay archivos disponibles para esta búsqueda." : "Prueba con otro nombre o parte de la ruta.")
+                    }
+                }
+            }
             .onChange(of: selection) { _, path in
                 // Clic con el ratón abre directamente; con las flechas solo se selecciona
                 // (⏎ abre). OJO: `clickCount` solo es válido en eventos de ratón.
@@ -336,6 +404,22 @@ private struct QuickOpenSheet: View {
                       event.type == .leftMouseDown || event.type == .leftMouseUp else { return }
                 open(path)
             }
+            Divider()
+            HStack(spacing: 8) {
+                Text("↑↓ seleccionar · ⏎ abrir")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(results.count) resultados")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                Button("Cerrar", action: onClose)
+                    .keyboardShortcut(.cancelAction)
+                    .controlSize(.small)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.bar)
         }
         .frame(width: 600, height: 420)
         .task {
@@ -343,6 +427,7 @@ private struct QuickOpenSheet: View {
             await model.loadIndexIfNeeded()
         }
         .onExitCommand(perform: onClose)
+        .onChange(of: query) { _, _ in selection = nil }
     }
 
     private func open(_ path: String?) {

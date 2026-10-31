@@ -85,6 +85,7 @@
 		9A6928FE88B58714BA6D0AC1 /* TOFUHostKeyValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7479188CD1754968E7250B24 /* TOFUHostKeyValidatorTests.swift */; };
 		9BB2EC28C44ABE37A25840A7 /* TmuxSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5018CBF48657BB02BA165C22 /* TmuxSession.swift */; };
 		9D27422A3D0C0BC2DAA4D42F /* ProjectStoppedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA1EBF755252AEAAD6F01EB /* ProjectStoppedView.swift */; };
+		9DA10A940EAA628713A2076E /* ArgosTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5A06C15E0E69E0D86623E5 /* ArgosTheme.swift */; };
 		A480AC0B877A45888FBE98B1 /* AgentToolSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB3A5E5E5A2C60D2B81C40B3 /* AgentToolSummary.swift */; };
 		A70671E68C5E329B03BD0807 /* CollapsedGroupsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 580B30858CA725D258C48648 /* CollapsedGroupsTests.swift */; };
 		A854F3DC6016743DAE23345A /* ImportProjectsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B2F3199C86425C6D2559FB5 /* ImportProjectsSheet.swift */; };
@@ -149,6 +150,7 @@
 
 /* Begin PBXFileReference section */
 		050B081263C110C1734B79D6 /* SSHProjects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHProjects.swift; sourceTree = "<group>"; };
+		0A5A06C15E0E69E0D86623E5 /* ArgosTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArgosTheme.swift; sourceTree = "<group>"; };
 		0A8CBAF221CC2EEC861A71E9 /* ClaudeLoginOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLoginOutput.swift; sourceTree = "<group>"; };
 		0B69ADDE79D05715592ADF8F /* SSHServerResources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHServerResources.swift; sourceTree = "<group>"; };
 		0E0A20A19F7815044978FC19 /* SSHSessionManagement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHSessionManagement.swift; sourceTree = "<group>"; };
@@ -374,6 +376,7 @@
 				A56204FF1A755CA9F351EA23 /* AboutPanel.swift */,
 				2057FA3FC64EDDE81D1F6829 /* Argos.entitlements */,
 				A17F27F1BDF8240FDE090119 /* ArgosApp.swift */,
+				0A5A06C15E0E69E0D86623E5 /* ArgosTheme.swift */,
 				65C5951389633CCA111B2D96 /* Assets.xcassets */,
 				816413CF1EAD669744469593 /* CheckForUpdatesView.swift */,
 				4D7394D0CA14F3E60E9F9CE2 /* CollapsedSessionGroups.swift */,
@@ -625,6 +628,7 @@
 				B1A16FC47410366FB67C4E3C /* AgentStreamEvent.swift in Sources */,
 				A480AC0B877A45888FBE98B1 /* AgentToolSummary.swift in Sources */,
 				B64F67267E607EF02D082823 /* ArgosApp.swift in Sources */,
+				9DA10A940EAA628713A2076E /* ArgosTheme.swift in Sources */,
 				64F779B17ED5CC435EE4F915 /* CheckForUpdatesView.swift in Sources */,
 				B05D87E206EE6A4A70CA56FC /* ClaudeActivity.swift in Sources */,
 				175A6DB774439BDA6C395B62 /* ClaudeActivityBadge.swift in Sources */,
