@@ -6,6 +6,17 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-31
+
+### Mejorado
+- Nueva identidad visual adaptable a los modos claro y oscuro, con navegación de proyectos
+  más clara, búsqueda siempre visible y estados de conexión con texto.
+- Formularios guiados, búsqueda rápida con ayuda de teclado y acciones más accesibles.
+- Paneles de terminal, archivos y agente renovados; animaciones sutiles que respetan
+  Reducir movimiento, y acción de abrir proyecto visible antes de los detalles.
+- Ajustes de apariencia de la aplicación y vista previa del tema y tamaño del terminal.
+- El monitor avisa cuando muestra datos anteriores tras un fallo de actualización.
+
 ## [1.6.0] - 2026-10-30
 
 ### Añadido
