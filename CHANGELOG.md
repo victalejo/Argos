@@ -6,6 +6,11 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-31
+
+### Corregido
+- **Enviar al servidor** ya no vuelve a subir los enlaces simbólicos que no cambiaron.
+
 ## [1.7.0] - 2026-10-31
 
 ### Mejorado
