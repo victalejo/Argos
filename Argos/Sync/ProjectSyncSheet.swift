@@ -55,6 +55,7 @@ struct ProjectSyncSheet: View {
     @State private var stopServerSession = true
     @State private var preferMacInConflicts = false
     @State private var trashLocalCopy = false
+    @State private var terminalMessage: String?
     @State private var task: Task<Void, Never>?
 
     private var project: Project { request.project }
@@ -139,11 +140,20 @@ struct ProjectSyncSheet: View {
                         Button {
                             NSWorkspace.shared.activateFileViewerSelecting([localRoot])
                         } label: { Label("Mostrar en Finder", systemImage: "folder") }
+                        Button {
+                            terminalMessage = LocalTerminalLauncher.message(for: LocalTerminalLauncher.openWithClaude(localRoot))
+                        } label: { Label("Abrir en Terminal con Claude Code", systemImage: "terminal") }
                         if let vscode = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.microsoft.VSCode") {
                             Button {
                                 NSWorkspace.shared.open([localRoot], withApplicationAt: vscode, configuration: .init())
                             } label: { Label("Abrir en VS Code", systemImage: "chevron.left.forwardslash.chevron.right") }
                         }
+                    }
+                    if let terminalMessage {
+                        Text(terminalMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -158,7 +168,9 @@ struct ProjectSyncSheet: View {
     private func toMacSummary(files: [SyncFile], destination: URL?) -> some View {
         let bytes = files.reduce(UInt64(0)) { $0 + $1.size }
         return VStack(alignment: .leading, spacing: 12) {
-            summaryRow("doc.on.doc", "\(files.count) archivos · \(ResourceFormat.kilobytes(Int(bytes / 1024)))")
+            summaryRow(files.isEmpty ? "folder" : "doc.on.doc", SyncSummaryText.toMac(
+                fileCount: files.count, kilobytes: ResourceFormat.kilobytes(Int(bytes / 1024))
+            ))
             summaryRow("nosign", "Sin node_modules, builds ni cachés (se regeneran en el Mac). Incluye .git y .env.")
             HStack(spacing: 8) {
                 Image(systemName: "folder").foregroundStyle(.secondary).frame(width: 18)

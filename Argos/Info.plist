@@ -28,6 +28,8 @@
 	<string>public.app-category.developer-tools</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Argos abre Terminal en la copia local de tu proyecto y arranca Claude Code.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Victor Alejandro · Licencia Apache-2.0</string>
 	<key>SUEnableAutomaticChecks</key>

@@ -69,6 +69,10 @@ targets:
         # distintos). Esto lo permite. Aceptable en distribución ad-hoc; al notarizar con
         # Developer ID se re-firmaría el framework y podría quitarse.
         com.apple.security.cs.disable-library-validation: true
+        # «Abrir en Terminal con Claude Code»: Apple Events SOLO a Terminal (do script).
+        com.apple.security.automation.apple-events: true
+        com.apple.security.temporary-exception.apple-events:
+          - com.apple.Terminal
     # Info.plist explícito (XcodeGen rellena los CFBundle* por defecto y añade estas
     # claves). Necesario porque Sparkle requiere claves propias (SUFeedURL, etc.) que
     # GENERATE_INFOPLIST_FILE no permite inyectar.
@@ -91,6 +95,7 @@ targets:
         SUPublicEDKey: Sud7aRbwmy3N+CGAncEQdku4gCAEY6wYOMPHCM0SAN4=
         SUEnableInstallerLauncherService: true
         SUEnableAutomaticChecks: true
+        NSAppleEventsUsageDescription: "Argos abre Terminal en la copia local de tu proyecto y arranca Claude Code."
     settings:
       base:
         PRODUCT_NAME: Argos

@@ -288,6 +288,7 @@ struct ServerSessionsSection: View {
                     Button("Enviar al servidor…") { projectSync = .toServer(server, project) }
                     if let manifest = MacSyncStore.manifest(for: project.id),
                        let folder = MacSyncStore.localFolder(of: manifest) {
+                        Button("Abrir en Terminal con Claude Code") { _ = LocalTerminalLauncher.openWithClaude(folder) }
                         Button("Mostrar en Finder") { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
                     }
                 } else {

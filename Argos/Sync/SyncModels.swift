@@ -315,6 +315,17 @@ extension SyncPath {
     }
 }
 
+/// Textos del resumen de "Enviar al Mac" (lógica pura, testeable).
+enum SyncSummaryText {
+    static func toMac(fileCount: Int, kilobytes: String) -> String {
+        switch fileCount {
+        case 0: return "La carpeta del servidor está vacía: se creará vacía en el Mac."
+        case 1: return "1 archivo · \(kilobytes)"
+        default: return "\(fileCount) archivos · \(kilobytes)"
+        }
+    }
+}
+
 /// Listado de archivos del servidor (`find … -printf`).
 enum ServerFileList {
     /// Comando: un registro por archivo/enlace separado por NUL, con la ruta al FINAL

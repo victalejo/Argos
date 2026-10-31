@@ -283,4 +283,19 @@ struct SyncTests {
         let plan = SyncPlanner.plan(manifest: ["link.ts": server], local: [onMac], server: [server])
         #expect(plan.isEmpty)
     }
+
+    @Test("Resumen de Enviar al Mac: carpeta vacía, singular y plural")
+    func toMacSummaryText() {
+        #expect(SyncSummaryText.toMac(fileCount: 0, kilobytes: "0 KB").contains("vacía"))
+        #expect(SyncSummaryText.toMac(fileCount: 1, kilobytes: "4 KB") == "1 archivo · 4 KB")
+        #expect(SyncSummaryText.toMac(fileCount: 126, kilobytes: "45 MB") == "126 archivos · 45 MB")
+    }
+
+    @Test("AppleScript de Terminal: ruta con comillas y espacios bien escapada")
+    func terminalScriptEscaping() {
+        let script = LocalTerminalLauncher.script(folder: "/Users/a/Mis \"proy\" d'Ana")
+        #expect(script.contains(#"tell application id "com.apple.Terminal""#))
+        // Shell: 'd'\''Ana'; AppleScript: \" y \\ escapados.
+        #expect(script.contains(#"do script "cd '/Users/a/Mis \"proy\" d'\\''Ana' && claude""#))
+    }
 }
