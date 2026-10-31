@@ -241,7 +241,11 @@ jobs:
             echo '    <item>'
             echo "      <title>${GITHUB_REF_NAME}</title>"
             echo "      <link>${RELEASE_URL}</link>"
-            echo "      <sparkle:releaseNotesLink>${RELEASE_URL}</sparkle:releaseNotesLink>"
+            # Notas reales (HTML desde CHANGELOG.md) incrustadas: Sparkle las muestra tal
+            # cual. Con releaseNotesLink cargaba la web de GitHub dentro de la ventana.
+            echo "      <description><![CDATA["
+            python3 scripts/release_notes_html.py CHANGELOG.md "${DMG_VERSION}"
+            echo "      ]]></description>"
             echo "      <sparkle:version>${APP_BUILD}</sparkle:version>"
             echo "      <sparkle:shortVersionString>${DMG_VERSION}</sparkle:shortVersionString>"
             echo "      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>"
