@@ -272,4 +272,15 @@ struct SyncTests {
         #expect(kept.contains("ok.txt"))
         #expect(SyncExclusions.isUploadExcluded(".GIT/Config"))
     }
+
+    @Test("Un enlace sin tocar no se vuelve a subir (fecha y permisos del enlace no cuentan)")
+    func symlinkMatchesByTargetOnly() {
+        let server = file("link.ts", size: 10, mtime: 100, mode: 0o777, link: "src/app.ts")
+        let onMac = file("link.ts", size: 10, mtime: 999, mode: 0o755, link: "src/app.ts")
+        #expect(onMac.matches(server))
+        #expect(!file("link.ts", link: "src/otro.ts").matches(server))
+        #expect(!file("link.ts").matches(server))
+        let plan = SyncPlanner.plan(manifest: ["link.ts": server], local: [onMac], server: [server])
+        #expect(plan.isEmpty)
+    }
 }

@@ -24,8 +24,11 @@ struct SyncFile: Codable, Hashable, Sendable {
     var isSymlink: Bool { linkTarget != nil }
 
     /// ¿Es "el mismo" archivo? (tamaño, fecha, permisos y destino del enlace).
+    /// Un enlace se compara SOLO por su destino: su fecha y permisos propios no se
+    /// pueden igualar entre Mac y servidor (macOS 0755, Linux 0777) y no significan nada.
     func matches(_ other: SyncFile?) -> Bool {
         guard let other else { return false }
+        if isSymlink || other.isSymlink { return linkTarget == other.linkTarget }
         return size == other.size && mtime == other.mtime && mode == other.mode && linkTarget == other.linkTarget
     }
 }
