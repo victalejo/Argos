@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-10-31
+
+### Añadido
+- **Abrir en Terminal con Claude Code**: tras «Enviar al Mac» (y desde el menú del proyecto
+  que está en este Mac) abre Terminal en la carpeta del proyecto y arranca `claude`.
+
+### Mejorado
+- Si la carpeta del proyecto está vacía en el servidor, «Enviar al Mac» lo dice claramente.
+
 ## [1.7.1] - 2026-10-31
 
 ### Corregido
