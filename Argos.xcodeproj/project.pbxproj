@@ -72,6 +72,7 @@
 		6C96D300E599845D811DBCED /* SessionGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1C527D544A33C86FDA6A00 /* SessionGroup.swift */; };
 		709BD3E5EA47D2587DB1B1EE /* FolderNameValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89636A0E6D02EA4066923573 /* FolderNameValidatorTests.swift */; };
 		71C1A45DF4E7899C005DBC3E /* FilePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E577AE68DBF75E2B3C6500D6 /* FilePreview.swift */; };
+		72E7093330B0E2489398C161 /* FileDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = 975AAB05D9AA8D80989D1FB4 /* FileDownloads.swift */; };
 		7303CB8F4EDD6ECB4BCB6F31 /* AboutPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56204FF1A755CA9F351EA23 /* AboutPanel.swift */; };
 		738DA9D8E838A1152C816CC3 /* ShellQuoting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D433BD561BAFB67B3E3007D /* ShellQuoting.swift */; };
 		7696C2EECDEC523B7B55536D /* TmuxSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E8D2897CB2C59012C299625 /* TmuxSessionTests.swift */; };
@@ -84,6 +85,7 @@
 		9133E096190BE4C458431394 /* LiveTerminalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445EC9A275BAC494A796B3E2 /* LiveTerminalController.swift */; };
 		953194EB68DD0AE6D6A5BB81 /* ClaudeLoginOutputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C88A364DE5AFD0F5B8418AC /* ClaudeLoginOutputTests.swift */; };
 		96BB2263E5EBCE167C214C1A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 65C5951389633CCA111B2D96 /* Assets.xcassets */; };
+		97426D20A10791868B4EE886 /* PDFDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3F078655196FDEFE85D4FB1 /* PDFDocumentView.swift */; };
 		9A6928FE88B58714BA6D0AC1 /* TOFUHostKeyValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7479188CD1754968E7250B24 /* TOFUHostKeyValidatorTests.swift */; };
 		9BB2EC28C44ABE37A25840A7 /* TmuxSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5018CBF48657BB02BA165C22 /* TmuxSession.swift */; };
 		9D27422A3D0C0BC2DAA4D42F /* ProjectStoppedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA1EBF755252AEAAD6F01EB /* ProjectStoppedView.swift */; };
@@ -228,6 +230,7 @@
 		942B96BE0AB66F510C6496FA /* ProjectSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSyncEngine.swift; sourceTree = "<group>"; };
 		95550930274A4C5CBE898C48 /* TmuxWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxWindowTests.swift; sourceTree = "<group>"; };
 		96BB45CA5EE03D980C943857 /* ServerStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStoreTests.swift; sourceTree = "<group>"; };
+		975AAB05D9AA8D80989D1FB4 /* FileDownloads.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDownloads.swift; sourceTree = "<group>"; };
 		9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTerminalView.swift; sourceTree = "<group>"; };
 		9AC6E208DA070ACD0BA4151A /* ProjectSyncSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSyncSheet.swift; sourceTree = "<group>"; };
 		9B2384985AC8C85824C96C46 /* SendKeysTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendKeysTests.swift; sourceTree = "<group>"; };
@@ -246,6 +249,7 @@
 		AFD9D527CAB785756EB0FCB9 /* TmuxErrorClassificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxErrorClassificationTests.swift; sourceTree = "<group>"; };
 		B0CD355C55856CF39D5DF08F /* SessionGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionGroupingTests.swift; sourceTree = "<group>"; };
 		B224353F8D7B9EF8C253A56E /* ProjectSyncJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSyncJob.swift; sourceTree = "<group>"; };
+		B3F078655196FDEFE85D4FB1 /* PDFDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFDocumentView.swift; sourceTree = "<group>"; };
 		B52A0DF05049D85D634854BF /* ShellQuotingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellQuotingTests.swift; sourceTree = "<group>"; };
 		B5B141663A032DDBE018951E /* TerminalPoolEvictionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPoolEvictionTests.swift; sourceTree = "<group>"; };
 		B7A3FF5CD86E296C2E241CDD /* ServerResourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerResourcesView.swift; sourceTree = "<group>"; };
@@ -338,10 +342,12 @@
 			children = (
 				F251957F678499F81BD72941 /* CodeTextView.swift */,
 				1F1EA27ECBCFA91BE590C33E /* FileBrowserModel.swift */,
+				975AAB05D9AA8D80989D1FB4 /* FileDownloads.swift */,
 				4E5D8144E0AFBAA72D6396BC /* FileIcon.swift */,
 				E577AE68DBF75E2B3C6500D6 /* FilePreview.swift */,
 				50D2FE460795B4342E7429DB /* FilesPanelView.swift */,
 				D2F5B1B9C7410877FC6132DD /* LooseSessionFilesView.swift */,
+				B3F078655196FDEFE85D4FB1 /* PDFDocumentView.swift */,
 				E90A8302BBEBD11AC57F1858 /* RemoteFileEntry.swift */,
 				267A8EBF6AC77BD9C61BA26C /* SafeMarkdownView.swift */,
 				686B3C3A0A80F13F84FDB3FA /* SSHFileBrowser.swift */,
@@ -655,6 +661,7 @@
 				6B78960D933DD7F03DBBA69E /* ContentView.swift in Sources */,
 				2D48FFAF08E2D4C151BA16C9 /* ErrorMessage.swift in Sources */,
 				0D422C6777A155C84C5F27F5 /* FileBrowserModel.swift in Sources */,
+				72E7093330B0E2489398C161 /* FileDownloads.swift in Sources */,
 				0FBF790718EA581E4D2AE132 /* FileIcon.swift in Sources */,
 				71C1A45DF4E7899C005DBC3E /* FilePreview.swift in Sources */,
 				4FB1FAB4D81C0F246A396C6B /* FilesPanelView.swift in Sources */,
@@ -669,6 +676,7 @@
 				C064730BA9BFD0071C3BB89D /* Logging.swift in Sources */,
 				45AF3DF9005F96E95D8DA233 /* LooseSessionFilesView.swift in Sources */,
 				DE13D03316B8B0B960259577 /* MacSyncStore.swift in Sources */,
+				97426D20A10791868B4EE886 /* PDFDocumentView.swift in Sources */,
 				636B37921002B060393FFB54 /* PTYSize.swift in Sources */,
 				2E922E9383C9D15815D6B442 /* Project.swift in Sources */,
 				51BE1D97CC5D9AED07E82772 /* ProjectConfirmation.swift in Sources */,

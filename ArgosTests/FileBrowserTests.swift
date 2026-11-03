@@ -151,3 +151,37 @@ struct FileBrowserTests {
         #expect(!SafeLinkPolicy.isAllowed(try #require(URL(string: "docs/README.md"))))
     }
 }
+
+@Suite("Visor de PDF y descargas")
+@MainActor
+struct FilePDFAndDownloadTests {
+    @Test("Los .pdf se previsualizan como PDF y leen hasta su propio límite")
+    func pdfKindByName() {
+        #expect(FilePreview.kind(forName: "Cotizacion.PDF") == .pdf)
+        #expect(FilePreview.readLimit(for: .pdf) == FilePreview.maxPDFBytes)
+        #expect(FilePreview.readLimit(for: .image) == FilePreview.maxImageBytes)
+        #expect(FilePreview.readLimit(for: .markdown) == FilePreview.maxTextBytes)
+    }
+
+    @Test("Con bytes: firma %PDF- = PDF; sin ella = binario")
+    func pdfKindByContent() {
+        #expect(FilePreview.kind(forName: "a.pdf", data: Data("%PDF-1.7\n\u{0}\u{1}".utf8)) == .pdf)
+        #expect(FilePreview.kind(forName: "a.pdf", data: Data("basura\n%PDF-1.4".utf8)) == .pdf)
+        #expect(FilePreview.kind(forName: "a.pdf", data: Data([0, 1, 2, 3])) == .binary)
+    }
+
+    @Test("Descargar al Mac copia el archivo entero y deja el estado en «guardado»")
+    func downloadSavesFile() async throws {
+        let mock = MockSSHService()
+        let bytes = Data("%PDF-1.7 contenido".utf8)
+        mock.remoteFiles["/srv/p/doc.pdf"] = bytes
+        let model = FileBrowserModel(root: "/srv/p", service: mock)
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent("argos-dl-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: destination) }
+
+        await model.downloadToMac(RemoteFileEntry(name: "doc.pdf", path: "/srv/p/doc.pdf", kind: .file), to: destination)
+
+        #expect(try Data(contentsOf: destination) == bytes)
+        #expect(model.downloadStatus == .saved(destination))
+    }
+}

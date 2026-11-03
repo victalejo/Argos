@@ -75,6 +75,8 @@ protocol SSHServicing: Sendable {
     func listRemoteDirectory(_ path: String, root: String) async throws -> [RemoteFileEntry]
     func readRemoteFile(_ path: String, root: String, maxBytes: UInt64) async throws -> RemoteFileContent
     func indexProjectFiles(root: String) async throws -> [String]
+    /// Copia un archivo del proyecto (entero) a `localURL` en el Mac.
+    func downloadRemoteFile(_ path: String, root: String, to localURL: URL) async throws
 
     // MARK: - Enviar al Mac / al servidor
 

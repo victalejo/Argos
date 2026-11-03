@@ -3,10 +3,12 @@
 //  Argos
 //
 //  Pestaña "Archivos" de un proyecto: árbol de carpetas (con iconos por tipo) a la
-//  izquierda y visor a la derecha (Markdown renderizado, código resaltado, imágenes).
-//  Solo lectura. ⌘P abre la búsqueda rápida de archivos.
+//  izquierda y visor a la derecha (Markdown renderizado, código resaltado, imágenes,
+//  PDF). Solo lectura; cualquier archivo se puede descargar al Mac. ⌘P abre la
+//  búsqueda rápida de archivos.
 //
 
+import PDFKit
 import SwiftUI
 
 struct FilesPanelView: View {
@@ -23,6 +25,7 @@ struct FilesPanelView: View {
                 .frame(minWidth: 180, idealWidth: 260, maxWidth: 420)
             FileViewer(model: model)
                 .frame(minWidth: 260, maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottom) { FileDownloadBanner(model: model) }
         }
         .task { await model.loadRootIfNeeded() }
         .sheet(isPresented: $isQuickOpenPresented) {
@@ -175,6 +178,15 @@ private struct FileTreeRowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            if !entry.isDirectory {
+                Button("Descargar al Mac…") { FileDownloads.start(entry, model: model) }
+            }
+            Button("Copiar ruta en el servidor") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(entry.path, forType: .string)
+            }
+        }
         .help(RemotePath.relative(entry.path, to: model.root))
         .accessibilityLabel(entry.isDirectory ? "Carpeta \(entry.name), \(isExpanded ? "expandida" : "contraída")" : entry.name)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -238,16 +250,25 @@ private struct FileViewer: View {
                     entry: entry,
                     root: model.root,
                     content: content,
-                    showSource: kind == .markdown ? $showSource : nil
+                    showSource: kind == .markdown ? $showSource : nil,
+                    onDownload: { FileDownloads.start(entry, model: model) }
                 )
                 Divider()
-                body(for: kind, content: content)
+                body(for: kind, entry: entry, content: content)
             }
         }
     }
 
+    private func downloadButton(_ entry: RemoteFileEntry) -> some View {
+        Button {
+            FileDownloads.start(entry, model: model)
+        } label: {
+            Label("Descargar al Mac…", systemImage: "arrow.down.circle")
+        }
+    }
+
     @ViewBuilder
-    private func body(for kind: FilePreviewKind, content: RemoteFileContent) -> some View {
+    private func body(for kind: FilePreviewKind, entry: RemoteFileEntry, content: RemoteFileContent) -> some View {
         switch kind {
         case .markdown where !showSource:
             ScrollView {
@@ -274,11 +295,27 @@ private struct FileViewer: View {
             } else {
                 ContentUnavailableView("Imagen no compatible", systemImage: "photo.badge.exclamationmark")
             }
+        case .pdf:
+            if !content.isTruncated, let document = PDFDocument(data: content.data) {
+                PDFDocumentView(document: document)
+            } else {
+                ContentUnavailableView {
+                    Label(content.isTruncated ? "PDF demasiado grande" : "PDF no compatible", systemImage: "doc.richtext")
+                } description: {
+                    Text(content.isTruncated
+                         ? "Pesa \(ResourceFormat.kilobytes(Int(content.size / 1024))): descárgalo para verlo en el Mac."
+                         : "No se pudo leer este PDF. Descárgalo para abrirlo en el Mac.")
+                } actions: {
+                    downloadButton(entry)
+                }
+            }
         case .binary:
             ContentUnavailableView {
                 Label("Archivo binario", systemImage: "doc.zipper")
             } description: {
                 Text("No se puede mostrar como texto (\(ResourceFormat.kilobytes(Int(content.size / 1024)))).")
+            } actions: {
+                downloadButton(entry)
             }
         }
     }
@@ -292,6 +329,7 @@ private struct FileViewerHeader: View {
     let root: String
     let content: RemoteFileContent?
     let showSource: Binding<Bool>?
+    var onDownload: (() -> Void)?
 
     var body: some View {
         let icon = FileIcon.icon(for: entry)
@@ -322,6 +360,14 @@ private struct FileViewerHeader: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .fixedSize()
+            }
+            if let onDownload {
+                Button(action: onDownload) {
+                    Image(systemName: "arrow.down.circle")
+                }
+                .buttonStyle(.borderless)
+                .help("Descargar el archivo al Mac")
+                .accessibilityLabel("Descargar al Mac")
             }
             Button {
                 NSPasteboard.general.clearContents()

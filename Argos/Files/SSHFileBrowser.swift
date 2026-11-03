@@ -102,6 +102,36 @@ extension SSHService {
         )
     }
 
+    /// Descarga un archivo del proyecto entero a `localURL`. Escribe DIRECTAMENTE en el
+    /// destino (bajo sandbox solo hay permiso sobre el archivo elegido, no su carpeta) y
+    /// lo borra si la descarga falla a medias.
+    func downloadRemoteFile(_ path: String, root: String, to localURL: URL) async throws {
+        let sftp = try await browserSFTPClient()
+        let real = try await containedRealPath(path, root: root, sftp: sftp)
+        guard FileManager.default.createFile(atPath: localURL.path, contents: nil) else {
+            throw CocoaError(.fileWriteNoPermission, userInfo: [NSFilePathErrorKey: localURL.path])
+        }
+        let handle = try FileHandle(forWritingTo: localURL)
+        do {
+            try await sftp.withFile(filePath: real, flags: .read) { remoteFile in
+                var offset: UInt64 = 0
+                while true {
+                    try Task.checkCancellation()
+                    let chunk = try await remoteFile.read(from: offset, length: 256 * 1024)
+                    guard chunk.readableBytes > 0 else { break }
+                    try handle.write(contentsOf: Data(chunk.readableBytesView))
+                    offset += UInt64(chunk.readableBytes)
+                }
+            }
+            try handle.close()
+        } catch {
+            try? handle.close()
+            try? FileManager.default.removeItem(at: localURL)
+            Log.store.error("Descarga de \(path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            throw error
+        }
+    }
+
     /// Máximo de rutas indexadas para la búsqueda rápida.
     static let fileIndexLimit = 20_000
 

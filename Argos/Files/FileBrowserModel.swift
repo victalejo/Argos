@@ -35,6 +35,8 @@ final class FileBrowserModel {
     private(set) var directoryErrors: [String: String] = [:]
     private(set) var preview: FilePreviewState = .empty
     private(set) var fileIndex: [String]?
+    /// Última descarga al Mac (`nil` = ninguna que mostrar).
+    var downloadStatus: FileDownloadStatus?
     var showHidden = false
 
     init(root: String, service: any SSHServicing) {
@@ -111,7 +113,7 @@ final class FileBrowserModel {
         guard !entry.isDirectory else { return }
         preview = .loading(entry)
         let byName = FilePreview.kind(forName: entry.name)
-        let limit = byName == .image ? FilePreview.maxImageBytes : FilePreview.maxTextBytes
+        let limit = FilePreview.readLimit(for: byName)
         do {
             let content = try await service.readRemoteFile(entry.path, root: root, maxBytes: limit)
             // Si mientras tanto se eligió otro archivo, no se pisa su vista.
@@ -119,6 +121,18 @@ final class FileBrowserModel {
             preview = .loaded(entry, content, FilePreview.kind(forName: entry.name, data: content.data))
         } catch {
             preview = .failed(entry, error.userMessage)
+        }
+    }
+
+    /// Descarga el archivo COMPLETO a `destination` (elegida por el usuario en el Mac)
+    /// y deja el resultado en `downloadStatus`.
+    func downloadToMac(_ entry: RemoteFileEntry, to destination: URL) async {
+        downloadStatus = .downloading(name: entry.name)
+        do {
+            try await service.downloadRemoteFile(entry.path, root: root, to: destination)
+            downloadStatus = .saved(destination)
+        } catch {
+            downloadStatus = .failed(name: entry.name, message: error.userMessage)
         }
     }
 

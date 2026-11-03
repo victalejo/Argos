@@ -128,6 +128,9 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         return RemoteFileContent(data: data.prefix(Int(maxBytes)), size: UInt64(data.count),
                                  modified: nil, isTruncated: UInt64(data.count) > maxBytes)
     }
+    func downloadRemoteFile(_ path: String, root: String, to localURL: URL) async throws {
+        try (remoteFiles[path] ?? Data()).write(to: localURL)
+    }
     func indexProjectFiles(root: String) async throws -> [String] {
         Array(remoteFiles.keys).map { RemotePath.relative($0, to: root) }.sorted()
     }
