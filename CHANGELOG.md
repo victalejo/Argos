@@ -6,6 +6,14 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.3] - 2026-11-03
+
+### Mejorado
+- **Envíos en segundo plano**: «Enviar al Mac» y «Enviar al servidor» ya no bloquean Argos.
+  Con «Seguir en segundo plano» la copia continúa mientras trabajas; la fila del proyecto
+  muestra el progreso (y el resultado al terminar) y reabre la ventana del envío al pulsarla.
+  Si termina con Argos en segundo plano, llega una notificación.
+
 ## [1.7.2] - 2026-10-31
 
 ### Añadido

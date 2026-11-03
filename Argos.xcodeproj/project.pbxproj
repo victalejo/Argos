@@ -797,7 +797,7 @@
 				CODE_SIGN_ENTITLEMENTS = Argos/Argos.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -807,7 +807,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.7.2;
+				MARKETING_VERSION = 1.7.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
 				PRODUCT_NAME = Argos;
 				SDKROOT = macosx;
@@ -824,7 +824,7 @@
 				CODE_SIGN_ENTITLEMENTS = Argos/Argos.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -834,7 +834,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.7.2;
+				MARKETING_VERSION = 1.7.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
 				PRODUCT_NAME = Argos;
 				SDKROOT = macosx;
