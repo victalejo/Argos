@@ -13,6 +13,9 @@ struct ProjectRow: View {
     /// Estado de conexión del terminal si el proyecto corre; `nil` = detenido.
     let connection: SessionConnectionState?
     var claude: ClaudeActivity?
+    /// Envío al Mac / al servidor en curso o recién terminado (abre su hoja al pulsar).
+    var sync: ProjectSyncJob?
+    var onOpenSync: () -> Void = {}
 
     private var isRunning: Bool { connection != nil }
     private var isOpenHere: Bool { connection == .live || connection == .connecting }
@@ -41,6 +44,9 @@ struct ProjectRow: View {
 
             Spacer()
 
+            if let sync {
+                ProjectSyncBadge(job: sync, action: onOpenSync)
+            }
             if let checkout = entry.project.macCheckout {
                 Image(systemName: "laptopcomputer")
                     .font(.system(size: 11))
@@ -92,5 +98,52 @@ struct ProjectRow: View {
         let components = path.split(separator: "/")
         guard components.count > 2 else { return path }
         return "…/" + components.suffix(2).joined(separator: "/")
+    }
+}
+
+/// Progreso del envío del proyecto en su fila: anillo mientras copia, check o aviso
+/// al terminar. Pulsarlo reabre la hoja del envío.
+private struct ProjectSyncBadge: View {
+    let job: ProjectSyncJob
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            icon.frame(width: 16, height: 16)
+        }
+        .buttonStyle(.plain)
+        .help(helpText)
+        .accessibilityLabel(helpText)
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        switch job.phase {
+        case .running:
+            ProgressView(value: job.engine.fraction)
+                .progressViewStyle(.circular)
+                .controlSize(.mini)
+        case .done:
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundStyle(.green)
+        case .failed:
+            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundStyle(.orange)
+        default:
+            Image(systemName: job.isToMac ? "laptopcomputer.and.arrow.down" : "icloud.and.arrow.up")
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+        }
+    }
+
+    private var helpText: String {
+        let destination = job.isToMac ? "al Mac" : "al servidor"
+        switch job.phase {
+        case .running:
+            return "Enviando \(destination): \(job.engine.doneFiles) de \(job.engine.totalFiles) archivos. Clic para ver."
+        case .done:
+            return "Envío \(destination) terminado. Clic para ver."
+        case .failed:
+            return "El envío \(destination) falló. Clic para ver."
+        default:
+            return "Envío \(destination) pendiente. Clic para ver."
+        }
     }
 }

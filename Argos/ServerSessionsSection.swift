@@ -27,6 +27,7 @@ struct ServerSessionsSection: View {
 
     @State private var collapsedGroups = CollapsedSessionGroups.shared
     @State private var projectSettings = ProjectSettings.shared
+    @State private var syncCenter = ProjectSyncCenter.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -269,7 +270,9 @@ struct ServerSessionsSection: View {
         ProjectRow(
             entry: entry,
             connection: connection,
-            claude: vm.claudeActivity.activity(forSession: project.sessionName)
+            claude: vm.claudeActivity.activity(forSession: project.sessionName),
+            sync: syncCenter.job(forProject: project.id),
+            onOpenSync: { reopenSync(for: project) }
         )
         .tag(handle)
         .contextMenu {
@@ -283,7 +286,11 @@ struct ServerSessionsSection: View {
                 Button("Abrir") { open(project) }
             }
             Divider()
-            if let checkout = project.macCheckout {
+            if let job = syncCenter.job(forProject: project.id), job.isRunning {
+                Button(job.isToMac ? "Ver envío al Mac en curso…" : "Ver envío al servidor en curso…") {
+                    projectSync = job.request
+                }
+            } else if let checkout = project.macCheckout {
                 if checkout.macID == MacSyncStore.macID {
                     Button("Enviar al servidor…") { projectSync = .toServer(server, project) }
                     if let manifest = MacSyncStore.manifest(for: project.id),
@@ -301,6 +308,11 @@ struct ServerSessionsSection: View {
             Button("Editar proyecto…") { projectForm = .edit(server, project) }
             Button("Quitar proyecto…", role: .destructive) { projectConfirmation = .remove(server, project) }
         }
+    }
+
+    /// Reabre la hoja del envío del proyecto (en curso o ya terminado).
+    private func reopenSync(for project: Project) {
+        if let job = syncCenter.job(forProject: project.id) { projectSync = job.request }
     }
 
     private func open(_ project: Project) {
