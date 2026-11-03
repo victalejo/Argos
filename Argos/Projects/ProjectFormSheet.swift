@@ -36,6 +36,7 @@ struct ProjectFormSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var nameFocused: Bool
+    @FocusState private var groupFocused: Bool
     @State private var settings = ProjectSettings.shared
 
     @State private var name = ""
@@ -119,7 +120,7 @@ struct ProjectFormSheet: View {
                 } header: {
                     Label("Identidad", systemImage: "square.stack.3d.up")
                 } footer: {
-                    Text("El grupo es opcional y te ayuda a reunir proyectos relacionados.")
+                    Text("Opcional. Elige uno existente o escribe un nombre nuevo para crear el grupo.")
                         .font(.caption)
                 }
 
@@ -198,24 +199,50 @@ struct ProjectFormSheet: View {
 
     private var groupField: some View {
         HStack {
-            TextField("Grupo", text: $group, prompt: Text("Opcional · equipo, cliente…"))
-            let existing = existingGroups
-            if !existing.isEmpty {
-                Menu {
+            TextField("Grupo", text: $group, prompt: Text("Sin grupo · escribe uno nuevo"))
+                .focused($groupFocused)
+            if isNewGroup {
+                Text("Nuevo")
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor.opacity(0.15), in: Capsule())
+                    .foregroundStyle(Color.accentColor)
+                    .help("Se creará el grupo «\(trimmedGroup)» al guardar")
+            }
+            Menu {
+                Button {
+                    group = ""
+                    groupFocused = true
+                } label: {
+                    Label("Nuevo grupo…", systemImage: "plus")
+                }
+                let existing = existingGroups
+                if !existing.isEmpty {
+                    Divider()
                     ForEach(existing, id: \.self) { name in
                         Button(name) { group = name }
                     }
-                } label: {
-                    Image(systemName: "chevron.down")
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help("Elegir un grupo existente")
-                .accessibilityLabel("Elegir un grupo existente")
+                if !trimmedGroup.isEmpty {
+                    Divider()
+                    Button("Sin grupo") { group = "" }
+                }
+            } label: {
+                Image(systemName: "chevron.down")
             }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Elegir un grupo existente o crear uno nuevo")
+            .accessibilityLabel("Elegir o crear grupo")
         }
     }
+
+    private var trimmedGroup: String { group.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    /// El nombre escrito no coincide con ningún grupo: se creará al guardar.
+    private var isNewGroup: Bool { !trimmedGroup.isEmpty && !existingGroups.contains(trimmedGroup) }
 
     private var folderField: some View {
         HStack {

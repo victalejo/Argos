@@ -17,11 +17,17 @@ struct RemoteDirectoryPicker: View {
     @State private var listing: RemoteDirectoryListing?
     @State private var loading = false
     @State private var error: String?
+    /// Nombre de la carpeta que se está creando (`nil` = no se está creando ninguna).
+    @State private var newFolderName: String?
+    @State private var newFolderError: String?
+    @State private var creating = false
+    @FocusState private var newFolderFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
+            if newFolderName != nil { newFolderRow; Divider() }
             content
             Divider()
             footer
@@ -79,6 +85,15 @@ struct RemoteDirectoryPicker: View {
     private var footer: some View {
         HStack {
             Button("Cancelar", role: .cancel) { onCancel() }
+            Button {
+                newFolderName = ""
+                newFolderError = nil
+                newFolderFocused = true
+            } label: {
+                Label("Nueva carpeta", systemImage: "folder.badge.plus")
+            }
+            .disabled(listing == nil || newFolderName != nil)
+            .help("Crear una carpeta dentro de la carpeta actual")
             Spacer()
             Button("Usar esta carpeta") {
                 if let path = listing?.path { onPick(path) }
@@ -87,6 +102,54 @@ struct RemoteDirectoryPicker: View {
             .disabled(listing == nil)
         }
         .padding(12)
+    }
+
+    private var newFolderRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "folder.badge.plus").foregroundStyle(.tint)
+                TextField("Nombre de la carpeta", text: Binding(
+                    get: { newFolderName ?? "" },
+                    set: { newFolderName = $0; newFolderError = nil }
+                ))
+                .textFieldStyle(.roundedBorder)
+                .focused($newFolderFocused)
+                .onSubmit { Task { await createFolder() } }
+                .disabled(creating)
+                Button("Cancelar") { newFolderName = nil; newFolderError = nil }
+                    .disabled(creating)
+                Button("Crear") { Task { await createFolder() } }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(creating || (newFolderName ?? "").trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            if let newFolderError {
+                Text(newFolderError).font(.caption).foregroundStyle(.orange)
+            }
+        }
+        .padding(12)
+    }
+
+    /// Crea la carpeta en la actual y entra en ella (lista para «Usar esta carpeta»).
+    private func createFolder() async {
+        guard let base = listing?.path, let raw = newFolderName else { return }
+        switch FolderNameValidator.validate(raw) {
+        case .failure(let failure):
+            newFolderError = failure.localizedDescription
+        case .success(let name):
+            if listing?.subdirectories.contains(name) == true {
+                newFolderError = "Ya existe una carpeta «\(name)» aquí."
+                return
+            }
+            creating = true
+            defer { creating = false }
+            do {
+                try await service.makeRemoteDirectories(root: base, relativeDirectories: [name])
+                newFolderName = nil
+                await load(join(base, name))
+            } catch {
+                newFolderError = error.userMessage
+            }
+        }
     }
 
     private func load(_ path: String) async {

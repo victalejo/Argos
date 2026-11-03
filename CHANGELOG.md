@@ -13,6 +13,12 @@ El detalle por commit vive en el historial git (Conventional Commits):
   Con «Seguir en segundo plano» la copia continúa mientras trabajas; la fila del proyecto
   muestra el progreso (y el resultado al terminar) y reabre la ventana del envío al pulsarla.
   Si termina con Argos en segundo plano, llega una notificación.
+- **Grupos más claros**: el menú del campo Grupo ofrece «Nuevo grupo…» y «Sin grupo», y
+  una etiqueta «Nuevo» avisa cuando el nombre escrito creará un grupo.
+
+### Añadido
+- **Crear carpeta** en el selector de carpetas del servidor («Nueva carpeta»): la crea
+  dentro de la carpeta actual y entra en ella, lista para usarla en el proyecto.
 
 ## [1.7.2] - 2026-10-31
 
