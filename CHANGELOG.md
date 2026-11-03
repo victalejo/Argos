@@ -6,6 +6,14 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-11-03
+
+### Añadido
+- **Ver PDFs** en la pestaña Archivos (PDFKit: desplazamiento continuo y texto seleccionable).
+- **Descargar al Mac** cualquier archivo del proyecto: botón en la cabecera del visor, clic
+  derecho en el árbol o desde la vista de binario. Guarda en Descargas por defecto y avisa
+  con «Abrir» / «Mostrar en Finder».
+
 ## [1.7.3] - 2026-11-03
 
 ### Mejorado
