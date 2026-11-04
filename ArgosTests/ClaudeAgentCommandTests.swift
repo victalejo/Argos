@@ -24,7 +24,7 @@ struct ClaudeAgentCommandTests {
         #expect(command.contains("--input-format stream-json"))
         #expect(command.contains("--output-format stream-json"))
         #expect(command.contains("--permission-prompt-tool stdio"))
-        #expect(command.contains("--permission-mode default"))
+        #expect(command.contains("--permission-mode bypassPermissions"))
         #expect(command.contains("--session-id 11111111-1111-1111-1111-111111111111"))
     }
 

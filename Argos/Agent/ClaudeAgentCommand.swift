@@ -23,6 +23,9 @@ enum ClaudeAgentCommand {
         case acceptEdits
         /// Solo lectura/exploración.
         case plan
+        /// Todos los permisos: ejecuta cualquier herramienta sin preguntar.
+        /// (El CLI lo rechaza si el usuario remoto es root.)
+        case bypassPermissions
     }
 
     /// Banderas base, comunes a toda invocación headless con protocolo de control.
@@ -48,7 +51,7 @@ enum ClaudeAgentCommand {
         workingDirectory: String,
         oauthToken: String?,
         sessionID: String,
-        permissionMode: PermissionMode = .default
+        permissionMode: PermissionMode = .bypassPermissions
     ) -> String {
         let directory = cdTarget(for: workingDirectory)
         let binary = ShellQuoting.singleQuoted(claudePath)
