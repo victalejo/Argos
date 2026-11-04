@@ -14,18 +14,32 @@ enum LocalTerminalLauncher {
     static let terminalBundleID = "com.apple.Terminal"
     static let claudeBinary = "claude --dangerously-skip-permissions"
 
-    /// Reanuda la conversación MÁS RECIENTE de la carpeta por su ID, o arranca una nueva.
+    /// Comando que reanuda la conversación MÁS RECIENTE del proyecto por su ID, o arranca
+    /// una nueva si no hay.
     ///
     /// Claude guarda las conversaciones en `~/.claude/projects/<ruta con cada carácter no
-    /// alfanumérico cambiado por '-'>/<id>.jsonl`. Se reanuda por ID (`--resume <id>`) y no
-    /// con el selector, porque el selector y `--continue` solo muestran las conversaciones
-    /// de la cuenta logueada: una traída del servidor con otra cuenta no aparecería.
-    /// Se evitan los globs (`*.jsonl`): en zsh, sin coincidencias, abortan la línea.
-    static let claudeCommand = """
-        d="$HOME/.claude/projects/$(pwd | sed 's/[^A-Za-z0-9]/-/g')"; \
-        s=$(ls -t "$d" 2>/dev/null | grep '\\.jsonl$' | head -n 1); \
-        if [ -n "$s" ]; then \(claudeBinary) --resume "${s%.jsonl}"; else \(claudeBinary); fi
-        """
+    /// alfanumérico cambiado por '-'>/<id>.jsonl`, según la carpeta donde se abrió. La copia
+    /// del Mac puede vivir en otra ruta que en el servidor (p. ej. `~/Desarrollo/entrelingo/x`
+    /// frente a `~/Desarrollo/x`), así que se busca en AMBAS: si la más reciente está en la
+    /// de la ruta del servidor, se copia a la de la carpeta local (`--resume` solo encuentra
+    /// las de la carpeta actual; se sobrescribe la copia, porque la elegida es la más
+    /// reciente). Se reanuda por ID y no con el selector, porque el selector
+    /// solo lista las conversaciones de la cuenta logueada.
+    /// Sin globs de shell (`*.jsonl`): en zsh, sin coincidencias, abortan la línea.
+    static func claudeCommand(remoteRoot: String? = nil) -> String {
+        let remote = remoteRoot.map { ShellQuoting.singleQuoted($0) } ?? "\"$PWD\""
+        return """
+            P="$HOME/.claude/projects"; \
+            L="$P/$(pwd | sed 's/[^A-Za-z0-9]/-/g')"; \
+            R="$P/$(printf '%s' \(remote) | sed 's/[^A-Za-z0-9]/-/g')"; \
+            s=$(find "$L" "$R" -maxdepth 1 -name '*.jsonl' -exec ls -t {} + 2>/dev/null | head -n 1); \
+            if [ -n "$s" ] && [ "$(dirname "$s")" != "$L" ]; then \
+            mkdir -p "$L" && cp "$s" "$L/"; \
+            [ -d "${s%.jsonl}" ] && cp -R "${s%.jsonl}" "$L/"; fi; \
+            if [ -n "$s" ]; then \(claudeBinary) --resume "$(basename "$s" .jsonl)"; \
+            else \(claudeBinary); fi
+            """
+    }
 
     enum Outcome: Equatable {
         /// Terminal abierto con `claude` en marcha.
@@ -38,7 +52,7 @@ enum LocalTerminalLauncher {
     /// AppleScript que abre una ventana de Terminal en `folder` y ejecuta `command`.
     /// Dos capas de escape: la ruta va entre comillas de shell, y todo el comando va
     /// dentro de una cadena de AppleScript (donde `\` y `"` se escapan).
-    static func script(folder: String, command: String = claudeCommand) -> String {
+    static func script(folder: String, command: String = claudeCommand()) -> String {
         let shell = "cd \(ShellQuoting.singleQuoted(folder)) && \(command)"
         let escaped = shell
             .replacingOccurrences(of: "\\", with: "\\\\")
@@ -52,9 +66,10 @@ enum LocalTerminalLauncher {
     }
 
     @MainActor
-    static func openWithClaude(_ folder: URL) -> Outcome {
+    static func openWithClaude(_ folder: URL, remoteRoot: String? = nil) -> Outcome {
         var error: NSDictionary?
-        NSAppleScript(source: script(folder: folder.path))?.executeAndReturnError(&error)
+        let command = claudeCommand(remoteRoot: remoteRoot)
+        NSAppleScript(source: script(folder: folder.path, command: command))?.executeAndReturnError(&error)
         guard let error else { return .launched }
 
         let code = error[NSAppleScript.errorNumber] as? Int ?? 0

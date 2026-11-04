@@ -6,6 +6,14 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.7] - 2026-11-04
+
+### Corregido
+- **«Abrir en Terminal con Claude Code» no encontraba la conversación** cuando la copia del
+  Mac está en otra ruta que en el servidor (p. ej. `~/Desarrollo/entrelingo/revib-agent`
+  frente a `~/Desarrollo/revib-agent`). Ahora busca en las dos rutas, trae la más reciente a
+  la carpeta local y la reanuda.
+
 ## [1.7.6] - 2026-11-04
 
 ### Mejorado

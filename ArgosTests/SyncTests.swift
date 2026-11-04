@@ -296,15 +296,23 @@ struct SyncTests {
         let script = LocalTerminalLauncher.script(folder: "/Users/a/Mis \"proy\" d'Ana")
         #expect(script.contains(#"tell application id "com.apple.Terminal""#))
         // Shell: 'd'\''Ana'; AppleScript: \" y \\ escapados.
-        #expect(script.contains(#"do script "cd '/Users/a/Mis \"proy\" d'\\''Ana' && d=\"$HOME"#))
+        #expect(script.contains(#"do script "cd '/Users/a/Mis \"proy\" d'\\''Ana' && P=\"$HOME/.claude/projects\""#))
     }
 
     @Test("Terminal local: reanuda la conversación más reciente por ID, o arranca una nueva")
     func terminalCommandResumesLatest() {
-        let command = LocalTerminalLauncher.claudeCommand
-        #expect(command.contains(#"$HOME/.claude/projects/"#))
-        #expect(command.contains(#"claude --dangerously-skip-permissions --resume "${s%.jsonl}""#))
+        let command = LocalTerminalLauncher.claudeCommand(remoteRoot: "/Users/a/Desarrollo/revib")
+        #expect(command.contains(#"P="$HOME/.claude/projects""#))
+        #expect(command.contains(#"printf '%s' '/Users/a/Desarrollo/revib'"#))
+        #expect(command.contains(#"claude --dangerously-skip-permissions --resume "$(basename "$s" .jsonl)""#))
         #expect(command.hasSuffix("else claude --dangerously-skip-permissions; fi"))
-        #expect(!command.contains("*.jsonl"))
+        // La elegida es la más reciente: su copia local se sobrescribe (no `cp -n`).
+        #expect(command.contains(#"cp "$s" "$L/""#))
+        #expect(!command.contains("cp -n"))
+    }
+
+    @Test("Terminal local: sin ruta del servidor usa solo la carpeta actual")
+    func terminalCommandWithoutRemote() {
+        #expect(LocalTerminalLauncher.claudeCommand().contains(#"printf '%s' "$PWD""#))
     }
 }
