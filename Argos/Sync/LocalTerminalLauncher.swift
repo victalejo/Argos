@@ -12,7 +12,20 @@ import AppKit
 enum LocalTerminalLauncher {
 
     static let terminalBundleID = "com.apple.Terminal"
-    static let claudeCommand = "claude"
+    static let claudeBinary = "claude --dangerously-skip-permissions"
+
+    /// Reanuda la conversación MÁS RECIENTE de la carpeta por su ID, o arranca una nueva.
+    ///
+    /// Claude guarda las conversaciones en `~/.claude/projects/<ruta con cada carácter no
+    /// alfanumérico cambiado por '-'>/<id>.jsonl`. Se reanuda por ID (`--resume <id>`) y no
+    /// con el selector, porque el selector y `--continue` solo muestran las conversaciones
+    /// de la cuenta logueada: una traída del servidor con otra cuenta no aparecería.
+    /// Se evitan los globs (`*.jsonl`): en zsh, sin coincidencias, abortan la línea.
+    static let claudeCommand = """
+        d="$HOME/.claude/projects/$(pwd | sed 's/[^A-Za-z0-9]/-/g')"; \
+        s=$(ls -t "$d" 2>/dev/null | grep '\\.jsonl$' | head -n 1); \
+        if [ -n "$s" ]; then \(claudeBinary) --resume "${s%.jsonl}"; else \(claudeBinary); fi
+        """
 
     enum Outcome: Equatable {
         /// Terminal abierto con `claude` en marcha.
@@ -60,7 +73,7 @@ enum LocalTerminalLauncher {
             return nil
         case .openedFolderOnly:
             return "Terminal se abrió en la carpeta, pero Argos no tiene permiso para escribir en él. "
-                + "Escribe «claude», o actívalo en Ajustes del Sistema → Privacidad y seguridad → Automatización."
+                + "Escribe «claude --resume», o actívalo en Ajustes del Sistema → Privacidad y seguridad → Automatización."
         case .failed(let message):
             return message
         }

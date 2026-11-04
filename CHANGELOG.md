@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.6] - 2026-11-04
+
+### Mejorado
+- **«Abrir en Terminal con Claude Code» retoma la conversación**: en la copia local de un
+  proyecto, Argos reanuda la conversación más reciente de esa carpeta por su ID
+  (`claude --dangerously-skip-permissions --resume <id>`), o arranca una nueva si no hay.
+  Funciona aunque la conversación se empezara con otra cuenta de Claude (el selector de
+  `--resume` no la mostraba).
+
 ## [1.7.5] - 2026-11-04
 
 ### Cambiado

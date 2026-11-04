@@ -296,6 +296,15 @@ struct SyncTests {
         let script = LocalTerminalLauncher.script(folder: "/Users/a/Mis \"proy\" d'Ana")
         #expect(script.contains(#"tell application id "com.apple.Terminal""#))
         // Shell: 'd'\''Ana'; AppleScript: \" y \\ escapados.
-        #expect(script.contains(#"do script "cd '/Users/a/Mis \"proy\" d'\\''Ana' && claude""#))
+        #expect(script.contains(#"do script "cd '/Users/a/Mis \"proy\" d'\\''Ana' && d=\"$HOME"#))
+    }
+
+    @Test("Terminal local: reanuda la conversación más reciente por ID, o arranca una nueva")
+    func terminalCommandResumesLatest() {
+        let command = LocalTerminalLauncher.claudeCommand
+        #expect(command.contains(#"$HOME/.claude/projects/"#))
+        #expect(command.contains(#"claude --dangerously-skip-permissions --resume "${s%.jsonl}""#))
+        #expect(command.hasSuffix("else claude --dangerously-skip-permissions; fi"))
+        #expect(!command.contains("*.jsonl"))
     }
 }
