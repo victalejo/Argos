@@ -114,6 +114,9 @@ actor SSHService {
 
     /// Tarea de heartbeat de la conexión actual (keep-alive). Ver `startHeartbeat`.
     private var heartbeatTask: Task<Void, Never>?
+    /// Conexiones dedicadas abiertas para canales de larga duración (terminales, agente).
+    /// Se guardan para cerrarlas todas en `disconnect()`.
+    private var dedicatedClients: [UUID: SSHClient] = [:]
 
     /// Intervalo del heartbeat: más corto que los timeouts típicos de NAT/firewall
     /// (~60-120s) para que la conexión idle no se corte sin que la app lo sepa.
@@ -170,6 +173,11 @@ actor SSHService {
     /// Cierra la conexión SSH si está abierta.
     func disconnect() async {
         stopHeartbeat()
+        let dedicated = dedicatedClients.values
+        dedicatedClients.removeAll()
+        for dedicatedClient in dedicated {
+            try? await dedicatedClient.close()
+        }
         try? await fileSFTP?.close()
         fileSFTP = nil
         fileSFTPOwner = nil
@@ -350,6 +358,41 @@ actor SSHService {
             return client
         }
 
+        let client = try await openClient()
+        self.client = client
+        Log.ssh.notice("Conexión SSH establecida con \(self.configuration.host, privacy: .public):\(self.configuration.port)")
+        startHeartbeat()
+        return client
+    }
+
+    /// Ejecuta `body` sobre una conexión SSH PROPIA que se cierra al terminar.
+    ///
+    /// OpenSSH limita los canales por conexión (`MaxSessions`, 10 por defecto). Si cada
+    /// terminal y cada agente abriera su canal en la conexión compartida, con varios
+    /// proyectos en marcha se superaría el límite y el servidor rechazaría los canales
+    /// nuevos ("no more sessions" → `NIOSSHError`). Los canales de larga duración usan
+    /// por eso una conexión dedicada; la compartida queda para comandos cortos.
+    func withDedicatedClient(_ body: (SSHClient) async throws -> Void) async throws {
+        let id = UUID()
+        let client = try await openClient()
+        dedicatedClients[id] = client
+        Log.ssh.debug("Conexión dedicada abierta (\(self.dedicatedClients.count) activas)")
+        do {
+            try await body(client)
+        } catch {
+            await closeDedicatedClient(id)
+            throw error
+        }
+        await closeDedicatedClient(id)
+    }
+
+    private func closeDedicatedClient(_ id: UUID) async {
+        guard let client = dedicatedClients.removeValue(forKey: id) else { return }
+        try? await client.close()
+    }
+
+    /// Abre y autentica una conexión nueva (TOFU + clave/Keychain), sin compartirla.
+    private func openClient() async throws -> SSHClient {
         let authentication = try makeAuthenticationMethod()
 
         // Verificación de host key con Trust-On-First-Use (estilo known_hosts).
@@ -360,18 +403,13 @@ actor SSHService {
             port: configuration.port
         )
 
-        let client = try await SSHClient.connect(
+        return try await SSHClient.connect(
             host: configuration.host,
             port: configuration.port,
             authenticationMethod: authentication,
             hostKeyValidator: .custom(hostKeyValidator),
             reconnect: .never
         )
-
-        self.client = client
-        Log.ssh.notice("Conexión SSH establecida con \(self.configuration.host, privacy: .public):\(self.configuration.port)")
-        startHeartbeat()
-        return client
     }
 
     // MARK: - Heartbeat (keep-alive)

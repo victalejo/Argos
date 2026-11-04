@@ -172,7 +172,6 @@ extension SSHService {
         stdin: AsyncStream<[UInt8]>,
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws {
-        let client = try await connectedClient()
         defer { output.finish() }
 
         // stderr acumulado (thread-safe): si el proceso muere, lo mostramos en el error
@@ -180,49 +179,52 @@ extension SSHService {
         let stderrBox = NIOLockedValueBox("")
 
         do {
-            try await client.withExec(command) { inbound, outbound in
-                try await withThrowingTaskGroup(of: Void.self) { group in
-                    // Proceso remoto -> consumidor: solo stdout (donde va el NDJSON).
-                    group.addTask {
-                        for try await chunk in inbound {
-                            switch chunk {
-                            case .stdout(let buffer):
-                                if let bytes = buffer.getBytes(
-                                    at: buffer.readerIndex,
-                                    length: buffer.readableBytes
-                                ), !bytes.isEmpty {
-                                    output.yield(bytes)
-                                }
-                            case .stderr(let buffer):
-                                if let bytes = buffer.getBytes(
-                                    at: buffer.readerIndex,
-                                    length: buffer.readableBytes
-                                ), let text = String(bytes: bytes, encoding: .utf8),
-                                   !text.isEmpty {
-                                    stderrBox.withLockedValue { $0 += text }
-                                    Log.agent.debug("claude stderr: \(text, privacy: .public)")
+            // Conexión dedicada: evita agotar el `MaxSessions` de la conexión compartida.
+            try await withDedicatedClient { client in
+                try await client.withExec(command) { inbound, outbound in
+                    try await withThrowingTaskGroup(of: Void.self) { group in
+                        // Proceso remoto -> consumidor: solo stdout (donde va el NDJSON).
+                        group.addTask {
+                            for try await chunk in inbound {
+                                switch chunk {
+                                case .stdout(let buffer):
+                                    if let bytes = buffer.getBytes(
+                                        at: buffer.readerIndex,
+                                        length: buffer.readableBytes
+                                    ), !bytes.isEmpty {
+                                        output.yield(bytes)
+                                    }
+                                case .stderr(let buffer):
+                                    if let bytes = buffer.getBytes(
+                                        at: buffer.readerIndex,
+                                        length: buffer.readableBytes
+                                    ), let text = String(bytes: bytes, encoding: .utf8),
+                                       !text.isEmpty {
+                                        stderrBox.withLockedValue { $0 += text }
+                                        Log.agent.debug("claude stderr: \(text, privacy: .public)")
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Consumidor -> stdin del proceso remoto (prompts y control_response).
-                    group.addTask {
-                        do {
-                            for await bytes in stdin {
-                                try await outbound.write(ByteBuffer(bytes: bytes))
+                        // Consumidor -> stdin del proceso remoto (prompts y control_response).
+                        group.addTask {
+                            do {
+                                for await bytes in stdin {
+                                    try await outbound.write(ByteBuffer(bytes: bytes))
+                                }
+                            } catch is CancellationError {
+                                // Parada normal.
+                            } catch {
+                                Log.agent.debug("Fin de escritura a claude: \(String(describing: error), privacy: .public)")
                             }
-                        } catch is CancellationError {
-                            // Parada normal.
-                        } catch {
-                            Log.agent.debug("Fin de escritura a claude: \(String(describing: error), privacy: .public)")
                         }
-                    }
 
-                    // En cuanto una rama termina (EOF del proceso o cancelación), paramos
-                    // la otra; `withExec` cierra el canal al retornar.
-                    _ = try await group.next()
-                    group.cancelAll()
+                        // En cuanto una rama termina (EOF del proceso o cancelación), paramos
+                        // la otra; `withExec` cierra el canal al retornar.
+                        _ = try await group.next()
+                        group.cancelAll()
+                    }
                 }
             }
         } catch {

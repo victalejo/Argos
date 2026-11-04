@@ -101,7 +101,6 @@ extension SSHService {
         control: AsyncStream<TerminalControlEvent>,
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws {
-        let client = try await connectedClient()
         let size = PTYSize.initial(cols: initialCols, rows: initialRows)
 
         let request = SSHChannelRequestEvent.PseudoTerminalRequest(
@@ -118,62 +117,65 @@ extension SSHService {
         // pase lo que pase con la conexión.
         defer { output.finish() }
 
-        try await client.withPTY(request) { inbound, outbound in
-            // `exec` reemplaza el shell del PTY por el comando, para que al terminar este
-            // (detach de tmux, o fin de `claude auth login`) el canal se cierre limpiamente.
-            let command = "exec \(launchCommand)\n"
-            try await outbound.write(ByteBuffer(string: command))
+        // Conexión dedicada: evita agotar el `MaxSessions` de la conexión compartida.
+        try await withDedicatedClient { client in
+            try await client.withPTY(request) { inbound, outbound in
+                // `exec` reemplaza el shell del PTY por el comando, para que al terminar este
+                // (detach de tmux, o fin de `claude auth login`) el canal se cierre limpiamente.
+                let command = "exec \(launchCommand)\n"
+                try await outbound.write(ByteBuffer(string: command))
 
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                // PTY -> TerminalView: reenvía cada chunk de salida.
-                group.addTask {
-                    for try await chunk in inbound {
-                        switch chunk {
-                        case .stdout(let buffer), .stderr(let buffer):
-                            if let bytes = buffer.getBytes(
-                                at: buffer.readerIndex,
-                                length: buffer.readableBytes
-                            ), !bytes.isEmpty {
-                                output.yield(bytes)
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    // PTY -> TerminalView: reenvía cada chunk de salida.
+                    group.addTask {
+                        for try await chunk in inbound {
+                            switch chunk {
+                            case .stdout(let buffer), .stderr(let buffer):
+                                if let bytes = buffer.getBytes(
+                                    at: buffer.readerIndex,
+                                    length: buffer.readableBytes
+                                ), !bytes.isEmpty {
+                                    output.yield(bytes)
+                                }
                             }
                         }
                     }
-                }
 
-                // TerminalView -> PTY: teclas a stdin y resize a window-change.
-                // Tragamos errores aquí: si el canal se está cerrando perdiendo la
-                // carrera, no queremos enmascarar la causa real (EOF del lector).
-                group.addTask {
-                    do {
-                        for await event in control {
-                            switch event {
-                            case .input(let bytes):
-                                try await outbound.write(ByteBuffer(bytes: bytes))
-                            case .resize(let cols, let rows):
-                                // Tamaños transitorios del layout (p. ej. 2x1) tumban zsh.
-                                guard PTYSize.isUsable(cols: cols, rows: rows) else { continue }
-                                try await outbound.changeSize(
-                                    cols: cols,
-                                    rows: rows,
-                                    pixelWidth: 0,
-                                    pixelHeight: 0
-                                )
+                    // TerminalView -> PTY: teclas a stdin y resize a window-change.
+                    // Tragamos errores aquí: si el canal se está cerrando perdiendo la
+                    // carrera, no queremos enmascarar la causa real (EOF del lector).
+                    group.addTask {
+                        do {
+                            for await event in control {
+                                switch event {
+                                case .input(let bytes):
+                                    try await outbound.write(ByteBuffer(bytes: bytes))
+                                case .resize(let cols, let rows):
+                                    // Tamaños transitorios del layout (p. ej. 2x1) tumban zsh.
+                                    guard PTYSize.isUsable(cols: cols, rows: rows) else { continue }
+                                    try await outbound.changeSize(
+                                        cols: cols,
+                                        rows: rows,
+                                        pixelWidth: 0,
+                                        pixelHeight: 0
+                                    )
+                                }
                             }
+                        } catch is CancellationError {
+                            // Cancelación cooperativa: fin normal del trabajo de escritura.
+                        } catch {
+                            // El canal suele estar cerrándose (lo habitual), pero podría ser
+                            // un error real de protocolo/backpressure: lo registramos en vez
+                            // de tragarlo en silencio para poder diagnosticar un PTY mudo.
+                            Log.terminal.debug("Fin de escritura al PTY: \(String(describing: error), privacy: .public)")
                         }
-                    } catch is CancellationError {
-                        // Cancelación cooperativa: fin normal del trabajo de escritura.
-                    } catch {
-                        // El canal suele estar cerrándose (lo habitual), pero podría ser
-                        // un error real de protocolo/backpressure: lo registramos en vez
-                        // de tragarlo en silencio para poder diagnosticar un PTY mudo.
-                        Log.terminal.debug("Fin de escritura al PTY: \(String(describing: error), privacy: .public)")
                     }
-                }
 
-                // En cuanto una rama termina (EOF del PTY, o cancelación), paramos la otra.
-                // `withPTY` cerrará el canal al retornar -> detach (la sesión tmux persiste).
-                _ = try await group.next()
-                group.cancelAll()
+                    // En cuanto una rama termina (EOF del PTY, o cancelación), paramos la otra.
+                    // `withPTY` cerrará el canal al retornar -> detach (la sesión tmux persiste).
+                    _ = try await group.next()
+                    group.cancelAll()
+                }
             }
         }
     }

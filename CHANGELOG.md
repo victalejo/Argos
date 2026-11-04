@@ -14,6 +14,9 @@ El detalle por commit vive en el historial git (Conventional Commits):
   aprobación.
 
 ### Corregido
+- **«No se pudo preparar el agente» (NIOSSHError)** con varios proyectos abiertos: el
+  servidor SSH limita a 10 los canales por conexión (`MaxSessions`) y Argos los metía todos
+  en una sola. Ahora cada terminal y cada conversación del agente usan su propia conexión.
 - Los enlaces dentro de un PDF ya no se abren sin control al verlo en Archivos.
 
 ## [1.7.4] - 2026-11-03
