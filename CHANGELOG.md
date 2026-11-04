@@ -6,6 +6,16 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.5] - 2026-11-04
+
+### Cambiado
+- **Agente con todos los permisos**: las conversaciones nuevas del panel Agente arrancan en
+  modo `bypassPermissions`, así que Claude ejecuta herramientas (Bash, ediciones…) sin pedir
+  aprobación.
+
+### Corregido
+- Los enlaces dentro de un PDF ya no se abren sin control al verlo en Archivos.
+
 ## [1.7.4] - 2026-11-03
 
 ### Añadido
