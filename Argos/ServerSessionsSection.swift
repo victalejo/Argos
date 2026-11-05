@@ -17,6 +17,7 @@ struct ServerSessionsSection: View {
     let vm: SessionsViewModel
     let terminalStore: TerminalSessionStore
     let filter: String
+    var statusFilter: ProjectStatusFilter = .all
     @Binding var renameTarget: SessionAction?
     @Binding var killTarget: SessionAction?
     @Binding var projectForm: ProjectFormRequest?
@@ -160,8 +161,14 @@ struct ServerSessionsSection: View {
     @ViewBuilder
     private var projectList: some View {
         let listing = vm.projectListing
-        let entries = Self.matching(listing.entries, filter: filter)
-        let loose = Self.matching(listing.looseSessions, filter: filter)
+        let entries = Self.matching(listing.entries, filter: filter).filter {
+            statusFilter.includes(terminalStore.status(of: $0, serverID: server.id))
+        }
+        let loose = Self.matching(listing.looseSessions, filter: filter).filter {
+            statusFilter.includes(terminalStore.status(of: $0, serverID: server.id))
+        }
+        // Con búsqueda o filtro de estado, los grupos se muestran desplegados.
+        let isFiltering = !filter.isEmpty || statusFilter != .all
         let groups = ProjectListing.groups(entries)
         // Sin grupos reales ni sueltas, los encabezados solo añadirían ruido.
         let showHeaders = groups.count > 1 || !loose.isEmpty
@@ -198,7 +205,9 @@ struct ServerSessionsSection: View {
             VStack(alignment: .leading, spacing: 4) {
                 Label("Sin coincidencias", systemImage: "magnifyingglass")
                     .font(.system(size: 12, weight: .medium))
-                Text("Prueba con otro nombre o carpeta.")
+                Text(statusFilter == .all
+                     ? "Prueba con otro nombre o carpeta."
+                     : "Ningún proyecto «\(statusFilter.title.lowercased())» aquí.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -218,7 +227,7 @@ struct ServerSessionsSection: View {
                     sessionNames: group.entries.map(\.project.sessionName)
                 )
             }
-            let isCollapsed = showHeaders && filter.isEmpty
+            let isCollapsed = showHeaders && !isFiltering
                 && collapsedGroups.isCollapsed(serverID: server.id, group: group.name)
             ForEach(isCollapsed ? [] : group.entries) { entry in
                 projectRow(entry)
@@ -227,7 +236,7 @@ struct ServerSessionsSection: View {
 
         if !loose.isEmpty {
             groupHeader(name: Self.looseGroupName, count: loose.count, sessionNames: loose.map(\.name))
-            let isCollapsed = filter.isEmpty
+            let isCollapsed = !isFiltering
                 && collapsedGroups.isCollapsed(serverID: server.id, group: Self.looseGroupName)
             ForEach(isCollapsed ? [] : loose) { session in
                 sessionRow(session, displayName: nil)

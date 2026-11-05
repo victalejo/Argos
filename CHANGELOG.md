@@ -6,6 +6,14 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.8] - 2026-11-05
+
+### Añadido
+- **Filtro por estado** bajo el buscador de proyectos, con el número de cada uno:
+  Abiertas (terminal abierto en Argos), Dormidas (corren sin nadie conectado), Detenidas
+  (sin sesión en el servidor), En el Mac (enviadas al Mac) y Segundo plano (abiertas en
+  otro cliente). Se combina con la búsqueda; pulsar el filtro activo vuelve a «Todos».
+
 ## [1.7.7] - 2026-11-04
 
 ### Corregido

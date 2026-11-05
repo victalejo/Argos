@@ -27,6 +27,7 @@ struct SessionsColumn: View {
     @State private var renameTarget: SessionAction?
     @State private var killTarget: SessionAction?
     @State private var searchText = ""
+    @State private var statusFilter: ProjectStatusFilter = .all
     @State private var isShowingBroadcast = false
     @State private var broadcastPreselect: Set<SessionHandle> = []
     @State private var isShowingResources = false
@@ -43,6 +44,7 @@ struct SessionsColumn: View {
                             vm: vm,
                             terminalStore: terminalStore,
                             filter: searchText,
+                            statusFilter: statusFilter,
                             renameTarget: $renameTarget,
                             killTarget: $killTarget,
                             projectForm: $projectForm,
@@ -263,10 +265,62 @@ struct SessionsColumn: View {
                     .strokeBorder(searchFocused ? Color.accentColor.opacity(0.65) : Color.primary.opacity(0.07), lineWidth: 1)
             }
             .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: searchFocused)
+
+            statusFilterBar
         }
         .padding(18)
         .background(Color(nsColor: .controlBackgroundColor))
         .overlay(alignment: .bottom) { Divider() }
+    }
+
+    /// Botones para filtrar por estado (con su número de proyectos). Pulsar el activo
+    /// vuelve a «Todos».
+    private var statusFilterBar: some View {
+        let counts = statusCounts
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(ProjectStatusFilter.allCases) { option in
+                    let isOn = statusFilter == option
+                    Button {
+                        statusFilter = (isOn && option != .all) ? .all : option
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: option.systemImage)
+                            Text(option.title)
+                            Text("\(counts[option] ?? 0)")
+                                .monospacedDigit()
+                                .foregroundStyle(isOn ? Color.white.opacity(0.8) : Color.secondary)
+                        }
+                        .font(.system(size: 10, weight: .medium))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .foregroundStyle(isOn ? Color.white : Color.primary)
+                        .background(
+                            isOn ? Color.accentColor : Color.primary.opacity(0.06),
+                            in: Capsule()
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .help(option.help)
+                    .accessibilityLabel("\(option.title), \(counts[option] ?? 0)")
+                    .accessibilityAddTraits(isOn ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    /// Número de proyectos (y sesiones sueltas) por filtro, en los servidores cargados.
+    private var statusCounts: [ProjectStatusFilter: Int] {
+        var statuses: [ProjectStatus] = []
+        for server in servers {
+            guard let vm = vms[server.id], case .loaded = vm.state else { continue }
+            let listing = vm.projectListing
+            statuses += listing.entries.map { terminalStore.status(of: $0, serverID: server.id) }
+            statuses += listing.looseSessions.map { terminalStore.status(of: $0, serverID: server.id) }
+        }
+        return Dictionary(uniqueKeysWithValues: ProjectStatusFilter.allCases.map { option in
+            (option, statuses.filter(option.includes).count)
+        })
     }
 
     /// Mirrors the rendered server/group order and skips collapsed groups, so Return
@@ -281,20 +335,23 @@ struct SessionsColumn: View {
             guard let vm = vms[server.id], case .loaded = vm.state else { continue }
             let listing = vm.projectListing
             let entries = listing.entries.filter {
-                matches($0.project.sessionName) || matches($0.project.path)
+                (matches($0.project.sessionName) || matches($0.project.path))
+                    && statusFilter.includes(terminalStore.status(of: $0, serverID: server.id))
             }
-            let loose = listing.looseSessions.filter { matches($0.name) }
+            let loose = listing.looseSessions.filter {
+                matches($0.name) && statusFilter.includes(terminalStore.status(of: $0, serverID: server.id))
+            }
             let groups = ProjectListing.groups(entries)
             let showHeaders = groups.count > 1 || !loose.isEmpty
                 || (groups.first.map { $0.name != SessionGrouping.ungroupedName } ?? false)
             for group in groups {
-                let isCollapsed = showHeaders && searchText.isEmpty
+                let isCollapsed = showHeaders && searchText.isEmpty && statusFilter == .all
                     && collapsed.isCollapsed(serverID: server.id, group: group.name)
                 if !isCollapsed, let entry = group.entries.first {
                     return SessionHandle(serverID: server.id, sessionID: entry.project.sessionName)
                 }
             }
-            let looseIsCollapsed = searchText.isEmpty
+            let looseIsCollapsed = searchText.isEmpty && statusFilter == .all
                 && collapsed.isCollapsed(serverID: server.id, group: "Sesiones sueltas")
             if !looseIsCollapsed, let session = loose.first {
                 return SessionHandle(serverID: server.id, sessionID: session.id)

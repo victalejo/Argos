@@ -46,6 +46,7 @@
 		445FE3EA6A6C3769A07480CF /* ClaudeStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C77C948AAE0767A64ECA8DB0 /* ClaudeStatusTests.swift */; };
 		45AF3DF9005F96E95D8DA233 /* LooseSessionFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2F5B1B9C7410877FC6132DD /* LooseSessionFilesView.swift */; };
 		4624E450642CD852F90C06A4 /* RemoteDirectoryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC935AAE1B389583E54E155 /* RemoteDirectoryPicker.swift */; };
+		47637CD5B0B3053376932884 /* ProjectStatusFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21B20C1D5E7CF59883CADA91 /* ProjectStatusFilterTests.swift */; };
 		4A4DEE721BCDB6F0EE379707 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2192339636B63AFFCC29EF6 /* JSONValue.swift */; };
 		4FB1FAB4D81C0F246A396C6B /* FilesPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D2FE460795B4342E7429DB /* FilesPanelView.swift */; };
 		501E8C94EF56BEB5A0A34C27 /* LocalTerminalLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = E005FC4C09BC1D2BB3CA9FEC /* LocalTerminalLauncher.swift */; };
@@ -113,6 +114,7 @@
 		C6F4DC5E058C8C09101C6AAA /* SendCommandSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC7E2F69B701B9A38B3AB78B /* SendCommandSheet.swift */; };
 		C7708B036D3C8097551D7076 /* SessionsColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177E5F125A9E48EB8BD0C6C5 /* SessionsColumn.swift */; };
 		C7B6778AD95B861B188040BF /* SessionTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A562D75FBE00C404B0B2E49 /* SessionTerminalView.swift */; };
+		CBFE16DD500BC30DD2EAC5BE /* ProjectStatusFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CDA9218CA746B41E6A65B13 /* ProjectStatusFilter.swift */; };
 		CD459333B108C30AA0431EC3 /* ProjectSyncJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = B224353F8D7B9EF8C253A56E /* ProjectSyncJob.swift */; };
 		CEEA0C44140C6413EC17C1DF /* WindowBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ADFDC0F1DA5966F2F9DFFD3 /* WindowBar.swift */; };
 		D01A53C5EDFA76DECB3F4C67 /* AgentPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBEDFA397323EAD761FBBBD /* AgentPanelView.swift */; };
@@ -169,6 +171,7 @@
 		1F1EA27ECBCFA91BE590C33E /* FileBrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserModel.swift; sourceTree = "<group>"; };
 		1FFEBA10AAB338D0821A7A7C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		2057FA3FC64EDDE81D1F6829 /* Argos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Argos.entitlements; sourceTree = "<group>"; };
+		21B20C1D5E7CF59883CADA91 /* ProjectStatusFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStatusFilterTests.swift; sourceTree = "<group>"; };
 		220CBBB363C64472A8DE9188 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2290E5DAE385E8F47922CBA1 /* ClaudeActivityBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeActivityBadge.swift; sourceTree = "<group>"; };
 		267A8EBF6AC77BD9C61BA26C /* SafeMarkdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeMarkdownView.swift; sourceTree = "<group>"; };
@@ -225,6 +228,7 @@
 		881838CFA43C8EEA7B696F00 /* LocalProjectFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalProjectFiles.swift; sourceTree = "<group>"; };
 		89636A0E6D02EA4066923573 /* FolderNameValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderNameValidatorTests.swift; sourceTree = "<group>"; };
 		89E5BB53BEA33DF560FC220F /* AgentRealStreamTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRealStreamTests.swift; sourceTree = "<group>"; };
+		8CDA9218CA746B41E6A65B13 /* ProjectStatusFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStatusFilter.swift; sourceTree = "<group>"; };
 		8E28B3E384E55DECA5738BFF /* Server.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Server.swift; sourceTree = "<group>"; };
 		8F1C527D544A33C86FDA6A00 /* SessionGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionGroup.swift; sourceTree = "<group>"; };
 		942B96BE0AB66F510C6496FA /* ProjectSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSyncEngine.swift; sourceTree = "<group>"; };
@@ -318,6 +322,7 @@
 				410C22953E31B83A9B58B822 /* ProjectRow.swift */,
 				5BFA6B4A1949D3E906FCC0CC /* ProjectSettings.swift */,
 				61C6A70998E4772FD0B73A50 /* ProjectSettingsView.swift */,
+				8CDA9218CA746B41E6A65B13 /* ProjectStatusFilter.swift */,
 				AAA1EBF755252AEAAD6F01EB /* ProjectStoppedView.swift */,
 				65EB40EC518AE190635B8638 /* SessionsViewModel+Projects.swift */,
 				050B081263C110C1734B79D6 /* SSHProjects.swift */,
@@ -476,6 +481,7 @@
 				D373BD5CC9EBD53251E1B7C4 /* FuzzyMatcherTests.swift */,
 				DC724DB505B98A68667B540E /* MockSSHService.swift */,
 				C03E297A38B4DE514422CC7D /* ProjectLifecycleTests.swift */,
+				21B20C1D5E7CF59883CADA91 /* ProjectStatusFilterTests.swift */,
 				F1FF513DFEB8610B6F065F4A /* ProjectSyncEngineTests.swift */,
 				26FAC4013C8FD7D733EE4A35 /* ProjectTests.swift */,
 				61C8B6DAF88142F2F16E8025 /* PTYSizeTests.swift */,
@@ -685,6 +691,7 @@
 				3C7E81F804BFDD06CD0332A9 /* ProjectRow.swift in Sources */,
 				42FF1C2D4019AF1B425ECF11 /* ProjectSettings.swift in Sources */,
 				6845CE151886AAA79E1C6F3D /* ProjectSettingsView.swift in Sources */,
+				CBFE16DD500BC30DD2EAC5BE /* ProjectStatusFilter.swift in Sources */,
 				9D27422A3D0C0BC2DAA4D42F /* ProjectStoppedView.swift in Sources */,
 				C5FF3931CD2CABF965A13601 /* ProjectSyncEngine.swift in Sources */,
 				CD459333B108C30AA0431EC3 /* ProjectSyncJob.swift in Sources */,
@@ -753,6 +760,7 @@
 				DE3BDF69942A527B06CEE36F /* MockSSHService.swift in Sources */,
 				C55B46018E7A511296ECDE50 /* PTYSizeTests.swift in Sources */,
 				DBA7F71DE11B83F6F542EF53 /* ProjectLifecycleTests.swift in Sources */,
+				47637CD5B0B3053376932884 /* ProjectStatusFilterTests.swift in Sources */,
 				FF107022503897E02341B7D5 /* ProjectSyncEngineTests.swift in Sources */,
 				5C69AE0181588E89B3F085CA /* ProjectTests.swift in Sources */,
 				EB33DC4B64ABC1F4A60DA707 /* SSHConfigParserTests.swift in Sources */,
@@ -813,7 +821,7 @@
 				CODE_SIGN_ENTITLEMENTS = Argos/Argos.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 34;
+				CURRENT_PROJECT_VERSION = 35;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -823,7 +831,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.7.7;
+				MARKETING_VERSION = 1.7.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
 				PRODUCT_NAME = Argos;
 				SDKROOT = macosx;
@@ -840,7 +848,7 @@
 				CODE_SIGN_ENTITLEMENTS = Argos/Argos.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 34;
+				CURRENT_PROJECT_VERSION = 35;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -850,7 +858,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.7.7;
+				MARKETING_VERSION = 1.7.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos;
 				PRODUCT_NAME = Argos;
 				SDKROOT = macosx;
