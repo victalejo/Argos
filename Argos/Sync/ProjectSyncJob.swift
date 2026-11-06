@@ -74,9 +74,17 @@ final class ProjectSyncJob {
                 try Task.checkCancellation()
                 phase = .readyToMac(files: files, destination: MacSyncStore.destination())
             case .toServer:
-                guard let manifest = MacSyncStore.manifest(for: project.id),
+                guard let manifest = try MacSyncStore.loadManifest(for: project.id),
                       let localRoot = MacSyncStore.localFolder(of: manifest) else {
                     phase = .failed("Este Mac no tiene la copia de \(project.name). Envíalo al servidor desde el Mac donde lo tienes.")
+                    return
+                }
+                let exists = await MacSyncStore.withAccess(to: localRoot) {
+                    FileManager.default.fileExists(atPath: localRoot.path)
+                }
+                guard exists else {
+                    Log.store.error("Copia local de \(self.project.name, privacy: .public) no encontrada en \(localRoot.path, privacy: .public)")
+                    phase = .failed("La copia de \(project.name) ya no está en \(localRoot.path) (¿se movió o se borró?).")
                     return
                 }
                 let (plan, local) = try await MacSyncStore.withAccess(to: localRoot) {

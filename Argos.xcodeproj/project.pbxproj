@@ -66,6 +66,7 @@
 		541F1E3D64FD39EF21413F88 /* SSHFileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813BA47AFE3577E5DFBB180C /* SSHFileTransfer.swift */; };
 		54547958B6A2377FC7FB68B7 /* FileDownloadStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EEC0CBCE324EDB6B2A1FEE /* FileDownloadStatus.swift */; };
 		55746776F32E2D1D673C615F /* Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156ECCC03245407DD5C767E6 /* Server.swift */; };
+		55917C7666AB96F1EC18447C /* MacSyncStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9B6F05D9AC4A310A0E606F /* MacSyncStoreTests.swift */; };
 		56659267131D91EDD9882F3F /* AgentRealStreamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E5BB53BEA33DF560FC220F /* AgentRealStreamTests.swift */; };
 		56DC8C3F615CA8EDB673746A /* ErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A3AD4EE0BFF2A80D89EDDF2 /* ErrorMessage.swift */; };
 		575074884AEDF27C35F52B78 /* FuzzyMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD28202533882A5CB63BEE6 /* FuzzyMatcher.swift */; };
@@ -313,6 +314,7 @@
 		A5A9E35745379524CD9CA086 /* SSHAgentExec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHAgentExec.swift; sourceTree = "<group>"; };
 		A7C92DB35F8F742BAC94E10B /* ProjectFormSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFormSheet.swift; sourceTree = "<group>"; };
 		A89D135838D9A2598F1B4E59 /* SSHFileBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHFileBrowser.swift; sourceTree = "<group>"; };
+		AA9B6F05D9AC4A310A0E606F /* MacSyncStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacSyncStoreTests.swift; sourceTree = "<group>"; };
 		AAA1EBF755252AEAAD6F01EB /* ProjectStoppedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStoppedView.swift; sourceTree = "<group>"; };
 		ACE9375E27CE2C808D138EE7 /* ClaudeHookInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeHookInstaller.swift; sourceTree = "<group>"; };
 		AD9248D8F60C69D27BDE5BEB /* FolderNameValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderNameValidator.swift; sourceTree = "<group>"; };
@@ -547,6 +549,7 @@
 				9D9EC06EA69AD60B075D4B46 /* FileBrowserTests.swift */,
 				89636A0E6D02EA4066923573 /* FolderNameValidatorTests.swift */,
 				D373BD5CC9EBD53251E1B7C4 /* FuzzyMatcherTests.swift */,
+				AA9B6F05D9AC4A310A0E606F /* MacSyncStoreTests.swift */,
 				DC724DB505B98A68667B540E /* MockSSHService.swift */,
 				C03E297A38B4DE514422CC7D /* ProjectLifecycleTests.swift */,
 				21B20C1D5E7CF59883CADA91 /* ProjectStatusFilterTests.swift */,
@@ -1000,6 +1003,7 @@
 				3EAF372B9422A1D0FE851C6B /* FileBrowserTests.swift in Sources */,
 				709BD3E5EA47D2587DB1B1EE /* FolderNameValidatorTests.swift in Sources */,
 				3B5EC598924190FB12A74421 /* FuzzyMatcherTests.swift in Sources */,
+				55917C7666AB96F1EC18447C /* MacSyncStoreTests.swift in Sources */,
 				DE3BDF69942A527B06CEE36F /* MockSSHService.swift in Sources */,
 				C55B46018E7A511296ECDE50 /* PTYSizeTests.swift in Sources */,
 				DBA7F71DE11B83F6F542EF53 /* ProjectLifecycleTests.swift in Sources */,

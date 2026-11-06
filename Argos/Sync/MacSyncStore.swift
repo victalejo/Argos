@@ -68,13 +68,41 @@ enum MacSyncStore {
         return base.appendingPathComponent("Argos/sync", isDirectory: true)
     }
 
-    private static func manifestURL(for projectID: UUID) -> URL {
-        manifestsDirectory.appendingPathComponent("\(projectID.uuidString).json")
+    private static func manifestURL(for projectID: UUID, in directory: URL = manifestsDirectory) -> URL {
+        directory.appendingPathComponent("\(projectID.uuidString).json")
     }
 
+    /// Manifiesto del proyecto: `nil` si este Mac no tiene copia; LANZA si el archivo
+    /// existe pero no se puede leer o decodificar (para no confundirlo con "no hay copia").
+    static func loadManifest(for projectID: UUID, in directory: URL = manifestsDirectory) throws -> SyncManifest? {
+        let url = manifestURL(for: projectID, in: directory)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            Log.store.info("Sin manifiesto de envío para \(projectID.uuidString, privacy: .public) en \(url.path, privacy: .public)")
+            return nil
+        }
+        do {
+            let data = try Data(contentsOf: url)
+            return try JSONDecoder.projects.decode(SyncManifest.self, from: data)
+        } catch {
+            Log.store.error("Manifiesto de envío ilegible (\(url.path, privacy: .public)): \(String(describing: error), privacy: .public)")
+            throw ManifestError.unreadable(path: url.path, reason: error.localizedDescription)
+        }
+    }
+
+    /// Variante sin errores para la UI (menús): el fallo ya queda registrado en el log.
     static func manifest(for projectID: UUID) -> SyncManifest? {
-        guard let data = try? Data(contentsOf: manifestURL(for: projectID)) else { return nil }
-        return try? JSONDecoder.projects.decode(SyncManifest.self, from: data)
+        (try? loadManifest(for: projectID)) ?? nil
+    }
+
+    enum ManifestError: LocalizedError {
+        case unreadable(path: String, reason: String)
+
+        var errorDescription: String? {
+            switch self {
+            case .unreadable(let path, let reason):
+                return "No se pudo leer el registro del envío (\(path)): \(reason)"
+            }
+        }
     }
 
     static func save(_ manifest: SyncManifest) throws {
