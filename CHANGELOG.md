@@ -6,6 +6,18 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.9] - 2026-11-06
+
+### Corregido
+- **«Enviar al servidor» decía «Este Mac no tiene la copia»** aunque el proyecto estuviera
+  en este Mac: cualquier fallo al leer el registro local del envío se ocultaba. Ahora la
+  hoja muestra la causa real (y la registra en el log) y avisa aparte si la carpeta de la
+  copia local se movió o se borró.
+
+### Interno
+- Nueva variante **Mac App Store** (`ArgosAppStore`) con las mismas funciones; el canal
+  GitHub + Sparkle no cambia.
+
 ## [1.7.8] - 2026-11-05
 
 ### Añadido
