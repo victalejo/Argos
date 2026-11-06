@@ -175,6 +175,9 @@ targets:
         CFBundleLocalizations:
           - es
         NSAppleEventsUsageDescription: "Argos abre Terminal en la copia local de tu proyecto y arranca Claude Code."
+        # Cifrado: solo SSH con algoritmos estándar (open source) → exento (mercado
+        # masivo, EAR Cat. 5 Parte 2). Evita la pregunta de cumplimiento en cada build.
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APPSTORE"
@@ -201,6 +204,7 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
         INFOPLIST_KEY_CFBundleDisplayName: Argos
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         TARGETED_DEVICE_FAMILY: "1,2"
