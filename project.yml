@@ -14,6 +14,7 @@ options:
     # El terminal en vivo usa Citadel.withPTY / TTYOutput, marcados
     # @available(macOS 15.0, *). Mínimo: macOS 15.
     macOS: "15.0"
+    iOS: "18.0"
   createIntermediateGroups: true
   groupSortPosition: top
 
@@ -45,6 +46,9 @@ targets:
     deploymentTarget: "15.0"
     sources:
       - path: Argos
+      # Núcleo multiplataforma (modelo, SSH, stores, view models). Lo compilan tanto
+      # la app de Mac como ArgosiOS: NO puede importar AppKit/SwiftUI/SwiftTerm.
+      - path: ArgosCore
     # App Sandbox + Hardened Runtime ACTIVADOS (distribución/notarización). La clave
     # SSH se lee por security-scoped bookmark que el usuario concede al elegirla; la
     # red saliente y la lectura de archivos elegidos se conceden vía entitlements.
@@ -126,6 +130,36 @@ targets:
       - package: Sparkle
       - package: MarkdownUI
 
+  # App de iPhone/iPad. Por ahora (Fase 1) es un esqueleto cuyo objetivo es que la CI
+  # compile ArgosCore para iOS y así garantice que el núcleo sigue siendo portable.
+  # Mismo bundle id que la de Mac: una sola ficha en App Store (compra universal).
+  ArgosiOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: ArgosiOS
+      - path: ArgosCore
+    settings:
+      base:
+        PRODUCT_NAME: Argos
+        PRODUCT_BUNDLE_IDENTIFIER: com.iaportafolio.argos
+        MARKETING_VERSION: "1.7.8"
+        CURRENT_PROJECT_VERSION: "35"
+        GENERATE_INFOPLIST_FILE: "YES"
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        INFOPLIST_KEY_CFBundleDisplayName: Argos
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: L6WGLNT9XZ
+    dependencies:
+      - package: Citadel
+
   ArgosTests:
     type: bundle.unit-test
     platform: macOS
@@ -142,6 +176,14 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
 
 schemes:
+  ArgosiOS:
+    build:
+      targets:
+        ArgosiOS: all
+    run:
+      config: Debug
+    archive:
+      config: Release
   Argos:
     build:
       targets:

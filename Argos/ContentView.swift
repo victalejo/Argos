@@ -8,21 +8,6 @@
 
 import SwiftUI
 
-// MARK: - Identificador de sesión en el contexto multi-servidor
-
-struct SessionHandle: Hashable, Sendable {
-    let serverID: Server.ID
-    let sessionID: TmuxSession.ID
-}
-
-/// Modo de la 3ª columna para una sesión: el terminal tmux (por defecto) o el panel
-/// de agente de Claude Code. Es ADITIVO: el terminal no cambia.
-enum DetailMode: Hashable, Sendable {
-    case terminal
-    case files
-    case agent
-}
-
 // MARK: - Root view
 
 struct ContentView: View {

@@ -23,14 +23,6 @@ import AppKit          // NSPasteboard
 import Observation
 import SwiftTerm
 
-/// Estado observable de la conexión del terminal en vivo.
-enum LiveTerminalStatus: Sendable, Equatable {
-    case connecting
-    case connected
-    case ended
-    case failed(String)
-}
-
 /// Controla un terminal en vivo adjuntado a una sesión tmux concreta.
 ///
 /// Vive en el `MainActor`: posee el `TerminalView` (UI) y actúa como su delegate.

@@ -488,9 +488,16 @@ actor SSHService {
         if let bookmark = configuration.privateKeyBookmark {
             do {
                 var isStale = false
+                // macOS exige `.withSecurityScope` para bookmarks del sandbox; en iOS
+                // los bookmarks de archivos elegidos ya llevan el scope implícito.
+                #if os(macOS)
+                let resolveOptions: URL.BookmarkResolutionOptions = [.withSecurityScope]
+                #else
+                let resolveOptions: URL.BookmarkResolutionOptions = []
+                #endif
                 let url = try URL(
                     resolvingBookmarkData: bookmark,
-                    options: [.withSecurityScope],
+                    options: resolveOptions,
                     relativeTo: nil,
                     bookmarkDataIsStale: &isStale
                 )

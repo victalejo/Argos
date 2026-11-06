@@ -10,26 +10,6 @@
 
 import Observation
 
-/// Estado de conexión de una sesión, para el indicador de la lista.
-enum SessionConnectionState: Equatable {
-    case live              // 🟢 cargada y conectada por nosotros
-    case connecting        // 🟡 estableciendo la conexión
-    case error             // 🔴 falló la conexión
-    case attachedElsewhere // 🔵 tmux la reporta adjunta, pero no por esta app
-    case dormant           // 🌙 no cargada (nunca abierta o desconectada)
-
-    /// Mapeo puro (testeable): estado del terminal local + flag de tmux → estado visual.
-    /// `status == nil` significa que no hay terminal cargado para la sesión.
-    static func from(status: LiveTerminalStatus?, isAttached: Bool) -> SessionConnectionState {
-        switch status {
-        case .connecting: return .connecting
-        case .connected: return .live
-        case .failed: return .error
-        case .ended, .none: return isAttached ? .attachedElsewhere : .dormant
-        }
-    }
-}
-
 @MainActor
 @Observable
 final class TerminalSessionStore {
@@ -133,5 +113,22 @@ final class TerminalSessionStore {
     ) -> LiveTerminalController {
         close(handle)
         return controller(for: handle, service: service, sessionName: sessionName)
+    }
+}
+
+// MARK: - Estado para el filtro de proyectos
+
+extension TerminalSessionStore {
+    /// Estado de un proyecto del servidor `serverID` para el filtro.
+    func status(of entry: ProjectEntry, serverID: Server.ID) -> ProjectStatus {
+        let handle = SessionHandle(serverID: serverID, sessionID: entry.project.sessionName)
+        let connection = entry.session.map { connectionState(for: handle, isAttached: $0.isAttached) }
+        return .of(connection: connection, onMac: entry.project.macCheckout != nil)
+    }
+
+    /// Estado de una sesión suelta (siempre corre; nunca está en el Mac).
+    func status(of session: TmuxSession, serverID: Server.ID) -> ProjectStatus {
+        let handle = SessionHandle(serverID: serverID, sessionID: session.name)
+        return .of(connection: connectionState(for: handle, isAttached: session.isAttached), onMac: false)
     }
 }

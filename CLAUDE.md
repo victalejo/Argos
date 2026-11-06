@@ -39,6 +39,20 @@ La **CI** (`.github/workflows/ci.yml`) corre build + test con cobertura y
 
 ## Arquitectura y convenciones
 
+**Estructura de carpetas (multiplataforma):**
+
+- `ArgosCore/` — **núcleo compartido** Mac + iPhone/iPad: modelo, servicio SSH,
+  stores, protocolo del agente, view models. Lo compilan los targets `Argos` (macOS)
+  y `ArgosiOS`. **Prohibido** importar AppKit/SwiftUI/SwiftTerm/Sparkle o usar APIs
+  solo-macOS aquí (si hace falta, `#if os(macOS)`). La CI compila `ArgosiOS` para
+  garantizarlo.
+- `Argos/` — app de **macOS**: vistas SwiftUI/AppKit, terminal SwiftTerm, Sparkle,
+  "Enviar al Mac" (`ProjectSyncEngine`/`ProjectSyncJob`), pool `TerminalSessionStore`.
+- `ArgosiOS/` — app de **iPhone/iPad** (mismo bundle id → compra universal). En
+  construcción; ver plan de fases (App Store + iOS).
+- No es un módulo Swift aparte (sin `public`): son fuentes compartidas por ambos
+  targets. Los tests (`@testable import Argos`) siguen cubriendo el núcleo.
+
 Capas (archivos pequeños y cohesivos, lógica pura separada de red/UI):
 
 - **Modelo / lógica pura** (sin dependencias de red/UI, testeable): `TmuxSession`,

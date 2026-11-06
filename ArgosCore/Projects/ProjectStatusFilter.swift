@@ -90,18 +90,3 @@ enum ProjectStatusFilter: String, CaseIterable, Identifiable, Sendable {
         }
     }
 }
-
-extension TerminalSessionStore {
-    /// Estado de un proyecto del servidor `serverID` para el filtro.
-    func status(of entry: ProjectEntry, serverID: Server.ID) -> ProjectStatus {
-        let handle = SessionHandle(serverID: serverID, sessionID: entry.project.sessionName)
-        let connection = entry.session.map { connectionState(for: handle, isAttached: $0.isAttached) }
-        return .of(connection: connection, onMac: entry.project.macCheckout != nil)
-    }
-
-    /// Estado de una sesión suelta (siempre corre; nunca está en el Mac).
-    func status(of session: TmuxSession, serverID: Server.ID) -> ProjectStatus {
-        let handle = SessionHandle(serverID: serverID, sessionID: session.name)
-        return .of(connection: connectionState(for: handle, isAttached: session.isAttached), onMac: false)
-    }
-}

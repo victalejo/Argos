@@ -99,8 +99,7 @@ final class ServerStore {
             in: .userDomainMask,
             appropriateFor: nil,
             create: true
-        )) ?? fileManager.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support", isDirectory: true)
+        )) ?? URL.applicationSupportDirectory
 
         let directory = base.appendingPathComponent("Argos", isDirectory: true)
         try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)

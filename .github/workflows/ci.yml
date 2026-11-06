@@ -42,6 +42,15 @@ jobs:
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO | xcbeautify || exit ${PIPESTATUS[0]}
 
+      # Guardián de portabilidad: ArgosiOS compila ArgosCore/ para iOS. Si alguien mete
+      # AppKit/SwiftUI-mac o APIs solo-macOS en el núcleo, este paso falla.
+      - name: Build iOS (portabilidad de ArgosCore)
+        run: |
+          xcodebuild build \
+            -project Argos.xcodeproj -scheme ArgosiOS -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO | xcbeautify || exit ${PIPESTATUS[0]}
+
       - name: Test (con cobertura)
         run: |
           xcodebuild test \

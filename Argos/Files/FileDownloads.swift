@@ -9,13 +9,6 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// Estado de la última descarga (banner en el visor).
-enum FileDownloadStatus: Equatable {
-    case downloading(name: String)
-    case saved(URL)
-    case failed(name: String, message: String)
-}
-
 @MainActor
 enum FileDownloads {
     /// Pide destino (por defecto Descargas, con el mismo nombre) y descarga.
