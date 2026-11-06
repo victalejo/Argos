@@ -786,8 +786,8 @@
 			projectRoot = "";
 			targets = (
 				5D61FF93EC48A47E4B04BCAB /* Argos */,
-				9B1C6FF8AB27F22861A9ECE4 /* ArgosTests */,
 				542E78B2AD966DAA7CBB264F /* ArgosiOS */,
+				9B1C6FF8AB27F22861A9ECE4 /* ArgosTests */,
 			);
 		};
 /* End PBXProject section */
