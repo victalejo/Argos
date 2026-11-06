@@ -7,6 +7,7 @@
 //  el actualizador no puede comprobar (p. ej. ya hay un chequeo en curso).
 //
 
+#if !APPSTORE
 import Sparkle
 import SwiftUI
 
@@ -37,3 +38,4 @@ struct CheckForUpdatesView: View {
         .disabled(!viewModel.canCheckForUpdates)
     }
 }
+#endif

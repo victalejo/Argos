@@ -6,7 +6,9 @@
 //
 
 import AppKit
+#if !APPSTORE
 import Sparkle
+#endif
 import SwiftUI
 
 @main
@@ -20,13 +22,16 @@ struct ArgosApp: App {
         default: return nil
         }
     }
+    #if !APPSTORE
     // Sparkle: controlador del actualizador (OTA). `startingUpdater: true` arranca los
     // chequeos programados en segundo plano (gobernados por SUEnableAutomaticChecks).
+    // En el canal App Store no existe: las actualizaciones las entrega la App Store.
     private let updaterController = SPUStandardUpdaterController(
         startingUpdater: true,
         updaterDelegate: nil,
         userDriverDelegate: nil
     )
+    #endif
 
     var body: some Scene {
         WindowGroup {
@@ -42,10 +47,14 @@ struct ArgosApp: App {
             CommandGroup(replacing: .newItem) {}
 
             // Menú de la app: "Acerca de Argos" propio (panel nativo con icono/enlaces)
-            // + "Buscar actualizaciones…" de Sparkle (que muestra su propia UI).
+            // + "Buscar actualizaciones…" (Sparkle, o la ficha de la App Store).
             CommandGroup(replacing: .appInfo) {
                 Button("Acerca de Argos") { AboutPanel.show() }
+                #if APPSTORE
+                Button("Buscar actualizaciones…") { Self.open(AppStoreLinks.productPage) }
+                #else
                 CheckForUpdatesView(updater: updaterController.updater)
+                #endif
             }
 
             // Menú Ayuda funcional (reemplaza el "ayuda no disponible" por defecto).
@@ -102,8 +111,13 @@ struct ArgosApp: App {
         }
 
         Settings {
+            #if APPSTORE
+            SettingsView()
+                .preferredColorScheme(colorScheme)
+            #else
             SettingsView(updater: updaterController.updater)
                 .preferredColorScheme(colorScheme)
+            #endif
         }
     }
 

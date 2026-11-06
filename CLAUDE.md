@@ -48,6 +48,11 @@ La **CI** (`.github/workflows/ci.yml`) corre build + test con cobertura y
   garantizarlo.
 - `Argos/` — app de **macOS**: vistas SwiftUI/AppKit, terminal SwiftTerm, Sparkle,
   "Enviar al Mac" (`ProjectSyncEngine`/`ProjectSyncJob`), pool `TerminalSessionStore`.
+  Se compila en **dos variantes** (plantilla `ArgosMac`): `Argos` (canal GitHub,
+  Sparkle, excepciones temporales de sandbox) y `ArgosAppStore` (Mac App Store, flag
+  `APPSTORE`, sin Sparkle ni excepciones: ~/.ssh por carpeta concedida y Terminal por
+  script de usuario; ver `Argos/AppStore/` y `scripts/appstore/README.md`). Ambas deben
+  tener las MISMAS funciones: usa `#if APPSTORE` solo para elegir el mecanismo.
 - `ArgosiOS/` — app de **iPhone/iPad** (mismo bundle id → compra universal). En
   construcción; ver plan de fases (App Store + iOS).
 - No es un módulo Swift aparte (sin `public`): son fuentes compartidas por ambos

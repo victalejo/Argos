@@ -39,19 +39,60 @@ packages:
     url: https://github.com/gonzalezreal/swift-markdown-ui
     minorVersion: 2.4.1
 
-targets:
-  Argos:
+# Versión ÚNICA para todos los targets (Mac GitHub, Mac App Store, iOS). Sparkle y
+# App Store comparan CURRENT_PROJECT_VERSION: debe crecer en cada release.
+settings:
+  base:
+    MARKETING_VERSION: "1.7.8"
+    CURRENT_PROJECT_VERSION: "35"
+
+# Lo común a las dos variantes de Mac. Cada target añade sus entitlements, su
+# Info.plist y sus dependencias (las listas no se fusionan con la plantilla).
+targetTemplates:
+  ArgosMac:
     type: application
     platform: macOS
     deploymentTarget: "15.0"
     sources:
       - path: Argos
+        # Cada variante usa su propio Info.plist/entitlements: no son recursos.
+        excludes:
+          - "Info.plist"
+          - "Info-AppStore.plist"
+          - "*.entitlements"
       # Núcleo multiplataforma (modelo, SSH, stores, view models). Lo compilan tanto
       # la app de Mac como ArgosiOS: NO puede importar AppKit/SwiftUI/SwiftTerm.
       - path: ArgosCore
-    # App Sandbox + Hardened Runtime ACTIVADOS (distribución/notarización). La clave
-    # SSH se lee por security-scoped bookmark que el usuario concede al elegirla; la
-    # red saliente y la lectura de archivos elegidos se conceden vía entitlements.
+    settings:
+      base:
+        PRODUCT_NAME: Argos
+        PRODUCT_BUNDLE_IDENTIFIER: com.iaportafolio.argos
+        GENERATE_INFOPLIST_FILE: "NO"
+        ENABLE_APP_SANDBOX: "YES"
+        ENABLE_HARDENED_RUNTIME: "YES"
+        SWIFT_VERSION: "5.0"
+        # Concurrencia estricta (data-race safety) en modo Swift 5: comprueba NUESTRO
+        # código como WARNINGS. Los tipos no-Sendable de Citadel (SSHClient, PTY) se
+        # reconocen con `@preconcurrency import Citadel`. Queda 1 fricción conocida de
+        # AppKit (NSEvent en el monitor de scroll de LiveTerminalController). No se sube a
+        # SWIFT_VERSION 6 todavía porque ese único warning pasaría a ser error; revisar
+        # cuando Citadel adopte Sendable o se reescriba el monitor de scroll.
+        SWIFT_STRICT_CONCURRENCY: complete
+        CODE_SIGN_STYLE: Automatic
+        # Team de IA Portafolio (Impulse Vibes S.A.S.) para builds locales, archive y
+        # App Store. La CI/release lo sobrescribe (DEVELOPMENT_TEAM="" + ad-hoc), así que
+        # el canal GitHub+Sparkle no cambia.
+        DEVELOPMENT_TEAM: L6WGLNT9XZ
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+targets:
+  # ── Canal GitHub (DMG + Sparkle OTA, firma ad-hoc) ───────────────────────────
+  Argos:
+    templates: [ArgosMac]
+    # App Sandbox + Hardened Runtime ACTIVADOS. La clave SSH se lee por
+    # security-scoped bookmark que el usuario concede al elegirla; la red saliente y
+    # la lectura de archivos elegidos se conceden vía entitlements.
     entitlements:
       path: Argos/Argos.entitlements
       properties:
@@ -77,8 +118,7 @@ targets:
         com.apple.security.automation.apple-events: true
         com.apple.security.temporary-exception.apple-events:
           - com.apple.Terminal
-    # Info.plist explícito (XcodeGen rellena los CFBundle* por defecto y añade estas
-    # claves). Necesario porque Sparkle requiere claves propias (SUFeedURL, etc.) que
+    # Info.plist explícito: Sparkle requiere claves propias (SUFeedURL, etc.) que
     # GENERATE_INFOPLIST_FILE no permite inyectar.
     info:
       path: Argos/Info.plist
@@ -100,34 +140,47 @@ targets:
         SUEnableInstallerLauncherService: true
         SUEnableAutomaticChecks: true
         NSAppleEventsUsageDescription: "Argos abre Terminal en la copia local de tu proyecto y arranca Claude Code."
-    settings:
-      base:
-        PRODUCT_NAME: Argos
-        PRODUCT_BUNDLE_IDENTIFIER: com.iaportafolio.argos
-        MARKETING_VERSION: "1.7.8"
-        CURRENT_PROJECT_VERSION: "35"
-        GENERATE_INFOPLIST_FILE: "NO"
-        ENABLE_APP_SANDBOX: "YES"
-        ENABLE_HARDENED_RUNTIME: "YES"
-        SWIFT_VERSION: "5.0"
-        # Concurrencia estricta (data-race safety) en modo Swift 5: comprueba NUESTRO
-        # código como WARNINGS. Los tipos no-Sendable de Citadel (SSHClient, PTY) se
-        # reconocen con `@preconcurrency import Citadel`. Queda 1 fricción conocida de
-        # AppKit (NSEvent en el monitor de scroll de LiveTerminalController). No se sube a
-        # SWIFT_VERSION 6 todavía porque ese único warning pasaría a ser error; revisar
-        # cuando Citadel adopte Sendable o se reescriba el monitor de scroll.
-        SWIFT_STRICT_CONCURRENCY: complete
-        CODE_SIGN_STYLE: Automatic
-        # Team de IA Portafolio (Impulse Vibes S.A.S.) para builds locales, archive y
-        # App Store. La CI/release lo sobrescribe (DEVELOPMENT_TEAM="" + ad-hoc), así que
-        # el canal GitHub+Sparkle no cambia.
-        DEVELOPMENT_TEAM: L6WGLNT9XZ
-        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: Citadel
       - package: SwiftTerm
       - package: Sparkle
+      - package: MarkdownUI
+
+  # ── Canal Mac App Store ──────────────────────────────────────────────────────
+  # MISMAS funciones que el canal GitHub, sin excepciones temporales de sandbox:
+  #   · Actualizaciones: las entrega la App Store (Sparkle no se enlaza; flag APPSTORE).
+  #   · ~/.ssh: el usuario concede la carpeta una vez (bookmark app-scope) en vez de
+  #     la excepción home-relative-path.
+  #   · «Abrir en Terminal con Claude Code»: script de usuario en Application Scripts
+  #     ejecutado con NSUserAppleScriptTask, en vez de la excepción de Apple Events.
+  ArgosAppStore:
+    templates: [ArgosMac]
+    entitlements:
+      path: Argos/ArgosAppStore.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.files.user-selected.read-write: true
+        com.apple.security.files.bookmarks.app-scope: true
+    info:
+      path: Argos/Info-AppStore.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSApplicationCategoryType: public.app-category.developer-tools
+        NSHumanReadableCopyright: "© 2026 Victor Alejandro · Licencia Apache-2.0"
+        CFBundleIconName: AppIcon
+        CFBundleDevelopmentRegion: es
+        CFBundleLocalizations:
+          - es
+        NSAppleEventsUsageDescription: "Argos abre Terminal en la copia local de tu proyecto y arranca Claude Code."
+    settings:
+      base:
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APPSTORE"
+    dependencies:
+      - package: Citadel
+      - package: SwiftTerm
       - package: MarkdownUI
 
   # App de iPhone/iPad. Por ahora (Fase 1) es un esqueleto cuyo objetivo es que la CI
@@ -144,8 +197,6 @@ targets:
       base:
         PRODUCT_NAME: Argos
         PRODUCT_BUNDLE_IDENTIFIER: com.iaportafolio.argos
-        MARKETING_VERSION: "1.7.8"
-        CURRENT_PROJECT_VERSION: "35"
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
         INFOPLIST_KEY_CFBundleDisplayName: Argos
@@ -176,6 +227,14 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
 
 schemes:
+  ArgosAppStore:
+    build:
+      targets:
+        ArgosAppStore: all
+    run:
+      config: Debug
+    archive:
+      config: Release
   ArgosiOS:
     build:
       targets:

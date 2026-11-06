@@ -2,14 +2,19 @@
 //  SettingsView.swift
 //  Argos
 //
-//  Ventana de Ajustes (⌘,) con pestañas: Terminal, Proyectos y Actualizaciones.
+//  Ventana de Ajustes (⌘,) con pestañas: Terminal, Proyectos, Actualizaciones y (en el
+//  canal App Store) Permisos.
 //
 
+#if !APPSTORE
 import Sparkle
+#endif
 import SwiftUI
 
 struct SettingsView: View {
+    #if !APPSTORE
     let updater: SPUUpdater
+    #endif
 
     var body: some View {
         TabView {
@@ -22,11 +27,28 @@ struct SettingsView: View {
             ProjectSettingsView()
                 .tabItem { Label("Proyectos", systemImage: "folder") }
 
-            UpdateSettingsView(updater: updater)
+            // Un `#if` por pestaña y con UNA sola vista: si un bloque `#if` agrupa
+            // varias, el TabView de Ajustes en macOS solo muestra la última.
+            #if APPSTORE
+            PermissionsSettingsView()
+                .tabItem { Label("Permisos", systemImage: "lock.shield") }
+            #endif
+
+            updatesTab
                 .tabItem { Label("Actualizaciones", systemImage: "arrow.triangle.2.circlepath") }
         }
         .tint(ArgosTheme.controlAccent)
         .frame(width: 540, height: 480)
+    }
+
+    /// Sparkle en el canal GitHub; la ficha de la App Store en el otro.
+    @ViewBuilder
+    private var updatesTab: some View {
+        #if APPSTORE
+        AppStoreUpdateSettingsView()
+        #else
+        UpdateSettingsView(updater: updater)
+        #endif
     }
 }
 
@@ -84,6 +106,7 @@ private struct AppearanceSettingsView: View {
     }
 }
 
+#if !APPSTORE
 /// Pestaña de actualizaciones: enlaza con el actualizador de Sparkle.
 struct UpdateSettingsView: View {
     let updater: SPUUpdater
@@ -144,3 +167,4 @@ struct UpdateSettingsView: View {
         }
     }
 }
+#endif

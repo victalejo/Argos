@@ -2,9 +2,11 @@
 //  LocalTerminalLauncher.swift
 //  Argos
 //
-//  Abre la copia local de un proyecto en Terminal con Claude Code arrancado. Usa Apple
-//  Events («do script»), así que macOS pide permiso la primera vez. Si se deniega, abre
-//  Terminal en la carpeta sin ejecutar nada, y el usuario solo tiene que escribir `claude`.
+//  Abre la copia local de un proyecto en Terminal con Claude Code arrancado. Ambos
+//  canales envían «do script» a Terminal, así que macOS pide permiso la primera vez:
+//    · GitHub: NSAppleScript con la excepción temporal de Apple Events.
+//    · App Store: script de usuario + NSUserAppleScriptTask (`TerminalScriptBridge`).
+//  Si algo falla, abre Terminal en la carpeta y el usuario solo tiene que escribir `claude`.
 //
 
 import AppKit
@@ -46,15 +48,22 @@ enum LocalTerminalLauncher {
         case launched
         /// Sin permiso de automatización: Terminal abierto en la carpeta, sin `claude`.
         case openedFolderOnly
+        /// Canal App Store: el usuario no instaló el script de Terminal (Terminal se abrió
+        /// en la carpeta, sin `claude`).
+        case needsScriptInstall
         case failed(String)
+    }
+
+    /// Línea de shell que entra en `folder` (entre comillas, anti-inyección) y ejecuta `command`.
+    static func shellCommand(folder: String, command: String = claudeCommand()) -> String {
+        "cd \(ShellQuoting.singleQuoted(folder)) && \(command)"
     }
 
     /// AppleScript que abre una ventana de Terminal en `folder` y ejecuta `command`.
     /// Dos capas de escape: la ruta va entre comillas de shell, y todo el comando va
     /// dentro de una cadena de AppleScript (donde `\` y `"` se escapan).
     static func script(folder: String, command: String = claudeCommand()) -> String {
-        let shell = "cd \(ShellQuoting.singleQuoted(folder)) && \(command)"
-        let escaped = shell
+        let escaped = shellCommand(folder: folder, command: command)
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
         return """
@@ -66,19 +75,57 @@ enum LocalTerminalLauncher {
     }
 
     @MainActor
-    static func openWithClaude(_ folder: URL, remoteRoot: String? = nil) -> Outcome {
-        var error: NSDictionary?
+    static func openWithClaude(_ folder: URL, remoteRoot: String? = nil) async -> Outcome {
         let command = claudeCommand(remoteRoot: remoteRoot)
+        #if APPSTORE
+        return await openViaUserScript(folder, command: command)
+        #else
+        return openViaAppleScript(folder, command: command)
+        #endif
+    }
+
+    /// Canal GitHub: Apple Event directo (excepción temporal de sandbox para Terminal).
+    @MainActor
+    private static func openViaAppleScript(_ folder: URL, command: String) -> Outcome {
+        var error: NSDictionary?
         NSAppleScript(source: script(folder: folder.path, command: command))?.executeAndReturnError(&error)
         guard let error else { return .launched }
 
         let code = error[NSAppleScript.errorNumber] as? Int ?? 0
         Log.store.error("No se pudo abrir Terminal con Claude Code (Apple Event \(code)): \(String(describing: error[NSAppleScript.errorMessage]), privacy: .public)")
+        return openFolderOnly(folder, fallback: .openedFolderOnly)
+    }
+
+    /// Canal App Store: script de usuario instalado en Application Scripts. La primera
+    /// vez ofrece instalarlo (panel de guardado) y sigue sin más clics.
+    @MainActor
+    private static func openViaUserScript(_ folder: URL, command: String) async -> Outcome {
+        if !TerminalScriptBridge.isInstalled() {
+            do {
+                guard try TerminalScriptBridge.install() else {
+                    return openFolderOnly(folder, fallback: .needsScriptInstall)
+                }
+            } catch {
+                return .failed(error.localizedDescription)
+            }
+        }
+        do {
+            try await TerminalScriptBridge.run(shellCommand: shellCommand(folder: folder.path, command: command))
+            return .launched
+        } catch {
+            Log.store.error("No se pudo abrir Terminal con el script de usuario: \(error.localizedDescription, privacy: .public)")
+            return openFolderOnly(folder, fallback: .openedFolderOnly)
+        }
+    }
+
+    /// Abre Terminal en la carpeta sin ejecutar nada (plan B de ambos canales).
+    @MainActor
+    private static func openFolderOnly(_ folder: URL, fallback: Outcome) -> Outcome {
         guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: terminalBundleID) else {
             return .failed("No se encontró la app Terminal.")
         }
         NSWorkspace.shared.open([folder], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
-        return .openedFolderOnly
+        return fallback
     }
 
     /// Mensaje para la UI (nil si todo fue bien).
@@ -89,6 +136,9 @@ enum LocalTerminalLauncher {
         case .openedFolderOnly:
             return "Terminal se abrió en la carpeta, pero Argos no tiene permiso para escribir en él. "
                 + "Escribe «claude --resume», o actívalo en Ajustes del Sistema → Privacidad y seguridad → Automatización."
+        case .needsScriptInstall:
+            return "Terminal se abrió en la carpeta. Para que Argos arranque Claude Code por ti, "
+                + "instala el script de Terminal en Ajustes → Permisos (una sola vez)."
         case .failed(let message):
             return message
         }

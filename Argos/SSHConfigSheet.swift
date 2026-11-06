@@ -27,6 +27,8 @@ struct SSHConfigSheet: View {
                 message("No se encontró ~/.ssh/config",
                         detail: "Crea hosts con `Host alias` en ese archivo y aparecerán aquí.",
                         icon: "doc.questionmark")
+            case .needsAccess:
+                needsAccessView
             case .failed(let error):
                 message("No se pudo leer ~/.ssh/config", detail: error, icon: "exclamationmark.triangle")
             case .hosts(let all):
@@ -121,6 +123,25 @@ struct SSHConfigSheet: View {
     }
 
     @ViewBuilder
+    /// Canal App Store: Argos aún no puede leer ~/.ssh; se concede aquí mismo.
+    private var needsAccessView: some View {
+        ContentUnavailableView {
+            Label("Argos necesita acceso a ~/.ssh", systemImage: "lock.shield")
+        } description: {
+            Text("Concede la carpeta una vez (solo lectura) para ver tus hosts e importarlos.")
+        } actions: {
+            Button("Conceder acceso…") {
+                if case .failed(let error) = SSHDirectoryGrant.request() {
+                    result = .failed(error)
+                } else {
+                    result = SSHConfigReader.read()
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     private func message(_ title: String, detail: String, icon: String) -> some View {
         ContentUnavailableView {
             Label(title, systemImage: icon)

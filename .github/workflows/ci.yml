@@ -42,6 +42,15 @@ jobs:
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO | xcbeautify || exit ${PIPESTATUS[0]}
 
+      # Variante Mac App Store (flag APPSTORE, sin Sparkle ni excepciones temporales):
+      # compila el camino #if APPSTORE, que los tests (target Argos) no ejercitan.
+      - name: Build Mac App Store (ArgosAppStore)
+        run: |
+          xcodebuild build \
+            -project Argos.xcodeproj -scheme ArgosAppStore -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO | xcbeautify || exit ${PIPESTATUS[0]}
+
       # Guardián de portabilidad: ArgosiOS compila ArgosCore/ para iOS. Si alguien mete
       # AppKit/SwiftUI-mac o APIs solo-macOS en el núcleo, este paso falla.
       - name: Build iOS (portabilidad de ArgosCore)

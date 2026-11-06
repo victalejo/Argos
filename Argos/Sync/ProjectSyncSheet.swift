@@ -156,9 +156,12 @@ private struct ProjectSyncJobView: View {
                             NSWorkspace.shared.activateFileViewerSelecting([localRoot])
                         } label: { Label("Mostrar en Finder", systemImage: "folder") }
                         Button {
-                            terminalMessage = LocalTerminalLauncher.message(for: LocalTerminalLauncher.openWithClaude(
-                                localRoot, remoteRoot: MacSyncStore.manifest(for: project.id)?.remoteRoot
-                            ))
+                            Task {
+                                let outcome = await LocalTerminalLauncher.openWithClaude(
+                                    localRoot, remoteRoot: MacSyncStore.manifest(for: project.id)?.remoteRoot
+                                )
+                                terminalMessage = LocalTerminalLauncher.message(for: outcome)
+                            }
                         } label: { Label("Abrir en Terminal con Claude Code", systemImage: "terminal") }
                         if let vscode = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.microsoft.VSCode") {
                             Button {
