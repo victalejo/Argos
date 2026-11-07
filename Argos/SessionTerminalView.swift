@@ -67,6 +67,8 @@ struct SessionTerminalView: View {
     @State private var showKillPaneConfirm = false
     /// Ventana cuyo nombre se está editando (presenta el sheet de renombrar).
     @State private var renamingWindow: TmuxWindow?
+    /// Ventana pendiente de confirmar su cierre.
+    @State private var closingWindow: TmuxWindow?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Tope de reintentos automáticos antes de mostrar el banner manual.
@@ -81,7 +83,8 @@ struct SessionTerminalView: View {
                     onSelect: { selectWindow($0) },
                     onNew: { newWindow() },
                     onRename: { renamingWindow = $0 },
-                    onSetColor: { setColor($1, for: $0) }
+                    onSetColor: { setColor($1, for: $0) },
+                    onClose: { closingWindow = $0 }
                 )
                 Divider()
             }
@@ -106,6 +109,20 @@ struct SessionTerminalView: View {
             Button("Cancelar", role: .cancel) {}
         } message: {
             Text("Se cerrará el panel activo y se perderá lo que corra en él.")
+        }
+        .confirmationDialog(
+            "¿Cerrar la ventana \(closingWindow?.index ?? 0): \(closingWindow?.name ?? "")?",
+            isPresented: Binding(
+                get: { closingWindow != nil },
+                set: { if !$0 { closingWindow = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: closingWindow
+        ) { window in
+            Button("Cerrar ventana", role: .destructive) { closeWindow(window) }
+            Button("Cancelar", role: .cancel) {}
+        } message: { _ in
+            Text("Se cerrarán sus paneles y se perderá lo que corra en ellos.")
         }
         // Toma el controlador del pool (lo crea si es la primera vez). NO lo detiene al
         // desaparecer: la conexión persiste para que volver a la sesión sea instantáneo.
@@ -253,6 +270,17 @@ struct SessionTerminalView: View {
     private func newWindow() {
         Task {
             try? await service.newWindow(session: session.name)
+            await refreshWindows()
+        }
+    }
+
+    private func closeWindow(_ window: TmuxWindow) {
+        Task {
+            do {
+                try await service.killWindow(session: session.name, index: window.index)
+            } catch {
+                Log.terminal.error("No se pudo cerrar la ventana: \(error.userMessage, privacy: .public)")
+            }
             await refreshWindows()
         }
     }

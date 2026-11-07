@@ -83,6 +83,11 @@ extension SSHService {
             + ShellQuoting.singleQuoted(name)
     }
 
+    /// `tmux kill-window` de la ventana `índice` de la sesión.
+    static func killWindowCommand(session: String, index: Int) -> String {
+        "tmux kill-window -t \(ShellQuoting.singleQuoted(session)):\(index)"
+    }
+
     /// Guarda (o borra, con `nil`) el color de la ventana en la opción de usuario
     /// `@argos_color`. Vive en el servidor tmux: persiste y lo ven todos los clientes.
     static func windowColorCommand(session: String, index: Int, color: WindowColor?) -> String {
@@ -102,6 +107,12 @@ extension SSHService {
         try await runManagementCommand(
             Self.renameWindowCommand(session: session, index: index, name: validName)
         )
+    }
+
+    /// Cierra una ventana (mata sus procesos). Si fuera la última, tmux cerraría la
+    /// sesión entera: la UI no lo ofrece en ese caso.
+    func killWindow(session: String, index: Int) async throws {
+        try await runManagementCommand(Self.killWindowCommand(session: session, index: index))
     }
 
     /// Cambia (o quita) el color de una ventana.

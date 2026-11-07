@@ -3,7 +3,8 @@
 //  Argos
 //
 //  Barra de pestañas con las ventanas de la sesión tmux. Cada pestaña cambia de
-//  ventana al pulsarla y ofrece, con clic derecho, renombrarla y elegir su color.
+//  ventana al pulsarla y ofrece, con clic derecho, renombrarla, elegir su color o
+//  cerrarla (también con la "×" que aparece al pasar el ratón o en la activa).
 //
 
 import AppKit
@@ -17,6 +18,7 @@ struct WindowBar: View {
     let onNew: () -> Void
     let onRename: (TmuxWindow) -> Void
     let onSetColor: (TmuxWindow, WindowColor?) -> Void
+    let onClose: (TmuxWindow) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredWindow: TmuxWindow.ID?
 
@@ -28,6 +30,9 @@ struct WindowBar: View {
         if window.paneCount > 1 { parts.append("\(window.paneCount) paneles") }
         return parts.joined(separator: ", ")
     }
+
+    /// Cerrar la última ventana mataría la sesión entera: solo se ofrece si hay más.
+    private var canClose: Bool { windows.count > 1 }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -82,6 +87,7 @@ struct WindowBar: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                closeButton(for: window)
             }
             .padding(.horizontal, 10)
             .frame(height: 30)
@@ -91,11 +97,32 @@ struct WindowBar: View {
             )
         }
         .buttonStyle(.plain)
-        .help("Cambiar a la ventana \(window.index): \(window.name). Clic derecho para renombrar o cambiar el color.")
+        .help("Cambiar a la ventana \(window.index): \(window.name). Clic derecho para renombrar, cambiar el color o cerrarla.")
         .accessibilityLabel(Self.accessibilityLabel(for: window))
         .accessibilityAddTraits(window.isActive ? .isSelected : [])
         .onHover { hoveredWindow = $0 ? window.id : nil }
         .contextMenu { menu(for: window) }
+    }
+
+    /// "×" para cerrar la ventana. Ocupa siempre su hueco (para que la pestaña no
+    /// cambie de ancho al pasar el ratón) y solo se ve en la activa o la señalada.
+    @ViewBuilder
+    private func closeButton(for window: TmuxWindow) -> some View {
+        if canClose {
+            let visible = window.isActive || hoveredWindow == window.id
+            Button { onClose(window) } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14, height: 14)
+                    .background(Color.primary.opacity(0.06), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .opacity(visible ? 1 : 0)
+            .allowsHitTesting(visible)
+            .help("Cerrar la ventana \(window.index)")
+            .accessibilityLabel("Cerrar ventana \(window.index): \(window.name)")
+        }
     }
 
     private func tabFill(for window: TmuxWindow, tint: Color) -> Color {
@@ -124,6 +151,9 @@ struct WindowBar: View {
             }
         }
         .pickerStyle(.menu)
+        Divider()
+        Button("Cerrar ventana…", role: .destructive) { onClose(window) }
+            .disabled(!canClose)
     }
 }
 

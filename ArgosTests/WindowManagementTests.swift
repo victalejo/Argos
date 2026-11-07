@@ -29,6 +29,14 @@ struct WindowManagementTests {
         )
     }
 
+    @Test("Cerrar ventana apunta a sesión:índice")
+    func killWindow() {
+        #expect(
+            SSHService.killWindowCommand(session: "a b", index: 3)
+                == "tmux kill-window -t 'a b':3"
+        )
+    }
+
     @Test("Fijar color guarda la opción de usuario @argos_color en la ventana")
     func setColor() {
         #expect(
