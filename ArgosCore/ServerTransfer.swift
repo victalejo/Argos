@@ -36,6 +36,15 @@ struct ServerTransfer: Equatable, Sendable {
     var hostKeyFingerprint: String?
     var createdAt: Date
 
+    /// La identidad del servidor del QR no coincide con la que ya confía este dispositivo.
+    struct HostKeyConflictError: LocalizedError {
+        let endpoint: String
+        var errorDescription: String? {
+            "La identidad de \(endpoint) del código no coincide con la que ya conoce este dispositivo. "
+                + "No se añadió el servidor. Si reinstalaste el servidor, usa «Olvidar host key» y vuelve a escanear."
+        }
+    }
+
     enum DecodeError: LocalizedError, Equatable {
         case notArgosCode
         case malformed
@@ -132,6 +141,14 @@ struct ServerTransfer: Equatable, Sendable {
         else { return false }
         if let hostKeyFingerprint, !hostKeyFingerprint.hasPrefix("SHA256:") { return false }
         return true
+    }
+
+    /// `true` si trae una huella distinta de la que ya está confiada para su host:puerto.
+    func conflictsWithTrustedHostKey(storeURL: URL = TOFUHostKeyValidator.defaultStoreURL()) -> Bool {
+        guard let hostKeyFingerprint,
+              let known = TOFUHostKeyValidator.trustedFingerprint(host: host, port: port, storeURL: storeURL)
+        else { return false }
+        return known != hostKeyFingerprint
     }
 
     // MARK: - Clave

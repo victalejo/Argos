@@ -96,16 +96,25 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
 
     /// Fija la huella confiada de un endpoint (la que verificó el Mac, recibida por QR),
     /// en vez de confiar en la que presente el servidor en la primera conexión.
-    static func trust(fingerprint: String, host: String, port: Int, storeURL: URL = defaultStoreURL()) {
+    /// NUNCA sustituye una huella distinta ya confiada: un QR o enlace no debe poder
+    /// cambiar la identidad de un servidor conocido (abriría la puerta a un MitM).
+    /// Devuelve `false` si había otra huella (que se conserva).
+    @discardableResult
+    static func trustIfUnknown(fingerprint: String, host: String, port: Int, storeURL: URL = defaultStoreURL()) -> Bool {
         let endpoint = "\(host):\(port)"
         fileLock.lock()
         defer { fileLock.unlock() }
         var known = load(from: storeURL)
-        if let previous = known[endpoint], previous != fingerprint {
-            Log.hostKey.notice("Huella de \(endpoint, privacy: .public) sustituida por la verificada en el Mac.")
+        if let previous = known[endpoint] {
+            guard previous == fingerprint else {
+                Log.hostKey.error("Huella recibida por QR para \(endpoint, privacy: .public) distinta de la confiada: se conserva la existente.")
+                return false
+            }
+            return true
         }
         known[endpoint] = fingerprint
         save(known, to: storeURL)
+        return true
     }
 
     /// Olvida la huella confiada de un endpoint, permitiendo re-confiar en la

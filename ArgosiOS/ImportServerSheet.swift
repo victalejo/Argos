@@ -99,6 +99,15 @@ struct ImportServerSheet: View {
                     Text("Ya tienes un servidor con este usuario y dirección: se añadirá otro.")
                 }
             }
+            if transfer.conflictsWithTrustedHostKey() {
+                Section {
+                    Label(
+                        "La identidad de este servidor no coincide con la que ya conoce este iPhone. Puede ser un código falso o un servidor reinstalado: no se añadirá. Si lo reinstalaste, usa «Olvidar host key» en el servidor y vuelve a escanear.",
+                        systemImage: "exclamationmark.shield.fill"
+                    )
+                    .foregroundStyle(.red)
+                }
+            }
             if let saveError {
                 Section {
                     Text(saveError).foregroundStyle(.red)
@@ -108,6 +117,7 @@ struct ImportServerSheet: View {
                 Button("Añadir servidor") { add(transfer) }
                     .frame(maxWidth: .infinity)
                     .bold()
+                    .disabled(transfer.conflictsWithTrustedHostKey())
             } footer: {
                 Text("Añade solo códigos generados por tu propio Mac.")
             }

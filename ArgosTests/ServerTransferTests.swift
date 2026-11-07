@@ -166,16 +166,43 @@ struct ServerTransferTests {
 
 @Suite("Huellas de host key recibidas por QR", .serialized)
 struct HostKeyTrustTests {
-    @Test("trust fija la huella y trustedFingerprint la devuelve")
-    func trustAndRead() throws {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("argos-known-\(UUID().uuidString).json")
-        defer { try? FileManager.default.removeItem(at: url) }
+    private static func tempStore() -> URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("argos-known-\(UUID().uuidString).json")
+    }
 
+    @Test("Fija la huella si el endpoint es desconocido")
+    func trustUnknown() {
+        let url = Self.tempStore()
+        defer { try? FileManager.default.removeItem(at: url) }
         #expect(TOFUHostKeyValidator.trustedFingerprint(host: "h", port: 22, storeURL: url) == nil)
-        TOFUHostKeyValidator.trust(fingerprint: "SHA256:a", host: "h", port: 22, storeURL: url)
+        #expect(TOFUHostKeyValidator.trustIfUnknown(fingerprint: "SHA256:a", host: "h", port: 22, storeURL: url))
         #expect(TOFUHostKeyValidator.trustedFingerprint(host: "h", port: 22, storeURL: url) == "SHA256:a")
-        TOFUHostKeyValidator.trust(fingerprint: "SHA256:b", host: "h", port: 22, storeURL: url)
-        #expect(TOFUHostKeyValidator.trustedFingerprint(host: "h", port: 22, storeURL: url) == "SHA256:b")
+        #expect(TOFUHostKeyValidator.trustIfUnknown(fingerprint: "SHA256:a", host: "h", port: 22, storeURL: url))
+    }
+
+    @Test("Nunca sustituye una huella distinta ya confiada (anti-MitM)")
+    func neverOverwrites() {
+        let url = Self.tempStore()
+        defer { try? FileManager.default.removeItem(at: url) }
+        TOFUHostKeyValidator.trustIfUnknown(fingerprint: "SHA256:real", host: "h", port: 22, storeURL: url)
+        #expect(!TOFUHostKeyValidator.trustIfUnknown(fingerprint: "SHA256:falsa", host: "h", port: 22, storeURL: url))
+        #expect(TOFUHostKeyValidator.trustedFingerprint(host: "h", port: 22, storeURL: url) == "SHA256:real")
+    }
+
+    @Test("Un QR con otra huella para un servidor conocido se marca como conflicto")
+    func transferConflict() {
+        let url = Self.tempStore()
+        defer { try? FileManager.default.removeItem(at: url) }
+        var transfer = ServerTransfer(
+            name: "dev", host: "h", port: 22, username: "u", keySeed: Data(count: 32),
+            keyComment: "argos-iphone-x", hostKeyFingerprint: "SHA256:falsa", createdAt: Date()
+        )
+        #expect(!transfer.conflictsWithTrustedHostKey(storeURL: url))   // desconocido
+        TOFUHostKeyValidator.trustIfUnknown(fingerprint: "SHA256:real", host: "h", port: 22, storeURL: url)
+        #expect(transfer.conflictsWithTrustedHostKey(storeURL: url))
+        transfer.hostKeyFingerprint = "SHA256:real"
+        #expect(!transfer.conflictsWithTrustedHostKey(storeURL: url))
+        transfer.hostKeyFingerprint = nil
+        #expect(!transfer.conflictsWithTrustedHostKey(storeURL: url))
     }
 }

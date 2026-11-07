@@ -47,6 +47,9 @@ final class ServerHub {
     /// huella de host key que verificó el Mac.
     @discardableResult
     func importTransfer(_ transfer: ServerTransfer) throws -> Server {
+        guard !transfer.conflictsWithTrustedHostKey() else {
+            throw ServerTransfer.HostKeyConflictError(endpoint: "\(transfer.host):\(transfer.port)")
+        }
         let id = UUID()
         let path = try ImportedKeyStore.store(Data(try transfer.privateKeyPEM().utf8), for: id)
         let server = Server(
@@ -65,7 +68,7 @@ final class ServerHub {
             throw error
         }
         if let fingerprint = transfer.hostKeyFingerprint {
-            TOFUHostKeyValidator.trust(fingerprint: fingerprint, host: transfer.host, port: transfer.port)
+            TOFUHostKeyValidator.trustIfUnknown(fingerprint: fingerprint, host: transfer.host, port: transfer.port)
         }
         return server
     }

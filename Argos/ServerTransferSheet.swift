@@ -103,9 +103,14 @@ struct ServerTransferSheet: View {
             Text("Escanéalo con la cámara del iPhone o desde Argos → Servidores → \(Image(systemName: "qrcode.viewfinder")).")
                 .font(.callout)
                 .multilineTextAlignment(.center)
-            Text("Caduca en \(remaining / 60):\(String(format: "%02d", remaining % 60))")
+            Text("El iPhone acepta el código durante \(remaining / 60):\(String(format: "%02d", remaining % 60)) más")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
+            Label("El código contiene la clave de acceso: muéstralo solo a tu iPhone. Si alguien más lo vio, pulsa «Cancelar» para retirarla del servidor.",
+                  systemImage: "eye.trianglebadge.exclamationmark")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
