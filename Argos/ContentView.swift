@@ -603,14 +603,7 @@ struct ContentView: View {
     }
 
     private static func makeService(for server: Server) -> SSHService {
-        switch server.authMethod {
-        case .key:
-            let passphrase = server.requiresPassphrase ? KeychainStore.passphrase(for: server.id) : nil
-            return SSHService(configuration: SSHService.Configuration(server: server, passphrase: passphrase))
-        case .password:
-            let password = KeychainStore.password(for: server.id)
-            return SSHService(configuration: SSHService.Configuration(server: server, password: password))
-        }
+        server.makeService()
     }
 }
 

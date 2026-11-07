@@ -186,8 +186,8 @@ targets:
       - package: SwiftTerm
       - package: MarkdownUI
 
-  # App de iPhone/iPad. Por ahora (Fase 1) es un esqueleto cuyo objetivo es que la CI
-  # compile ArgosCore para iOS y así garantice que el núcleo sigue siendo portable.
+  # App de iPhone/iPad (Fase 3: MVP con servidores, proyectos, sesiones y terminal). La CI
+  # la compila para garantizar que ArgosCore sigue siendo portable a iOS.
   # Mismo bundle id que la de Mac: una sola ficha en App Store (compra universal).
   ArgosiOS:
     type: application
@@ -214,6 +214,7 @@ targets:
         DEVELOPMENT_TEAM: L6WGLNT9XZ
     dependencies:
       - package: Citadel
+      - package: SwiftTerm
 
   ArgosTests:
     type: bundle.unit-test

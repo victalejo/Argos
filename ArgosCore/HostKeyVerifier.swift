@@ -79,6 +79,14 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         }
     }
 
+    /// `true` si ya hay una huella confiada para el endpoint (p. ej. para saber si una
+    /// prueba de conexión la registró por primera vez y hay que deshacerlo).
+    static func isTrusted(host: String, port: Int, storeURL: URL = defaultStoreURL()) -> Bool {
+        fileLock.lock()
+        defer { fileLock.unlock() }
+        return load(from: storeURL)["\(host):\(port)"] != nil
+    }
+
     /// Olvida la huella confiada de un endpoint, permitiendo re-confiar en la
     /// próxima conexión. Lo usa la UI para resolver un `HostKeyMismatchError` tras
     /// una reinstalación legítima del servidor, sin editar el JSON a mano.

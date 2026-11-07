@@ -1,0 +1,126 @@
+//
+//  ServerHub.swift
+//  ArgosiOS
+//
+//  Estado compartido de la app de iPhone/iPad: los servidores (`ServerStore`), un
+//  `SessionsViewModel` por servidor (lista de proyectos y sesiones) y los terminales
+//  vivos. Reutilizar el view model mantiene UNA conexión SSH por servidor; reutilizar
+//  el controlador hace que volver a un terminal sea instantáneo.
+//
+
+import Foundation
+import Observation
+import UIKit
+
+@MainActor
+@Observable
+final class ServerHub {
+    let store: ServerStore
+    /// Ignorado por Observation: se rellena perezosamente desde las vistas, y escribir
+    /// estado observado durante `body` provoca invalidaciones en bucle.
+    @ObservationIgnored private var viewModels: [Server.ID: SessionsViewModel] = [:]
+    @ObservationIgnored private var terminals: [SessionHandle: TouchTerminalController] = [:]
+    @ObservationIgnored private var detachTask: UIBackgroundTaskIdentifier = .invalid
+
+    init(store: ServerStore = ServerStore()) {
+        self.store = store
+    }
+
+    // MARK: - Servidores
+
+    /// Guarda un servidor nuevo o editado, con su secreto (contraseña o passphrase).
+    func save(_ server: Server, secret: String?, isNew: Bool) throws {
+        switch server.authMethod {
+        case .password:
+            try KeychainStore.setPassword(secret, for: server.id)
+            KeychainStore.deletePassphrase(for: server.id)
+            ImportedKeyStore.remove(for: server.id)
+        case .key:
+            try KeychainStore.setPassphrase(server.requiresPassphrase ? secret : nil, for: server.id)
+            KeychainStore.deletePassword(for: server.id)
+        }
+        if isNew { store.add(server) } else { store.update(server) }
+        disconnect(server.id)
+    }
+
+    /// Borra el servidor con TODO lo suyo: secretos, clave importada y conexiones.
+    func remove(_ server: Server) {
+        disconnect(server.id)
+        KeychainStore.deletePassword(for: server.id)
+        ImportedKeyStore.remove(for: server.id)
+        store.remove(server)
+    }
+
+    // MARK: - Sesiones
+
+    func viewModel(for server: Server) -> SessionsViewModel {
+        if let existing = viewModels[server.id] { return existing }
+        let viewModel = SessionsViewModel(service: server.makeService())
+        viewModels[server.id] = viewModel
+        return viewModel
+    }
+
+    /// Olvida la huella del servidor y reconecta (tras una reinstalación legítima).
+    func forgetHostKey(of server: Server) {
+        TOFUHostKeyValidator.forget(host: server.host, port: server.port)
+        disconnect(server.id)
+    }
+
+    // MARK: - Terminales
+
+    func terminal(for server: Server, sessionName: String) -> TouchTerminalController {
+        let handle = SessionHandle(serverID: server.id, sessionID: sessionName)
+        if let existing = terminals[handle] { return existing }
+        let size = UserDefaults.standard.object(forKey: TerminalAppearance.fontSizeKey) as? Double
+        let controller = TouchTerminalController(
+            service: viewModel(for: server).service,
+            sessionName: sessionName,
+            fontSize: size.map { CGFloat($0) } ?? TerminalAppearance.defaultFontSize
+        )
+        terminals[handle] = controller
+        return controller
+    }
+
+    /// Cierra (detach) el terminal de una sesión; la sesión tmux sigue viva.
+    func closeTerminal(server: Server.ID, sessionName: String) {
+        let handle = SessionHandle(serverID: server, sessionID: sessionName)
+        terminals.removeValue(forKey: handle)?.stop()
+    }
+
+    /// Al volver a primer plano: los PTY murieron con la suspensión, se reabren.
+    func reconnectTerminals() {
+        for controller in terminals.values where controller.needsReconnect {
+            controller.reconnect()
+        }
+    }
+
+    /// Al pasar a segundo plano: detach limpio antes de que iOS congele la app. Se pide
+    /// tiempo extra al sistema para que el cierre del canal llegue al servidor; si no,
+    /// queda un cliente tmux fantasma que condiciona el tamaño de ventana de los demás.
+    func suspendTerminals() {
+        guard !terminals.isEmpty, detachTask == .invalid else { return }
+        detachTask = UIApplication.shared.beginBackgroundTask(withName: "argos.detach") { [weak self] in
+            MainActor.assumeIsolated { self?.endDetachTask() }
+        }
+        let controllers = Array(terminals.values)
+        Task { @MainActor [weak self] in
+            for controller in controllers { await controller.stopAndWait() }
+            self?.endDetachTask()
+        }
+    }
+
+    private func endDetachTask() {
+        guard detachTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(detachTask)
+        detachTask = .invalid
+    }
+
+    private func disconnect(_ serverID: Server.ID) {
+        for handle in terminals.keys where handle.serverID == serverID {
+            terminals.removeValue(forKey: handle)?.stop()
+        }
+        if let viewModel = viewModels.removeValue(forKey: serverID) {
+            Task { await viewModel.service.disconnect() }
+        }
+    }
+}
