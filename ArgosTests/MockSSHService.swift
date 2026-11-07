@@ -79,6 +79,7 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func killWindow(session: String, index: Int) async throws {}
     func authorizeKey(line: String) async throws {}
     func revokeKey(comment: String) async throws {}
+    func listAuthorizedDeviceKeys() async throws -> [AuthorizedDeviceKey] { [] }
 
     // MARK: - Paneles
     private(set) var splitVerticalCalls: [Bool] = []

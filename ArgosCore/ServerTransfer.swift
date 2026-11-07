@@ -159,9 +159,10 @@ struct ServerTransfer: Equatable, Sendable {
         return OpenSSHKeyWriter.privateKeyPEM(key, comment: keyComment)
     }
 
-    /// Comentario único con el que se identifica la clave en `authorized_keys`.
-    static func makeKeyComment(id: UUID = UUID()) -> String {
-        "argos-iphone-\(id.uuidString.lowercased())"
+    /// Comentario único con el que se identifica la clave en `authorized_keys`:
+    /// `argos-iphone-<AAAAMMDD>-<uuid>` (la fecha permite ver cuándo se autorizó).
+    static func makeKeyComment(id: UUID = UUID(), date: Date = Date()) -> String {
+        "\(AuthorizedDeviceKey.commentPrefix)\(AuthorizedDeviceKey.dateStamp(date))-\(id.uuidString.lowercased())"
     }
 
     // MARK: - Base64URL

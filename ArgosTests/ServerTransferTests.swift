@@ -138,12 +138,17 @@ struct ServerTransferTests {
         }
     }
 
-    @Test("Comentario de clave único y sin espacios")
-    func keyComment() {
+    @Test("Comentario de clave único, sin espacios y con la fecha")
+    func keyComment() throws {
         let comment = ServerTransfer.makeKeyComment()
         #expect(comment.hasPrefix("argos-iphone-"))
         #expect(!comment.contains(" "))
         #expect(comment != ServerTransfer.makeKeyComment())
+
+        let id = try #require(UUID(uuidString: "0F3C2A9E-1111-2222-3333-444455556666"))
+        let date = try #require(AuthorizedDeviceKey.date(fromStamp: "20261107"))
+        #expect(ServerTransfer.makeKeyComment(id: id, date: date)
+                == "argos-iphone-20261107-0f3c2a9e-1111-2222-3333-444455556666")
     }
 
     // MARK: - authorized_keys
@@ -161,6 +166,71 @@ struct ServerTransferTests {
         let command = SSHService.revokeKeyCommand(comment: "argos-iphone-x")
         #expect(command.contains("grep -vF -- ' argos-iphone-x'"))
         #expect(command.contains("if [ $s -le 1 ]; then cat"))
+    }
+}
+
+@Suite("Dispositivos autorizados en authorized_keys")
+struct AuthorizedDeviceKeyTests {
+    /// Generada con `ssh-keygen -t ed25519`; huella según `ssh-keygen -lf`.
+    private static let line = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKXMXAfSBEWS5Z4ovI6/I3qqR6AVZEtQI4xfhTNLlQKA argos-iphone-20261107-0f3c2a9e-1111-2222-3333-444455556666"
+    private static let fingerprint = "SHA256:MVvkj/8gGl39y3qOw1Iq48o1Z4T3FPJ7Vh2CO438AEA"
+
+    @Test("Lee comentario, tipo, huella (igual que ssh-keygen) y fecha")
+    func parsesArgosKey() throws {
+        let key = try #require(AuthorizedDeviceKey.parse(line: Self.line))
+        #expect(key.comment == "argos-iphone-20261107-0f3c2a9e-1111-2222-3333-444455556666")
+        #expect(key.keyType == "ssh-ed25519")
+        #expect(key.fingerprint == Self.fingerprint)
+        #expect(key.authorizedOn.map { AuthorizedDeviceKey.dateStamp($0) } == "20261107")
+        #expect(key.shortID == "0f3c2a9e")
+    }
+
+    @Test("Ignora las claves que no son de Argos, comentarios y líneas vacías")
+    func ignoresOthers() {
+        let text = """
+        # mis claves
+        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKXMXAfSBEWS5Z4ovI6/I3qqR6AVZEtQI4xfhTNLlQKA victor@mac
+
+        ssh-rsa AAAAB3NzaC1yc2E= sin-comentario-argos
+        \(Self.line)
+        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKXMXAfSBEWS5Z4ovI6/I3qqR6AVZEtQI4xfhTNLlQKA
+        """
+        let keys = AuthorizedDeviceKey.parse(authorizedKeys: text)
+        #expect(keys.map(\.shortID) == ["0f3c2a9e"])
+    }
+
+    @Test("Admite opciones delante del tipo de clave")
+    func withOptions() throws {
+        let key = try #require(AuthorizedDeviceKey.parse(line: "no-agent-forwarding,no-pty " + Self.line))
+        #expect(key.fingerprint == Self.fingerprint)
+    }
+
+    @Test("Formato antiguo sin fecha: fecha desconocida")
+    func legacyComment() throws {
+        let legacy = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKXMXAfSBEWS5Z4ovI6/I3qqR6AVZEtQI4xfhTNLlQKA argos-iphone-0f3c2a9e-1111-2222-3333-444455556666"
+        let key = try #require(AuthorizedDeviceKey.parse(line: legacy))
+        #expect(key.authorizedOn == nil)
+        #expect(key.shortID == "0f3c2a9e")
+    }
+
+    @Test("Rechaza fechas imposibles o mal formadas", arguments: ["20261340", "2026110", "2026a107", ""])
+    func badStamps(stamp: String) {
+        #expect(AuthorizedDeviceKey.date(fromStamp: stamp) == nil)
+    }
+
+    @Test("La huella de una clave generada por Argos coincide con su blob")
+    func fingerprintOfGeneratedKey() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let line = OpenSSHKeyWriter.authorizedKeyLine(key.publicKey, comment: ServerTransfer.makeKeyComment())
+        let parsed = try #require(AuthorizedDeviceKey.parse(line: line))
+        #expect(parsed.fingerprint
+                == AuthorizedDeviceKey.fingerprint(ofBlob: OpenSSHKeyWriter.publicKeyBlob(key.publicKey)))
+        #expect(parsed.authorizedOn != nil)
+    }
+
+    @Test("Leer authorized_keys no falla si el archivo no existe")
+    func readCommand() {
+        #expect(SSHService.readAuthorizedKeysCommand.contains("if [ -f \"$f\" ]; then cat \"$f\"; fi"))
     }
 }
 

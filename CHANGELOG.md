@@ -6,6 +6,12 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **Dispositivos autorizados**: en el Mac, menú del servidor → «Dispositivos autorizados…»
+  lista los iPhone/iPad con acceso por «Enviar al iPhone» (fecha y huella de su clave) y
+  permite revocar cada uno, p. ej. si pierdes el teléfono. Las claves nuevas llevan la
+  fecha en su comentario (`argos-iphone-AAAAMMDD-…`).
+
 ## [1.7.11] - 2026-11-07
 
 ### Añadido

@@ -23,6 +23,8 @@ struct ContentView: View {
     @State private var claudeHooksServer: Server?
     /// Servidor que se está enviando al iPhone por QR.
     @State private var transferServer: Server?
+    /// Servidor cuyos dispositivos autorizados (claves de iPhone/iPad) se están viendo.
+    @State private var devicesServer: Server?
     /// Resultado de activar el indicador (alerta).
     @State private var claudeHooksResult: String?
 
@@ -75,6 +77,11 @@ struct ContentView: View {
         .sheet(item: $transferServer) { server in
             if let service = vms[server.id]?.service {
                 ServerTransferSheet(server: server, service: service) { transferServer = nil }
+            }
+        }
+        .sheet(item: $devicesServer) { server in
+            if let service = vms[server.id]?.service {
+                AuthorizedDevicesSheet(server: server, service: service) { devicesServer = nil }
             }
         }
         .sheet(isPresented: $showSSHConfig) {
@@ -229,6 +236,9 @@ struct ContentView: View {
         Button("Enviar al iPhone…", systemImage: "qrcode") { transferServer = server }
             .disabled(vms[server.id] == nil)
             .help("Muestra un QR para añadir este servidor en Argos para iPhone/iPad")
+        Button("Dispositivos autorizados…", systemImage: "lock.iphone") { devicesServer = server }
+            .disabled(vms[server.id] == nil)
+            .help("Ver y revocar los iPhone/iPad con acceso a este servidor")
         Button("Activar indicador de Claude Code…") { claudeHooksServer = server }
             .disabled(vms[server.id] == nil)
         Divider()

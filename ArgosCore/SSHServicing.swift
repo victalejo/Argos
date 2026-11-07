@@ -51,6 +51,8 @@ protocol SSHServicing: Sendable {
     func authorizeKey(line: String) async throws
     /// Retira de `authorized_keys` las líneas con ese comentario.
     func revokeKey(comment: String) async throws
+    /// Claves de dispositivos (iPhone/iPad) que Argos autorizó en el servidor.
+    func listAuthorizedDeviceKeys() async throws -> [AuthorizedDeviceKey]
 
     func splitPane(session: String, vertical: Bool) async throws
     func selectPane(session: String, direction: TmuxPaneDirection) async throws
