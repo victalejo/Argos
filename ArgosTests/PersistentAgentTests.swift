@@ -30,31 +30,46 @@ struct PersistentAgentScriptTests {
     @Test func lanzaConFIFOEnLecturaEscrituraYLog() throws {
         let command = try PersistentAgentScript.launch(id: id, meta: meta, claudeInvocation: "env claude -p")
         #expect(command.contains("mkfifo in"))
-        #expect(command.contains("umask 077"))
+        #expect(command.contains("( umask 077 &&")) // umask solo en un subshell
         #expect(command.contains("0<>\"$HOME/.config/argos/agents/\(id)\"/in"))
         #expect(command.contains(">>\"$HOME/.config/argos/agents/\(id)\"/out.ndjson"))
         #expect(command.contains("nohup $S sh -c"))
-        #expect(command.hasSuffix("cat pid"))
+        #expect(command.hasPrefix("IFS= read -r ARGOS_OAUTH")) // token por stdin
+        #expect(command.contains("ARGOS_AGENT_ALIVE")) // no lanza dos veces
+        #expect(command.contains(".\(id).lock"))
     }
 
     @Test func enviaEnBase64SinInterpretarElContenido() throws {
         let line = #"{"type":"user","message":{"content":"$(rm -rf ~) `id` 'hola'"}}"#
-        let command = PersistentAgentScript.send(id: id, line: line, log: false)
+        let command = PersistentAgentScript.send(id: id, line: line)
         #expect(!command.contains("rm -rf"))
         let b64 = try #require(command.split(separator: "'").first { Data(base64Encoded: String($0)) != nil })
         let decoded = String(decoding: try #require(Data(base64Encoded: String(b64))), as: UTF8.self)
         #expect(decoded == line + "\n")
-        #expect(command.contains("cat > "))
+        #expect(command.contains("exec 3<>")) // FIFO en lectura-escritura: nunca se bloquea
         #expect(command.contains("ARGOS_AGENT_DEAD"))
+        #expect(command.contains("ps -o args= -p")) // vivo = el pid es DE VERDAD el agente
     }
 
-    @Test func lasRespuestasAPermisosSeAnotanEnElLog() {
-        let command = PersistentAgentScript.send(id: id, line: "{}", log: true)
-        #expect(command.contains("tee -a \"$HOME/.config/argos/agents/\(id)\"/out.ndjson"))
+    @Test func lasRespuestasAPermisosSeAnotanEnElLogDespuesDeEntregarlas() throws {
+        let command = PersistentAgentScript.send(id: id, line: "{}", answeredRequestID: "r\"1")
+        let parts = command.components(separatedBy: ">&3")
+        #expect(parts.count == 2)
+        #expect(parts[1].contains(">> \"$HOME/.config/argos/agents/\(id)\"/out.ndjson"))
+        let markerB64 = try #require(parts[1].split(separator: "'").first { Data(base64Encoded: String($0)) != nil })
+        let marker = try JSONSerialization.jsonObject(with: try #require(Data(base64Encoded: String(markerB64)))) as? [String: String]
+        #expect(marker == ["type": PersistentAgentScript.answeredEventType, "request_id": "r\"1"])
+    }
+
+    @Test func elTailMuereAlCerrarseElCanal() {
+        let command = PersistentAgentScript.attach(id: id)
+        #expect(command.contains("tail -c +1 -F"))
+        #expect(command.contains("cat > /dev/null; kill $T"))
     }
 
     @Test func pararYBorrar() {
         #expect(!PersistentAgentScript.stop(id: id, delete: false).contains("rm -rf"))
+        #expect(PersistentAgentScript.stop(id: id, delete: false).contains("grep -q -- '\(id)'"))
         #expect(PersistentAgentScript.stop(id: id, delete: true).contains("rm -rf \"$HOME/.config/argos/agents/\(id)\""))
     }
 
@@ -75,15 +90,15 @@ struct PersistentAgentScriptTests {
         #expect(!agents[1].isAlive)
     }
 
-    @Test func invocacionPersistenteReenviaLosPrompts() {
-        let nueva = ClaudeAgentCommand.persistent(claudePath: "/usr/bin/claude", oauthToken: "tok'en", sessionID: id, resume: false)
-        #expect(nueva.hasPrefix("env -u ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN='tok'\\''en' '/usr/bin/claude' -p"))
+    @Test func invocacionPersistenteReenviaLosPromptsYNoLlevaElToken() {
+        let nueva = ClaudeAgentCommand.persistent(claudePath: "/usr/bin/claude", sessionID: id, resume: false)
+        #expect(nueva.hasPrefix("env -u ANTHROPIC_API_KEY '/usr/bin/claude' -p"))
         #expect(nueva.contains("--replay-user-messages"))
         #expect(nueva.contains("--session-id \(id)"))
         #expect(nueva.contains("--permission-mode default"))
-        let reanudar = ClaudeAgentCommand.persistent(claudePath: "/usr/bin/claude", oauthToken: nil, sessionID: id, resume: true)
+        #expect(!nueva.contains("CLAUDE_CODE_OAUTH_TOKEN"))
+        let reanudar = ClaudeAgentCommand.persistent(claudePath: "/usr/bin/claude", sessionID: id, resume: true)
         #expect(reanudar.contains("--resume \(id)"))
-        #expect(!reanudar.contains("CLAUDE_CODE_OAUTH_TOKEN"))
     }
 
     /// Ejecuta de verdad el lanzador con `sh`: un «claude» simulado responde por cada
@@ -95,17 +110,22 @@ struct PersistentAgentScriptTests {
         let fake = home.appendingPathComponent("claude-falso.sh")
         try """
         #!/bin/sh
+        printf '{"type":"token","value":"%s"}\\n' "$CLAUDE_CODE_OAUTH_TOKEN"
         while IFS= read -r line; do printf '{"type":"echo","line":%s}\\n' "$line"; done
         """.write(to: fake, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake.path)
 
         let localMeta = PersistentAgentMeta(workingDirectory: home.path, title: "t", createdAt: Date())
-        let launch = try PersistentAgentScript.launch(id: id, meta: localMeta, claudeInvocation: ShellQuoting.singleQuoted(fake.path))
-        let pid = try shell(launch, home: home).trimmingCharacters(in: .whitespacesAndNewlines)
+        // Como claude, el proceso lleva el id en su línea de comandos (huella de «vivo»).
+        let invocation = "\(ShellQuoting.singleQuoted(fake.path)) --session-id \(id)"
+        let launch = try PersistentAgentScript.launch(id: id, meta: localMeta, claudeInvocation: invocation)
+        let pid = try shell(launch, home: home, stdin: "tok-secreto\n").trimmingCharacters(in: .whitespacesAndNewlines)
         #expect(Int(pid) != nil)
+        // Relanzar con el agente vivo no crea otro proceso.
+        #expect(try shell(launch, home: home, stdin: "\n").contains("ARGOS_AGENT_ALIVE"))
 
-        _ = try shell(PersistentAgentScript.send(id: id, line: #"{"n":1}"#, log: false), home: home)
-        _ = try shell(PersistentAgentScript.send(id: id, line: #"{"n":2}"#, log: true), home: home)
+        _ = try shell(PersistentAgentScript.send(id: id, line: #"{"n":1}"#), home: home)
+        _ = try shell(PersistentAgentScript.send(id: id, line: #"{"n":2}"#, answeredRequestID: "r2"), home: home)
         let agentDir = home.appendingPathComponent(".config/argos/agents/\(id)")
         var log = ""
         for _ in 0..<150 { // hasta 3 s: el proceso de fondo escribe de forma asíncrona
@@ -116,7 +136,8 @@ struct PersistentAgentScriptTests {
         let errLog = (try? String(contentsOf: agentDir.appendingPathComponent("err.log"), encoding: .utf8)) ?? "-"
         #expect(log.contains(#"{"type":"echo","line":{"n":1}}"#), "log: \(log) err: \(errLog)")
         #expect(log.contains(#"{"type":"echo","line":{"n":2}}"#))
-        #expect(log.contains("{\"n\":2}\n")) // la respuesta con log=true queda anotada
+        #expect(log.contains(#"{"type":"token","value":"tok-secreto"}"#)) // el token llega por stdin
+        #expect(log.contains(#""request_id":"r2""#)) // el permiso respondido queda anotado
 
         let listed = PersistentAgentScript.parseList(try shell(PersistentAgentScript.list(), home: home))
         #expect(listed.map(\.id) == [id])
@@ -130,12 +151,32 @@ struct PersistentAgentScriptTests {
         }
         #expect(!alive)
         #expect(throws: (any Error).self) {
-            try shell(PersistentAgentScript.send(id: id, line: "{}", log: false), home: home)
+            try shell(PersistentAgentScript.send(id: id, line: "{}"), home: home)
         }
     }
 
+    /// Un pid guardado que ya NO es el agente (p. ej. reutilizado tras un reinicio) no se
+    /// da por vivo ni se mata.
+    @Test func noMataUnProcesoAjenoConElMismoPid() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("argos-home-\(UUID())")
+        let dir = home.appendingPathComponent(".config/argos/agents/\(id)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let ajeno = Process()
+        ajeno.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        ajeno.arguments = ["30"]
+        try ajeno.run()
+        defer { ajeno.terminate() }
+        try "\(ajeno.processIdentifier)\n".write(to: dir.appendingPathComponent("pid"), atomically: true, encoding: .utf8)
+        try JSONEncoder.projects.encode(meta).write(to: dir.appendingPathComponent("meta.json"))
+
+        _ = try shell(PersistentAgentScript.stop(id: id, delete: false), home: home)
+        #expect(ajeno.isRunning)
+        #expect(PersistentAgentScript.parseList(try shell(PersistentAgentScript.list(), home: home)).first?.isAlive == false)
+    }
+
     @discardableResult
-    private func shell(_ command: String, home: URL) throws -> String {
+    private func shell(_ command: String, home: URL, stdin: String? = nil) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
         process.arguments = ["-c", command]
@@ -143,6 +184,12 @@ struct PersistentAgentScriptTests {
         let out = Pipe()
         process.standardOutput = out
         process.standardError = Pipe()
+        if let stdin {
+            let input = Pipe()
+            process.standardInput = input
+            input.fileHandleForWriting.write(Data(stdin.utf8))
+            try input.fileHandleForWriting.close()
+        }
         try process.run()
         process.waitUntilExit()
         let text = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
@@ -169,28 +216,55 @@ struct PersistentAgentConversationTests {
         #expect(classic.items.isEmpty)
     }
 
-    @Test func unaRespuestaAnotadaCierraElPermisoAlReleer() throws {
+    @Test func laMarcaDeRespondidoCierraElPermisoAlReleer() throws {
         var state = AgentConversationState()
         let request = #"{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ls"}}}"#
         AgentReducer.apply(try #require(AgentProtocol.decode(line: request)), to: &state, echoesUserMessages: true)
         #expect(state.pendingPermission?.id == "r1")
+        // Un control_response cualquiera en el log NO cierra el permiso (podría escribirlo
+        // una herramienta del propio agente): solo la marca de Argos.
         let answer = AgentProtocol.encodePermissionResponse(requestID: "r1", decision: .allow(updatedInput: .object([:])))
         AgentReducer.apply(try #require(AgentProtocol.decode(line: answer)), to: &state, echoesUserMessages: true)
+        #expect(state.pendingPermission?.id == "r1")
+        let marker = #"{"request_id":"r1","type":"argos_permission_answered"}"#
+        AgentReducer.apply(try #require(AgentProtocol.decode(line: marker)), to: &state, echoesUserMessages: true)
         #expect(state.pendingPermission == nil)
+    }
+
+    @Test func losPromptsDeSubagentesYSinteticosNoSeHacenPasarPorElUsuario() throws {
+        var state = AgentConversationState()
+        let sub = #"{"type":"user","parent_tool_use_id":"toolu_1","message":{"content":"instrucciones al subagente"}}"#
+        let meta = #"{"type":"user","isMeta":true,"message":{"content":"<system>…</system>"}}"#
+        let top = #"{"type":"user","parent_tool_use_id":null,"message":{"content":"hola"}}"#
+        for line in [sub, meta, top] {
+            AgentReducer.apply(try #require(AgentProtocol.decode(line: line)), to: &state, echoesUserMessages: true)
+        }
+        #expect(state.items.map(\.kind) == [.userText("hola")])
     }
 
     @MainActor
     @Test func lanzarLocalizaClaudeYEjecutaElLanzador() async throws {
         let mock = MockSSHService()
-        mock.agentScriptOutput = { _ in "4242\n" }
+        mock.agentScript = ["4242"]
         let session = try await PersistentAgentSession.launch(
-            service: mock, workingDirectory: "/srv/app", title: "app", oauthToken: nil
+            service: mock, workingDirectory: "/srv/app", title: "app", oauthToken: "tok-123"
         )
         #expect(PersistentAgentScript.isValidID(session.id))
         #expect(session.isAlive)
-        let launch = try #require(mock.agentScripts.first)
+        let launch = try #require(mock.lastAgentCommand)
         #expect(launch.contains("mkfifo in"))
         #expect(launch.contains("--session-id \(session.id)"))
+        #expect(!launch.contains("tok-123")) // el token nunca en la línea de comandos…
+        #expect(mock.agentStdinLines.first == "tok-123") // …sino por stdin
+    }
+
+    @MainActor
+    @Test func siOtroDispositivoLoEstaArrancandoAvisa() async {
+        let mock = MockSSHService()
+        mock.agentScript = ["ARGOS_AGENT_BUSY"]
+        await #expect(throws: PersistentAgentError.busy) {
+            _ = try await PersistentAgentSession.launch(service: mock, workingDirectory: "/", title: "x", oauthToken: nil)
+        }
     }
 
     @MainActor
@@ -232,7 +306,7 @@ struct PersistentAgentConversationTests {
         let session = PersistentAgentSession(service: mock, info: Self.info())
         await session.send("  hola  ")
         #expect(mock.agentScripts.count == 1)
-        #expect(mock.agentScripts[0].contains("cat > "))
+        #expect(mock.agentScripts[0].contains("exec 3<>"))
         #expect(session.state.status == .working)
 
         await session.send("   ")
@@ -240,7 +314,8 @@ struct PersistentAgentConversationTests {
 
         let request = AgentPermissionRequest(id: "r9", toolName: "Bash", displayName: nil, input: .object([:]), toolUseID: nil)
         await session.respond(to: request, decision: .deny(message: "no"))
-        #expect(mock.agentScripts[1].contains("tee -a"))
+        #expect(mock.agentScripts[1].contains(PersistentAgentScript.answeredEventType) == false) // va en base64
+        #expect(mock.agentScripts[1].contains(">> \"$HOME/.config/argos/agents/"))
     }
 
     @MainActor

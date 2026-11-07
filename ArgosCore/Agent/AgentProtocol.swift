@@ -56,15 +56,26 @@ enum AgentProtocol {
             return .assistant(contentBlocks(from: object["message"]))
 
         case "user":
-            return .user(contentBlocks(from: object["message"]))
+            let blocks = contentBlocks(from: object["message"])
+            // Solo un prompt de PRIMER NIVEL escrito por el usuario conserva su texto (en
+            // el agente persistente se pinta como burbuja suya). Los prompts que claude
+            // pasa a sus subagentes (`parent_tool_use_id`) o los mensajes sintéticos/meta
+            // no deben hacerse pasar por el usuario: de esos solo cuentan los resultados.
+            let isSubagent = object["parent_tool_use_id"].map { $0 != .null } ?? false
+            let isSynthetic = object["isMeta"]?.boolValue == true || object["isSynthetic"]?.boolValue == true
+            guard isSubagent || isSynthetic else { return .user(blocks) }
+            return .user(blocks.filter {
+                if case .toolResult = $0 { return true }
+                return false
+            })
 
         case "control_request":
             return controlRequestEvent(object)
 
-        case "control_response":
-            // Respuesta a un permiso que Argos anexó al log del agente persistente: al
-            // releer el log, el permiso ya no está pendiente.
-            if let requestID = object["response"]?["request_id"]?.stringValue {
+        case PersistentAgentScript.answeredEventType:
+            // Marca que Argos anexa al log del agente persistente al responder un permiso:
+            // al releer el log, ese permiso ya no está pendiente.
+            if let requestID = object["request_id"]?.stringValue {
                 return .permissionCancel(requestID: requestID)
             }
             return .ignored(type: type, subtype: nil)

@@ -80,9 +80,9 @@ enum ClaudeAgentCommand {
     /// sin `cd` ni anuncio de PID (los pone el lanzador) y con `--replay-user-messages`,
     /// para que los prompts queden en el log y una reconexión reconstruya la conversación.
     /// `resume`: reanuda una conversación existente (el proceso anterior terminó).
+    /// El token OAuth NO va aquí: el lanzador lo recibe por stdin y lo exporta.
     static func persistent(
         claudePath: String,
-        oauthToken: String?,
         sessionID: String,
         resume: Bool,
         permissionMode: PermissionMode = .default
@@ -92,11 +92,7 @@ enum ClaudeAgentCommand {
             "--permission-mode", permissionMode.rawValue,
             resume ? "--resume" : "--session-id", sessionID,
         ]).joined(separator: " ")
-        var environment = "env -u ANTHROPIC_API_KEY "
-        if let oauthToken, !oauthToken.isEmpty {
-            environment += "CLAUDE_CODE_OAUTH_TOKEN=\(ShellQuoting.singleQuoted(oauthToken)) "
-        }
-        return "\(environment)\(ShellQuoting.singleQuoted(claudePath)) \(flags)"
+        return "env -u ANTHROPIC_API_KEY \(ShellQuoting.singleQuoted(claudePath)) \(flags)"
     }
 
     static let pidEventType = "argos_pid"

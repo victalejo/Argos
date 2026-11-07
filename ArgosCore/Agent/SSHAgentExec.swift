@@ -31,6 +31,7 @@ struct AgentExecError: LocalizedError {
 enum PersistentAgentError: LocalizedError, Equatable {
     case notRunning
     case claudeMissing
+    case busy
 
     var errorDescription: String? {
         switch self {
@@ -38,6 +39,8 @@ enum PersistentAgentError: LocalizedError, Equatable {
             return "El agente ya no está en marcha en el servidor. Reanúdalo para seguir la conversación."
         case .claudeMissing:
             return "Claude Code no está instalado en el servidor (no se encontró el comando «claude»)."
+        case .busy:
+            return "Otro dispositivo está arrancando este agente ahora mismo. Inténtalo de nuevo en unos segundos."
         }
     }
 }

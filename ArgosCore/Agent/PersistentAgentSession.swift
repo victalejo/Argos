@@ -78,12 +78,27 @@ final class PersistentAgentSession {
         guard let claudePath = try await service.locateClaude() else {
             throw PersistentAgentError.claudeMissing
         }
-        let invocation = ClaudeAgentCommand.persistent(
-            claudePath: claudePath, oauthToken: oauthToken, sessionID: id, resume: resume
-        )
-        _ = try await service.runAgentScript(
-            try PersistentAgentScript.launch(id: id, meta: meta, claudeInvocation: invocation)
-        )
+        let invocation = ClaudeAgentCommand.persistent(claudePath: claudePath, sessionID: id, resume: resume)
+        let command = try PersistentAgentScript.launch(id: id, meta: meta, claudeInvocation: invocation)
+
+        // El token va por stdin (primera línea), nunca en la línea de comandos. stdin se
+        // cierra en cuanto el lanzador responde (PID o «ya vivo»).
+        let (stdin, input) = AsyncStream<[UInt8]>.makeStream()
+        input.yield(Array(((oauthToken ?? "") + "\n").utf8))
+        let (outputStream, output) = AsyncStream<[UInt8]>.makeStream()
+        let run = Task { try await service.runAgentExec(command: command, stdin: stdin, output: output) }
+        var reply = ""
+        for await chunk in outputStream {
+            reply += String(decoding: chunk, as: UTF8.self)
+            if reply.contains("\n") { break }
+        }
+        input.finish()
+        _ = try? await run.value
+        let firstLine = reply.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
+        if firstLine == "ARGOS_AGENT_BUSY" { throw PersistentAgentError.busy }
+        guard firstLine == "ARGOS_AGENT_ALIVE" || Int32(firstLine) != nil else {
+            throw AgentExecError(message: "No se pudo arrancar el agente en el servidor.")
+        }
     }
 
     // MARK: - Enganche al log
@@ -141,12 +156,12 @@ final class PersistentAgentSession {
     func send(_ rawText: String) async {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        await write(AgentProtocol.encodeUserMessage(text: text), log: false)
+        await write(AgentProtocol.encodeUserMessage(text: text), answering: nil)
         if lastError == nil, state.status != .working { state.status = .working }
     }
 
     func respond(to request: AgentPermissionRequest, decision: AgentPermissionDecision) async {
-        await write(AgentProtocol.encodePermissionResponse(requestID: request.id, decision: decision), log: true)
+        await write(AgentProtocol.encodePermissionResponse(requestID: request.id, decision: decision), answering: request.id)
         if state.pendingPermission?.id == request.id { state.pendingPermission = nil }
     }
 
@@ -172,9 +187,11 @@ final class PersistentAgentSession {
         }
     }
 
-    private func write(_ line: String, log: Bool) async {
+    private func write(_ line: String, answering requestID: String?) async {
         do {
-            _ = try await service.runAgentScript(PersistentAgentScript.send(id: id, line: line, log: log))
+            _ = try await service.runAgentScript(
+                PersistentAgentScript.send(id: id, line: line, answeredRequestID: requestID)
+            )
             lastError = nil
         } catch PersistentAgentError.notRunning {
             isAlive = false
