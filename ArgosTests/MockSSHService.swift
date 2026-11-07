@@ -77,6 +77,8 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func renameWindow(session: String, index: Int, to name: String) async throws {}
     func setWindowColor(session: String, index: Int, color: WindowColor?) async throws {}
     func killWindow(session: String, index: Int) async throws {}
+    func authorizeKey(line: String) async throws {}
+    func revokeKey(comment: String) async throws {}
 
     // MARK: - Paneles
     private(set) var splitVerticalCalls: [Bool] = []

@@ -12,6 +12,14 @@ struct ServersView: View {
     @Environment(ServerHub.self) private var hub
     @State private var editing: ServerFormView.Mode?
     @State private var pendingDeletion: Server?
+    /// Alta desde el QR del Mac (con el código ya leído si llegó por enlace).
+    @State private var importing: ImportRequest?
+    @State private var linkError: String?
+
+    private struct ImportRequest: Identifiable {
+        let id = UUID()
+        let transfer: ServerTransfer?
+    }
 
     var body: some View {
         NavigationStack {
@@ -40,6 +48,9 @@ struct ServersView: View {
                     } actions: {
                         Button("Añadir servidor") { editing = .create }
                             .buttonStyle(.borderedProminent)
+                        Button("Escanear QR del Mac", systemImage: "qrcode.viewfinder") {
+                            importing = ImportRequest(transfer: nil)
+                        }
                     }
                 }
             }
@@ -51,9 +62,33 @@ struct ServersView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Añadir servidor", systemImage: "plus") { editing = .create }
                 }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Escanear QR del Mac", systemImage: "qrcode.viewfinder") {
+                        importing = ImportRequest(transfer: nil)
+                    }
+                }
             }
             .sheet(item: $editing) { mode in
                 ServerFormView(mode: mode)
+            }
+            .sheet(item: $importing) { request in
+                ImportServerSheet(transfer: request.transfer)
+            }
+            // QR escaneado con la cámara del sistema: llega como enlace argos://add-server.
+            .onOpenURL { url in
+                do {
+                    importing = ImportRequest(transfer: try ServerTransfer.decode(url.absoluteString))
+                } catch {
+                    linkError = error.userMessage
+                }
+            }
+            .alert(
+                "No se pudo añadir el servidor",
+                isPresented: Binding(get: { linkError != nil }, set: { if !$0 { linkError = nil } })
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(linkError ?? "")
             }
             .confirmationDialog(
                 "¿Borrar «\(pendingDeletion?.name ?? "")»?",

@@ -21,6 +21,8 @@ struct ContentView: View {
     @State private var serverToDelete: Server?
     /// Servidor en el que se va a activar el indicador de Claude Code (confirmación).
     @State private var claudeHooksServer: Server?
+    /// Servidor que se está enviando al iPhone por QR.
+    @State private var transferServer: Server?
     /// Resultado de activar el indicador (alerta).
     @State private var claudeHooksResult: String?
 
@@ -68,6 +70,11 @@ struct ContentView: View {
         .sheet(item: $serverFormMode) { mode in
             ServerFormSheet(mode: mode) { server, secret in
                 save(server, secret: secret)
+            }
+        }
+        .sheet(item: $transferServer) { server in
+            if let service = vms[server.id]?.service {
+                ServerTransferSheet(server: server, service: service) { transferServer = nil }
             }
         }
         .sheet(isPresented: $showSSHConfig) {
@@ -219,6 +226,9 @@ struct ContentView: View {
     private func serverActions(for server: Server) -> some View {
         Button("Editar servidor…", systemImage: "pencil") { serverFormMode = .edit(server) }
         Divider()
+        Button("Enviar al iPhone…", systemImage: "qrcode") { transferServer = server }
+            .disabled(vms[server.id] == nil)
+            .help("Muestra un QR para añadir este servidor en Argos para iPhone/iPad")
         Button("Activar indicador de Claude Code…") { claudeHooksServer = server }
             .disabled(vms[server.id] == nil)
         Divider()

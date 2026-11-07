@@ -47,6 +47,10 @@ protocol SSHServicing: Sendable {
     func renameWindow(session: String, index: Int, to name: String) async throws
     func setWindowColor(session: String, index: Int, color: WindowColor?) async throws
     func killWindow(session: String, index: Int) async throws
+    /// Añade una línea a `~/.ssh/authorized_keys` del servidor.
+    func authorizeKey(line: String) async throws
+    /// Retira de `authorized_keys` las líneas con ese comentario.
+    func revokeKey(comment: String) async throws
 
     func splitPane(session: String, vertical: Bool) async throws
     func selectPane(session: String, direction: TmuxPaneDirection) async throws

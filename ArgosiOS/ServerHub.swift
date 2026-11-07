@@ -43,6 +43,33 @@ final class ServerHub {
         disconnect(server.id)
     }
 
+    /// Añade el servidor recibido del Mac por QR: guarda su clave dedicada y fija la
+    /// huella de host key que verificó el Mac.
+    @discardableResult
+    func importTransfer(_ transfer: ServerTransfer) throws -> Server {
+        let id = UUID()
+        let path = try ImportedKeyStore.store(Data(try transfer.privateKeyPEM().utf8), for: id)
+        let server = Server(
+            id: id,
+            name: transfer.name,
+            host: transfer.host,
+            port: transfer.port,
+            username: transfer.username,
+            authMethod: .key,
+            privateKeyPath: path
+        )
+        do {
+            try save(server, secret: nil, isNew: true)
+        } catch {
+            ImportedKeyStore.remove(for: id)
+            throw error
+        }
+        if let fingerprint = transfer.hostKeyFingerprint {
+            TOFUHostKeyValidator.trust(fingerprint: fingerprint, host: transfer.host, port: transfer.port)
+        }
+        return server
+    }
+
     /// Borra el servidor con TODO lo suyo: secretos, clave importada y conexiones.
     func remove(_ server: Server) {
         disconnect(server.id)

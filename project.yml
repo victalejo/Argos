@@ -205,6 +205,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Argos
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
+        INFOPLIST_KEY_NSCameraUsageDescription: "Argos usa la cámara para escanear el código QR con el que el Mac te pasa un servidor."
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -212,6 +213,16 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: L6WGLNT9XZ
+    # Info.plist parcial (se fusiona con el generado): el esquema argos:// permite que la
+    # cámara del sistema abra Argos al escanear el QR de «Enviar al iPhone».
+    info:
+      path: ArgosiOS/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: com.iaportafolio.argos.add-server
+            CFBundleURLSchemes: [argos]
     dependencies:
       - package: Citadel
       - package: SwiftTerm

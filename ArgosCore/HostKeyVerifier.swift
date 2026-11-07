@@ -87,6 +87,27 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         return load(from: storeURL)["\(host):\(port)"] != nil
     }
 
+    /// Huella confiada para el endpoint, si la hay (se pasa al iPhone en el QR).
+    static func trustedFingerprint(host: String, port: Int, storeURL: URL = defaultStoreURL()) -> String? {
+        fileLock.lock()
+        defer { fileLock.unlock() }
+        return load(from: storeURL)["\(host):\(port)"]
+    }
+
+    /// Fija la huella confiada de un endpoint (la que verificó el Mac, recibida por QR),
+    /// en vez de confiar en la que presente el servidor en la primera conexión.
+    static func trust(fingerprint: String, host: String, port: Int, storeURL: URL = defaultStoreURL()) {
+        let endpoint = "\(host):\(port)"
+        fileLock.lock()
+        defer { fileLock.unlock() }
+        var known = load(from: storeURL)
+        if let previous = known[endpoint], previous != fingerprint {
+            Log.hostKey.notice("Huella de \(endpoint, privacy: .public) sustituida por la verificada en el Mac.")
+        }
+        known[endpoint] = fingerprint
+        save(known, to: storeURL)
+    }
+
     /// Olvida la huella confiada de un endpoint, permitiendo re-confiar en la
     /// próxima conexión. Lo usa la UI para resolver un `HostKeyMismatchError` tras
     /// una reinstalación legítima del servidor, sin editar el JSON a mano.
