@@ -35,3 +35,14 @@ que `ExportOptions.plist` usa firma **manual** con material del llavero de sesi�
   certificado de distribución (2027-08-19): regénéralo por la API entonces.
 
 App en App Store Connect: id `6831410935`.
+
+## Ficha y capturas
+
+- `ruby scripts/appstore/push-listing.rb`: textos, categorías, precio y notas de revisión
+  desde `listing-es-MX.json`.
+- `ruby scripts/appstore/push-screenshots.rb`: sube `screenshots/mac/*.png` (2560×1600,
+  sin transparencia) al set `APP_DESKTOP`, reemplazando las anteriores.
+
+Las capturas se hacen con una copia de Argos con otro bundle id (para no tocar los
+servidores reales) conectada a la cuenta de demostración `argos-demo` de
+`190.102.110.8:2222`, la misma que usa App Review (contraseña solo en App Store Connect).
