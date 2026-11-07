@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>upload</string>
+	<key>teamID</key>
+	<string>L6WGLNT9XZ</string>
+	<!-- Firma manual (la clave de API no tiene firma en la nube): certificado «Apple
+	     Distribution» del team y perfil IOS_APP_STORE «Argos iOS App Store», creado
+	     por la API (scripts/appstore/README.md). -->
+	<key>signingStyle</key>
+	<string>manual</string>
+	<key>signingCertificate</key>
+	<string>Apple Distribution</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.iaportafolio.argos</key>
+		<string>Argos iOS App Store</string>
+	</dict>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>

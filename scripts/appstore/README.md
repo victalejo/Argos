@@ -36,6 +36,27 @@ que `ExportOptions.plist` usa firma **manual** con material del llavero de sesi�
 
 App en App Store Connect: id `6831410935`.
 
+## iPhone/iPad (target `ArgosiOS`)
+
+```bash
+scripts/appstore/upload-ios.sh
+```
+
+Archiva con firma automática y exporta con `ExportOptions-iOS.plist`: certificado
+**Apple Distribution** y perfil **Argos iOS App Store** (`IOS_APP_STORE`, id
+`L5FCFD2RHL`, creado por la API el 2026-11-07; caduca con el certificado). El grupo
+interno de TestFlight «Equipo» recibe todos los builds.
+
+Prueba de extremo a extremo contra la cuenta de demostración (ver
+`ArgosiOSUITests/DemoServerFlowTests.swift`):
+
+```bash
+TEST_RUNNER_ARGOS_DEMO_HOST=190.102.110.8 TEST_RUNNER_ARGOS_DEMO_PORT=2222 \
+TEST_RUNNER_ARGOS_DEMO_PASSWORD=… \
+xcodebuild test -project Argos.xcodeproj -scheme ArgosiOS \
+  -destination 'platform=iOS Simulator,name=<simulador>'
+```
+
 ## Ficha y capturas
 
 - `ruby scripts/appstore/push-listing.rb`: textos, categorías, precio y notas de revisión
