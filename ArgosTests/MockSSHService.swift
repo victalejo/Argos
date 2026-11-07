@@ -188,6 +188,9 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     private(set) var agentStdinLines: [String] = []
     /// Último comando recibido por `runAgentExec`.
     private(set) var lastAgentCommand: String?
+    /// Comandos del agente persistente recibidos y respuesta (stdout) a cada uno.
+    private(set) var agentScripts: [String] = []
+    var agentScriptOutput: (String) throws -> String = { _ in "" }
 
     func locateClaude() async throws -> String? { claudePath }
 
@@ -241,5 +244,10 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
             }
         }
         output.finish()
+    }
+
+    func runAgentScript(_ command: String) async throws -> String {
+        agentScripts.append(command)
+        return try agentScriptOutput(command)
     }
 }

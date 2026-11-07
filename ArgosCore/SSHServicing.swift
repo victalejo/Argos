@@ -142,6 +142,10 @@ protocol SSHServicing: Sendable {
         stdin: AsyncStream<[UInt8]>,
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws
+
+    /// Ejecuta un comando corto del agente persistente (lanzar, enviar, listar,
+    /// parar). Devuelve stdout; lanza si el código de salida no es 0.
+    func runAgentScript(_ command: String) async throws -> String
 }
 
 extension SSHService: SSHServicing {}

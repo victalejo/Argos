@@ -21,6 +21,9 @@ final class ServerHub {
     @ObservationIgnored private var viewModels: [Server.ID: SessionsViewModel] = [:]
     @ObservationIgnored private var terminals: [SessionHandle: TouchTerminalController] = [:]
     @ObservationIgnored private var detachTask: UIBackgroundTaskIdentifier = .invalid
+    @ObservationIgnored private var agents: [String: (server: Server.ID, session: PersistentAgentSession)] = [:]
+    /// Agentes que estaban enganchados al pasar a segundo plano (se reenganchan al volver).
+    @ObservationIgnored private var suspendedAgents: [PersistentAgentSession] = []
 
     init(store: ServerStore = ServerStore()) {
         self.store = store
@@ -145,7 +148,36 @@ final class ServerHub {
         detachTask = .invalid
     }
 
+    // MARK: - Agentes persistentes
+
+    /// Sesión cliente del agente (reutilizada mientras dure la app).
+    func agentSession(for info: PersistentAgentInfo, server: Server) -> PersistentAgentSession {
+        if let existing = agents[info.id]?.session { return existing }
+        let session = PersistentAgentSession(service: viewModel(for: server).service, info: info)
+        agents[info.id] = (server.id, session)
+        return session
+    }
+
+    func register(_ session: PersistentAgentSession, server: Server) {
+        agents[session.id] = (server.id, session)
+    }
+
+    /// Segundo plano: deja de leer los logs (los agentes siguen en el servidor).
+    func suspendAgents() {
+        suspendedAgents = agents.values.map(\.session).filter(\.isAttached)
+        suspendedAgents.forEach { $0.detach() }
+    }
+
+    func resumeAgents() {
+        suspendedAgents.forEach { $0.attach() }
+        suspendedAgents = []
+    }
+
     private func disconnect(_ serverID: Server.ID) {
+        for (id, entry) in agents where entry.server == serverID {
+            entry.session.detach()
+            agents.removeValue(forKey: id)
+        }
         for handle in terminals.keys where handle.serverID == serverID {
             terminals.removeValue(forKey: handle)?.stop()
         }

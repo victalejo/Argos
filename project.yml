@@ -226,6 +226,7 @@ targets:
     dependencies:
       - package: Citadel
       - package: SwiftTerm
+      - package: MarkdownUI
 
   ArgosTests:
     type: bundle.unit-test

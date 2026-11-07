@@ -64,7 +64,14 @@ struct AgentConversationState: Equatable, Sendable {
 enum AgentReducer {
 
     /// Aplica un evento decodificado del stream-json.
-    static func apply(_ event: AgentStreamEvent, to state: inout AgentConversationState) {
+    /// `echoesUserMessages`: el log trae los prompts del usuario (`--replay-user-messages`,
+    /// agente persistente). Entonces los textos de eventos `user` son burbujas del
+    /// usuario y no se añaden localmente al enviar.
+    static func apply(
+        _ event: AgentStreamEvent,
+        to state: inout AgentConversationState,
+        echoesUserMessages: Bool = false
+    ) {
         switch event {
         case .initialized(let info):
             state.sessionID = info.sessionID
@@ -75,8 +82,13 @@ enum AgentReducer {
 
         case .user(let blocks):
             for block in blocks {
-                if case .toolResult(_, let text, let isError) = block {
+                switch block {
+                case .toolResult(_, let text, let isError):
                     state.append(.toolResult(text: text, isError: isError))
+                case .text(let text) where echoesUserMessages && !text.isEmpty:
+                    userSent(text: text, to: &state)
+                default:
+                    break
                 }
             }
 

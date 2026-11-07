@@ -11,21 +11,19 @@ import SwiftUI
 
 struct ProjectsView: View {
     let server: Server
+    /// En iPad el detalle va en otra columna: la selección la gestiona el padre. En
+    /// iPhone (`nil`) se navega dentro de la pila.
+    var selection: Binding<ProjectTarget?>?
     @Environment(ServerHub.self) private var hub
     @Environment(\.scenePhase) private var scenePhase
 
-    /// Sesión abierta en el terminal (navegación).
-    @State private var openSession: OpenSession?
+    /// Proyecto/sesión abierto (navegación en iPhone).
+    @State private var pushed: ProjectTarget?
     @State private var busyProject: Project.ID?
     @State private var sessionPrompt: SessionPrompt?
     @State private var promptText = ""
     @State private var pendingKill: TmuxSession?
     @State private var errorMessage: String?
-
-    struct OpenSession: Hashable, Identifiable {
-        let name: String
-        var id: String { name }
-    }
 
     private enum SessionPrompt: Identifiable {
         case create
@@ -43,8 +41,8 @@ struct ProjectsView: View {
     var body: some View {
         content
             .navigationTitle(server.name)
-            .navigationDestination(item: $openSession) { session in
-                TerminalScreen(server: server, sessionName: session.name)
+            .navigationDestination(item: $pushed) { target in
+                ProjectScreen(server: server, target: target)
             }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -202,7 +200,7 @@ struct ProjectsView: View {
 
     private func sessionRow(_ session: TmuxSession) -> some View {
         Button {
-            openSession = OpenSession(name: session.name)
+            show(session: session.name)
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "terminal").foregroundStyle(.tint).frame(width: 28)
@@ -235,7 +233,7 @@ struct ProjectsView: View {
 
     private func open(_ entry: ProjectEntry) {
         if entry.isRunning {
-            openSession = OpenSession(name: entry.project.sessionName)
+            show(entry.project)
             return
         }
         busyProject = entry.id
@@ -246,11 +244,23 @@ struct ProjectsView: View {
                     entry.project,
                     defaultStartupCommand: ProjectSettings.shared.defaultStartupCommand
                 )
-                openSession = OpenSession(name: entry.project.sessionName)
+                show(entry.project)
             } catch {
                 errorMessage = error.userMessage
             }
         }
+    }
+
+    private func show(_ project: Project) {
+        open(ProjectTarget(sessionName: project.sessionName, title: project.name, path: project.path))
+    }
+
+    private func show(session name: String) {
+        open(ProjectTarget(sessionName: name, title: name, path: nil))
+    }
+
+    private func open(_ target: ProjectTarget) {
+        if let selection { selection.wrappedValue = target } else { pushed = target }
     }
 
     private func kill(_ session: TmuxSession) {
@@ -266,7 +276,7 @@ struct ProjectsView: View {
                 switch prompt {
                 case .create:
                     try await viewModel.createSession(named: name)
-                    openSession = OpenSession(name: try SessionNameValidator.validate(name))
+                    show(session: try SessionNameValidator.validate(name))
                 case .rename(let session):
                     hub.closeTerminal(server: server.id, sessionName: session.name)
                     try await viewModel.renameSession(session, to: name)

@@ -53,12 +53,14 @@ La **CI** (`.github/workflows/ci.yml`) corre build + test con cobertura y
   `APPSTORE`, sin Sparkle ni excepciones: ~/.ssh por carpeta concedida y Terminal por
   script de usuario; ver `Argos/AppStore/` y `scripts/appstore/README.md`). Ambas deben
   tener las MISMAS funciones: usa `#if APPSTORE` solo para elegir el mecanismo.
-- `ArgosiOS/` — app de **iPhone/iPad** (mismo bundle id → compra universal). MVP
-  (Fase 3): servidores (contraseña o clave importada con `ImportedKeyStore`),
-  proyectos/sesiones (`SessionsViewModel` compartido), terminal SwiftTerm
-  (`TouchTerminalController`). `ServerHub` reparte una conexión por servidor; iOS
-  mata el SSH en segundo plano, así que el terminal hace detach al irse y reattach
-  al volver (la sesión tmux sigue viva).
+- `ArgosiOS/` — app de **iPhone/iPad** (mismo bundle id → compra universal):
+  servidores (contraseña o clave importada con `ImportedKeyStore`), proyectos/sesiones
+  (`SessionsViewModel` compartido), y por proyecto Terminal (SwiftTerm,
+  `TouchTerminalController`) · Archivos (`RemoteFilesView`) · Agentes. En iPad, tres
+  columnas (`SplitRootView`). `ServerHub` reparte una conexión por servidor. iOS mata el
+  SSH en segundo plano: el terminal hace detach/reattach y los agentes son
+  **persistentes** (`PersistentAgentScript`/`PersistentAgentSession`: claude corre en el
+  servidor leyendo de una FIFO y escribiendo un log; la app se engancha al log).
 - No es un módulo Swift aparte (sin `public`): son fuentes compartidas por ambos
   targets. Los tests (`@testable import Argos`) siguen cubriendo el núcleo.
 

@@ -76,6 +76,29 @@ enum ClaudeAgentCommand {
     }
 
     /// Tipo de la línea NDJSON con la que el comando anuncia el PID del agente.
+    /// Invocación de `claude` para un agente PERSISTENTE (ver `PersistentAgentScript`):
+    /// sin `cd` ni anuncio de PID (los pone el lanzador) y con `--replay-user-messages`,
+    /// para que los prompts queden en el log y una reconexión reconstruya la conversación.
+    /// `resume`: reanuda una conversación existente (el proceso anterior terminó).
+    static func persistent(
+        claudePath: String,
+        oauthToken: String?,
+        sessionID: String,
+        resume: Bool,
+        permissionMode: PermissionMode = .default
+    ) -> String {
+        let flags = (baseFlags + [
+            "--replay-user-messages",
+            "--permission-mode", permissionMode.rawValue,
+            resume ? "--resume" : "--session-id", sessionID,
+        ]).joined(separator: " ")
+        var environment = "env -u ANTHROPIC_API_KEY "
+        if let oauthToken, !oauthToken.isEmpty {
+            environment += "CLAUDE_CODE_OAUTH_TOKEN=\(ShellQuoting.singleQuoted(oauthToken)) "
+        }
+        return "\(environment)\(ShellQuoting.singleQuoted(claudePath)) \(flags)"
+    }
+
     static let pidEventType = "argos_pid"
 
     /// PID anunciado por el comando, si `line` es esa línea.

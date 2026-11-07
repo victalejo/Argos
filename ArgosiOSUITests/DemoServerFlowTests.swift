@@ -86,6 +86,78 @@ final class DemoServerFlowTests: XCTestCase {
         snapshot("5-tras-segundo-plano")
     }
 
+    /// Archivos del proyecto y agente PERSISTENTE (la cuenta de demostración tiene un
+    /// `claude` simulado). El agente debe seguir vivo y su conversación reconstruirse
+    /// tras pasar por segundo plano.
+    func testArchivosYAgentePersistente() throws {
+        let demo = try demoAccount()
+        app = XCUIApplication()
+        app.launch()
+        addServerIfNeeded(demo)
+
+        app.staticTexts["demo"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["tienda-online"].waitForExistence(timeout: 30))
+        app.staticTexts["tienda-online"].tap()
+        XCTAssertTrue(app.buttons["Archivos"].waitForExistence(timeout: 15))
+
+        // Archivos: abrir el README (Markdown).
+        app.buttons["Archivos"].tap()
+        XCTAssertTrue(app.staticTexts["README.md"].waitForExistence(timeout: 20))
+        snapshot("6-archivos")
+        app.staticTexts["README.md"].tap()
+        XCTAssertTrue(app.staticTexts["Tienda online"].waitForExistence(timeout: 20), "No se renderizó el README")
+        snapshot("7-readme")
+        app.navigationBars["README.md"].buttons.element(boundBy: 0).tap()
+
+        // Agente persistente.
+        app.buttons["Agentes"].tap()
+        XCTAssertTrue(app.buttons["Nuevo agente"].waitForExistence(timeout: 20))
+        app.buttons["Nuevo agente"].tap()
+        let composer = app.textFields["Pide algo a Claude…"]
+        XCTAssertTrue(composer.waitForExistence(timeout: 30), "No se abrió la conversación")
+        composer.tap()
+        composer.typeText(demo.marker)
+        app.buttons["Enviar"].tap()
+        let reply = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Respuesta de demostración")).firstMatch
+        XCTAssertTrue(reply.waitForExistence(timeout: 30), "El agente no respondió")
+        snapshot("8-agente")
+
+        // Segundo plano: al volver, la conversación se relee del log del servidor.
+        XCUIDevice.shared.press(.home)
+        sleep(4)
+        app.activate()
+        XCTAssertTrue(reply.waitForExistence(timeout: 30), "La conversación no se reconstruyó al volver")
+        XCTAssertTrue(app.staticTexts[demo.marker].exists, "Falta el mensaje del usuario tras releer el log")
+        snapshot("9-agente-tras-segundo-plano")
+    }
+
+    /// iPad: tres columnas (servidores | proyectos | detalle) con las tres vistas.
+    func testDisposicionIPad() throws {
+        let demo = try demoAccount()
+        guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("Solo en iPad.") }
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app = XCUIApplication()
+        app.launch()
+        addServerIfNeeded(demo)
+
+        app.staticTexts["demo"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["tienda-online"].waitForExistence(timeout: 30))
+        snapshot("ipad-1-proyectos")
+        app.staticTexts["tienda-online"].tap()
+        XCTAssertTrue(app.buttons["Archivos"].waitForExistence(timeout: 15))
+        sleep(4)
+        snapshot("ipad-2-terminal")
+        app.buttons["Archivos"].tap()
+        XCTAssertTrue(app.staticTexts["README.md"].waitForExistence(timeout: 20))
+        app.staticTexts["README.md"].tap()
+        XCTAssertTrue(app.staticTexts["Tienda online"].waitForExistence(timeout: 20))
+        snapshot("ipad-3-archivos")
+        app.navigationBars["README.md"].buttons.element(boundBy: 0).tap()
+        app.buttons["Agentes"].tap()
+        XCTAssertTrue(app.buttons["Nuevo agente"].waitForExistence(timeout: 20))
+        snapshot("ipad-4-agentes")
+    }
+
     // MARK: - Pasos
 
     private func addServerIfNeeded(_ demo: Demo) {

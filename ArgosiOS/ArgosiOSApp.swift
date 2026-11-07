@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Punto de entrada de Argos para iPhone/iPad.
 ///
-/// Fase 3 (MVP): servidores, proyectos y sesiones tmux, y terminal en vivo. Comparte
+/// Servidores, proyectos y sesiones tmux, terminal en vivo, archivos y agentes de Claude
+/// persistentes; tres columnas en iPad. Comparte
 /// con el Mac el núcleo (`ArgosCore/`): modelo, SSH, proyectos en el servidor.
 @main
 struct ArgosiOSApp: App {
@@ -11,14 +12,18 @@ struct ArgosiOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ServersView()
+            RootView()
                 .environment(hub)
                 .tint(.indigo)
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
-            case .background: hub.suspendTerminals()
-            case .active: hub.reconnectTerminals()
+            case .background:
+                hub.suspendTerminals()
+                hub.suspendAgents()
+            case .active:
+                hub.reconnectTerminals()
+                hub.resumeAgents()
             default: break
             }
         }

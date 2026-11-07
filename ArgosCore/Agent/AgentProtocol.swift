@@ -61,6 +61,14 @@ enum AgentProtocol {
         case "control_request":
             return controlRequestEvent(object)
 
+        case "control_response":
+            // Respuesta a un permiso que Argos anexó al log del agente persistente: al
+            // releer el log, el permiso ya no está pendiente.
+            if let requestID = object["response"]?["request_id"]?.stringValue {
+                return .permissionCancel(requestID: requestID)
+            }
+            return .ignored(type: type, subtype: nil)
+
         case "control_cancel_request":
             if let requestID = object["request_id"]?.stringValue {
                 return .permissionCancel(requestID: requestID)

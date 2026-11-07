@@ -2,13 +2,70 @@
 //  ServersView.swift
 //  ArgosiOS
 //
-//  Pantalla inicial: lista de servidores. Tocar uno abre sus proyectos; deslizar
-//  permite editarlo o borrarlo.
+//  Pantalla inicial. En iPhone, una pila: servidores → proyectos → detalle. En iPad
+//  (ancho regular), tres columnas: servidores | proyectos | terminal/archivos/agentes.
+//  Deslizar un servidor permite editarlo o borrarlo.
 //
 
 import SwiftUI
 
+/// Raíz adaptable según el ancho disponible (un iPad en Split View puede ser compacto).
+struct RootView: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    var body: some View {
+        if sizeClass == .regular { SplitRootView() } else { ServersView() }
+    }
+}
+
+/// iPhone (o iPad estrecho).
 struct ServersView: View {
+    var body: some View {
+        NavigationStack {
+            ServerList(selection: nil)
+                .navigationDestination(for: Server.self) { server in
+                    ProjectsView(server: server)
+                }
+        }
+    }
+}
+
+/// iPad: tres columnas.
+struct SplitRootView: View {
+    @Environment(ServerHub.self) private var hub
+    @State private var serverID: Server.ID?
+    @State private var target: ProjectTarget?
+
+    private var server: Server? { hub.store.server(withID: serverID) }
+
+    var body: some View {
+        NavigationSplitView {
+            ServerList(selection: $serverID)
+        } content: {
+            if let server {
+                ProjectsView(server: server, selection: $target)
+                    .id(server.id)
+            } else {
+                ContentUnavailableView("Elige un servidor", systemImage: "server.rack")
+            }
+        } detail: {
+            NavigationStack {
+                if let server, let target {
+                    ProjectScreen(server: server, target: target)
+                        .id("\(server.id)/\(target.id)")
+                } else {
+                    ContentUnavailableView("Elige un proyecto", systemImage: "folder")
+                }
+            }
+        }
+        .onChange(of: serverID) { _, _ in target = nil }
+    }
+}
+
+/// Lista de servidores con alta (manual o por QR del Mac), edición y borrado. Con
+/// `selection` (iPad) marca el servidor elegido; sin ella (iPhone) cada fila navega.
+struct ServerList: View {
+    var selection: Binding<Server.ID?>?
     @Environment(ServerHub.self) private var hub
     @State private var editing: ServerFormView.Mode?
     @State private var pendingDeletion: Server?
@@ -22,86 +79,88 @@ struct ServersView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                ForEach(hub.store.servers) { server in
-                    NavigationLink(value: server) {
-                        ServerRowView(server: server)
-                    }
-                    .swipeActions(edge: .trailing) {
-                        Button("Borrar", systemImage: "trash", role: .destructive) { pendingDeletion = server }
-                        Button("Editar", systemImage: "pencil") { editing = .edit(server) }
-                            .tint(.indigo)
-                    }
-                    .contextMenu {
-                        Button("Editar", systemImage: "pencil") { editing = .edit(server) }
-                        Button("Borrar", systemImage: "trash", role: .destructive) { pendingDeletion = server }
-                    }
+        List(selection: selection) {
+            ForEach(hub.store.servers) { server in
+                row(server)
+                .swipeActions(edge: .trailing) {
+                    Button("Borrar", systemImage: "trash", role: .destructive) { pendingDeletion = server }
+                    Button("Editar", systemImage: "pencil") { editing = .edit(server) }
+                        .tint(.indigo)
+                }
+                .contextMenu {
+                    Button("Editar", systemImage: "pencil") { editing = .edit(server) }
+                    Button("Borrar", systemImage: "trash", role: .destructive) { pendingDeletion = server }
                 }
             }
-            .overlay {
-                if hub.store.servers.isEmpty {
-                    ContentUnavailableView {
-                        Label("Sin servidores", systemImage: "server.rack")
-                    } description: {
-                        Text("Añade un servidor con SSH y tmux para ver sus proyectos y sesiones.")
-                    } actions: {
-                        Button("Añadir servidor") { editing = .create }
-                            .buttonStyle(.borderedProminent)
-                        Button("Escanear QR del Mac", systemImage: "qrcode.viewfinder") {
-                            importing = ImportRequest(transfer: nil)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Servidores")
-            .navigationDestination(for: Server.self) { server in
-                ProjectsView(server: server)
-            }
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Añadir servidor", systemImage: "plus") { editing = .create }
-                }
-                ToolbarItem(placement: .topBarLeading) {
+        }
+        .overlay {
+            if hub.store.servers.isEmpty {
+                ContentUnavailableView {
+                    Label("Sin servidores", systemImage: "server.rack")
+                } description: {
+                    Text("Añade un servidor con SSH y tmux para ver sus proyectos y sesiones.")
+                } actions: {
+                    Button("Añadir servidor") { editing = .create }
+                        .buttonStyle(.borderedProminent)
                     Button("Escanear QR del Mac", systemImage: "qrcode.viewfinder") {
                         importing = ImportRequest(transfer: nil)
                     }
                 }
             }
-            .sheet(item: $editing) { mode in
-                ServerFormView(mode: mode)
+        }
+        .navigationTitle("Servidores")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Añadir servidor", systemImage: "plus") { editing = .create }
             }
-            .sheet(item: $importing) { request in
-                ImportServerSheet(transfer: request.transfer)
-            }
-            // QR escaneado con la cámara del sistema: llega como enlace argos://add-server.
-            .onOpenURL { url in
-                do {
-                    importing = ImportRequest(transfer: try ServerTransfer.decode(url.absoluteString))
-                } catch {
-                    linkError = error.userMessage
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Escanear QR del Mac", systemImage: "qrcode.viewfinder") {
+                    importing = ImportRequest(transfer: nil)
                 }
             }
-            .alert(
-                "No se pudo añadir el servidor",
-                isPresented: Binding(get: { linkError != nil }, set: { if !$0 { linkError = nil } })
-            ) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(linkError ?? "")
+        }
+        .sheet(item: $editing) { mode in
+            ServerFormView(mode: mode)
+        }
+        .sheet(item: $importing) { request in
+            ImportServerSheet(transfer: request.transfer)
+        }
+        // QR escaneado con la cámara del sistema: llega como enlace argos://add-server.
+        .onOpenURL { url in
+            do {
+                importing = ImportRequest(transfer: try ServerTransfer.decode(url.absoluteString))
+            } catch {
+                linkError = error.userMessage
             }
-            .confirmationDialog(
-                "¿Borrar «\(pendingDeletion?.name ?? "")»?",
-                isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
-                titleVisibility: .visible
-            ) {
-                Button("Borrar servidor", role: .destructive) {
-                    if let server = pendingDeletion { hub.remove(server) }
-                    pendingDeletion = nil
-                }
-            } message: {
-                Text("Se borran sus datos de acceso de este dispositivo. Las sesiones y proyectos del servidor no se tocan.")
+        }
+        .alert(
+            "No se pudo añadir el servidor",
+            isPresented: Binding(get: { linkError != nil }, set: { if !$0 { linkError = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(linkError ?? "")
+        }
+        .confirmationDialog(
+            "¿Borrar «\(pendingDeletion?.name ?? "")»?",
+            isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Borrar servidor", role: .destructive) {
+                if let server = pendingDeletion { hub.remove(server) }
+                pendingDeletion = nil
             }
+        } message: {
+            Text("Se borran sus datos de acceso de este dispositivo. Las sesiones y proyectos del servidor no se tocan.")
+        }
+}
+
+    @ViewBuilder
+    private func row(_ server: Server) -> some View {
+        if selection != nil {
+            ServerRowView(server: server).tag(server.id)
+        } else {
+            NavigationLink(value: server) { ServerRowView(server: server) }
         }
     }
 }

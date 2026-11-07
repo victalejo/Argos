@@ -27,6 +27,21 @@ struct AgentExecError: LocalizedError {
     }
 }
 
+/// Errores del agente persistente.
+enum PersistentAgentError: LocalizedError, Equatable {
+    case notRunning
+    case claudeMissing
+
+    var errorDescription: String? {
+        switch self {
+        case .notRunning:
+            return "El agente ya no está en marcha en el servidor. Reanúdalo para seguir la conversación."
+        case .claudeMissing:
+            return "Claude Code no está instalado en el servidor (no se encontró el comando «claude»)."
+        }
+    }
+}
+
 /// Resultado de listar un directorio remoto: su ruta absoluta y sus subcarpetas.
 struct RemoteDirectoryListing: Sendable, Equatable {
     let path: String
@@ -120,6 +135,17 @@ extension SSHService {
 
     /// ¿Existe `path` como directorio en el servidor? Expande `~` igual que el comando
     /// del agente (para validar antes de arrancar y evitar un `cd` fallido).
+    func runAgentScript(_ command: String) async throws -> String {
+        let client = try await connectedClient()
+        let result = try await capture(client, command: command)
+        guard result.exitCode == 0 else {
+            let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            if detail.contains("ARGOS_AGENT_DEAD") { throw PersistentAgentError.notRunning }
+            throw AgentExecError(message: detail.isEmpty ? "código de salida \(result.exitCode)" : String(detail.suffix(600)))
+        }
+        return result.stdout
+    }
+
     func remoteDirectoryExists(_ path: String) async throws -> Bool {
         let client = try await connectedClient()
         let target = ClaudeAgentCommand.cdTarget(for: path)

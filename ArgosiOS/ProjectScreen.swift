@@ -1,0 +1,59 @@
+//
+//  ProjectScreen.swift
+//  ArgosiOS
+//
+//  Detalle de un proyecto: Terminal · Archivos · Agentes (como el Mac). Las sesiones
+//  sueltas, sin carpeta de proyecto, solo tienen terminal.
+//
+
+import SwiftUI
+
+/// Qué se abre en el detalle: la sesión tmux y, si es un proyecto, su carpeta.
+struct ProjectTarget: Hashable, Identifiable {
+    let sessionName: String
+    let title: String
+    let path: String?
+    var id: String { sessionName }
+}
+
+struct ProjectScreen: View {
+    let server: Server
+    let target: ProjectTarget
+
+    @Environment(ServerHub.self) private var hub
+    @State private var mode: DetailMode = .terminal
+
+    private var service: any SSHServicing { hub.viewModel(for: server).service }
+
+    var body: some View {
+        content
+            .toolbar {
+                if target.path != nil {
+                    ToolbarItem(placement: .principal) {
+                        Picker("Vista", selection: $mode) {
+                            Image(systemName: "terminal").tag(DetailMode.terminal)
+                                .accessibilityLabel("Terminal")
+                            Image(systemName: "folder").tag(DetailMode.files)
+                                .accessibilityLabel("Archivos")
+                            Image(systemName: "sparkles").tag(DetailMode.agent)
+                                .accessibilityLabel("Agentes")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 180)
+                    }
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch (mode, target.path) {
+        case (.files, let path?):
+            RemoteFilesView(service: service, root: path, path: path)
+        case (.agent, let path?):
+            AgentsView(server: server, workingDirectory: path, title: target.title)
+        default:
+            TerminalScreen(server: server, sessionName: target.sessionName)
+        }
+    }
+}
