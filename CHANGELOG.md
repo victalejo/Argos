@@ -6,6 +6,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.10] - 2026-11-07
+
+### Añadido
+- **Cerrar ventanas tmux** desde la barra de pestañas: una «×» en la pestaña activa o al
+  pasar el ratón, y «Cerrar ventana…» en el menú contextual, con confirmación. No se
+  ofrece en la última ventana (cerraría la sesión entera).
+
 ## [1.7.9] - 2026-11-06
 
 ### Corregido
