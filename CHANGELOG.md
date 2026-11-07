@@ -6,13 +6,19 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.11] - 2026-11-07
+
 ### Añadido
 - **Enviar un servidor al iPhone por QR**: en el Mac, menú del servidor → «Enviar al
   iPhone…». Argos crea una clave Ed25519 solo para ese iPhone, la añade al
-  `~/.ssh/authorized_keys` del servidor y muestra un QR que caduca a los 5 minutos (con la
-  huella de host key ya verificada). En el iPhone se escanea desde Servidores o con la
-  cámara del sistema. «Cancelar» en el Mac retira la clave; la clave del Mac nunca sale
-  de él.
+  `~/.ssh/authorized_keys` del servidor y muestra un QR que el iPhone acepta durante 5
+  minutos (con la huella de host key ya verificada). En el iPhone se escanea desde
+  Servidores o con la cámara del sistema. El código contiene la clave del iPhone: si
+  alguien más lo vio, «Cancelar» la retira del servidor. La clave del Mac nunca sale de él.
+
+### Seguridad
+- Un código o enlace `argos://` nunca puede cambiar la identidad (host key) de un servidor
+  que el iPhone ya conoce: si no coincide, se avisa y no se añade.
 
 ## [1.7.10] - 2026-11-07
 
