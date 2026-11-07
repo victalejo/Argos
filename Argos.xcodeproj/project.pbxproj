@@ -80,6 +80,7 @@
 		3A5703AF9108A775C2E87E03 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 65C5951389633CCA111B2D96 /* Assets.xcassets */; };
 		3AA362EA7555384B44E7C5DE /* SessionsViewModel+Projects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3AE352B1B4D4FB7626085D /* SessionsViewModel+Projects.swift */; };
 		3B5EC598924190FB12A74421 /* FuzzyMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D373BD5CC9EBD53251E1B7C4 /* FuzzyMatcherTests.swift */; };
+		3C0660BDA787DF4CD45AAABD /* DemoServerFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24B3939F90B517525B6DDE1 /* DemoServerFlowTests.swift */; };
 		3C7E81F804BFDD06CD0332A9 /* ProjectRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 410C22953E31B83A9B58B822 /* ProjectRow.swift */; };
 		3CA3BC203DB5A8BC7C603E28 /* TmuxSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3BD8E282B642B7EA3FBD64 /* TmuxSession.swift */; };
 		3CA3C153800E15D2D842A935 /* SSHDirectoryAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3483CAFD1FEEA9BA3E5327 /* SSHDirectoryAccess.swift */; };
@@ -350,6 +351,13 @@
 			remoteGlobalIDString = 5D61FF93EC48A47E4B04BCAB;
 			remoteInfo = Argos;
 		};
+		D7120CECC38DD61382F08DEA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7DA10A44D8AFCD295EEFA8BC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 542E78B2AD966DAA7CBB264F;
+			remoteInfo = ArgosiOS;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -413,6 +421,7 @@
 		654F1EE15E45A6B534CF141C /* ArgosAppStore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ArgosAppStore.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		65C5951389633CCA111B2D96 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		67485B3C1FC7ECD4983661EC /* AppStoreLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreLinks.swift; sourceTree = "<group>"; };
+		682E87429273B14730B8D65D /* ArgosiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ArgosiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		69ED5D1C5866D4DD966B58FA /* SessionConnectionStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConnectionStateTests.swift; sourceTree = "<group>"; };
 		69EEC0CBCE324EDB6B2A1FEE /* FileDownloadStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDownloadStatus.swift; sourceTree = "<group>"; };
 		6ADFDC0F1DA5966F2F9DFFD3 /* WindowBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowBar.swift; sourceTree = "<group>"; };
@@ -450,6 +459,7 @@
 		9D9EC06EA69AD60B075D4B46 /* FileBrowserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserTests.swift; sourceTree = "<group>"; };
 		9FC935AAE1B389583E54E155 /* RemoteDirectoryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDirectoryPicker.swift; sourceTree = "<group>"; };
 		A17F27F1BDF8240FDE090119 /* ArgosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArgosApp.swift; sourceTree = "<group>"; };
+		A24B3939F90B517525B6DDE1 /* DemoServerFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoServerFlowTests.swift; sourceTree = "<group>"; };
 		A495524C27F98A4B301748A4 /* ServerResourcesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerResourcesTests.swift; sourceTree = "<group>"; };
 		A556E113E95BE7FDF3CF88AA /* SessionGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionGroup.swift; sourceTree = "<group>"; };
 		A56204FF1A755CA9F351EA23 /* AboutPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutPanel.swift; sourceTree = "<group>"; };
@@ -621,6 +631,7 @@
 				75AE7601077EF66F3CBBFC25 /* Argos.app */,
 				654F1EE15E45A6B534CF141C /* ArgosAppStore.app */,
 				34F639082AC75A3D207AC50C /* ArgosiOS.app */,
+				682E87429273B14730B8D65D /* ArgosiOSUITests.xctest */,
 				CD3AC653A136E494AD535400 /* ArgosTests.xctest */,
 			);
 			name = Products;
@@ -784,6 +795,7 @@
 				5A3A23A48775071C50DA76EE /* Argos */,
 				D7B029758845C323B7B1C5B7 /* ArgosCore */,
 				F74E40A7A28ADC827083D332 /* ArgosiOS */,
+				E9C55BC36380AC62DFAD29B7 /* ArgosiOSUITests */,
 				8F6D93E04397B7D87C9D1BD1 /* ArgosTests */,
 				3A1A98094DA95E37D3FD7134 /* Products */,
 			);
@@ -836,6 +848,14 @@
 				B4B9AC8EA121AD6BE8DE16EB /* TmuxWindow.swift */,
 			);
 			path = ArgosCore;
+			sourceTree = "<group>";
+		};
+		E9C55BC36380AC62DFAD29B7 /* ArgosiOSUITests */ = {
+			isa = PBXGroup;
+			children = (
+				A24B3939F90B517525B6DDE1 /* DemoServerFlowTests.swift */,
+			);
+			path = ArgosiOSUITests;
 			sourceTree = "<group>";
 		};
 		EEA0C94995C64090CAFAF9DB /* Projects */ = {
@@ -891,6 +911,24 @@
 			productName = ArgosAppStore;
 			productReference = 654F1EE15E45A6B534CF141C /* ArgosAppStore.app */;
 			productType = "com.apple.product-type.application";
+		};
+		379F04A250BB17CD69615B45 /* ArgosiOSUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 533A1477388BBAE0105FEBC3 /* Build configuration list for PBXNativeTarget "ArgosiOSUITests" */;
+			buildPhases = (
+				F7577D081F802AEDC5A012EB /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C78815F334C2D9BC110DBA7B /* PBXTargetDependency */,
+			);
+			name = ArgosiOSUITests;
+			packageProductDependencies = (
+			);
+			productName = ArgosiOSUITests;
+			productReference = 682E87429273B14730B8D65D /* ArgosiOSUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 		542E78B2AD966DAA7CBB264F /* ArgosiOS */ = {
 			isa = PBXNativeTarget;
@@ -968,6 +1006,11 @@
 						DevelopmentTeam = L6WGLNT9XZ;
 						ProvisioningStyle = Automatic;
 					};
+					379F04A250BB17CD69615B45 = {
+						DevelopmentTeam = L6WGLNT9XZ;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 542E78B2AD966DAA7CBB264F;
+					};
 					542E78B2AD966DAA7CBB264F = {
 						DevelopmentTeam = L6WGLNT9XZ;
 						ProvisioningStyle = Automatic;
@@ -1002,6 +1045,7 @@
 				2688D76FB7503317E5273AAB /* ArgosAppStore */,
 				542E78B2AD966DAA7CBB264F /* ArgosiOS */,
 				9B1C6FF8AB27F22861A9ECE4 /* ArgosTests */,
+				379F04A250BB17CD69615B45 /* ArgosiOSUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -1390,6 +1434,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F7577D081F802AEDC5A012EB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3C0660BDA787DF4CD45AAABD /* DemoServerFlowTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1398,9 +1450,35 @@
 			target = 5D61FF93EC48A47E4B04BCAB /* Argos */;
 			targetProxy = A65D5E30522E97700CD9CDEB /* PBXContainerItemProxy */;
 		};
+		C78815F334C2D9BC110DBA7B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 542E78B2AD966DAA7CBB264F /* ArgosiOS */;
+			targetProxy = D7120CECC38DD61382F08DEA /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		206B932654ADA43704C0496B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = L6WGLNT9XZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = ArgosiOS;
+			};
+			name = Release;
+		};
 		21D3D6968F4189A23C2D49A5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1599,6 +1677,27 @@
 			};
 			name = Release;
 		};
+		B61C8C4B2F54A804569CF6B7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = L6WGLNT9XZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.iaportafolio.argos.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = ArgosiOS;
+			};
+			name = Debug;
+		};
 		D1A11F620F285D0F8865A523 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1757,6 +1856,15 @@
 			buildConfigurations = (
 				81EB1A9C1FE775A3A9BD93F7 /* Debug */,
 				21D3D6968F4189A23C2D49A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		533A1477388BBAE0105FEBC3 /* Build configuration list for PBXNativeTarget "ArgosiOSUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B61C8C4B2F54A804569CF6B7 /* Debug */,
+				206B932654ADA43704C0496B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

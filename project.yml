@@ -231,6 +231,25 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.iaportafolio.argos.tests
         GENERATE_INFOPLIST_FILE: "YES"
 
+  # Test de interfaz de extremo a extremo de la app de iPhone contra un servidor real
+  # (la cuenta de demostración). Sin ARGOS_DEMO_* en el entorno se salta (CI).
+  ArgosiOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: ArgosiOSUITests
+    dependencies:
+      - target: ArgosiOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.iaportafolio.argos.uitests
+        GENERATE_INFOPLIST_FILE: "YES"
+        TEST_TARGET_NAME: ArgosiOS
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: L6WGLNT9XZ
+
 schemes:
   ArgosAppStore:
     build:
@@ -246,6 +265,10 @@ schemes:
         ArgosiOS: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - ArgosiOSUITests
     archive:
       config: Release
   Argos:

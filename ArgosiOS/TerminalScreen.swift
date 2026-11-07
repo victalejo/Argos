@@ -40,6 +40,10 @@ struct TerminalScreen: View {
         .background(Color(white: 0.07))
         .navigationTitle(sessionName)
         .navigationBarTitleDisplayMode(.inline)
+        // Barra oscura a juego con el terminal (si no, el título no se lee).
+        .toolbarBackground(Color(white: 0.11), for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar { toolbar }
         .task(id: sessionName) { await refreshWindows() }
         .onChange(of: scenePhase) { _, phase in
