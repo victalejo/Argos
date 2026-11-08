@@ -6,6 +6,25 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.15] - 2026-11-08
+
+### Añadido
+- **Modo de permisos de los agentes configurable** en Ajustes y por proyecto (Mac, iPhone y
+  iPad). Sigue siendo «todos los permisos» por defecto; con root, los agentes preguntan.
+
+### Corregido
+- **Menos avisos del llavero al abrir el Agente en el Mac**: comprobar si hay token ya no lo
+  descifra y, con sesión de Claude iniciada en el servidor, no se lee. Si dependes del token
+  guardado, macOS volverá a pedir permiso una vez tras cada actualización: pulsa «Permitir
+  siempre».
+
+### Seguridad
+- El token de Claude del agente del Mac viaja por stdin: en la línea de comandos lo podía
+  leer cualquier usuario del servidor.
+- Las subidas a `/tmp` usan nombre aleatorio, apertura exclusiva y permisos 0600.
+- Reanudar un agente persistente que actúa sin preguntar pide confirmación: su modo se guarda
+  en el servidor, donde el propio agente podría cambiarlo.
+
 ## [1.7.14] - 2026-11-07
 
 ### Corregido
