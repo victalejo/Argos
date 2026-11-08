@@ -6,6 +6,14 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.19] - 2026-11-08
+
+### Corregido
+- **iPhone/iPad: el QR del Mac le da la clave al servidor que llegó por iCloud** en vez de crear
+  un duplicado (que además volvía al Mac roto). Un servidor que ya tiene clave no se toca.
+- **Un servidor sin clave en el iPhone ya no intenta conectar**: muestra «Falta la clave» con
+  «Escanear QR del Mac» o «Importar archivo de clave», y la lista lo marca.
+
 ## [1.7.18] - 2026-11-08
 
 ### Corregido

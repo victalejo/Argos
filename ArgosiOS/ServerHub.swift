@@ -66,7 +66,6 @@ final class ServerHub {
         let existing = transfer.matchingServer(in: store.servers) { ImportedKeyStore.needsImport($0) }
         let id = existing?.id ?? UUID()
         let pem = Data(try transfer.privateKeyPEM().utf8)
-        let previousKey = existing.flatMap { try? Data(contentsOf: ImportedKeyStore.keyURL(for: $0.id, in: ImportedKeyStore.defaultDirectory())) }
         let path = try ImportedKeyStore.store(pem, for: id)
         var server = existing ?? Server(
             id: id,
@@ -82,11 +81,7 @@ final class ServerHub {
         do {
             try save(server, secret: nil, isNew: existing == nil)
         } catch {
-            if let previousKey {
-                _ = try? ImportedKeyStore.store(previousKey, for: id)
-            } else {
-                ImportedKeyStore.remove(for: id)
-            }
+            ImportedKeyStore.remove(for: id) // el servidor no tenía clave antes del QR
             throw error
         }
         if let fingerprint = transfer.hostKeyFingerprint {

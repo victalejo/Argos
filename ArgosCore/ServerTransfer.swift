@@ -154,16 +154,17 @@ struct ServerTransfer: Equatable, Sendable {
     // MARK: - Servidor existente
 
     /// Servidor ya presente (p. ej. llegado del Mac por iCloud) al que pertenece este
-    /// código: mismo usuario, host y puerto, con acceso por clave. Recibe la clave en vez
-    /// de crear un duplicado. Si hay varios, el que aún no tiene clave en el dispositivo.
+    /// código: mismo usuario, host y puerto (exactos, como las huellas TOFU), con acceso
+    /// por clave y SIN clave en el dispositivo. Recibe la clave en vez de crear un
+    /// duplicado; un servidor que ya tiene clave nunca se sustituye en silencio.
     func matchingServer(in servers: [Server], needsKey: (Server) -> Bool) -> Server? {
-        let candidates = servers.filter {
+        servers.first {
             $0.authMethod == .key
-                && $0.host.caseInsensitiveCompare(host) == .orderedSame
+                && $0.host == host
                 && $0.port == port
                 && $0.username == username
+                && needsKey($0)
         }
-        return candidates.first(where: needsKey) ?? candidates.first
     }
 
     // MARK: - Clave
