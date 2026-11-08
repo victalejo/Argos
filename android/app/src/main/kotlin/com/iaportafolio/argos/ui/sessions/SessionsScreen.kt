@@ -65,13 +65,13 @@ interface SessionsActions {
     fun onDialogTextChange(text: String)
     fun submitDialog()
     fun confirmKill()
-    fun onSessionClick(session: TmuxSession)
     fun messageShown()
 }
 
 /**
  * Sesiones tmux de un servidor (equivale a la parte de sesiones de `ProjectsView`).
- * [onBack] `null` = panel de detalle en tablet (sin botón atrás).
+ * [onBack] `null` = panel de detalle en tablet (sin botón atrás). [onOpenSession] abre el
+ * terminal en vivo de la sesión tocada.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +79,7 @@ fun SessionsScreen(
     state: SessionsUiState,
     actions: SessionsActions,
     onBack: (() -> Unit)?,
+    onOpenSession: (TmuxSession) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbar = remember { SnackbarHostState() }
@@ -109,7 +110,7 @@ fun SessionsScreen(
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            SessionsContent(state, actions)
+            SessionsContent(state, actions, onOpenSession)
         }
     }
 
@@ -117,7 +118,7 @@ fun SessionsScreen(
 }
 
 @Composable
-private fun SessionsContent(state: SessionsUiState, actions: SessionsActions) {
+private fun SessionsContent(state: SessionsUiState, actions: SessionsActions, onOpenSession: (TmuxSession) -> Unit) {
     when (val load = state.load) {
         is SessionsLoad.Connecting -> ProgressMessage(
             when (load.step) {
@@ -156,7 +157,7 @@ private fun SessionsContent(state: SessionsUiState, actions: SessionsActions) {
             onRefresh = actions::refresh,
             modifier = Modifier.fillMaxSize(),
         ) {
-            SessionList(state.groups, actions)
+            SessionList(state.groups, actions, onOpenSession)
         }
     }
 }
@@ -167,7 +168,7 @@ private fun RetryButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun SessionList(groups: List<SessionGroup>, actions: SessionsActions) {
+private fun SessionList(groups: List<SessionGroup>, actions: SessionsActions, onOpenSession: (TmuxSession) -> Unit) {
     // Siempre una lista desplazable: así el pull-to-refresh funciona también vacía.
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         if (groups.isEmpty()) {
@@ -183,7 +184,7 @@ private fun SessionList(groups: List<SessionGroup>, actions: SessionsActions) {
         groups.forEach { group ->
             stickyHeader(key = "group:${group.id}") { GroupHeader(group.name) }
             items(group.sessions, key = { "session:${it.id}" }) { session ->
-                SessionRow(session, actions)
+                SessionRow(session, actions, onOpenSession)
             }
         }
     }
@@ -204,12 +205,12 @@ private fun GroupHeader(name: String) {
 }
 
 @Composable
-private fun SessionRow(session: TmuxSession, actions: SessionsActions) {
+private fun SessionRow(session: TmuxSession, actions: SessionsActions, onOpen: (TmuxSession) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     val windows = pluralStringResource(R.plurals.sessions_windows, session.windowCount, session.windowCount)
     val subtitle = if (session.isAttached) "$windows · ${stringResource(R.string.sessions_attached)}" else windows
     ListItem(
-        modifier = Modifier.clickable(role = Role.Button) { actions.onSessionClick(session) },
+        modifier = Modifier.clickable(role = Role.Button) { onOpen(session) },
         leadingContent = {
             Icon(
                 painterResource(R.drawable.ic_terminal),

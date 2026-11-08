@@ -37,6 +37,12 @@ android {
 
     // sshj, BouncyCastle y slf4j traen licencias y manifiestos duplicados en META-INF.
     packaging {
+        // terminal-emulator trae libtermux.so (JNI para lanzar un proceso LOCAL). Argos alimenta
+        // el emulador con bytes del PTY remoto y nunca carga esa librería: fuera del APK (sin
+        // código nativo, sin requisitos de alineación de 16 KB).
+        jniLibs {
+            excludes += "**/libtermux.so"
+        }
         resources {
             excludes += setOf(
                 "META-INF/LICENSE*",
@@ -76,6 +82,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+    // Emulador de terminal (Apache 2.0): TerminalEmulator + TerminalRenderer + KeyHandler.
+    implementation(libs.termux.terminal.view)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

@@ -12,6 +12,7 @@ object ArgosLog {
     const val TAG_HOST_KEY = "Argos.hostkey"
     const val TAG_SSH = "Argos.ssh"
     const val TAG_UI = "Argos.ui"
+    const val TAG_TERMINAL = "Argos.terminal"
 
     fun info(tag: String, message: String) {
         Log.i(tag, message)

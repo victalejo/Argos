@@ -37,6 +37,28 @@ sealed class SshConnectionException(message: String, cause: Throwable?) : Except
 }
 
 /**
+ * Fallos del terminal en vivo ([SshjSSHService.attachTerminal]/[SshjSSHService.attachCommand])
+ * una vez establecida la conexión. Separados de [SshConnectionException] para que la UI
+ * distinga «no pude conectar» de «se cortó el terminal» (que se resuelve con un reattach).
+ */
+sealed class SshTerminalException(message: String, cause: Throwable?) : Exception(message, cause) {
+
+    /** El servidor no abrió el canal, no concedió el PTY o no arrancó el shell. */
+    class OpenFailed(val endpoint: String, cause: Throwable? = null) : SshTerminalException(
+        "No se pudo abrir el terminal en $endpoint: ${cause?.message ?: "sin detalles"}. Vuelve a " +
+            "intentarlo; si persiste, revisa el límite MaxSessions del servidor SSH.",
+        cause,
+    )
+
+    /** La conexión se cayó con el terminal abierto (red, servidor reiniciado, keep-alive). */
+    class ConnectionLost(val endpoint: String, cause: Throwable? = null) : SshTerminalException(
+        "Se perdió la conexión con $endpoint mientras el terminal estaba abierto. La sesión tmux " +
+            "sigue en el servidor: vuelve a conectar para retomarla.",
+        cause,
+    )
+}
+
+/**
  * El script corto del agente persistente terminó con error (port de `AgentExecError`). El
  * mensaje incluye el final del stderr remoto, mucho más útil que un error de canal genérico.
  */

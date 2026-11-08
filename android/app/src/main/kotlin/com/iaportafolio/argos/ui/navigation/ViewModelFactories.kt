@@ -8,6 +8,8 @@ import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.ui.form.ServerFormViewModel
 import com.iaportafolio.argos.ui.servers.ServersViewModel
 import com.iaportafolio.argos.ui.sessions.SessionsViewModel
+import com.iaportafolio.argos.terminal.RemoteTerminalSession
+import com.iaportafolio.argos.ui.terminal.TerminalViewModel
 
 /** ViewModels creados con las dependencias del [AppContainer] (DI manual, sin Hilt/Koin). */
 @Composable
@@ -35,5 +37,28 @@ internal fun sessionsViewModel(container: AppContainer, serverId: String): Sessi
     key = "sessions:$serverId",
     factory = viewModelFactory {
         initializer { SessionsViewModel(serverId, container.servers, container.services, container.hostKeys, container.io) }
+    },
+)
+
+/** Un ViewModel (y un emulador) por sesión: sobrevive a la rotación con la pantalla intacta. */
+@Composable
+internal fun terminalViewModel(
+    container: AppContainer,
+    serverId: String,
+    sessionName: String,
+): TerminalViewModel<RemoteTerminalSession> = viewModel(
+    key = "terminal:$serverId:$sessionName",
+    factory = viewModelFactory {
+        initializer {
+            TerminalViewModel(
+                serverId = serverId,
+                sessionName = sessionName,
+                repository = container.servers,
+                services = container.services,
+                settingsStore = container.terminalSettings,
+                screen = RemoteTerminalSession(),
+                io = container.io,
+            )
+        }
     },
 )

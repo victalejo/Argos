@@ -13,6 +13,8 @@ import com.iaportafolio.argos.data.SecretStore
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceHub
 import com.iaportafolio.argos.data.ServiceProvider
+import com.iaportafolio.argos.data.SharedPreferencesTerminalSettings
+import com.iaportafolio.argos.data.TerminalSettingsStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import java.io.File
@@ -38,6 +40,8 @@ class AppContainer(
     val services: ServiceProvider by lazy { ServiceHub(connector, secrets, hostKeys, io) }
 
     val documents: DocumentReader by lazy { ContentResolverDocumentReader(appContext.contentResolver) }
+
+    val terminalSettings: TerminalSettingsStore by lazy { SharedPreferencesTerminalSettings(appContext) }
 
     private companion object {
         const val SERVERS_FILE = "servers.json"

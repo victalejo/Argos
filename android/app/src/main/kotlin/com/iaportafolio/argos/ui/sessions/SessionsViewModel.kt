@@ -2,7 +2,6 @@ package com.iaportafolio.argos.ui.sessions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.HostKeyMismatchException
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHServiceError
@@ -14,7 +13,6 @@ import com.iaportafolio.argos.core.userMessage
 import com.iaportafolio.argos.data.ArgosLog
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceProvider
-import com.iaportafolio.argos.ui.common.UiText
 import com.iaportafolio.argos.ui.common.logFailures
 import com.iaportafolio.argos.ui.common.toUiText
 import kotlinx.coroutines.CoroutineDispatcher
@@ -223,11 +221,6 @@ class SessionsViewModel(
     }
 
     // MARK: - Varios
-
-    /** El terminal en vivo llega en la fase 3: por ahora, un aviso. */
-    override fun onSessionClick(session: TmuxSession) {
-        mutableState.update { it.copy(message = UiText.res(R.string.sessions_terminal_coming, session.name)) }
-    }
 
     override fun messageShown() = mutableState.update { it.copy(message = null) }
 

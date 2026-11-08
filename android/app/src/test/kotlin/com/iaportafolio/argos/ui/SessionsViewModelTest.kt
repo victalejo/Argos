@@ -3,7 +3,6 @@
 package com.iaportafolio.argos.ui
 
 import app.cash.turbine.test
-import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.HostKeyMismatchException
 import com.iaportafolio.argos.core.SSHServiceError
 import com.iaportafolio.argos.testing.FakeServiceProvider
@@ -233,10 +232,14 @@ class SessionsViewModelTest {
     }
 
     @Test
-    fun `tocar una sesión avisa de la fase 3`() = runTest(main.dispatcher) {
+    fun `messageShown borra el aviso mostrado`() = runTest(main.dispatcher) {
+        ssh.sessions = listOf(session("main"))
         val vm = loaded()
-        vm.onSessionClick(session("main"))
-        assertEquals(UiText.res(R.string.sessions_terminal_coming, "main"), vm.state.value.message)
+        ssh.managementError = IOException("sin permiso")
+        vm.requestKill(session("main"))
+        vm.confirmKill()
+        advanceUntilIdle()
+        assertEquals(UiText.Plain("sin permiso"), vm.state.value.message)
         vm.messageShown()
         assertNull(vm.state.value.message)
     }

@@ -80,7 +80,7 @@ de cliente de prueba en `ssh/build/dev/argos_dev_ed25519`. `HOME` y tmux van ais
 | 0 | Esqueleto Gradle, `core` + `app`, CI, icono | ✅ |
 | 1 | Núcleo puro: portar la lógica de `ArgosCore` con sus tests | ✅ (424 tests) |
 | 2 | SSH + servidores: sshj, TOFU, contraseña/clave importada, CRUD de sesiones tmux | ✅ (probado en teléfono real) |
-| 3 | Terminal en vivo: PTY + `tmux attach`, fila de teclas, reattach | |
+| 3 | Terminal en vivo: PTY + `tmux attach`, fila de teclas, reattach | ✅ (probado en teléfono real) |
 | 4 | Proyectos + navegador de archivos SFTP | |
 | 5 | Agentes persistentes (stream-json, permisos, login guiado) | |
 | 6 | Segundo plano y avisos («terminó / espera tu permiso») | |

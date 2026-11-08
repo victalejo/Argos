@@ -89,7 +89,65 @@
     <string name="sessions_name_hint">Usa «grupo/nombre» para agruparla. Sin «:» ni «.».</string>
     <string name="sessions_kill_title">¿Cerrar la sesión «%1$s»?</string>
     <string name="sessions_kill_message">Se terminan los procesos que corren en ella (kill-session).</string>
-    <string name="sessions_terminal_coming">El terminal llega en la fase 3 («%1$s»).</string>
+    <!-- Terminal en vivo -->
+    <string name="terminal_description">Terminal de la sesión %1$s. Toca para mostrar el teclado; mantén pulsado para seleccionar.</string>
+    <string name="terminal_keyboard">Mostrar u ocultar el teclado</string>
+    <string name="terminal_paste">Pegar</string>
+    <string name="terminal_copy">Copiar</string>
+    <string name="terminal_clip_label">Texto del terminal</string>
+    <string name="terminal_options">Opciones del terminal</string>
+    <string name="terminal_reconnect">Reconectar</string>
+    <string name="terminal_font_larger">Texto más grande</string>
+    <string name="terminal_font_smaller">Texto más pequeño</string>
+    <string name="terminal_keep_screen_on">Mantener la pantalla encendida</string>
+    <string name="terminal_connecting">Conectando…</string>
+    <string name="terminal_reconnecting">Reconectando (intento %1$d)…</string>
+    <string name="terminal_disconnected_title">Desconectado</string>
+    <string name="terminal_retrying_in">Reintentando en %1$d s…</string>
+    <string name="terminal_ended_title">Sesión cerrada</string>
+    <string name="terminal_ended">tmux cerró la conexión: hiciste detach o la sesión terminó. Si solo fue un detach, la sesión sigue en el servidor.</string>
+    <string name="terminal_back_to_sessions">Volver a las sesiones</string>
+    <string name="terminal_server_missing">Este servidor ya no existe.</string>
+    <string name="terminal_unsupported">Esta conexión no admite terminales en vivo. Actualiza Argos e inténtalo de nuevo.</string>
+
+    <!-- Fila de teclas extra: etiqueta visible y descripción para lectores de pantalla -->
+    <string name="key_esc" translatable="false">Esc</string>
+    <string name="key_tab" translatable="false">Tab</string>
+    <string name="key_ctrl" translatable="false">Ctrl</string>
+    <string name="key_alt" translatable="false">Alt</string>
+    <string name="key_left" translatable="false">←</string>
+    <string name="key_up" translatable="false">↑</string>
+    <string name="key_down" translatable="false">↓</string>
+    <string name="key_right" translatable="false">→</string>
+    <string name="key_pipe" translatable="false">|</string>
+    <string name="key_tilde" translatable="false">~</string>
+    <string name="key_slash" translatable="false">/</string>
+    <string name="key_dash" translatable="false">-</string>
+    <string name="key_tmux_prefix" translatable="false">^B</string>
+    <string name="key_home">Inicio</string>
+    <string name="key_end">Fin</string>
+    <string name="key_page_up">RePág</string>
+    <string name="key_page_down">AvPág</string>
+    <string name="key_esc_description">Escape</string>
+    <string name="key_tab_description">Tabulador</string>
+    <string name="key_ctrl_description">Control</string>
+    <string name="key_alt_description">Alt</string>
+    <string name="key_left_description">Flecha izquierda</string>
+    <string name="key_up_description">Flecha arriba</string>
+    <string name="key_down_description">Flecha abajo</string>
+    <string name="key_right_description">Flecha derecha</string>
+    <string name="key_pipe_description">Barra vertical</string>
+    <string name="key_tilde_description">Virgulilla</string>
+    <string name="key_slash_description">Barra</string>
+    <string name="key_dash_description">Guion</string>
+    <string name="key_tmux_prefix_description">Prefijo de tmux, Control B</string>
+    <string name="key_home_description">Inicio</string>
+    <string name="key_end_description">Fin</string>
+    <string name="key_page_up_description">Retroceder página</string>
+    <string name="key_page_down_description">Avanzar página</string>
+    <string name="key_state_off">Desactivado</string>
+    <string name="key_state_once">Activo para la próxima tecla</string>
+    <string name="key_state_locked">Fijado</string>
     <plurals name="sessions_windows">
         <item quantity="one">%d ventana</item>
         <item quantity="many">%d ventanas</item>

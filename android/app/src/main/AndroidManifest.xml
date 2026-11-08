@@ -15,8 +15,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Argos">
 
+        <!-- configChanges: app 100 % Compose; rotar, plegar o conectar un teclado físico no
+             recrea la Activity, así el terminal no hace detach/reattach (solo un resize). -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>

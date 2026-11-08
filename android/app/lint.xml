@@ -6,4 +6,10 @@
     <issue id="TrustAllX509TrustManager">
         <ignore regexp="bcpkix-jdk18on" />
     </issue>
+    <!-- libtermux.so (JNI para lanzar un proceso LOCAL) viene en el AAR de terminal-emulator
+         pero se EXCLUYE del APK (packaging.jniLibs en build.gradle.kts): Argos alimenta el
+         emulador con el PTY remoto y nunca la carga. Lint analiza el AAR igualmente. -->
+    <issue id="Aligned16KB">
+        <ignore regexp="libtermux\.so" />
+    </issue>
 </lint>

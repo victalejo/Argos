@@ -2,6 +2,8 @@ package com.iaportafolio.argos.ssh
 
 import com.iaportafolio.argos.core.SSHServiceError
 import com.iaportafolio.argos.core.SSHServicing
+import com.iaportafolio.argos.core.TerminalControlEvent
+import com.iaportafolio.argos.core.TerminalStreaming
 import com.iaportafolio.argos.core.agent.AgentExecCommands
 import com.iaportafolio.argos.core.agent.PersistentAgentError
 import com.iaportafolio.argos.core.keys.AuthorizedKeysCommands
@@ -20,6 +22,7 @@ import com.iaportafolio.argos.core.tmux.TmuxSession
 import com.iaportafolio.argos.core.tmux.TmuxWindow
 import com.iaportafolio.argos.core.tmux.WindowColor
 import com.iaportafolio.argos.core.tmux.WindowNameValidator
+import kotlinx.coroutines.flow.Flow
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -30,8 +33,33 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * Cada operación es un comando corto por el CANAL DE COMANDOS (exec), con los comandos y
  * parsers de `core`: byte a byte los de Apple, porque los servidores son los mismos.
+ *
+ * También es [TerminalStreaming] (port de `SSHTerminalSession.swift`): cada terminal en vivo
+ * es un canal PTY propio sobre la MISMA conexión ([SshjTerminal]), en paralelo a la gestión.
  */
-class SshjSSHService internal constructor(private val connection: SshjConnection) : SSHServicing {
+class SshjSSHService internal constructor(private val connection: SshjConnection) :
+    SSHServicing,
+    TerminalStreaming {
+
+    private val terminal = SshjTerminal(connection)
+
+    // MARK: Terminal en vivo
+
+    override suspend fun attachTerminal(
+        session: String,
+        initialCols: Int,
+        initialRows: Int,
+        control: Flow<TerminalControlEvent>,
+        output: suspend (ByteArray) -> Unit,
+    ) = terminal.run(TmuxCommands.attach(session), initialCols, initialRows, control, output)
+
+    override suspend fun attachCommand(
+        command: String,
+        initialCols: Int,
+        initialRows: Int,
+        control: Flow<TerminalControlEvent>,
+        output: suspend (ByteArray) -> Unit,
+    ) = terminal.run(command, initialCols, initialRows, control, output)
 
     // MARK: Sesiones
 

@@ -26,6 +26,7 @@ import com.iaportafolio.argos.ui.common.StatusMessage
 import com.iaportafolio.argos.ui.form.ServerFormScreen
 import com.iaportafolio.argos.ui.servers.ServersScreen
 import com.iaportafolio.argos.ui.sessions.SessionsScreen
+import com.iaportafolio.argos.ui.terminal.TerminalScreen
 import kotlinx.serialization.Serializable
 
 /** Rutas tipadas de Navigation Compose. */
@@ -37,6 +38,9 @@ data class ServerFormRoute(val serverId: String? = null)
 
 @Serializable
 data class SessionsRoute(val serverId: String)
+
+@Serializable
+data class TerminalRoute(val serverId: String, val sessionName: String)
 
 /** Ancho a partir del cual se muestran servidores y sesiones lado a lado (tablet / plegable abierto). */
 private val TWO_PANE_MIN_WIDTH = 840.dp
@@ -56,6 +60,7 @@ fun ArgosNavHost(container: AppContainer) {
                 onAdd = { navController.navigate(ServerFormRoute()) },
                 onEdit = { id -> navController.navigate(ServerFormRoute(id)) },
                 onOpenSessions = { id -> navController.navigate(SessionsRoute(id)) },
+                onOpenTerminal = { id, session -> navController.navigate(TerminalRoute(id, session)) },
             )
         }
         composable<ServerFormRoute> { entry ->
@@ -68,7 +73,19 @@ fun ArgosNavHost(container: AppContainer) {
             val route = entry.toRoute<SessionsRoute>()
             val viewModel = sessionsViewModel(container, route.serverId)
             val state by viewModel.state.collectAsStateWithLifecycle()
-            SessionsScreen(state = state, actions = viewModel, onBack = { navController.popBackStack() })
+            SessionsScreen(
+                state = state,
+                actions = viewModel,
+                onBack = { navController.popBackStack() },
+                onOpenSession = { session -> navController.navigate(TerminalRoute(route.serverId, session.name)) },
+            )
+        }
+        composable<TerminalRoute> { entry ->
+            val route = entry.toRoute<TerminalRoute>()
+            TerminalScreen(
+                viewModel = terminalViewModel(container, route.serverId, route.sessionName),
+                onBack = { navController.popBackStack() },
+            )
         }
     }
 }
@@ -79,6 +96,7 @@ private fun ServersDestination(
     onAdd: () -> Unit,
     onEdit: (String) -> Unit,
     onOpenSessions: (String) -> Unit,
+    onOpenTerminal: (serverId: String, sessionName: String) -> Unit,
 ) {
     val viewModel = serversViewModel(container)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -117,7 +135,12 @@ private fun ServersDestination(
                 } else {
                     val sessions = sessionsViewModel(container, selected)
                     val sessionsState by sessions.state.collectAsStateWithLifecycle()
-                    SessionsScreen(state = sessionsState, actions = sessions, onBack = null)
+                    SessionsScreen(
+                        state = sessionsState,
+                        actions = sessions,
+                        onBack = null,
+                        onOpenSession = { session -> onOpenTerminal(selected, session.name) },
+                    )
                 }
             }
         }

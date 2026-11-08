@@ -26,6 +26,8 @@ dependencies {
     testFixturesImplementation(project(":core"))
     testFixturesImplementation(libs.sshd.core)
     testFixturesImplementation(libs.sshd.sftp)
+    // PTY real (macOS y Linux) para el sshd de pruebas: propaga window-change con setWinSize.
+    testFixturesImplementation(libs.pty4j)
     testFixturesImplementation(libs.bouncycastle.bcprov)
     testFixturesRuntimeOnly(libs.slf4j.nop)
 

@@ -38,8 +38,9 @@ internal data class CommandResult(val stdout: String, val stderr: String, val ex
  * y `upload` de `SSHService.swift`).
  *
  * - Se abre en la primera operación y se reutiliza; si se cae, la siguiente la reabre.
- * - [mutex] serializa la apertura/cierre (equivale al aislamiento del `actor`); los comandos
- *   corren en paralelo como canales independientes de la misma conexión.
+ * - [mutex] serializa SOLO la apertura/cierre (equivale al aislamiento del `actor`): se suelta
+ *   al obtener el cliente. Los comandos y los terminales en vivo (canales largos, ver
+ *   [SshjTerminal]) corren en paralelo como canales independientes de la misma conexión.
  * - Todo lo bloqueante de sshj va en [Dispatchers.IO] y es interrumpible al cancelar.
  */
 internal class SshjConnection(
@@ -50,6 +51,9 @@ internal class SshjConnection(
 ) {
     private val mutex = Mutex()
     private var client: SSHClient? = null
+
+    /** `host:puerto` del servidor, para los mensajes de error. */
+    val endpoint: String get() = server.endpoint
 
     /** Conexión viva (la abre si hace falta). */
     suspend fun connectedClient(): SSHClient = mutex.withLock {

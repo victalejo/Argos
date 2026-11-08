@@ -11,6 +11,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // JitPack SOLO para el emulador de terminal de Termux (terminal-emulator/terminal-view,
+        // Apache 2.0): ningún otro grupo puede resolverse desde aquí.
+        maven("https://jitpack.io") {
+            content { includeGroup("com.github.termux.termux-app") }
+        }
     }
 }
 
