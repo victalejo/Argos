@@ -59,6 +59,36 @@ struct WindowManagementTests {
         #expect(SSHService.listWindowsFormat.contains("#{@argos_color}"))
     }
 
+    @Test("El formato de list-windows incluye el proceso en primer plano")
+    func listFormatIncludesCommand() {
+        #expect(SSHService.listWindowsFormat.contains("|#{pane_current_command}|"))
+    }
+
+    @Test("Ventana con agente: nombre fijo, carpeta del proyecto y teclea el binario")
+    func newAgentWindowInProject() {
+        #expect(
+            SSHService.newAgentWindowCommand(session: "roomies", agent: .claude, directory: "/srv/it's")
+                == "idx=$(tmux new-window -P -F '#{window_index}' -t 'roomies' -c '/srv/it'\\''s' "
+                + "-n 'Claude Code') && tmux send-keys -t 'roomies':\"$idx\" 'claude' Enter"
+        )
+    }
+
+    @Test("Ventana con agente sin carpeta usa la del panel activo")
+    func newAgentWindowInheritsDirectory() {
+        let command = SSHService.newAgentWindowCommand(session: "dev", agent: .codex, directory: nil)
+        #expect(command.contains("-c '#{pane_current_path}'"))
+        #expect(command.contains("-n 'Codex'"))
+        #expect(command.hasSuffix("'codex' Enter"))
+    }
+
+    @Test("Rama git entrecomilla la ruta")
+    func gitBranchCommand() {
+        #expect(
+            SSHService.gitBranchCommand(path: "/srv/a b")
+                == "git -C '/srv/a b' rev-parse --abbrev-ref HEAD 2>/dev/null"
+        )
+    }
+
     @Test("Nombres de ventana válidos", arguments: ["claude", "api: logs", "v1.2", "a|b"])
     func validNames(name: String) {
         #expect(WindowNameValidator.isValid(name))
@@ -74,5 +104,12 @@ struct WindowManagementTests {
         for color in WindowColor.allCases {
             #expect(WindowColor(rawValue: color.rawValue) == color)
         }
+    }
+
+    @Test("Rama git: última línea; HEAD desacoplado o vacío => nil")
+    func parseGitBranch() {
+        #expect(SSHService.parseGitBranch("motd\nfeat/x\n") == "feat/x")
+        #expect(SSHService.parseGitBranch("HEAD\n") == nil)
+        #expect(SSHService.parseGitBranch("") == nil)
     }
 }

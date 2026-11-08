@@ -474,7 +474,9 @@ struct ContentView: View {
                     session: session,
                     service: vm.service,
                     store: terminalStore,
-                    claudeByWindow: vm.claudeActivity.windows(forSession: session.name)
+                    claudeByWindow: vm.claudeActivity.windows(forSession: session.name),
+                    projectPath: project?.path,
+                    serverName: store.server(withID: handle.serverID)?.name ?? ""
                 )
                 .id(handle)
             } else if let project {

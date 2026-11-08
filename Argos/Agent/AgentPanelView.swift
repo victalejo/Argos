@@ -66,6 +66,46 @@ struct AgentPanelView: View {
             }
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: readiness)
+        .focusedSceneValue(\.tabActions, tabActions)
+    }
+
+    /// Atajos de la barra de menús en modo Agente: ⌘T nueva conversación, ⌘W cerrar la
+    /// actual, ⌘1…⌘9 y ⌘⇧[ ⌘⇧] para moverse entre conversaciones.
+    private var tabActions: TabActions? {
+        guard readiness == .ready else { return nil }
+        let tabs = store.tabs(for: handle)
+        return TabActions(
+            identity: AgentTabIdentity(
+                handle: handle,
+                tabIDs: tabs.map(\.id),
+                selectedID: store.selectedTab(for: handle)?.id
+            ),
+            newTitle: "Nueva conversación",
+            closeTitle: "Cerrar conversación",
+            newTab: { Task { await newConversation(force: false) } },
+            closeTab: {
+                if let tab = store.selectedTab(for: handle) {
+                    store.closeTab(tab.id, for: handle)
+                } else {
+                    NSApp.keyWindow?.performClose(nil)
+                }
+            },
+            selectTab: { number in
+                let tabs = store.tabs(for: handle)
+                if let position = WindowTabs.position(forShortcut: number, count: tabs.count) {
+                    store.select(tabs[position].id, for: handle)
+                }
+            },
+            selectAdjacent: { offset in
+                let tabs = store.tabs(for: handle)
+                let current = tabs.firstIndex { $0.id == store.selectedTab(for: handle)?.id } ?? 0
+                if let position = WindowTabs.adjacentPosition(current: current, offset: offset, count: tabs.count) {
+                    store.select(tabs[position].id, for: handle)
+                }
+            },
+            newAgent: nil,
+            installedAgents: nil
+        )
     }
 
     // MARK: - Cabecera
@@ -288,6 +328,13 @@ struct AgentPanelView: View {
     }
 }
 
+/// Identidad de las acciones de pestaña del agente (ver `TabActions.identity`).
+private struct AgentTabIdentity: Hashable {
+    let handle: SessionHandle
+    let tabIDs: [UUID]
+    let selectedID: UUID?
+}
+
 /// Envoltorio `Identifiable` para presentar `ClaudeSetupSheet` con `.sheet(item:)`.
 private struct SetupRequest: Identifiable {
     let purpose: ClaudeSetupSheet.Purpose
@@ -332,7 +379,6 @@ private struct AgentTabBar: View {
                 .disabled(isAdding)
                 .accessibilityLabel("Nueva conversación")
                 .help("Nueva conversación (⌘T)")
-                .keyboardShortcut("t", modifiers: .command)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)

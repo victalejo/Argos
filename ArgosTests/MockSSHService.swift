@@ -74,6 +74,9 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func listWindows(session: String) async throws -> [TmuxWindow] { [] }
     func selectWindow(session: String, index: Int) async throws {}
     func newWindow(session: String) async throws {}
+    func newAgentWindow(session: String, agent: CodingAgent, directory: String?) async throws {}
+    func installedCodingAgents() async throws -> Set<CodingAgent> { [] }
+    func gitBranch(at path: String) async throws -> String? { nil }
     func renameWindow(session: String, index: Int, to name: String) async throws {}
     func setWindowColor(session: String, index: Int, color: WindowColor?) async throws {}
     func killWindow(session: String, index: Int) async throws {}

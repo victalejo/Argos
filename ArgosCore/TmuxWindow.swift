@@ -3,7 +3,7 @@
 //  Argos
 //
 //  Modelo de una ventana de tmux. Parsea una línea con el formato EXACTO emitido por:
-//      tmux list-windows -t <sesión> -F '#{window_index}|#{window_active}|#{window_panes}|#{@argos_color}|#{window_name}'
+//      tmux list-windows -t <sesión> -F '#{window_index}|#{window_active}|#{window_panes}|#{@argos_color}|#{pane_current_command}|#{window_name}'
 //  (ver `SSHService.listWindowsFormat`). El nombre va AL FINAL para que un '|' dentro
 //  del nombre no rompa el parseo.
 //
@@ -22,32 +22,44 @@ struct TmuxWindow: Identifiable, Hashable, Sendable {
     let paneCount: Int
     /// `#{@argos_color}` — color elegido por el usuario (opción de usuario de tmux), o `nil`.
     let color: WindowColor?
+    /// `#{pane_current_command}` — proceso en primer plano del panel activo (`zsh`,
+    /// `claude`, `vim`…), o `nil` si tmux no lo informó. Sirve para detectar agentes
+    /// y para decidir si cerrar la ventana necesita confirmación.
+    let currentCommand: String?
 
     var id: Int { index }
 
-    init(index: Int, name: String, isActive: Bool, paneCount: Int, color: WindowColor? = nil) {
+    init(
+        index: Int,
+        name: String,
+        isActive: Bool,
+        paneCount: Int,
+        color: WindowColor? = nil,
+        currentCommand: String? = nil
+    ) {
         self.index = index
         self.name = name
         self.isActive = isActive
         self.paneCount = paneCount
         self.color = color
+        self.currentCommand = currentCommand
     }
 
-    /// Parsea una línea de `tmux list-windows -F`. Formato (≥5 campos por `|`):
-    /// `índice|activa(1/0)|paneles|color|nombre`, donde el nombre es el resto de la línea.
-    /// Devuelve `nil` si no cumple. Un color desconocido se trata como "sin color".
+    /// Parsea una línea de `tmux list-windows -F`. Formato (6 campos por `|`):
+    /// `índice|activa(1/0)|paneles|color|comando|nombre`, donde el nombre es el resto de
+    /// la línea. Devuelve `nil` si no cumple. Un color desconocido se trata como "sin color".
     init?(line: String) {
         let raw = line.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else { return nil }
 
-        let fields = raw.split(separator: "|", maxSplits: 4, omittingEmptySubsequences: false).map(String.init)
-        guard fields.count == 5 else { return nil }
+        let fields = raw.split(separator: "|", maxSplits: 5, omittingEmptySubsequences: false).map(String.init)
+        guard fields.count == 6 else { return nil }
 
         guard
             let index = Int(fields[0]),
             let activeFlag = Int(fields[1]),
             let paneCount = Int(fields[2]),
-            !fields[4].isEmpty
+            !fields[5].isEmpty
         else {
             return nil
         }
@@ -56,7 +68,8 @@ struct TmuxWindow: Identifiable, Hashable, Sendable {
         self.isActive = activeFlag != 0
         self.paneCount = paneCount
         self.color = WindowColor(rawValue: fields[3])
-        self.name = fields[4]
+        self.currentCommand = fields[4].isEmpty ? nil : fields[4]
+        self.name = fields[5]
     }
 }
 

@@ -67,9 +67,10 @@ extension SSHService {
     }
 
     /// Formato de `list-windows` que parsea `TmuxWindow(line:)`. El nombre va al final
-    /// para tolerar '|' dentro de él; `@argos_color` es el color elegido en Argos.
+    /// para tolerar '|' dentro de él; `@argos_color` es el color elegido en Argos y
+    /// `pane_current_command` permite reconocer agentes (claude, codex, grok).
     static let listWindowsFormat =
-        "#{window_index}|#{window_active}|#{window_panes}|#{@argos_color}|#{window_name}"
+        "#{window_index}|#{window_active}|#{window_panes}|#{@argos_color}|#{pane_current_command}|#{window_name}"
 
     /// `tmux new-window` en el directorio del panel activo (como hace `prefix c` con
     /// `-c '#{pane_current_path}'`), en vez de abrir siempre en `~`.
@@ -99,6 +100,54 @@ extension SSHService {
     /// Crea una nueva ventana en la sesión, en el directorio del panel activo.
     func newWindow(session: String) async throws {
         try await runManagementCommand(Self.newWindowCommand(session: session))
+    }
+
+    /// Nueva ventana con un agente: la crea con el nombre del agente en `directory` (o
+    /// en el del panel activo) y le teclea el binario. Se lanza tecleándolo en el shell
+    /// interactivo, no como comando de la ventana, para que use el PATH del usuario y,
+    /// al salir del agente, la ventana quede en su shell en vez de cerrarse.
+    static func newAgentWindowCommand(session: String, agent: CodingAgent, directory: String?) -> String {
+        let target = ShellQuoting.singleQuoted(session)
+        let dir = directory.map(ShellQuoting.singleQuoted) ?? "'#{pane_current_path}'"
+        return "idx=$(tmux new-window -P -F '#{window_index}' -t \(target) -c \(dir) "
+            + "-n \(ShellQuoting.singleQuoted(agent.displayName))) && "
+            + "tmux send-keys -t \(target):\"$idx\" \(ShellQuoting.singleQuoted(agent.binary)) Enter"
+    }
+
+    /// Abre una ventana con `agent` corriendo (ver `newAgentWindowCommand`).
+    func newAgentWindow(session: String, agent: CodingAgent, directory: String?) async throws {
+        try await runManagementCommand(
+            Self.newAgentWindowCommand(session: session, agent: agent, directory: directory)
+        )
+    }
+
+    /// Agentes de terminal instalados en el servidor (para el menú «+»).
+    func installedCodingAgents() async throws -> Set<CodingAgent> {
+        let client = try await connectedClient()
+        let result = try await capture(client, command: CodingAgent.installedAgentsScript)
+        return CodingAgent.parseInstalled(result.stdout)
+    }
+
+    /// `git rev-parse --abbrev-ref HEAD` en `path`; `nil` si no es un repositorio.
+    static func gitBranchCommand(path: String) -> String {
+        "git -C \(ShellQuoting.singleQuoted(path)) rev-parse --abbrev-ref HEAD 2>/dev/null"
+    }
+
+    /// Rama git actual de `path` en el servidor, o `nil` si no es un repo (o no hay git).
+    func gitBranch(at path: String) async throws -> String? {
+        let client = try await connectedClient()
+        let result = try await capture(client, command: Self.gitBranchCommand(path: path))
+        guard result.exitCode == 0 else { return nil }
+        return Self.parseGitBranch(result.stdout)
+    }
+
+    /// Última línea no vacía de la salida (el perfil del shell puede ensuciar la
+    /// primera); `nil` si está vacía o es `HEAD` (HEAD desacoplado: no hay rama).
+    static func parseGitBranch(_ output: String) -> String? {
+        let branch = output
+            .split(whereSeparator: \.isNewline).last
+            .map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+        return branch.isEmpty || branch == "HEAD" ? nil : branch
     }
 
     /// Renombra una ventana (desactiva el auto-renombrado de tmux para ella).

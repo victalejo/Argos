@@ -5,6 +5,8 @@
 //  Barra de pestañas con las ventanas de la sesión tmux. Cada pestaña cambia de
 //  ventana al pulsarla y ofrece, con clic derecho, renombrarla, elegir su color o
 //  cerrarla (también con la "×" que aparece al pasar el ratón o en la activa).
+//  Las ventanas con un agente (Claude Code, Codex, Grok) muestran su icono y nombre;
+//  el menú «+» abre un terminal o lanza un agente en una ventana nueva.
 //
 
 import AppKit
@@ -14,8 +16,11 @@ struct WindowBar: View {
     let windows: [TmuxWindow]
     /// Estado de Claude Code por índice de ventana.
     var claudeByWindow: [Int: ClaudeActivity] = [:]
+    /// Agentes instalados en el servidor (`nil` mientras no se sabe: todos activos).
+    var installedAgents: Set<CodingAgent>?
     let onSelect: (TmuxWindow) -> Void
     let onNew: () -> Void
+    let onNewAgent: (CodingAgent) -> Void
     let onRename: (TmuxWindow) -> Void
     let onSetColor: (TmuxWindow, WindowColor?) -> Void
     let onClose: (TmuxWindow) -> Void
@@ -35,50 +40,101 @@ struct WindowBar: View {
     private var canClose: Bool { windows.count > 1 }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 7) {
-                ForEach(windows) { window in
-                    tab(for: window)
+        HStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    let repeated = WindowTabs.repeatedAgents(in: windows, claudeReported: Set(claudeByWindow.keys))
+                    ForEach(windows) { window in
+                        tab(for: window, repeatedAgents: repeated)
+                    }
                 }
-
-                Button(action: onNew) {
-                    Label("Ventana", systemImage: "plus")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 10)
-                        .frame(height: 30)
-                        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
-                }
-                .buttonStyle(.plain)
-                .help("Nueva ventana (en el directorio actual)")
-                .accessibilityLabel("Nueva ventana")
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            Divider().frame(height: 18)
+            addMenu
+                .padding(.horizontal, 10)
         }
         .background(.bar)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: windows)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hoveredWindow)
     }
 
-    private func tab(for window: TmuxWindow) -> some View {
+    // MARK: - Menú «+»
+
+    /// Menú «+» al estilo herdr: un terminal o un agente en una ventana nueva.
+    private var addMenu: some View {
+        Menu {
+            Button(action: onNew) {
+                Label("Terminal  ⌘T", systemImage: "terminal")
+            }
+            Section("Iniciar un agente") {
+                ForEach(CodingAgent.allCases) { agent in
+                    agentItem(agent)
+                }
+            }
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Nueva ventana: terminal (⌘T) o un agente (⌘⌥1…3)")
+        .accessibilityLabel("Nueva ventana")
+    }
+
+    @ViewBuilder
+    private func agentItem(_ agent: CodingAgent) -> some View {
+        let installed = installedAgents?.contains(agent) ?? true
+        Button { onNewAgent(agent) } label: {
+            Label {
+                Text(installed ? "\(agent.displayName)  ⌘⌥\(agent.menuKey)" : agent.displayName)
+                if !installed { Text("no instalado") }
+            } icon: {
+                Image(nsImage: agent.menuImage)
+            }
+        }
+        // Sin `.keyboardShortcut`: los atajos viven en el menú «Pestañas»; repetirlos
+        // aquí los duplicaría y SwiftUI dejaba de mostrar ese menú.
+        .disabled(!installed)
+    }
+
+    // MARK: - Pestaña
+
+    private func tab(for window: TmuxWindow, repeatedAgents: Set<CodingAgent>) -> some View {
+        let agent = WindowTabs.agent(for: window, claudeReported: claudeByWindow[window.index] != nil)
+        let title = WindowTabs.title(for: window, agent: agent)
         let tint = window.color?.swatch ?? .accentColor
         return Button { onSelect(window) } label: {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 if let color = window.color {
                     Circle()
                         .fill(color.swatch)
                         .frame(width: 7, height: 7)
                 }
-                Text("\(window.index)")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(window.isActive ? tint : .secondary)
-                    .frame(width: 17, height: 17)
-                    .background(tint.opacity(window.isActive ? 0.13 : 0.05), in: RoundedRectangle(cornerRadius: 4))
-                Text(window.name)
-                    .font(.callout.weight(window.isActive ? .semibold : .regular))
-                    .lineLimit(1)
-                    .frame(maxWidth: 180)
+                if let agent {
+                    CodingAgentIcon(agent: agent, size: 12)
+                } else {
+                    Text(">_")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(window.isActive ? tint : .secondary)
+                }
+                if agent.map(repeatedAgents.contains) ?? true {
+                    Text("\(window.index)")
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(window.isActive ? .primary : .secondary)
+                }
+                if let title {
+                    Text(title)
+                        .font(.callout.weight(window.isActive ? .semibold : .regular))
+                        .foregroundStyle(window.isActive ? .primary : .secondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: 180)
+                }
                 if let claude = claudeByWindow[window.index] {
                     ClaudeActivityBadge(activity: claude, size: 10)
                 }
@@ -89,11 +145,13 @@ struct WindowBar: View {
                 }
                 closeButton(for: window)
             }
-            .padding(.horizontal, 10)
-            .frame(height: 30)
-            .background(tabFill(for: window, tint: tint), in: RoundedRectangle(cornerRadius: 8))
+            .padding(.leading, 10)
+            .padding(.trailing, 6)
+            .frame(height: 28)
+            .background(tabFill(for: window, tint: tint), in: RoundedRectangle(cornerRadius: 7))
             .overlay(
-                RoundedRectangle(cornerRadius: 8).strokeBorder(window.isActive ? tint.opacity(0.35) : Color.primary.opacity(0.04), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(window.isActive ? Color.primary.opacity(0.14) : .clear, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -126,10 +184,10 @@ struct WindowBar: View {
     }
 
     private func tabFill(for window: TmuxWindow, tint: Color) -> Color {
-        if window.isActive { return tint.opacity(0.18) }
-        if hoveredWindow == window.id { return tint.opacity(0.10) }
-        if window.color != nil { return tint.opacity(0.10) }
-        return Color.secondary.opacity(0.08)
+        if window.isActive { return window.color == nil ? Color.primary.opacity(0.09) : tint.opacity(0.18) }
+        if hoveredWindow == window.id { return Color.primary.opacity(0.05) }
+        if window.color != nil { return tint.opacity(0.08) }
+        return .clear
     }
 
     @ViewBuilder

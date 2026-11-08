@@ -41,10 +41,11 @@ struct ArgosApp: App {
         }
         .defaultSize(width: 1380, height: 860)
         .commands {
-            // Quita "Nueva ventana" (⌘N) por defecto: la app es de una sola ventana
-            // (cada ventana crearía su propio ServerStore aislado, confuso) y ⌘N se
-            // reasigna a "Nueva sesión" en la toolbar de la columna de sesiones.
-            CommandGroup(replacing: .newItem) {}
+            // Menú «Pestañas»: ⌘T nueva ventana/conversación, ⌘W cerrar, ⌘1…⌘9,
+            // ⌘⇧[ ⌘⇧] y ⌘⌥1…3 para lanzar agentes. También quita "Nueva ventana" (⌘N)
+            // por defecto: la app es de una sola ventana (cada ventana crearía su propio
+            // ServerStore aislado, confuso) y ⌘N es "Nuevo proyecto".
+            TabCommands()
 
             // Menú de la app: "Acerca de Argos" propio (panel nativo con icono/enlaces)
             // + "Buscar actualizaciones…" (Sparkle, o la ficha de la App Store).

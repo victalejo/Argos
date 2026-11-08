@@ -44,6 +44,12 @@ protocol SSHServicing: Sendable {
     func listWindows(session: String) async throws -> [TmuxWindow]
     func selectWindow(session: String, index: Int) async throws
     func newWindow(session: String) async throws
+    /// Abre una ventana nueva con un agente de terminal (Claude Code, Codex, Grok).
+    func newAgentWindow(session: String, agent: CodingAgent, directory: String?) async throws
+    /// Agentes de terminal instalados en el servidor.
+    func installedCodingAgents() async throws -> Set<CodingAgent>
+    /// Rama git de `path` en el servidor (`nil` si no es un repositorio).
+    func gitBranch(at path: String) async throws -> String?
     func renameWindow(session: String, index: Int, to name: String) async throws
     func setWindowColor(session: String, index: Int, color: WindowColor?) async throws
     func killWindow(session: String, index: Int) async throws

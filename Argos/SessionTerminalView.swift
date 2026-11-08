@@ -55,8 +55,18 @@ struct SessionTerminalView: View {
     let store: TerminalSessionStore
     /// Estado de Claude Code por índice de ventana (indicador en las pestañas).
     var claudeByWindow: [Int: ClaudeActivity] = [:]
+    /// Carpeta del proyecto (`nil` en una sesión suelta): cabecera, rama y agentes.
+    var projectPath: String?
+    /// Nombre del servidor para la barra inferior.
+    var serverName: String = ""
 
     @State private var settings = TerminalSettings.shared
+    /// Agentes instalados en el servidor (`nil` mientras no se sabe).
+    @State private var installedAgents: Set<CodingAgent>?
+    /// Carpeta de trabajo mostrada (la del proyecto o la del primer panel).
+    @State private var workingPath: String?
+    /// Rama git de `workingPath`, si es un repositorio.
+    @State private var gitBranch: String?
     @State private var controller: LiveTerminalController?
     /// Ventanas de tmux de la sesión (barra superior).
     @State private var windows: [TmuxWindow] = []
@@ -80,17 +90,20 @@ struct SessionTerminalView: View {
                 WindowBar(
                     windows: windows,
                     claudeByWindow: claudeByWindow,
+                    installedAgents: installedAgents,
                     onSelect: { selectWindow($0) },
                     onNew: { newWindow() },
+                    onNewAgent: { newAgentWindow($0) },
                     onRename: { renamingWindow = $0 },
                     onSetColor: { setColor($1, for: $0) },
-                    onClose: { closingWindow = $0 }
+                    onClose: { requestClose(index: $0.index) }
                 )
                 Divider()
             }
-            terminalArea
+            terminalCard
             terminalStatusBar
         }
+        .focusedSceneValue(\.tabActions, tabActions)
         .navigationTitle(session.name)
         .navigationSubtitle("Terminal remoto")
         .toolbar { paneToolbar }
@@ -138,6 +151,8 @@ struct SessionTerminalView: View {
         }
         // Sondea las ventanas de tmux mientras esta sesión está a la vista.
         .task(id: handle) { await pollWindows() }
+        .task(id: handle) { await loadAgentsAndBranch() }
+        .onChange(of: windows) { Task { await refreshBranch() } }
         .onChange(of: controller?.status) { _, status in
             handleStatusChange(status)
         }
@@ -199,27 +214,111 @@ struct SessionTerminalView: View {
         }
     }
 
+    // MARK: - Tarjeta del terminal (estilo herdr)
+
+    /// El terminal dentro de una tarjeta redondeada con cabecera: icono y nombre de lo
+    /// que corre en la ventana activa, más la carpeta de trabajo.
+    private var terminalCard: some View {
+        let theme = settings.theme
+        return VStack(spacing: 0) {
+            if controller?.status == .connected {
+                cardHeader(foreground: SwiftUI.Color(nsColor: theme.foreground))
+            }
+            terminalArea
+        }
+        .background(SwiftUI.Color(nsColor: theme.background))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(
+                    controller?.status == .connected ? SwiftUI.Color.accentColor.opacity(0.45) : SwiftUI.Color.primary.opacity(0.1),
+                    lineWidth: 1
+                )
+        )
+        .padding(8)
+        .background(.bar)
+    }
+
+    private var activeWindow: TmuxWindow? { windows.first { $0.isActive } }
+
+    private var activeAgent: CodingAgent? {
+        activeWindow.flatMap { WindowTabs.agent(for: $0, claudeReported: claudeByWindow[$0.index] != nil) }
+    }
+
+    private func cardHeader(foreground: SwiftUI.Color) -> some View {
+        let agent = activeAgent
+        let title = agent?.displayName
+            ?? activeWindow.flatMap { WindowTabs.title(for: $0, agent: nil) }
+            ?? "Terminal"
+        return HStack(spacing: 8) {
+            if let agent {
+                CodingAgentIcon(agent: agent, size: 12)
+            } else {
+                Image(systemName: "terminal")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(foreground.opacity(0.7))
+            }
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(foreground)
+                .lineLimit(1)
+            if let workingPath {
+                Text(ProjectRow.shortPath(workingPath))
+                    .font(.system(size: 12))
+                    .foregroundStyle(foreground.opacity(0.5))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(workingPath)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(foreground.opacity(0.08)).frame(height: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Barra inferior: servidor · rama git · agentes activos · estado · ⌘K.
     private var terminalStatusBar: some View {
-        HStack(spacing: 7) {
-            Circle()
-                .fill(controller?.status == .connected ? Color.teal : Color.secondary)
-                .frame(width: 6, height: 6)
-                .accessibilityHidden(true)
-            Text(terminalStatusText)
-                .font(.caption.weight(.medium))
-            if !windows.isEmpty {
-                Text("·")
-                Text("\(windows.count) \(windows.count == 1 ? "ventana" : "ventanas")")
-                    .font(.caption)
+        let agentCount = windows.filter {
+            WindowTabs.agent(for: $0, claudeReported: claudeByWindow[$0.index] != nil) != nil
+        }.count
+        return HStack(spacing: 12) {
+            if !serverName.isEmpty {
+                Label(serverName, systemImage: "desktopcomputer")
+                    .lineLimit(1)
+            }
+            if let gitBranch {
+                Label(gitBranch, systemImage: "arrow.triangle.branch")
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help("Rama git de \(workingPath ?? "la carpeta")")
+            }
+            if agentCount > 0 {
+                HStack(spacing: 5) {
+                    Circle().fill(SwiftUI.Color.teal).frame(width: 6, height: 6)
+                    Text("\(agentCount) \(agentCount == 1 ? "agente" : "agentes")")
+                }
+            }
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(controller?.status == .connected ? Color.teal : Color.secondary)
+                    .frame(width: 6, height: 6)
+                    .accessibilityHidden(true)
+                Text(terminalStatusText)
             }
             Spacer(minLength: 8)
-            Text("⌘V pegar · Arrastra archivos para subir")
+            Text("⌘K comandos · ⌘T nueva · ⌘W cerrar")
                 .font(.caption2)
                 .lineLimit(1)
         }
+        .font(.caption)
+        .labelStyle(CompactStatusLabelStyle())
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
-        .padding(.vertical, 7)
+        .padding(.vertical, 6)
         .background(.bar)
         .overlay(alignment: .top) { Divider() }
     }
@@ -271,6 +370,96 @@ struct SessionTerminalView: View {
         Task {
             try? await service.newWindow(session: session.name)
             await refreshWindows()
+        }
+    }
+
+    /// Abre una ventana nueva con `agent` en la carpeta del proyecto (o la del panel).
+    private func newAgentWindow(_ agent: CodingAgent) {
+        Task {
+            do {
+                try await service.newAgentWindow(session: session.name, agent: agent, directory: projectPath)
+            } catch {
+                Log.terminal.error("No se pudo lanzar \(agent.displayName, privacy: .public): \(error.userMessage, privacy: .public)")
+            }
+            await refreshWindows()
+        }
+    }
+
+    /// Cerrar con ⌘W (`index == nil`: la ventana activa) o la «×»: directo si solo hay
+    /// un shell ocioso, con confirmación si corre algo y nunca la última ventana (mataría
+    /// la sesión). Decide con una lista RECIÉN leída de tmux, no con la del sondeo (que
+    /// puede tener segundos): si no, se podría matar sin preguntar algo recién lanzado o
+    /// una ventana distinta de la que se ve.
+    private func requestClose(index: Int?) {
+        Task {
+            let fresh: [TmuxWindow]
+            do {
+                fresh = try await service.listWindows(session: session.name)
+            } catch {
+                Log.terminal.error("No se pudieron leer las ventanas para cerrar: \(error.userMessage, privacy: .public)")
+                return
+            }
+            windows = fresh
+            let target = index.map { wanted in fresh.first { $0.index == wanted } } ?? fresh.first { $0.isActive }
+            guard let target else { return }
+            switch WindowTabs.closeDecision(for: target, totalWindows: fresh.count) {
+            case .blocked: NSSound.beep()
+            case .immediate: closeWindow(target)
+            case .confirm: closingWindow = target
+            }
+        }
+    }
+
+    /// Acciones que esta vista publica para los atajos de la barra de menús.
+    private var tabActions: TabActions? {
+        guard controller?.status == .connected else { return nil }
+        return TabActions(
+            identity: TabIdentity(handle: handle, windows: windows, claude: claudeByWindow, installedAgents: installedAgents),
+            newTitle: "Nueva ventana",
+            closeTitle: "Cerrar ventana",
+            newTab: { newWindow() },
+            closeTab: { requestClose(index: nil) },
+            selectTab: { number in
+                if let target = WindowTabs.window(atShortcut: number, in: windows) { selectWindow(target) }
+            },
+            selectAdjacent: { offset in
+                if let target = WindowTabs.adjacent(to: windows, offset: offset) { selectWindow(target) }
+            },
+            newAgent: { newAgentWindow($0) },
+            installedAgents: installedAgents
+        )
+    }
+
+    /// Detecta los agentes instalados (con caché por servidor para pintar el menú al
+    /// instante) y la carpeta/rama git que se muestran en la tarjeta y la barra.
+    private func loadAgentsAndBranch() async {
+        installedAgents = InstalledAgentsCache.agents[handle.serverID]
+        do {
+            let fresh = try await service.installedCodingAgents()
+            InstalledAgentsCache.agents[handle.serverID] = fresh
+            installedAgents = fresh
+        } catch {
+            Log.terminal.notice("No se pudo detectar qué agentes hay instalados: \(error.userMessage, privacy: .public)")
+        }
+        if let projectPath {
+            workingPath = projectPath
+        } else {
+            do {
+                workingPath = try await service.sessionFirstPanePaths()[session.name]
+            } catch {
+                Log.terminal.notice("No se pudo leer la carpeta de la sesión: \(error.userMessage, privacy: .public)")
+            }
+        }
+        await refreshBranch()
+    }
+
+    /// Relee la rama git (también cuando cambian las ventanas: tras un `checkout`).
+    private func refreshBranch() async {
+        guard let workingPath else { return }
+        do {
+            gitBranch = try await service.gitBranch(at: workingPath)
+        } catch {
+            Log.terminal.notice("No se pudo leer la rama git: \(error.userMessage, privacy: .public)")
         }
     }
 
@@ -499,4 +688,50 @@ struct SessionTerminalView: View {
         }
     }
 
+}
+
+/// Identidad de las acciones de pestaña del terminal (ver `TabActions.identity`).
+///
+/// Resume cada ventana en lo que importa a los menús (índice, activa, agente, ociosa),
+/// no en el comando exacto: así un `ls` o un `git` en primer plano no reconstruye la
+/// barra de menús. Los closures leen las ventanas en vivo desde `@State`.
+private struct TabIdentity: Hashable {
+    struct WindowKey: Hashable {
+        let index: Int
+        let isActive: Bool
+        let agent: CodingAgent?
+    }
+
+    let handle: SessionHandle
+    let windows: [WindowKey]
+    let installedAgents: Set<CodingAgent>?
+
+    init(handle: SessionHandle, windows: [TmuxWindow], claude: [Int: ClaudeActivity], installedAgents: Set<CodingAgent>?) {
+        self.handle = handle
+        self.windows = windows.map {
+            WindowKey(
+                index: $0.index,
+                isActive: $0.isActive,
+                agent: WindowTabs.agent(for: $0, claudeReported: claude[$0.index] != nil)
+            )
+        }
+        self.installedAgents = installedAgents
+    }
+}
+
+/// Agentes instalados por servidor: el menú «+» se pinta al instante con lo último
+/// conocido mientras se vuelve a comprobar en segundo plano.
+@MainActor
+enum InstalledAgentsCache {
+    static var agents: [Server.ID: Set<CodingAgent>] = [:]
+}
+
+/// Etiqueta compacta (icono pequeño pegado al texto) para la barra inferior.
+private struct CompactStatusLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.icon.imageScale(.small)
+            configuration.title
+        }
+    }
 }
