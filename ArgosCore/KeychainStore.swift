@@ -81,9 +81,11 @@ enum KeychainStore {
         secret(service: claudeTokenService, account: claudeTokenAccount)
     }
 
-    /// `true` si hay un token de Claude Code guardado.
+    /// `true` si hay un token de Claude Code guardado. No lee el secreto: en macOS,
+    /// descifrarlo pide la contraseña del llavero si esta firma no está autorizada, y
+    /// esto se consulta al pintar la UI.
     static func hasClaudeOAuthToken() -> Bool {
-        claudeOAuthToken()?.isEmpty == false
+        secretExists(service: claudeTokenService, account: claudeTokenAccount)
     }
 
     /// Borra el token OAuth de Claude Code (idempotente).
@@ -145,6 +147,24 @@ enum KeychainStore {
             return nil
         }
         return String(data: data, encoding: .utf8)
+    }
+
+    /// Comprueba si existe el ítem pidiendo solo sus atributos (sin descifrar el valor).
+    private static func secretExists(service: String, account: String) -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecAttrSynchronizable as String: false,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            Log.store.error("Consulta de Keychain falló: \(status)")
+        }
+        return status == errSecSuccess
     }
 
     private static func deleteSecret(service: String, account: String) {
