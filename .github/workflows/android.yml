@@ -36,9 +36,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
+      # Los tests de integración de ssh levantan un sshd embebido que ejecuta tmux real.
+      - name: Instalar tmux
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tmux
+
       # core es Kotlin/JVM puro: sus tests son la paridad con ArgosTests (Swift).
-      - name: Tests del núcleo
-        run: ./gradlew :core:test
+      - name: Tests del núcleo y de SSH
+        run: ./gradlew :core:test :ssh:test
 
       - name: Build + lint de la app
         run: ./gradlew :app:assembleDebug :app:lintDebug
@@ -50,5 +54,6 @@ jobs:
           name: android-reports
           path: |
             android/core/build/reports/tests
+            android/ssh/build/reports/tests
             android/app/build/reports/lint-results-debug.html
           if-no-files-found: ignore

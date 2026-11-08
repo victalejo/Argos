@@ -1,6 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Argos</string>
+
+    <!-- Comunes -->
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_save">Guardar</string>
+    <string name="action_retry">Reintentar</string>
+    <string name="action_back">Volver</string>
+    <string name="action_edit">Editar</string>
+    <string name="action_delete">Borrar</string>
+
+    <!-- Servidores -->
     <string name="servers_title">Servidores</string>
+    <string name="servers_empty_title">Sin servidores</string>
     <string name="servers_empty">Aún no hay servidores. Añade uno para ver sus sesiones tmux.</string>
+    <string name="servers_add">Añadir servidor</string>
+    <string name="servers_forget_host_key">Olvidar host key</string>
+    <string name="servers_more_for">Más opciones de %1$s</string>
+    <string name="servers_delete_title">¿Borrar «%1$s»?</string>
+    <string name="servers_delete_message">Se borran sus datos de acceso de este dispositivo. Las sesiones y proyectos del servidor no se tocan.</string>
+    <string name="servers_delete_confirm">Borrar servidor</string>
+    <string name="servers_pick">Elige un servidor</string>
+    <string name="host_key_forgotten">Huella de «%1$s» olvidada. La próxima conexión confiará en la nueva.</string>
+
+    <!-- Formulario de servidor -->
+    <string name="form_title_new">Nuevo servidor</string>
+    <string name="form_title_edit">Editar servidor</string>
+    <string name="form_section_server">Servidor</string>
+    <string name="form_name">Nombre (p. ej. producción)</string>
+    <string name="form_host">Host o IP</string>
+    <string name="form_port">Puerto</string>
+    <string name="form_username">Usuario</string>
+    <string name="form_section_auth">Autenticación</string>
+    <string name="form_method_password">Contraseña</string>
+    <string name="form_method_key">Clave SSH</string>
+    <string name="form_password">Contraseña</string>
+    <string name="form_password_keep">Contraseña (vacía = sin cambios)</string>
+    <string name="form_key_import">Importar clave privada…</string>
+    <string name="form_key_change">Clave importada · cambiar</string>
+    <string name="form_key_stored">Clave guardada · cambiar</string>
+    <string name="form_key_importing">Importando clave…</string>
+    <string name="form_key_imported">Clave válida. Se guardará cifrada al pulsar «Guardar».</string>
+    <string name="form_requires_passphrase">La clave tiene passphrase</string>
+    <string name="form_passphrase">Passphrase</string>
+    <string name="form_passphrase_keep">Passphrase (vacía = sin cambios)</string>
+    <string name="form_footer_password">La contraseña se guarda cifrada con el almacén de claves de Android, solo en este dispositivo.</string>
+    <string name="form_footer_key">Elige tu clave Ed25519 en formato OpenSSH. Argos guarda una copia cifrada con el almacén de claves de Android; la passphrase también.</string>
+    <string name="form_show_secret">Mostrar</string>
+    <string name="form_hide_secret">Ocultar</string>
+    <string name="form_not_found">Este servidor ya no existe.</string>
+    <string name="form_saving">Guardando…</string>
+
+    <!-- Errores de campo -->
+    <string name="error_name_required">Escribe un nombre.</string>
+    <string name="error_host_required">Escribe el host o la IP.</string>
+    <string name="error_host_invalid">Host no válido: sin espacios ni «@», «/» y sin empezar por «-».</string>
+    <string name="error_port_invalid">El puerto debe estar entre 1 y 65535.</string>
+    <string name="error_username_required">Escribe el usuario.</string>
+    <string name="error_username_invalid">Usuario no válido: sin espacios ni «@» y sin empezar por «-».</string>
+    <string name="error_password_required">Escribe la contraseña.</string>
+    <string name="error_key_required">Importa una clave privada.</string>
+    <string name="error_passphrase_required">Escribe la passphrase de la clave.</string>
+
+    <!-- Sesiones -->
+    <string name="sessions_new">Nueva sesión</string>
+    <string name="sessions_refresh">Recargar</string>
+    <string name="sessions_connecting">Conectando con %1$s…</string>
+    <string name="sessions_installing">Instalando tmux en el servidor…</string>
+    <string name="sessions_configuring">Configurando tmux…</string>
+    <string name="sessions_loading">Cargando sesiones…</string>
+    <string name="sessions_tmux_missing_title">Falta tmux</string>
+    <string name="sessions_tmux_missing">tmux no está instalado en el servidor y no se puede instalar sin contraseña. Instálalo (por ejemplo, «sudo apt install tmux») y vuelve a intentarlo.</string>
+    <string name="sessions_host_key_title">La huella del servidor cambió</string>
+    <string name="sessions_host_key_trust">Olvidar la huella y reintentar</string>
+    <string name="sessions_failed_title">No se pudo conectar</string>
+    <string name="sessions_server_missing">Este servidor ya no existe.</string>
+    <string name="sessions_empty_title">Sin sesiones</string>
+    <string name="sessions_empty">Crea una sesión con «+».</string>
+    <string name="sessions_attached">adjunta</string>
+    <string name="sessions_rename">Renombrar</string>
+    <string name="sessions_kill">Cerrar sesión</string>
+    <string name="sessions_more_for">Más opciones de la sesión %1$s</string>
+    <string name="sessions_create_title">Nueva sesión</string>
+    <string name="sessions_rename_title">Renombrar sesión</string>
+    <string name="sessions_create_confirm">Crear</string>
+    <string name="sessions_rename_confirm">Renombrar</string>
+    <string name="sessions_name_label">Nombre</string>
+    <string name="sessions_name_hint">Usa «grupo/nombre» para agruparla. Sin «:» ni «.».</string>
+    <string name="sessions_kill_title">¿Cerrar la sesión «%1$s»?</string>
+    <string name="sessions_kill_message">Se terminan los procesos que corren en ella (kill-session).</string>
+    <string name="sessions_terminal_coming">El terminal llega en la fase 3 («%1$s»).</string>
+    <plurals name="sessions_windows">
+        <item quantity="one">%d ventana</item>
+        <item quantity="many">%d ventanas</item>
+        <item quantity="other">%d ventanas</item>
+    </plurals>
 </resources>

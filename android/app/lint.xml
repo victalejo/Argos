@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- El aviso salta en una clase de TLS DENTRO de bcpkix (dependencia de sshj para leer
+         claves). Argos no usa TLS de BouncyCastle: SSH verifica la host key con TOFU propio.
+         Se ignora solo para ese jar; en el código de Argos sigue siendo error. -->
+    <issue id="TrustAllX509TrustManager">
+        <ignore regexp="bcpkix-jdk18on" />
+    </issue>
+</lint>
