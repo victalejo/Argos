@@ -158,6 +158,57 @@ final class DemoServerFlowTests: XCTestCase {
         snapshot("ipad-4-agentes")
     }
 
+    /// Capturas para la App Store (solo con ARGOS_SCREENSHOTS=1): pantallas limpias con
+    /// la cuenta de demostración, como adjuntos `appstore-*`.
+    func testCapturasAppStore() throws {
+        let demo = try demoAccount()
+        guard ProcessInfo.processInfo.environment["ARGOS_SCREENSHOTS"] == "1" else {
+            throw XCTSkip("Capturas solo con ARGOS_SCREENSHOTS=1.")
+        }
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        if isPad { XCUIDevice.shared.orientation = .landscapeLeft }
+        app = XCUIApplication()
+        app.launch()
+        addServerIfNeeded(demo)
+
+        app.staticTexts["demo"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["tienda-online"].waitForExistence(timeout: 30))
+        sleep(1)
+        if !isPad { snapshot("appstore-2-proyectos") }
+
+        app.staticTexts["tienda-online"].tap()
+        XCTAssertTrue(app.buttons["Archivos"].waitForExistence(timeout: 15))
+        sleep(5)
+        snapshot("appstore-3-terminal")
+
+        app.buttons["Archivos"].tap()
+        XCTAssertTrue(app.staticTexts["src"].waitForExistence(timeout: 20))
+        app.staticTexts["src"].tap()
+        XCTAssertTrue(app.staticTexts["routes"].waitForExistence(timeout: 20))
+        app.staticTexts["routes"].tap()
+        XCTAssertTrue(app.staticTexts["productos.js"].waitForExistence(timeout: 20))
+        app.staticTexts["productos.js"].tap()
+        sleep(3)
+        snapshot("appstore-4-codigo")
+        for title in ["productos.js", "routes", "src"] {
+            app.navigationBars[title].buttons.element(boundBy: 0).tap()
+        }
+
+        app.buttons["Agentes"].tap()
+        XCTAssertTrue(app.buttons["Nuevo agente"].waitForExistence(timeout: 20))
+        app.buttons["Nuevo agente"].tap()
+        let composer = app.textFields["Pide algo a Claude…"]
+        XCTAssertTrue(composer.waitForExistence(timeout: 30))
+        composer.tap()
+        composer.typeText("Revisa las rutas de productos y añade validación del id")
+        app.buttons["Enviar"].tap()
+        let reply = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Respuesta de demostración")).firstMatch
+        XCTAssertTrue(reply.waitForExistence(timeout: 30))
+        sleep(1)
+        sleep(1)
+        snapshot("appstore-5-agente")
+    }
+
     // MARK: - Pasos
 
     private func addServerIfNeeded(_ demo: Demo) {
@@ -188,8 +239,14 @@ final class DemoServerFlowTests: XCTestCase {
     /// servicio remoto que no aparece en el árbol de accesibilidad: se toca «Ahora no»
     /// por coordenadas (zona vacía de la lista si el diálogo no aparece).
     private func dismissSavePasswordPrompt() {
-        sleep(3)
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.32, dy: 0.625)).tap()
+        // Aparece con retraso variable: varios toques espaciados (en vacío si no está).
+        // En iPad el diálogo va centrado igual, pero la columna izquierda es estrecha.
+        let point = UIDevice.current.userInterfaceIdiom == .pad
+            ? CGVector(dx: 0.45, dy: 0.56) : CGVector(dx: 0.32, dy: 0.625)
+        for _ in 0..<3 {
+            sleep(3)
+            app.coordinate(withNormalizedOffset: point).tap()
+        }
         sleep(1)
     }
 

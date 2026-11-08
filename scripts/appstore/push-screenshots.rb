@@ -2,8 +2,10 @@
 # Sube las capturas de screenshots/<plataforma>/*.png (orden alfabético) a la versión
 # editable de App Store Connect, reemplazando las que hubiera en ese set.
 #
-# Uso: ruby scripts/appstore/push-screenshots.rb [MAC_OS|IOS] [locale] [displayType]
-#   Mac: 2560x1600 (u otro tamaño 16:10 aceptado), displayType APP_DESKTOP.
+# Uso: ruby scripts/appstore/push-screenshots.rb [MAC_OS|IOS] [locale] [displayType] [carpeta]
+#   Mac:    2560x1600, APP_DESKTOP, screenshots/mac (por defecto).
+#   iPhone: 1320x2868, APP_IPHONE_67, screenshots/iphone.
+#   iPad:   2752x2064, APP_IPAD_PRO_3GEN_129, screenshots/ipad.
 require "openssl"
 require "json"
 require "net/http"
@@ -17,7 +19,7 @@ APP_ID = "6831410935"
 PLATFORM = ARGV[0] || "MAC_OS"
 LOCALE = ARGV[1] || "es-MX"
 DISPLAY_TYPE = ARGV[2] || (PLATFORM == "MAC_OS" ? "APP_DESKTOP" : "APP_IPHONE_67")
-DIR = File.join(__dir__, "screenshots", PLATFORM == "MAC_OS" ? "mac" : "ios")
+DIR = File.join(__dir__, "screenshots", ARGV[3] || (PLATFORM == "MAC_OS" ? "mac" : "iphone"))
 
 def b64(s); Base64.urlsafe_encode64(s, padding: false); end
 

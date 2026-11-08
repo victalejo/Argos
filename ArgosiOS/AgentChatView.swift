@@ -37,6 +37,7 @@ struct AgentChatView: View {
         .navigationTitle(session.meta.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
+
         .onAppear { session.attach() }
         .onDisappear { session.detach() }
         .confirmationDialog("¿Borrar esta conversación?", isPresented: $confirmDelete, titleVisibility: .visible) {
@@ -95,6 +96,8 @@ struct AgentChatView: View {
             Button {
                 let text = draft
                 draft = ""
+                // Se oculta el teclado para ver la respuesta (tocar el campo lo reabre).
+                composerFocused = false
                 Task { await session.send(text) }
             } label: {
                 Image(systemName: "arrow.up.circle.fill").font(.title)
