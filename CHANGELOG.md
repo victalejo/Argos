@@ -6,6 +6,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.17] - 2026-11-08
+
+### Corregido
+- **La hoja «Enviar al iPhone» ya no se queda en blanco** bloqueando la ventana: si el servidor
+  se recreaba con la hoja abierta (p. ej. por la sincronización de iCloud), aparecía un recuadro
+  vacío sin botones que no se podía cerrar. Lo mismo en «Dispositivos autorizados».
+
 ## [1.7.16] - 2026-11-08
 
 ### Añadido
