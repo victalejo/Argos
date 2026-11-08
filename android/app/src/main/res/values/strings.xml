@@ -449,4 +449,5 @@
     <string name="import_error_version">Este código lo generó otra versión de Argos. Actualiza Argos en el Mac y en este dispositivo.</string>
     <string name="import_error_expired">El código caducó (dura 5 minutos). En el Mac, pulsa «Mostrar de nuevo».</string>
     <string name="import_error_invalid">El código contiene datos de servidor no válidos. Genera otro en el Mac.</string>
+    <string name="import_error_link_while_confirming">Llegó otro enlace mientras confirmabas este servidor. Cierra esta confirmación con «Escanear otro código» para abrirlo.</string>
 </resources>

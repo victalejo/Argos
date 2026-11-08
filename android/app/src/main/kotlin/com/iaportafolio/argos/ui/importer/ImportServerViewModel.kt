@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Duration
@@ -50,11 +51,16 @@ data class ImportServerState(
     val inputError: UiText? = null,
     val preview: ImportPreview? = null,
     val isImporting: Boolean = false,
+    /**
+     * El botón se habilita un instante después de mostrar una confirmación: un toque que iba a
+     * otra cosa no debe aceptar un servidor que acaba de aparecer.
+     */
+    val isArmed: Boolean = false,
     val saveError: UiText? = null,
     /** Importado con éxito: la navegación vuelve a la lista y abre este servidor. */
     val importedServerId: String? = null,
 ) {
-    val canImport: Boolean get() = preview != null && !preview.conflictsWithTrustedHostKey && !isImporting
+    val canImport: Boolean get() = preview != null && isArmed && !preview.conflictsWithTrustedHostKey && !isImporting
 
     override fun toString(): String =
         "ImportServerState(linkText=<${linkText.length} caracteres>, inputError=$inputError, preview=$preview, " +
@@ -76,6 +82,9 @@ interface ImportServerActions {
  * guardar. El [ServerTransfer] (con la semilla) vive solo aquí, fuera del estado, y se suelta
  * al importar o descartar.
  */
+/** Espera antes de habilitar «Añadir servidor» tras mostrar una confirmación. */
+internal const val ARM_DELAY_MILLIS = 700L
+
 class ImportServerViewModel(
     private val repository: ServerRepository,
     private val importer: ServerImporter,
@@ -104,8 +113,18 @@ class ImportServerViewModel(
         accept(text)
     }
 
-    /** Enlace recibido por deep link (ya filtrado por [ImportLink.fromIntent]). */
-    fun onDeepLink(text: String) = accept(text)
+    /**
+     * Enlace recibido por deep link (ya filtrado por [ImportLink.fromIntent]). Cualquier app puede
+     * lanzarlo, así que NUNCA sustituye una confirmación abierta: el usuario podría estar a punto de
+     * pulsar «Añadir servidor» sobre otro. Para ver el nuevo, primero hay que cerrar la actual.
+     */
+    fun onDeepLink(text: String) {
+        if (state.value.preview != null || state.value.isImporting) {
+            mutableState.update { it.copy(inputError = UiText.res(R.string.import_error_link_while_confirming)) }
+            return
+        }
+        accept(text)
+    }
 
     override fun scanAgain() {
         if (state.value.isImporting) return
@@ -144,6 +163,8 @@ class ImportServerViewModel(
             }.onSuccess { trusted ->
                 transfer = decoded
                 mutableState.value = ImportServerState(preview = preview(decoded, trusted))
+                delay(ARM_DELAY_MILLIS)
+                mutableState.update { it.copy(isArmed = true) }
             }.onFailure { error -> mutableState.update { it.copy(inputError = error.toUiText()) } }
         }
     }

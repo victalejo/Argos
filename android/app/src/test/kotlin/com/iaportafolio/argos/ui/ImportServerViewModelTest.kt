@@ -19,6 +19,9 @@ import com.iaportafolio.argos.ui.importer.ImportLink
 import com.iaportafolio.argos.ui.importer.ImportServerViewModel
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import com.iaportafolio.argos.ui.importer.ARM_DELAY_MILLIS
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
@@ -239,13 +242,35 @@ class ImportServerViewModelTest {
     }
 
     @Test
-    fun `un deep link nuevo sustituye la confirmación anterior`() = runTest(main.dispatcher) {
+    fun `un deep link nunca sustituye una confirmación abierta`() = runTest(main.dispatcher) {
         val vm = viewModel()
         vm.onDeepLink(transfer(host = "a.example.com").urlString())
         advanceUntilIdle()
         vm.onDeepLink(transfer(host = "b.example.com").urlString())
         advanceUntilIdle()
+        assertEquals("a.example.com", vm.state.value.preview?.host)
+        assertEquals(UiText.res(R.string.import_error_link_while_confirming), vm.state.value.inputError)
+
+        vm.scanAgain()
+        vm.onDeepLink(transfer(host = "b.example.com").urlString())
+        advanceUntilIdle()
         assertEquals("b.example.com", vm.state.value.preview?.host)
+    }
+
+    @Test
+    fun `añadir servidor se habilita un instante después de mostrar la confirmación`() = runTest(main.dispatcher) {
+        val vm = viewModel()
+        vm.onLinkTextChange(transfer().urlString())
+        vm.submitLink()
+        runCurrent()
+        assertNotNull(vm.state.value.preview)
+        assertFalse(vm.state.value.canImport, "Recién aparecida no se puede aceptar")
+        vm.confirmImport()
+        runCurrent()
+        assertTrue(repository.servers.value.isEmpty())
+
+        advanceTimeBy(ARM_DELAY_MILLIS + 1)
+        assertTrue(vm.state.value.canImport)
     }
 
     @Test

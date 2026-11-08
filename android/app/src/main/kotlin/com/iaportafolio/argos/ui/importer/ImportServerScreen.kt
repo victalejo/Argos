@@ -166,6 +166,7 @@ private fun ColumnScope.ConfirmStep(preview: ImportPreview, state: ImportServerS
             }
         }
     }
+    state.inputError?.let { ErrorText(it) }
     state.saveError?.let { ErrorText(it) }
     Button(
         onClick = actions::confirmImport,
