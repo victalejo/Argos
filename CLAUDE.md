@@ -46,6 +46,9 @@ La **CI** (`.github/workflows/ci.yml`) corre build + test con cobertura y
   y `ArgosiOS`. **Prohibido** importar AppKit/SwiftUI/SwiftTerm/Sparkle o usar APIs
   solo-macOS aquí (si hace falta, `#if os(macOS)`). La CI compila `ArgosiOS` para
   garantizarlo.
+- `ArgosUI/` — **vistas SwiftUI compartidas** Mac + iPhone/iPad (sin AppKit/UIKit):
+  mascota de Claude e iconos de agentes (`ClaudeMascot`, `CodingAgentIcon`). La lógica
+  de pestañas/agentes (`WindowTabs`, `CodingAgent`) vive en `ArgosCore/Tabs/`.
 - `Argos/` — app de **macOS**: vistas SwiftUI/AppKit, terminal SwiftTerm, Sparkle,
   "Enviar al Mac" (`ProjectSyncEngine`/`ProjectSyncJob`), pool `TerminalSessionStore`.
   Se compila en **dos variantes** (plantilla `ArgosMac`): `Argos` (canal GitHub,
