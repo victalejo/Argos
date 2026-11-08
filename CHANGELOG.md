@@ -6,6 +6,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.20] - 2026-11-08
+
+### Corregido
+- **iPhone/iPad: desplazar con el dedo en el terminal** (p. ej. la salida de Claude Code). Con
+  tmux en `mouse on`, arrastrar seleccionaba en vez de desplazar; ahora el arrastre vertical
+  se envía como rueda y tmux recorre el historial. Tocar y la pulsación larga no cambian.
+
 ## [1.7.19] - 2026-11-08
 
 ### Corregido

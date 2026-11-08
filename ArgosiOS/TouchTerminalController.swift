@@ -38,7 +38,7 @@ final class TouchTerminalController: TerminalViewDelegate {
         self.service = service
         self.sessionName = sessionName
         (controlStream, controlContinuation) = AsyncStream<TerminalControlEvent>.makeStream()
-        terminalView = TerminalView(frame: .zero, font: TerminalAppearance.font(size: fontSize))
+        terminalView = ScrollingTerminalView(frame: .zero, font: TerminalAppearance.font(size: fontSize))
         TerminalAppearance.apply(to: terminalView)
         terminalView.terminalDelegate = self
         start()
