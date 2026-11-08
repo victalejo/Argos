@@ -33,6 +33,9 @@ struct TerminalScreen: View {
     @State private var closingWindow: TmuxWindow?
     @State private var workingPath: String?
     @State private var gitBranch: String?
+    @State private var isPickingPhotos = false
+    @State private var isPickingFiles = false
+    @State private var isShowingText = false
 
     /// Cada cuánto se releen las ventanas mientras el terminal está a la vista (para
     /// ver qué corre en cada una: agentes, shell ocioso…).
@@ -69,6 +72,12 @@ struct TerminalScreen: View {
         }
         .background(Color(white: 0.07))
         .background { keyboardShortcuts }
+        .modifier(TerminalInputActions(
+            controller: controller,
+            isPickingPhotos: $isPickingPhotos,
+            isPickingFiles: $isPickingFiles,
+            isShowingText: $isShowingText
+        ))
         .confirmationDialog(
             "¿Cerrar la ventana \(closingWindow?.index ?? 0)?",
             isPresented: Binding(get: { closingWindow != nil }, set: { if !$0 { closingWindow = nil } }),
@@ -367,11 +376,17 @@ struct TerminalScreen: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button("Pegar", systemImage: "doc.on.clipboard") { controller?.pasteFromClipboard() }
+                .disabled(controller == nil)
+            Menu("Adjuntar", systemImage: "paperclip") {
+                Button("Fotos", systemImage: "photo.on.rectangle") { isPickingPhotos = true }
+                Button("Archivos", systemImage: "folder") { isPickingFiles = true }
+            }
+            .disabled(controller == nil)
             Menu("Opciones", systemImage: "ellipsis.circle") {
-                Button("Pegar", systemImage: "doc.on.clipboard") {
-                    if let text = UIPasteboard.general.string { controller?.paste(text) }
-                }
+                Button("Seleccionar texto", systemImage: "text.cursor") { isShowingText = true }
+                    .disabled(controller == nil)
                 Button("Reconectar", systemImage: "arrow.clockwise") { controller?.reconnect() }
                 Divider()
                 Button("Texto más grande", systemImage: "textformat.size.larger") {

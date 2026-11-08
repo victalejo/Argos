@@ -21,12 +21,15 @@ final class TouchTerminalController: TerminalViewDelegate {
 
     let terminalView: TerminalView
     private(set) var status: LiveTerminalStatus = .connecting
+    /// Aviso breve sobre el terminal («Copiado», «Subiendo…», un error).
+    private(set) var notice: TerminalNotice?
 
     private let service: any SSHServicing
     private let sessionName: String
 
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var revealTask: Task<Void, Never>?
+    @ObservationIgnored private var noticeTask: Task<Void, Never>?
     /// Se incrementa en cada `start()`/`stop()`. Una tarea de PTY solo puede tocar el
     /// estado si su generación sigue siendo la actual: así una conexión vieja que
     /// termina tarde (tras `reconnect()`) no marca como caída a la nueva.
@@ -138,6 +141,62 @@ final class TouchTerminalController: TerminalViewDelegate {
         }
     }
 
+    // MARK: - Portapapeles, imágenes y archivos
+
+    /// Pega lo que haya en el portapapeles: una imagen se sube al servidor y se escribe
+    /// su ruta (como al pegar en el Mac); el texto se pega tal cual.
+    func pasteFromClipboard() {
+        let pasteboard = UIPasteboard.general
+        if pasteboard.hasImages, let image = pasteboard.image, let png = image.pngData() {
+            upload(label: "imagen") { service in try await service.uploadPastedFile(data: png, fileExtension: "png") }
+        } else if let text = pasteboard.string {
+            paste(text)
+        } else {
+            show(.failed("El portapapeles está vacío."))
+        }
+    }
+
+    /// Sube un archivo o foto al servidor (ruta privada en /tmp) y escribe su ruta en el
+    /// prompt, para que la app remota (p. ej. Claude Code) la lea.
+    func attach(data: Data, fileName: String) {
+        guard data.count <= TerminalAttachment.maxBytes else {
+            show(.failed(TerminalAttachment.tooLargeMessage(fileName: fileName)))
+            return
+        }
+        upload(label: fileName) { service in try await service.uploadDroppedFile(data: data, originalName: fileName) }
+    }
+
+    /// Texto del panel activo con su historial, para seleccionarlo con iOS.
+    func capturedText() async throws -> String {
+        try await service.capturePaneText(session: sessionName)
+    }
+
+    private func upload(label: String, _ operation: @escaping @Sendable (any SSHServicing) async throws -> String) {
+        let service = self.service
+        notice = .uploading(label)
+        noticeTask?.cancel()
+        Task { @MainActor [weak self] in
+            do {
+                let remotePath = try await operation(service)
+                self?.send(Array((remotePath + " ").utf8))
+                self?.show(.uploaded(label))
+            } catch {
+                Log.terminal.error("No se pudo subir \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                self?.show(.failed("No se pudo subir «\(label)»: \(error.userMessage)"))
+            }
+        }
+    }
+
+    func show(_ newNotice: TerminalNotice) {
+        notice = newNotice
+        noticeTask?.cancel()
+        noticeTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: newNotice.duration)
+            guard !Task.isCancelled else { return }
+            self?.notice = nil
+        }
+    }
+
     private func scheduleReveal() {
         guard status == .connecting, revealTask == nil else { return }
         let current = generation
@@ -171,7 +230,10 @@ final class TouchTerminalController: TerminalViewDelegate {
 
     nonisolated func clipboardCopy(source: TerminalView, content: Data) {
         guard let text = String(data: content, encoding: .utf8) else { return }
-        MainActor.assumeIsolated { UIPasteboard.general.string = text }
+        MainActor.assumeIsolated {
+            UIPasteboard.general.string = text
+            show(.copied)
+        }
     }
 
     nonisolated func requestOpenLink(source: TerminalView, link: String, params: [String: String]) {
@@ -183,6 +245,40 @@ final class TouchTerminalController: TerminalViewDelegate {
     nonisolated func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
     nonisolated func scrolled(source: TerminalView, position: Double) {}
     nonisolated func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
+}
+
+/// Aviso breve que se muestra sobre el terminal.
+enum TerminalNotice: Equatable {
+    case copied
+    case uploading(String)
+    case uploaded(String)
+    case failed(String)
+
+    var text: String {
+        switch self {
+        case .copied: return "Copiado"
+        case .uploading(let name): return "Subiendo «\(name)»…"
+        case .uploaded(let name): return "«\(name)» subido: su ruta está en el prompt"
+        case .failed(let message): return message
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .copied: return "doc.on.doc.fill"
+        case .uploading: return "arrow.up.circle"
+        case .uploaded: return "checkmark.circle.fill"
+        case .failed: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    var duration: Duration {
+        switch self {
+        case .failed: return .seconds(5)
+        case .uploading: return .seconds(120)
+        default: return .seconds(2)
+        }
+    }
 }
 
 /// Tipografía y colores del terminal en iPhone/iPad.

@@ -41,6 +41,34 @@ extension SSHService {
         )
     }
 
+    // MARK: - Contenido del panel
+
+    /// Líneas de historial que se leen para «Seleccionar texto» en iPhone/iPad.
+    static let captureHistoryLines = 3000
+
+    /// `tmux capture-pane` del panel activo de la sesión (target exacto con `=`), con el
+    /// historial y las líneas partidas unidas (`-J`), en texto plano.
+    static func capturePaneCommand(session: String, lines: Int = captureHistoryLines) -> String {
+        "tmux capture-pane -p -J -S -\(max(0, lines)) -t " + ShellQuoting.singleQuoted("=\(session):")
+    }
+
+    /// Texto del panel activo (historial incluido), sin las líneas vacías del final.
+    func capturePaneText(session: String) async throws -> String {
+        let output = try await runChecked(
+            Self.capturePaneCommand(session: session),
+            failureMessage: "No se pudo leer el contenido del terminal."
+        )
+        return Self.trimmingTrailingBlankLines(output)
+    }
+
+    static func trimmingTrailingBlankLines(_ text: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        while let last = lines.last, last.trimmingCharacters(in: .whitespaces).isEmpty {
+            lines.removeLast()
+        }
+        return lines.joined(separator: "\n")
+    }
+
     // MARK: - Ventanas
 
     /// Lista las ventanas de una sesión. Devuelve `[]` si la sesión no existe o no hay

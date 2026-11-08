@@ -6,6 +6,18 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.21] - 2026-11-08
+
+### Añadido
+- **iPhone/iPad: seleccionar y copiar en el terminal.** Mantener pulsado y arrastrar selecciona
+  (tmux copia al soltar y llega al portapapeles, con aviso «Copiado»). «Seleccionar texto»
+  (menú «…») abre el panel con su historial para seleccionar con las asas de iOS, copiar todo
+  o compartir.
+- **Pegar a la vista**, en la barra del terminal: si el portapapeles tiene una imagen (p. ej. una
+  captura), se sube al servidor y se escribe su ruta, como al pegar en el Mac.
+- **Adjuntar fotos y archivos** (📎): se suben a una ruta privada del servidor y su ruta queda
+  en el prompt, para que Claude Code los lea.
+
 ## [1.7.20] - 2026-11-08
 
 ### Corregido

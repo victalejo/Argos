@@ -167,6 +167,7 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
 
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String { "" }
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String { "" }
+    func capturePaneText(session: String) async throws -> String { "" }
 
     // MARK: - Ciclo de vida / terminal
     func disconnect() async {}
