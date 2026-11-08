@@ -6,9 +6,16 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.16] - 2026-11-08
+
 ### Añadido
 - **Conceder `~/.ssh` desde el error de conexión** en la versión de Mac App Store: un botón
   abre el panel para dar acceso y reconecta al confirmar, sin pasar por Ajustes.
+
+### Corregido
+- **Seleccionar y copiar texto en el terminal del Mac**: arrastrar o hacer doble/triple clic
+  selecciona y ⌘C copia, aunque tmux tenga el ratón activado. El clic simple sigue llegando a
+  tmux y ⌥ Option + arrastrar usa la selección de tmux (más allá de lo visible).
 
 ## [1.7.15] - 2026-11-08
 
