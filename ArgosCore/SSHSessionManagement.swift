@@ -125,6 +125,15 @@ extension SSHService {
     func installedCodingAgents() async throws -> Set<CodingAgent> {
         let client = try await connectedClient()
         let result = try await capture(client, command: ShellQuoting.posixShell(CodingAgent.installedAgentsScript))
+        // Script cortado: la lista no es fiable. Se lanza para que la UI lo trate como
+        // «no se sabe» (agentes activos) en vez de «nada instalado».
+        guard CodingAgent.installedOutputIsComplete(result.stdout) else {
+            let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            throw SSHServiceError.commandFailed(
+                exitCode: result.exitCode,
+                message: detail.isEmpty ? "La detección de agentes no terminó." : String(detail.suffix(300))
+            )
+        }
         return CodingAgent.parseInstalled(result.stdout)
     }
 

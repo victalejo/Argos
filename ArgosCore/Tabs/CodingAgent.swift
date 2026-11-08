@@ -58,6 +58,10 @@ enum CodingAgent: String, CaseIterable, Identifiable, Sendable {
     /// confundir con el MOTD o el ruido del perfil del shell).
     static let installedMarker = "argos-agent:"
 
+    /// Última línea del script: sin ella, el script se cortó y la lista no es fiable
+    /// (mejor «no se sabe» que marcar todo como «no instalado»).
+    static let installedDoneMarker = "argos-agents-done"
+
     /// Directorios habituales donde un agente puede estar fuera del PATH de un shell
     /// de login (instalador nativo, npm global, bun, Homebrew…).
     static let fallbackDirectories = [
@@ -85,8 +89,15 @@ enum CodingAgent: String, CaseIterable, Identifiable, Sendable {
           fi
           [ -n "$hit" ] && echo "\(installedMarker)$b"
         done
+        echo "\(installedDoneMarker)"
         exit 0
         """
+    }
+
+    /// ¿El script llegó al final? Si no, su lista no es fiable.
+    static func installedOutputIsComplete(_ output: String) -> Bool {
+        output.split(whereSeparator: \.isNewline)
+            .contains { $0.trimmingCharacters(in: .whitespaces) == installedDoneMarker }
     }
 
     /// Interpreta la salida de `installedAgentsScript`: solo cuentan las líneas con la

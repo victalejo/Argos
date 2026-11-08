@@ -50,6 +50,13 @@ struct CodingAgentTests {
         #expect(CodingAgent.parseInstalled(output) == [.claude, .grok, .codex])
     }
 
+    @Test("Sin la marca de fin, la salida no es fiable")
+    func incompleteOutput() {
+        #expect(!CodingAgent.installedOutputIsComplete(""))
+        #expect(!CodingAgent.installedOutputIsComplete("zsh:1: no matches found: /x/*/bin"))
+        #expect(CodingAgent.installedOutputIsComplete("argos-agent:claude\nargos-agents-done\n"))
+    }
+
     @Test("Salida vacía => ninguno instalado")
     func parsesEmpty() {
         #expect(CodingAgent.parseInstalled("").isEmpty)
@@ -63,6 +70,7 @@ struct CodingAgentTests {
         }
         #expect(script.contains(CodingAgent.installedMarker))
         #expect(script.hasSuffix("exit 0"))
+        #expect(script.contains(CodingAgent.installedDoneMarker))
     }
 
     @Test("Cada agente tiene una tecla de menú distinta")

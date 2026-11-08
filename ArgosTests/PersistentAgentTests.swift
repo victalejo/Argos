@@ -464,5 +464,6 @@ struct ZshLoginShellTests {
         let result = try zsh(ShellQuoting.posixShell(CodingAgent.installedAgentsScript), home: home)
         #expect(result.status == 0)
         #expect(CodingAgent.parseInstalled(result.output).contains(.codex))
+        #expect(CodingAgent.installedOutputIsComplete(result.output))
     }
 }
