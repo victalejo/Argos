@@ -14,6 +14,7 @@ struct AgentChatView: View {
 
     @State private var draft = ""
     @State private var confirmDelete = false
+    @State private var confirmResume = false
     @Environment(\.dismiss) private var dismiss
     @FocusState private var composerFocused: Bool
 
@@ -49,6 +50,11 @@ struct AgentChatView: View {
             }
         } message: {
             Text("Se detiene el agente y se borra su registro del servidor.")
+        }
+        .confirmationDialog("¿Reanudar con todos los permisos?", isPresented: $confirmResume, titleVisibility: .visible) {
+            Button("Reanudar con todos los permisos", role: .destructive) { Task { await session.resume() } }
+        } message: {
+            Text("El servidor indica que este agente usa este modo: ejecutará cualquier acción sin preguntar. Si no lo elegiste tú, borra la conversación y crea otra.")
         }
     }
 
@@ -117,7 +123,13 @@ struct AgentChatView: View {
                 if session.isAlive {
                     Button("Detener agente", systemImage: "stop.circle") { Task { await session.stop() } }
                 } else {
-                    Button("Reanudar conversación", systemImage: "play.circle") { Task { await session.resume() } }
+                    Button("Reanudar conversación", systemImage: "play.circle") {
+                        if session.meta.resumeRequiresConfirmation {
+                            confirmResume = true
+                        } else {
+                            Task { await session.resume() }
+                        }
+                    }
                 }
                 Button("Recargar", systemImage: "arrow.clockwise") { session.attach() }
                 Divider()

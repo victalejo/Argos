@@ -127,6 +127,15 @@ struct PersistentAgentScriptTests {
         #expect(meta.resolvedPermissionMode == .default)
     }
 
+    @Test func soloReanudarConTodosLosPermisosPideConfirmacion() {
+        var meta = PersistentAgentMeta(workingDirectory: "/srv", title: "t", createdAt: Date())
+        #expect(!meta.resumeRequiresConfirmation)
+        for mode in ClaudeAgentCommand.PermissionMode.allCases {
+            meta.permissionMode = mode.rawValue
+            #expect(meta.resumeRequiresConfirmation == (mode == .bypassPermissions))
+        }
+    }
+
     /// Ejecuta de verdad el lanzador con `sh`: un «claude» simulado responde por cada
     /// línea de la FIFO. Comprueba el log, que sobrevive sin cliente y que se puede parar.
     @Test func elLanzadorFuncionaDeVerdadConSh() async throws {

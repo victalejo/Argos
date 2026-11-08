@@ -34,11 +34,19 @@ struct PersistentAgentMeta: Codable, Equatable, Sendable {
     var createdAt: Date
     /// Modo con el que se creó. Reanudar lo conserva para que nunca suban los permisos sin
     /// que nadie lo pida. Es texto para que un modo desconocido no invalide el `meta.json`.
+    /// El archivo vive en el servidor y puede editarlo el propio agente: no es de fiar para
+    /// dar permisos sin preguntar (ver `resumeRequiresConfirmation`).
     var permissionMode: String? = nil
 
     /// Los agentes sin modo guardado se crearon preguntando cada permiso.
     var resolvedPermissionMode: ClaudeAgentCommand.PermissionMode {
         permissionMode.flatMap(ClaudeAgentCommand.PermissionMode.init(rawValue:)) ?? .default
+    }
+
+    /// Reanudar sin preguntar permitiría a un agente limitado subirse los permisos
+    /// editando su `meta.json`, así que el usuario debe confirmar este modo.
+    var resumeRequiresConfirmation: Bool {
+        resolvedPermissionMode == .bypassPermissions
     }
 }
 
