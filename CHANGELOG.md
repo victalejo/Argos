@@ -6,7 +6,21 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.12] - 2026-11-07
+
 ### Añadido
+- **Pestañas del terminal renovadas (Mac, iPhone y iPad)**: `>_ 1`, `>_ 2` para las
+  ventanas normales y, si corre un agente, su icono y nombre (la mascota de Claude Code,
+  Codex o Grok).
+- **Menú «+»**: abre un terminal o lanza Claude Code, Codex o Grok en una ventana nueva,
+  en la carpeta del proyecto; los que no están instalados en el servidor salen atenuados.
+- **Atajos de pestañas** (Mac y iPad con teclado): ⌘T nueva ventana (o conversación en
+  Agente), ⌘W cerrar, ⌘1…⌘9 ir a una pestaña, ⌘⇧[ / ⌘⇧] anterior/siguiente y ⌘⌥1…3
+  lanzar un agente. En el Mac viven en el nuevo menú «Pestañas».
+- **Cerrar con cuidado**: una ventana con solo el shell se cierra directamente; si corre
+  algo, se pide confirmación; la última ventana nunca se cierra (cerraría la sesión).
+- **Tarjeta del terminal**: cabecera con lo que corre y la carpeta; barra inferior con
+  servidor · rama git · agentes activos (Mac e iPad).
 - **Dispositivos autorizados**: en el Mac, menú del servidor → «Dispositivos autorizados…»
   lista los iPhone/iPad con acceso por «Enviar al iPhone» (fecha y huella de su clave) y
   permite revocar cada uno, p. ej. si pierdes el teléfono. Las claves nuevas llevan la
