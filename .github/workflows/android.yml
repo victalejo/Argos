@@ -30,10 +30,17 @@ jobs:
       # El runner ya trae el SDK (ANDROID_HOME). setup-android@v3 falla pidiendo el paquete
       # obsoleto 'tools', así que usamos su sdkmanager directamente. Compose exige compileSdk 37.
       - name: Instalar plataforma Android 37
+        timeout-minutes: 10
         run: |
           SDKMANAGER=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
           yes | "$SDKMANAGER" --licenses > /dev/null || true
-          "$SDKMANAGER" "platforms;android-37.0" "build-tools;37.0.0"
+          # Un sdkmanager colgado por la red bloqueó la CI 40 min: intentos acotados.
+          for intento in 1 2 3; do
+            timeout 180 "$SDKMANAGER" "platforms;android-37.0" "build-tools;37.0.0" && exit 0
+            echo "::warning::sdkmanager falló o se colgó (intento $intento); reintentando"
+            sleep 10
+          done
+          exit 1
 
       - uses: gradle/actions/setup-gradle@v5
 
