@@ -250,6 +250,6 @@ git tag android-v1.0.0 && git push origin android-v1.0.0
 | 5 | Agentes persistentes (stream-json, permisos, login guiado) | ✅ (probado en teléfono real con claude simulado) |
 | 6 | Segundo plano y avisos («terminó / espera tu permiso») | ✅ (probado en teléfono real) |
 | 7 | QR desde el Mac (`ServerTransfer`): escáner, enlace pegado, deep link | ✅ (probado en teléfono real; cámara real sin probar con el Mac) |
-| 8 | Publicación en Google Play (cuenta de organización **Impulse Vibes**): firma, versión, licencias y «Acerca de», ficha (GPP), documentos de Play Console y CI de publicación | ✅ prueba interna publicada en Play (IA Portafolio); producción pendiente de specialUse |
+| 8 | Publicación en Google Play (cuenta de organización **Impulse Vibes**): firma, versión, licencias y «Acerca de», ficha (GPP), documentos de Play Console y CI de publicación | ✅ prueba interna publicada en Play (IA Portafolio); producción 1.0.0 enviada a revisión de Google (2026-11-08) |
 
 MVP = fases 0–3.

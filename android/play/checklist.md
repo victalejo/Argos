@@ -110,6 +110,8 @@ ls app/build/outputs/bundle/release/app-release.aab
 
 ## 8. Producción
 
-- [ ] Con la declaración del servicio en primer plano aprobada y la prueba interna validada: Prueba
-      interna → «Promocionar versión» → Producción (o `--track production` en GPP), países, y
-      enviar a revisión. Usa lanzamiento progresivo si quieres.
+- [x] Declaración `specialUse` con vídeo (YouTube no listado: https://www.youtube.com/watch?v=ZO3J8NsnmQs).
+- [x] Categoría Herramientas, contacto y ficha predeterminada guardados.
+- [x] Producción: versión 1 (1.0.0), lanzamiento completo, 177 países + resto del mundo, enviada a
+      revisión el 2026-11-08 (12 cambios). Pendiente: aprobación de Google (≈7 días; specialUse es
+      revisión manual).
