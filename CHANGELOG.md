@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.13] - 2026-11-07
+
 ### Corregido
 - **Sin tráfico SSH con el Mac dormido**: mientras el Mac está en reposo, Argos pausa el
   keep-alive, el sondeo de ventanas y la reconexión automática del terminal. Al despertar
