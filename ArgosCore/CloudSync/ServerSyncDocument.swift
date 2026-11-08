@@ -68,11 +68,33 @@ struct ServerSyncDocument: Codable, Equatable, Sendable {
 
 enum ServerSync {
 
-    /// Copia del servidor apta para iCloud: sin datos propios del dispositivo.
-    static func portable(_ server: Server) -> Server {
+    /// Copia del servidor apta para iCloud: sin datos propios del dispositivo. La ruta
+    /// de una clave importada en iPhone/iPad apunta al contenedor de ESE dispositivo y no
+    /// sirve en otro: se publica la última ruta sincronizada (la del Mac) o ninguna.
+    static func portable(_ server: Server, previous: Server? = nil) -> Server {
         var copy = server
         copy.privateKeyBookmark = nil
+        if isDeviceLocalKey(server.privateKeyPath, for: server.id) {
+            let previousPath = previous?.privateKeyPath ?? ""
+            copy.privateKeyPath = isDeviceLocalKey(previousPath, for: server.id) ? "" : previousPath
+        }
         return copy
+    }
+
+    /// ¿La ruta es una clave importada en el contenedor de un iPhone/iPad?
+    static func isDeviceLocalKey(_ path: String, for serverID: UUID) -> Bool {
+        !path.isEmpty && ImportedKeyStore.isImported(path: path, for: serverID)
+    }
+
+    /// Ruta de clave que se queda en este dispositivo al aplicar lo sincronizado: una clave
+    /// importada aquí nunca se pisa, y una ruta vacía o de otro iPhone no pisa la local.
+    static func keyPath(synced: Server, existing: Server) -> String {
+        guard synced.authMethod == .key else { return synced.privateKeyPath }
+        if isDeviceLocalKey(existing.privateKeyPath, for: existing.id) { return existing.privateKeyPath }
+        if synced.privateKeyPath.isEmpty || isDeviceLocalKey(synced.privateKeyPath, for: synced.id) {
+            return existing.privateKeyPath.isEmpty ? synced.privateKeyPath : existing.privateKeyPath
+        }
+        return synced.privateKeyPath
     }
 
     /// Documento que describe el estado LOCAL, conservando la fecha de los servidores que
@@ -86,8 +108,8 @@ enum ServerSync {
     ) -> ServerSyncDocument {
         var document = ServerSyncDocument(deleted: previous.deleted, forgottenHosts: previous.forgottenHosts)
         for server in servers {
-            let portable = portable(server)
             let key = server.id.uuidString
+            let portable = portable(server, previous: previous.servers[key]?.server)
             if let old = previous.servers[key], old.server == portable {
                 document.servers[key] = old
             } else {
@@ -170,6 +192,7 @@ enum ServerSync {
         let byID = Dictionary(uniqueKeysWithValues: document.servers.map { ($0.key, $0.value.server) })
         var result: [Server] = local.compactMap { existing in
             guard var synced = byID[existing.id.uuidString] else { return nil }
+            synced.privateKeyPath = keyPath(synced: synced, existing: existing)
             synced.privateKeyBookmark = existing.privateKeyBookmark
             if synced.privateKeyPath == existing.privateKeyPath {
                 return synced

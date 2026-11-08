@@ -78,8 +78,12 @@ actor SSHService {
         var errorDescription: String? {
             switch self {
             case .keyUnreadable(let path, _):
+                #if os(iOS)
+                return "No se pudo leer la clave privada de este servidor. " + ImportedKeyStore.missingKeyHint
+                #else
                 let hint = SSHDirectoryAccess.unreadableKeyHint(path: path, hasGrant: SSHDirectoryAccess.hasGrant())
                 return ["No se pudo leer la clave privada en \(path).", hint].compactMap { $0 }.joined(separator: " ")
+                #endif
             case .keyParseFailed:
                 return "No se pudo cargar la clave Ed25519. Verifica que esté en formato OpenSSH "
                      + "y, si tiene passphrase, que se haya inyectado correctamente."

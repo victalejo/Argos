@@ -82,4 +82,21 @@ struct ImportedKeyStoreTests {
         }
         #expect(!FileManager.default.fileExists(atPath: directory.path))
     }
+
+    @Test func pideImportarSiLaClaveVieneDelMacONoExiste() throws {
+        let directory = tempDirectory()
+        defer { try? FileManager.default.removeItem(at: directory.deletingLastPathComponent()) }
+        let id = UUID()
+        let delMac = Server(id: id, name: "dev", host: "h", username: "u", authMethod: .key, privateKeyPath: "~/.ssh/dev")
+        #expect(ImportedKeyStore.needsImport(delMac, in: directory))
+
+        var importada = delMac
+        importada.privateKeyPath = ImportedKeyStore.keyURL(for: id, in: directory).path
+        #expect(ImportedKeyStore.needsImport(importada, in: directory)) // ruta correcta, archivo ausente
+        try ImportedKeyStore.store(Data(sampleKey.utf8), for: id, in: directory)
+        #expect(!ImportedKeyStore.needsImport(importada, in: directory))
+
+        let conContrasena = Server(id: id, name: "dev", host: "h", username: "u", authMethod: .password, privateKeyPath: "")
+        #expect(!ImportedKeyStore.needsImport(conContrasena, in: directory))
+    }
 }

@@ -139,6 +139,55 @@ struct ServerSyncDocumentTests {
     }
 }
 
+@Suite("iCloud: claves importadas en iPhone/iPad")
+struct ImportedKeySyncTests {
+    private func importedPath(_ id: UUID) -> String {
+        "/var/mobile/Containers/Data/Application/X/Library/Application Support/Argos/keys/\(id.uuidString)"
+    }
+
+    @Test func laRutaDeUnaClaveImportadaNoViajaYSeConservaLaDelMac() {
+        let id = UUID()
+        var iphone = server("dev", id: id)
+        iphone.privateKeyPath = importedPath(id)
+        let delMac = server("dev", id: id) // ~/.ssh/id_ed25519
+        #expect(ServerSync.portable(iphone, previous: delMac).privateKeyPath == "~/.ssh/id_ed25519")
+        #expect(ServerSync.portable(iphone).privateKeyPath == "")
+    }
+
+    @Test func importarLaClaveEnElIPhoneNoCambiaElDocumento() {
+        let id = UUID()
+        let delMac = server("dev", id: id)
+        let previous = ServerSync.localDocument(servers: [delMac], knownHosts: [:], previous: .empty, now: t0)
+        var iphone = delMac
+        iphone.privateKeyPath = importedPath(id)
+        let after = ServerSync.localDocument(servers: [iphone], knownHosts: [:], previous: previous, now: t0 + 60)
+        #expect(after.servers[id.uuidString] == previous.servers[id.uuidString])
+    }
+
+    @Test func aplicarNoPisaLaClaveImportadaLocal() {
+        let id = UUID()
+        var iphone = server("dev", id: id)
+        iphone.privateKeyPath = importedPath(id)
+        var doc = ServerSyncDocument()
+        doc.servers[id.uuidString] = SyncedServer(server: server("dev renombrado", id: id), modifiedAt: t0)
+        let result = ServerSync.applying(doc, to: [iphone]).first
+        #expect(result?.name == "dev renombrado")
+        #expect(result?.privateKeyPath == importedPath(id))
+    }
+
+    @Test func unaRutaDeOtroIPhoneOVaciaNoPisaLaDelMac() {
+        let id = UUID()
+        let mac = server("dev", id: id)
+        for remote in [importedPath(id), ""] {
+            var synced = mac
+            synced.privateKeyPath = remote
+            var doc = ServerSyncDocument()
+            doc.servers[id.uuidString] = SyncedServer(server: synced, modifiedAt: t0)
+            #expect(ServerSync.applying(doc, to: [mac]).first?.privateKeyPath == "~/.ssh/id_ed25519")
+        }
+    }
+}
+
 /// iCloud en memoria compartido por varios «dispositivos».
 private final class MemoryCloud: CloudKeyValueStore {
     var values: [String: Data] = [:]

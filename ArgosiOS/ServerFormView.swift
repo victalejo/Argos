@@ -52,7 +52,16 @@ struct ServerFormView: View {
         return false
     }
 
-    private var hasKey: Bool { pendingKey != nil || !keyPath.isEmpty }
+    /// Solo cuenta una clave importada en ESTE dispositivo: la ruta `~/.ssh/…` de un
+    /// servidor llegado del Mac por iCloud no sirve en iOS.
+    private var hasKey: Bool {
+        pendingKey != nil || (!keyPath.isEmpty && ImportedKeyStore.isImported(path: keyPath, for: serverID))
+    }
+
+    /// Servidor sincronizado desde el Mac cuya clave aún no se importó aquí.
+    private var keyFromOtherDevice: Bool {
+        authMethod == .key && pendingKey == nil && !keyPath.isEmpty && !hasKey
+    }
 
     /// Servidor tal como está guardado (para saber si cambió el método de acceso).
     private var original: Server? {
@@ -120,6 +129,8 @@ struct ServerFormView: View {
                 } footer: {
                     Text(authMethod == .password
                          ? "La contraseña se guarda en el Llavero de este dispositivo."
+                         : keyFromOtherDevice
+                         ? "Este servidor llegó de tu Mac por iCloud con la clave «\(keyPath)», pero las claves no viajan. Importa aquí una copia (Archivos, iCloud Drive o AirDrop)."
                          : "Elige tu clave Ed25519 en formato OpenSSH (Archivos, iCloud Drive o AirDrop). Argos guarda una copia privada; la passphrase va al Llavero.")
                 }
 

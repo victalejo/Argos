@@ -83,6 +83,19 @@ enum ImportedKeyStore {
         isImported(path: path, for: serverID) ? keyURL(for: serverID, in: directory).path : path
     }
 
+    /// ¿Este servidor usa una clave que no está importada en este dispositivo? Pasa con
+    /// los que llegan del Mac por iCloud (`~/.ssh/…`): las claves nunca viajan.
+    static func needsImport(_ server: Server, in directory: URL = defaultDirectory()) -> Bool {
+        guard server.authMethod == .key else { return false }
+        let url = keyURL(for: server.id, in: directory)
+        return !(isImported(path: server.privateKeyPath, for: server.id)
+            && FileManager.default.fileExists(atPath: url.path))
+    }
+
+    /// Pista para «no se pudo leer la clave» en iPhone/iPad.
+    static let missingKeyHint = "Las claves SSH no viajan por iCloud: importa en este dispositivo "
+        + "una copia de la clave de este servidor (Editar servidor → Importar clave privada)."
+
     static func keyURL(for serverID: UUID, in directory: URL) -> URL {
         directory.appendingPathComponent(serverID.uuidString, isDirectory: false)
     }

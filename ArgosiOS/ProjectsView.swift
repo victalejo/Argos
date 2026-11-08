@@ -24,6 +24,7 @@ struct ProjectsView: View {
     @State private var promptText = ""
     @State private var pendingKill: TmuxSession?
     @State private var errorMessage: String?
+    @State private var editingServer: ServerFormView.Mode?
 
     private enum SessionPrompt: Identifiable {
         case create
@@ -36,13 +37,15 @@ struct ProjectsView: View {
         }
     }
 
-    private var viewModel: SessionsViewModel { hub.viewModel(for: server) }
+    private var viewModel: SessionsViewModel { hub.viewModel(for: currentServer) }
+    /// El servidor tal como está guardado ahora (puede haberse editado tras abrir la vista).
+    private var currentServer: Server { hub.store.server(withID: server.id) ?? server }
 
     var body: some View {
         content
             .navigationTitle(server.name)
             .navigationDestination(item: $pushed) { target in
-                ProjectScreen(server: server, target: target)
+                ProjectScreen(server: currentServer, target: target)
             }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -81,6 +84,12 @@ struct ProjectsView: View {
             } message: {
                 Text("Se terminan los procesos que corren en ella (kill-session).")
             }
+            .sheet(item: $editingServer, onDismiss: {
+                // Guardar reinicia la conexión: reintentar con la clave recién importada.
+                Task { await hub.viewModel(for: currentServer).load() }
+            }) { mode in
+                ServerFormView(mode: mode)
+            }
             .alert("Algo salió mal", isPresented: errorBinding) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -115,7 +124,7 @@ struct ProjectsView: View {
             } actions: {
                 Button("Confiar en la nueva huella", role: .destructive) {
                     hub.forgetHostKey(of: server)
-                    Task { await hub.viewModel(for: server).load() }
+                    Task { await hub.viewModel(for: currentServer).load() }
                 }
             }
         case .failed(let message):
@@ -124,6 +133,10 @@ struct ProjectsView: View {
             } description: {
                 Text(message)
             } actions: {
+                if ImportedKeyStore.needsImport(currentServer) {
+                    Button("Importar clave", systemImage: "key") { editingServer = .edit(currentServer) }
+                        .buttonStyle(.borderedProminent)
+                }
                 Button("Reintentar") { Task { await viewModel.load() } }
             }
         case .loaded:
