@@ -1,0 +1,1 @@
+env -u ANTHROPIC_API_KEY '/usr/bin/claude' -p --input-format stream-json --output-format stream-json --verbose --permission-prompt-tool stdio --replay-user-messages --permission-mode plan --resume 6a55640d-ac70-41ab-8426-6eb72d4fb5eb

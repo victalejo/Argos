@@ -1,0 +1,5 @@
+{
+  "createdAt" : "2027-01-15T08:00:00Z",
+  "title" : "tienda \"ñ\" a/b",
+  "workingDirectory" : "~/proyectos/tienda"
+}

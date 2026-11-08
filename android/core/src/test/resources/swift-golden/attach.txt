@@ -1,0 +1,1 @@
+tail -c +1 -F "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/out.ndjson 2>/dev/null & T=$!; trap 'kill $T 2>/dev/null' EXIT HUP TERM; cat > /dev/null; kill $T 2>/dev/null

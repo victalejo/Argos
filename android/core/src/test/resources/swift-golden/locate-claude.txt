@@ -1,0 +1,8 @@
+for s in "$SHELL" bash zsh sh; do
+  p=$("$s" -lc 'command -v claude' 2>/dev/null | tail -n1)
+  case "$p" in /*) echo "$p"; exit 0;; esac
+done
+for c in "$HOME/.local/bin/claude" "$HOME/.claude/local/claude"          "$HOME/.claude/bin/claude" "$HOME/bin/claude"          "/usr/local/bin/claude" "/opt/homebrew/bin/claude" "/usr/bin/claude"; do
+  [ -x "$c" ] && { echo "$c"; exit 0; }
+done
+exit 1

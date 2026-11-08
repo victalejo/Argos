@@ -1,0 +1,1 @@
+{"response":{"request_id":"req-9","response":{"behavior":"allow","updatedInput":{"a":1.5,"arr":[1,2,"x\/y",[],{}],"b":true,"big":1e+20,"e":1e-07,"f":false,"n":null,"neg":-0.5,"obj":{"B":1,"_":3,"a":2,"a10":1,"a9":2,"Á":4},"pi":3.14159,"third":0.3333333333333333,"z":1}},"subtype":"success"},"type":"control_response"}

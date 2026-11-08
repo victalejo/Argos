@@ -1,0 +1,1 @@
+cd "$HOME"/'mi repo' 2>/dev/null && pwd && ls -1Ap 2>/dev/null | grep '/$'

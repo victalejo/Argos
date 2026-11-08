@@ -10,6 +10,7 @@ kotlin {
 dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.bouncycastle.bcprov)
 
     testImplementation(kotlin("test"))
     testImplementation(platform(libs.junit.bom))

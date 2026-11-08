@@ -1,0 +1,1 @@
+{ if { p=$(cat "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/pid 2>/dev/null); [ -n "$p" ] && ps -o args= -p "$p" 2>/dev/null | grep -q -- '6a55640d-ac70-41ab-8426-6eb72d4fb5eb'; }; then kill "$p"; fi; rm -f "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/pid; true; }; rm -rf "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"

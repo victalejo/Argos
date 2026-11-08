@@ -22,8 +22,18 @@ La CI (`.github/workflows/android.yml`) corre lo mismo cuando cambia `android/**
 
 | Módulo | Qué es | Regla |
 |---|---|---|
-| `core` | Kotlin/JVM puro: modelo, validadores, `ShellQuoting`, protocolo del agente | **Sin dependencias de Android** (como `ArgosCore/` sin AppKit) |
+| `core` | Kotlin/JVM puro, port de `ArgosCore` | **Sin dependencias de Android** (como `ArgosCore/` sin AppKit) |
 | `app` | Compose, navegación, servicios, notificaciones | — |
+
+Paquetes de `core`: raíz (`Server`, `SSHServicing`, `ShellQuoting`, `FuzzyMatcher`…),
+`tmux` (sesiones, ventanas, comandos y parsers), `projects` (`projects.json` del servidor),
+`agent` (stream-json, reducer, lanzador persistente), `status` (actividad de claude y
+hooks), `files`, `monitor` y `keys` (Ed25519/OpenSSH con BouncyCastle, QR `ServerTransfer`).
+
+**Paridad byte a byte:** comandos, scripts y JSON se fijan contra salidas generadas por el
+código Swift real (`core/src/test/resources/swift-golden/`, golden de `projects.json`,
+vectores de claves/QR del Mac). Si cambias un script o formato en Swift, regenera el golden
+y ajusta Kotlin: Mac, iPhone y Android comparten servidor.
 
 Se añadirán `ssh` (sshj), `data` (DataStore + Keystore) y módulos `feature-*` según avancen
 las fases.
@@ -45,7 +55,7 @@ las fases.
 | Fase | Alcance | Estado |
 |---|---|---|
 | 0 | Esqueleto Gradle, `core` + `app`, CI, icono | ✅ |
-| 1 | Núcleo puro: portar la lógica de `ArgosCore` con sus tests | ⏳ (`ShellQuoting` hecho) |
+| 1 | Núcleo puro: portar la lógica de `ArgosCore` con sus tests | ✅ (424 tests) |
 | 2 | SSH + servidores: sshj, TOFU, contraseña/clave importada, CRUD de sesiones tmux | |
 | 3 | Terminal en vivo: PTY + `tmux attach`, fila de teclas, reattach | |
 | 4 | Proyectos + navegador de archivos SFTP | |

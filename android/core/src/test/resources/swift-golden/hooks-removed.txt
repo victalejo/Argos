@@ -1,0 +1,36 @@
+{
+  "arr" : [
+
+  ],
+  "env" : {
+
+  },
+  "hooks" : {
+    "Stop" : [
+      {
+        "hooks" : [
+          {
+            "command" : "mine",
+            "type" : "command"
+          }
+        ],
+        "matcher" : ""
+      }
+    ],
+    "UserPromptSubmit" : [
+      {
+        "hooks" : [
+          {
+            "command" : "python3 transcribe.py",
+            "type" : "command"
+          }
+        ]
+      }
+    ]
+  },
+  "model" : "opus",
+  "t" : true,
+  "u" : "a/b\u0001 ",
+  "x" : 0.10000000000000001,
+  "y" : 1
+}

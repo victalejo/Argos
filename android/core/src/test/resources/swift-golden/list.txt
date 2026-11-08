@@ -1,0 +1,1 @@
+for d in "$HOME/.config/argos/agents"/*/; do [ -f "$d/meta.json" ] || continue; id=$(basename "$d"); p=$(cat "$d/pid" 2>/dev/null); alive=0; [ -n "$p" ] && ps -o args= -p "$p" 2>/dev/null | grep -q -- "$id" && alive=1; size=$(wc -c < "$d/out.ndjson" 2>/dev/null | tr -d ' '); printf '%s|%s|%s|' "$id" "$alive" "${size:-0}"; base64 < "$d/meta.json" | tr -d '\n'; echo; done

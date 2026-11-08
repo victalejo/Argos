@@ -1,0 +1,1 @@
+cd "$HOME"/'mi proyecto' && echo "{\"type\":\"argos_pid\",\"pid\":$$}" && exec env -u ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN='x'\''; echo hi' '/usr/bin/claude' -p --input-format stream-json --output-format stream-json --verbose --permission-prompt-tool stdio --permission-mode bypassPermissions --session-id 11111111-1111-1111-1111-111111111111

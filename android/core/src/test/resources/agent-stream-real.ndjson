@@ -1,0 +1,33 @@
+{"type": "system", "subtype": "hook_started", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_started", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_started", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_started", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_started", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_started", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_response", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_response", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_response", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_response", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_response", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "hook_progress", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "system", "subtype": "init", "session_id": "00000000-0000-4000-8000-000000000000", "model": "claude-haiku-5-5", "cwd": "/home/usuario/proyecto", "permissionMode": "default"}
+{"type": "system", "subtype": "commands_changed"}
+{"type": "system", "subtype": "hook_response", "hook_event": "SessionStart", "hook_name": "SessionStart:startup"}
+{"type": "assistant", "message": {"id": "msg_011CgYzY69XDCxUNeDgREBHU", "role": "assistant", "content": [{"type": "text", "text": "hola"}], "model": "claude-haiku-5-5"}, "session_id": "00000000-0000-4000-8000-000000000000", "parent_tool_use_id": null}
+{"type": "rate_limit_event"}
+{"type": "result", "subtype": "success", "is_error": false, "result": "hola", "total_cost_usd": 0.007602, "duration_ms": 3591, "num_turns": 1, "session_id": "00000000-0000-4000-8000-000000000000"}
+{"type": "system", "subtype": "init", "session_id": "00000000-0000-4000-8000-000000000000", "model": "claude-haiku-5-5", "cwd": "/home/usuario/proyecto", "permissionMode": "default"}
+{"type": "system", "subtype": "thinking_tokens"}
+{"type": "system", "subtype": "thinking_tokens"}
+{"type": "assistant", "message": {"id": "msg_011CgYzYJxCoyxGJxCUWvUM7", "role": "assistant", "content": [{"type": "thinking", "thinking": "(pensamiento omitido)"}], "model": "claude-haiku-5-5"}, "session_id": "00000000-0000-4000-8000-000000000000", "parent_tool_use_id": null}
+{"type": "assistant", "message": {"id": "msg_011CgYzYJxCoyxGJxCUWvUM7", "role": "assistant", "content": [{"type": "tool_use", "id": "toolu_01S4MqwmmTDUUKCNNYfxpGYS", "name": "Write", "input": {"file_path": "/home/usuario/proyecto/prueba.txt", "content": "ok"}, "caller": {"type": "direct"}}], "model": "claude-haiku-5-5"}, "session_id": "00000000-0000-4000-8000-000000000000", "parent_tool_use_id": null}
+{"type": "control_request", "request_id": "00000000-0000-4000-8000-000000000000", "request": {"subtype": "can_use_tool", "tool_name": "Write", "input": {"file_path": "/home/usuario/proyecto/prueba.txt", "content": "ok"}, "tool_use_id": "toolu_01S4MqwmmTDUUKCNNYfxpGYS", "display_name": "Write"}}
+{"type": "user", "message": {"role": "user", "content": [{"tool_use_id": "toolu_01S4MqwmmTDUUKCNNYfxpGYS", "type": "tool_result", "content": "File created successfully at: /home/usuario/proyecto/prueba.txt (file state is current in your context — no need to Read it back)"}]}, "session_id": "00000000-0000-4000-8000-000000000000", "parent_tool_use_id": null}
+{"type": "assistant", "message": {"id": "msg_011CgYzYYL82qNibmemTKJSK", "role": "assistant", "content": [{"type": "text", "text": "Creé `/home/usuario/proyecto/prueba.txt` con el contenido `ok`."}], "model": "claude-haiku-5-5"}, "session_id": "00000000-0000-4000-8000-000000000000", "parent_tool_use_id": null}
+{"type": "result", "subtype": "success", "is_error": false, "result": "Creé `/home/usuario/proyecto/prueba.txt` con el contenido `ok`.", "total_cost_usd": 0.01808454, "duration_ms": 4964, "num_turns": 2, "session_id": "00000000-0000-4000-8000-000000000000"}
+{"type": "system", "subtype": "init", "session_id": "00000000-0000-4000-8000-000000000000", "model": "claude-haiku-5-5", "cwd": "/home/usuario/proyecto", "permissionMode": "default"}
+{"type": "assistant", "message": {"id": "msg_011CgYzYfcvqUC5HTKUCruyn", "role": "assistant", "content": [{"type": "tool_use", "id": "toolu_014veYoKQjvgq7ZBZSB1Bp3H", "name": "Bash", "input": {"command": "rm prueba.txt", "description": "Delete prueba.txt file"}, "caller": {"type": "direct"}}], "model": "claude-haiku-5-5"}, "session_id": "00000000-0000-4000-8000-000000000000", "parent_tool_use_id": null}
+{"type": "control_request", "request_id": "00000000-0000-4000-8000-000000000000", "request": {"subtype": "can_use_tool", "tool_name": "Bash", "input": {"command": "rm prueba.txt", "description": "Delete prueba.txt file"}, "tool_use_id": "toolu_014veYoKQjvgq7ZBZSB1Bp3H", "display_name": "Bash"}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "content": "El usuario denegó el permiso.", "is_error": true, "tool_use_id": "toolu_014veYoKQjvgq7ZBZSB1Bp3H"}]}, "session_id": "00000000-0000-4000-8000-000000000000", "parent_tool_use_id": null}
+{"type": "assistant", "message": {"id": "msg_011CgYzYqDNnXD4T6V2Qxa2L", "role": "assistant", "content": [{"type": "text", "text": "El usuario denegó el permiso para ejecutar `rm prueba.txt`, así que no lo volví a intentar. El archivo `prueba.txt` sigue en `/home/usuario/proyecto/`."}], "model": "claude-haiku-5-5"}, "session_id": "00000000-0000-4000-8000-000000000000", "parent_tool_use_id": null}
+{"type": "result", "subtype": "success", "is_error": false, "result": "El usuario denegó el permiso para ejecutar `rm prueba.txt`, así que no lo volví a intentar. El archivo `prueba.txt` sigue en `/home/usuario/proyecto/`.", "total_cost_usd": 0.01959675, "duration_ms": 4132, "num_turns": 2, "session_id": "00000000-0000-4000-8000-000000000000"}

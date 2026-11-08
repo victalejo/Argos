@@ -1,0 +1,1 @@
+'/home/u/.local/bin/claude' auth status --json

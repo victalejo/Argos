@@ -1,0 +1,1 @@
+{"message":{"content":"hola mundo","role":"user"},"type":"user"}

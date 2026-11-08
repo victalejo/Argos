@@ -1,0 +1,1 @@
+ps -o args= -p 4242 | grep -q -- '--input-format stream-json' && { kill -TERM 4242; sleep 2; kill -KILL 4242 2>/dev/null; } ; true

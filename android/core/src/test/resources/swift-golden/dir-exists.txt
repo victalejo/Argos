@@ -1,0 +1,1 @@
+[ -d "$HOME"/'mi repo' ] && echo ARGOS_DIR_OK
