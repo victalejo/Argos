@@ -450,4 +450,19 @@
     <string name="import_error_expired">El código caducó (dura 5 minutos). En el Mac, pulsa «Mostrar de nuevo».</string>
     <string name="import_error_invalid">El código contiene datos de servidor no válidos. Genera otro en el Mac.</string>
     <string name="import_error_link_while_confirming">Llegó otro enlace mientras confirmabas este servidor. Cierra esta confirmación con «Escanear otro código» para abrirlo.</string>
+
+    <!-- Acerca de y licencias -->
+    <string name="about_title">Acerca de</string>
+    <string name="about_version">Versión %1$s</string>
+    <string name="about_summary">Gestor de sesiones tmux en tus servidores por SSH, con terminal en vivo, archivos y agentes de Claude Code. Sin cuentas, sin analítica y sin servidores intermedios.</string>
+    <string name="about_privacy">Política de privacidad</string>
+    <string name="about_privacy_detail">Argos no recoge datos personales</string>
+    <string name="about_source">Código fuente</string>
+    <string name="about_source_detail">Software libre (Apache 2.0) en GitHub</string>
+    <string name="about_licenses_detail">Bibliotecas de terceros y sus licencias</string>
+    <string name="licenses_title">Licencias de código abierto</string>
+    <string name="licenses_source">Código</string>
+    <string name="licenses_website">Web</string>
+    <string name="licenses_view">Ver licencia</string>
+    <string name="licenses_close">Cerrar</string>
 </resources>

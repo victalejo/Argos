@@ -30,6 +30,8 @@ import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.background.AgentChatTarget
 import com.iaportafolio.argos.core.projects.Project
+import com.iaportafolio.argos.ui.about.AboutScreen
+import com.iaportafolio.argos.ui.about.LicensesScreen
 import com.iaportafolio.argos.ui.agents.AgentChatScreen
 import com.iaportafolio.argos.ui.agents.AgentListEvent
 import com.iaportafolio.argos.ui.agents.AgentListScreen
@@ -80,6 +82,12 @@ data class AgentLoginRoute(val serverId: String)
 @Serializable
 data object ImportServerRoute
 
+@Serializable
+data object AboutRoute
+
+@Serializable
+data object LicensesRoute
+
 /** Clave del `savedStateHandle` de [ServersRoute] con el id del servidor recién importado. */
 private const val IMPORTED_SERVER_KEY = "importedServerId"
 
@@ -114,6 +122,8 @@ fun ArgosNavHost(
                 onImportedServerShown = { entry.savedStateHandle[IMPORTED_SERVER_KEY] = null },
                 onAdd = { navController.navigate(ServerFormRoute()) },
                 onImport = { navController.navigate(ImportServerRoute) },
+                onOpenAbout = { navController.navigate(AboutRoute) },
+                onOpenLicenses = { navController.navigate(LicensesRoute) },
                 onEdit = { id -> navController.navigate(ServerFormRoute(id)) },
                 onOpenProjects = { id -> navController.navigate(ProjectsRoute(id)) },
                 onOpenProject = openProject,
@@ -144,6 +154,12 @@ fun ArgosNavHost(
                 }
             }
             ImportServerScreen(state = state, actions = viewModel, onClose = { navController.popBackStack() })
+        }
+        composable<AboutRoute> {
+            AboutScreen(onBack = { navController.popBackStack() }, onOpenLicenses = { navController.navigate(LicensesRoute) })
+        }
+        composable<LicensesRoute> {
+            LicensesScreen(onBack = { navController.popBackStack() })
         }
         composable<ProjectsRoute> { entry ->
             val route = entry.toRoute<ProjectsRoute>()
@@ -225,6 +241,8 @@ private fun ServersDestination(
     onImportedServerShown: () -> Unit,
     onAdd: () -> Unit,
     onImport: () -> Unit,
+    onOpenAbout: () -> Unit,
+    onOpenLicenses: () -> Unit,
     onEdit: (String) -> Unit,
     onOpenProjects: (String) -> Unit,
     onOpenProject: (serverId: String, projectId: String) -> Unit,
@@ -251,6 +269,8 @@ private fun ServersDestination(
                 selectedServerId = if (twoPane) selected else null,
                 onAdd = onAdd,
                 onImport = onImport,
+                onOpenAbout = onOpenAbout,
+                onOpenLicenses = onOpenLicenses,
                 onOpen = { server -> if (twoPane) selectedId = server.id else onOpenProjects(server.id) },
                 onEdit = { server -> onEdit(server.id) },
                 onRequestDelete = viewModel::requestDelete,

@@ -5,6 +5,8 @@ local.properties
 *.iml
 .kotlin/
 captures/
+# Firma y publicación: NUNCA en el repo (ver android/README.md → Publicación).
 *.keystore
 *.jks
 keystore.properties
+play-service-account*.json

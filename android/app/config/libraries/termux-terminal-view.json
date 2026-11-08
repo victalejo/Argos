@@ -1,0 +1,11 @@
+{
+  "uniqueId": "com.github.termux.termux-app:terminal-view",
+  "artifactVersion": "v0.118.3",
+  "name": "Termux terminal-view",
+  "description": "Vista de Android que dibuja el emulador de terminal de Termux. Argos la alimenta con el PTY remoto por SSH.",
+  "website": "https://github.com/termux/termux-app/tree/master/terminal-view",
+  "developers": [],
+  "licenses": [
+    "Apache-2.0"
+  ]
+}

@@ -1,0 +1,1 @@
+Tus sesiones tmux por SSH: terminal en vivo, archivos y agentes de Claude Code.

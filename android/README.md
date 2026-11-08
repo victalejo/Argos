@@ -16,7 +16,8 @@ cd android
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-La CI (`.github/workflows/android.yml`) corre lo mismo cuando cambia `android/**`.
+La CI (`.github/workflows/android.yml`) corre lo mismo cuando cambia `android/**`, más los tests de
+`app` y un `bundleRelease` sin firmar (R8 + comprobación `checkReleaseR8Keeps`).
 
 ## Módulos
 
@@ -123,6 +124,108 @@ adb logcat -s Argos.agent Argos.terminal                           # fallos, sin
 adb shell dumpsys deviceidle force-idle                            # simula Doze (`unforce` para salir)
 ```
 
+## Publicación (Google Play)
+
+Cuenta de organización **Impulse Vibes**, `applicationId` `com.iaportafolio.argos`. Pasos en Play
+Console, en orden: [`play/checklist.md`](play/checklist.md). Formularios: [`play/data-safety.md`](play/data-safety.md),
+[`play/foreground-service.md`](play/foreground-service.md) (con guion del vídeo),
+[`play/review-notes.md`](play/review-notes.md), [`play/content-rating.md`](play/content-rating.md).
+
+### Versión
+
+`android/gradle.properties`: `ARGOS_VERSION_NAME` (lo que ve el usuario, p. ej. `1.0.0`) y
+`ARGOS_VERSION_CODE` (entero). **Antes de cada subida a Play sube `ARGOS_VERSION_CODE`** (Play
+rechaza un código repetido o menor). El tag de la CI debe ser `android-v<ARGOS_VERSION_NAME>`.
+
+### Firma
+
+`signingConfigs.release` lee cuatro valores, primero como propiedad de Gradle (`-P…` o
+`~/.gradle/gradle.properties`, **nunca** el `gradle.properties` del repo) y si no, como variable de
+entorno: `ARGOS_UPLOAD_STORE_FILE` (ruta al `.jks`; relativa a `android/`), `ARGOS_UPLOAD_STORE_PASSWORD`,
+`ARGOS_UPLOAD_KEY_ALIAS`, `ARGOS_UPLOAD_KEY_PASSWORD`.
+
+- **Ninguno definido:** el release se construye SIN firmar (CI de PR) y `assembleRelease`/`bundleRelease`
+  lo avisan. Con `ARGOS_REQUIRE_SIGNING=true` (la CI de publicación) falla.
+- **Algunos sí y otros no**, o el `.jks` no existe: la build falla (casi seguro un error de configuración).
+- Es la clave de **subida**: con Play App Signing, Google firma lo que llega a los usuarios. `.gitignore`
+  ignora `*.jks`, `*.keystore` y `play-service-account*.json`.
+
+Firmar en local (las contraseñas en `~/.gradle/gradle.properties`, fuera del repo):
+
+```properties
+# ~/.gradle/gradle.properties
+ARGOS_UPLOAD_STORE_FILE=/Users/<tú>/claves/argos-upload.jks
+ARGOS_UPLOAD_STORE_PASSWORD=…
+ARGOS_UPLOAD_KEY_ALIAS=argos-upload
+ARGOS_UPLOAD_KEY_PASSWORD=…
+```
+
+```bash
+./gradlew :app:bundleRelease -PARGOS_REQUIRE_SIGNING=true   # app/build/outputs/bundle/release/app-release.aab
+```
+
+### R8
+
+Release con `isMinifyEnabled` + `isShrinkResources`. Reglas: las de cada librería (kotlinx.serialization,
+WorkManager, CameraX, Navigation, Compose y AboutLibraries traen las suyas), `ssh/consumer-rules.pro`
+(sshj, BouncyCastle, slf4j) y `app/proguard-rules.pro`. Termux no usa reflexión y su JNI
+(`libtermux.so`) se excluye del APK. `checkReleaseR8Keeps` (corre tras `assembleRelease`/`bundleRelease`)
+falla si R8 renombra o elimina lo que se carga por nombre (proveedor BouncyCastle, `AgentCheckWorker`,
+el servicio, componentes del manifiesto, sshj, binding de slf4j).
+
+### Licencias y «Acerca de»
+
+Ajustes (engranaje de Servidores) → «Acerca de» / «Licencias de código abierto». La lista la genera
+en cada build el plugin de AboutLibraries (`com.mikepenz.aboutlibraries.plugin.android`, variante
+Android del plugin `com.mikepenz.aboutlibraries.plugin`) con las dependencias del release:
+
+- `strictMode = FAIL`: una dependencia con una licencia no permitida rompe la build. Permitidas:
+  Apache 2.0, MIT, BSD, EPL y la de Bouncy Castle.
+- Modo offline: los textos de licencia van en `app/config/licenses/` (el plugin no los descarga).
+- Termux llega de JitPack con licencia «Other»: se excluye lo detectado y se define a mano en
+  `app/config/libraries/termux-*.json` (Apache 2.0). **Si subes `termux` en el catálogo, actualiza
+  ahí `artifactVersion`.**
+- `OpenSourceLicensesTest` comprueba Termux, las dependencias clave y que cada licencia tenga texto.
+- Los enlaces (política de privacidad, repositorio, webs de librerías) se abren solo tras confirmar la
+  URL (`ProvideConfirmedLinks` + `SafeLinkPolicy`, lo mismo que los enlaces de un Markdown).
+
+### Ficha (Gradle Play Publisher)
+
+`app/src/main/play/`: `default-language.txt` (`es-419`), `listings/{es-419,es-ES,en-US}/` (título ≤30,
+descripción breve ≤80, completa ≤4000), `release-notes/es-419/internal.txt` (≤500) y
+`contact-website.txt`. **TODO:** `contact-email.txt` (no hay correo de soporte en la ficha de Apple).
+`PlayListingTest` valida longitudes y que la ficha no prometa funciones solo de Apple. La ficha
+describe SOLO lo que existe en Android: si quitas o añades una función, actualízala.
+
+Configuración en `app/build.gradle.kts` → `play {}`: pista `internal`, `releaseStatus = DRAFT`,
+`defaultToAppBundles = true`, credenciales de `ARGOS_PLAY_SERVICE_ACCOUNT` (**ruta** al JSON de la
+cuenta de servicio). El primer AAB se sube a mano en Play Console (la API no crea apps).
+
+```bash
+ARGOS_PLAY_SERVICE_ACCOUNT=~/claves/play-service-account-argos.json ./gradlew :app:publishReleaseBundle  # borrador interno
+ARGOS_PLAY_SERVICE_ACCOUNT=… ./gradlew :app:publishListing                                               # solo textos
+```
+
+### CI de publicación (`.github/workflows/android-release.yml`)
+
+Se lanza con un tag `android-v*` (debe coincidir con `ARGOS_VERSION_NAME`) o a mano. Decodifica la
+clave, ejecuta los tests de `app` y `bundleRelease` firmado, verifica la firma, sube el AAB y el
+`mapping.txt` como artefacto `argos-android-aab` y, **solo si existe** `ARGOS_PLAY_SERVICE_ACCOUNT`,
+ejecuta `publishReleaseBundle` (borrador en la pista interna). Token con `contents: read`.
+
+| Secreto de GitHub Actions | Contenido |
+|---|---|
+| `ARGOS_UPLOAD_KEYSTORE_BASE64` | El `.jks` en base64 (`base64 -i argos-upload.jks \| pbcopy`) |
+| `ARGOS_UPLOAD_STORE_PASSWORD` | Contraseña del almacén |
+| `ARGOS_UPLOAD_KEY_ALIAS` | Alias de la clave |
+| `ARGOS_UPLOAD_KEY_PASSWORD` | Contraseña de la clave |
+| `ARGOS_PLAY_SERVICE_ACCOUNT` | *(opcional)* contenido del JSON de la cuenta de servicio (permisos mínimos: ver `play/checklist.md`) |
+
+```bash
+# subir ARGOS_VERSION_CODE (y ARGOS_VERSION_NAME) en gradle.properties, commit, y:
+git tag android-v1.0.0 && git push origin android-v1.0.0
+```
+
 ## Pila
 
 | Apple | Android |
@@ -147,6 +250,6 @@ adb shell dumpsys deviceidle force-idle                            # simula Doze
 | 5 | Agentes persistentes (stream-json, permisos, login guiado) | ✅ (probado en teléfono real con claude simulado) |
 | 6 | Segundo plano y avisos («terminó / espera tu permiso») | ✅ (probado en teléfono real) |
 | 7 | QR desde el Mac (`ServerTransfer`): escáner, enlace pegado, deep link | ✅ (probado en teléfono real; cámara real sin probar con el Mac) |
-| 8 | Publicación en Google Play (cuenta de organización **Impulse Vibes**) | |
+| 8 | Publicación en Google Play (cuenta de organización **Impulse Vibes**): firma, versión, licencias y «Acerca de», ficha (GPP), documentos de Play Console y CI de publicación | 🟡 preparada en el repo; falta lo de Play Console (`play/checklist.md`), la primera subida manual y probar el release firmado en un teléfono |
 
 MVP = fases 0–3.

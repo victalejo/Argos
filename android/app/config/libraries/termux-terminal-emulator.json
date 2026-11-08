@@ -1,0 +1,11 @@
+{
+  "uniqueId": "com.github.termux.termux-app:terminal-emulator",
+  "artifactVersion": "v0.118.3",
+  "name": "Termux terminal-emulator",
+  "description": "Emulador de terminal VT100/xterm de Termux (deriva de Android-Terminal-Emulator de Jack Palevich).",
+  "website": "https://github.com/termux/termux-app/tree/master/terminal-emulator",
+  "developers": [],
+  "licenses": [
+    "Apache-2.0"
+  ]
+}

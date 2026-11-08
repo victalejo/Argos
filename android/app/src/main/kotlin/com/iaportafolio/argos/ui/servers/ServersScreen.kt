@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
@@ -26,6 +27,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -68,6 +70,9 @@ fun ServersScreen(
     onAdd: () -> Unit,
     /** «Importar desde el Mac (QR)»: el servidor que manda «Enviar al iPhone…». */
     onImport: () -> Unit,
+    /** «Acerca de» y «Licencias de código abierto» (menú de ajustes). */
+    onOpenAbout: () -> Unit,
+    onOpenLicenses: () -> Unit,
     onOpen: (Server) -> Unit,
     onEdit: (Server) -> Unit,
     onRequestDelete: (Server) -> Unit,
@@ -111,6 +116,23 @@ fun ServersScreen(
                                 onClick = {
                                     menuOpen = false
                                     editingBackground = true
+                                },
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.about_title)) },
+                                leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    onOpenAbout()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.licenses_title)) },
+                                leadingIcon = { Icon(painterResource(R.drawable.ic_file_text), contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    onOpenLicenses()
                                 },
                             )
                         }

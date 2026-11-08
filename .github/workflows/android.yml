@@ -59,7 +59,13 @@ jobs:
         run: ./gradlew :core:test :ssh:test
 
       - name: Build + lint de la app
-        run: ./gradlew :app:assembleDebug :app:lintDebug
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+
+      # Release minificado SIN firmar (sin secretos en PRs): R8, recursos, licencias y la
+      # comprobación de clases que se cargan por nombre (checkReleaseR8Keeps). La firma y la subida
+      # a Play viven en android-release.yml.
+      - name: Release sin firmar (R8)
+        run: ./gradlew :app:bundleRelease
 
       - name: Publicar reportes
         if: always()
@@ -69,5 +75,6 @@ jobs:
           path: |
             android/core/build/reports/tests
             android/ssh/build/reports/tests
+            android/app/build/reports/tests
             android/app/build/reports/lint-results-debug.html
           if-no-files-found: ignore

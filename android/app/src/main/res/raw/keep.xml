@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- El reductor de recursos (optimizado por defecto en AGP 9) no ve que AboutLibraries lee este
+     JSON por id: sin esto «Licencias de código abierto» saldría vacía en release. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/aboutlibraries" />

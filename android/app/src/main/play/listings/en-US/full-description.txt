@@ -1,0 +1,31 @@
+Argos brings your servers to your Android phone and tablet. Connect over SSH, see your projects and tmux sessions, and jump into any of them with a live terminal. Since tmux keeps running on the server, you can lock your phone, switch networks or carry on from your Mac right where you left off.
+
+PROJECTS, NOT JUST SESSIONS
+• The same projects as Argos for Mac and iPhone: they live on your server.
+• Open, stop, create, rename and close sessions with a tap.
+• Turn loose sessions into projects anchored to their folder.
+
+LIVE TERMINAL
+• Full terminal emulator over SSH, with an extra keys row (esc, ctrl, alt, tab, arrows and the tmux prefix) and hardware keyboard support.
+• Automatic reconnection when you return to the app.
+• The terminal stays connected when you switch apps, always with a visible notification and a "Disconnect all" button (can be turned off in settings).
+
+CLAUDE CODE AGENTS THAT KEEP GOING
+• Hand a task to Claude Code on your server and lock your phone: the agent keeps working on the server.
+• When you come back you see everything it did; approve or deny its permissions from your phone.
+• Alerts when it finishes or needs you (Argos checks your servers periodically; no push notifications, no middleman servers).
+
+FILES
+• Browse and search the project and preview code with syntax highlighting, Markdown and images.
+• Download any file to your phone.
+
+TABLET
+• Servers and projects side by side, and the agent list next to the conversation.
+
+SECURE AND PRIVATE
+• Password or Ed25519 key; secrets are stored encrypted with the device's Android Keystore and are never copied to the cloud.
+• Server fingerprint verification on every connection.
+• Bring your servers over from Argos for Mac by scanning a QR code.
+• No accounts, no analytics and no middleman servers: Argos only talks to your servers.
+
+Requires servers with SSH and tmux. Argos is free software (Apache 2.0 license). The app is in Spanish.

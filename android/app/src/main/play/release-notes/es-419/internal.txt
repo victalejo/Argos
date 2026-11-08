@@ -1,0 +1,1 @@
+Primera versión de Argos para Android (prueba interna): servidores por SSH con contraseña o clave Ed25519, proyectos y sesiones tmux, terminal en vivo con fila de teclas, archivos con vista previa, agentes de Claude Code persistentes con avisos, terminal en segundo plano opcional, importación de servidores con el QR del Mac y pantallas «Acerca de» y «Licencias de código abierto».
