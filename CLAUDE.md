@@ -46,6 +46,10 @@ La **CI** (`.github/workflows/ci.yml`) corre build + test con cobertura y
   y `ArgosiOS`. **Prohibido** importar AppKit/SwiftUI/SwiftTerm/Sparkle o usar APIs
   solo-macOS aquí (si hace falta, `#if os(macOS)`). La CI compila `ArgosiOS` para
   garantizarlo.
+- `android/` — app de **Android**, Kotlin + Jetpack Compose (Gradle, NO XcodeGen). El
+  módulo `core` es Kotlin/JVM puro (sin Android) y porta `ArgosCore`: los tests de
+  `ArgosTests/` son su especificación de paridad. Ver `android/README.md` (comandos,
+  pila, fases). CI aparte: `.github/workflows/android.yml`.
 - `ArgosUI/` — **vistas SwiftUI compartidas** Mac + iPhone/iPad (sin AppKit/UIKit):
   mascota de Claude e iconos de agentes (`ClaudeMascot`, `CodingAgentIcon`). La lógica
   de pestañas/agentes (`WindowTabs`, `CodingAgent`) vive en `ArgosCore/Tabs/`.

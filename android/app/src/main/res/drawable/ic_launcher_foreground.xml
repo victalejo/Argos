@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- El icono de Apple es un cuadrado a sangre; lo encogemos a la zona segura (72 de 108 dp)
+     para que la máscara del launcher (círculo, squircle…) no corte el ojo. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/argos_icon_art"
+    android:inset="18dp" />
