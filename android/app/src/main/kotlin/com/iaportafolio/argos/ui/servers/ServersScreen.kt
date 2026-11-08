@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -66,12 +67,15 @@ fun ServersScreen(
     onForgetHostKey: (Server) -> Unit,
     onMessageShown: () -> Unit,
     onAgentPermissionModeChange: (ClaudeAgentCommand.PermissionMode) -> Unit,
+    onAgentNotificationsChange: (Boolean) -> Unit,
+    onKeepTerminalAliveChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbar = remember { SnackbarHostState() }
     MessageEffect(state.message, snackbar, onMessageShown)
     var menuOpen by remember { mutableStateOf(false) }
     var editingPermissions by rememberSaveable { mutableStateOf(false) }
+    var editingBackground by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -90,6 +94,14 @@ fun ServersScreen(
                                 onClick = {
                                     menuOpen = false
                                     editingPermissions = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.background_settings_title)) },
+                                leadingIcon = { Icon(Icons.Filled.Notifications, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    editingBackground = true
                                 },
                             )
                         }
@@ -139,6 +151,16 @@ fun ServersScreen(
             mode = state.agentPermissionMode,
             onSelect = onAgentPermissionModeChange,
             onDismiss = { editingPermissions = false },
+        )
+    }
+
+    if (editingBackground) {
+        BackgroundSettingsDialog(
+            agentNotificationsEnabled = state.agentNotificationsEnabled,
+            keepTerminalAlive = state.keepTerminalAlive,
+            onAgentNotificationsChange = onAgentNotificationsChange,
+            onKeepTerminalAliveChange = onKeepTerminalAliveChange,
+            onDismiss = { editingBackground = false },
         )
     }
 

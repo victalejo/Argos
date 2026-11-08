@@ -1,6 +1,13 @@
 package com.iaportafolio.argos
 
 import android.content.Context
+import com.iaportafolio.argos.background.ActiveTerminalRegistry
+import com.iaportafolio.argos.background.AgentNotifier
+import com.iaportafolio.argos.background.AgentWatchStore
+import com.iaportafolio.argos.background.SharedPreferencesAgentWatch
+import com.iaportafolio.argos.background.SystemAgentAlerts
+import com.iaportafolio.argos.background.TerminalKeepAliveService
+import com.iaportafolio.argos.background.WorkManagerAgentCheckScheduler
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHConnector
 import com.iaportafolio.argos.data.AgentPermissionStore
@@ -33,7 +40,7 @@ import java.io.File
  */
 class AppContainer(
     context: Context,
-    connector: SSHConnector,
+    private val connector: SSHConnector,
     val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val appContext = context.applicationContext
@@ -58,6 +65,26 @@ class AppContainer(
     val documentWriter: DocumentWriter by lazy { ContentResolverDocumentWriter(appContext.contentResolver) }
 
     val projectPreferences: ProjectPreferencesStore by lazy { SharedPreferencesProjectPreferences(appContext) }
+
+    val agentNotifier: AgentNotifier by lazy {
+        AgentNotifier(
+            servers = servers,
+            secrets = secrets,
+            hostKeys = hostKeys,
+            connector = connector,
+            tokens = claudeTokens,
+            store = AgentWatchStore(SharedPreferencesAgentWatch(appContext)),
+            alerts = SystemAgentAlerts(appContext),
+            scheduler = WorkManagerAgentCheckScheduler(appContext),
+            io = io,
+        )
+    }
+
+    val activeTerminals: ActiveTerminalRegistry by lazy {
+        ActiveTerminalRegistry(TerminalKeepAliveService.host(appContext)) {
+            terminalSettings.settings.value.keepAliveInBackground
+        }
+    }
 
     private companion object {
         const val SERVERS_FILE = "servers.json"

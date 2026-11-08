@@ -61,6 +61,41 @@ Imprime la huella de host (persistente en `ssh/build/dev/host_key`) y deja una c
 de cliente de prueba en `ssh/build/dev/argos_dev_ed25519`. `HOME` y tmux van aislados en
 `ssh/build/dev/` (no toca tus sesiones reales). Ctrl+C lo detiene.
 
+## Segundo plano (`background/`)
+
+**Avisos de agentes** (`AgentNotifier`, como `AgentNotifier.swift`): sin push ni servidores
+intermedios. Para cada servidor apuntado (al crear o abrir un agente) abre una conexión nueva, lee
+`PersistentAgentScript.snapshots()` y avisa de lo nuevo. Corre con WorkManager cada 15 min (con
+red) y, mientras viva el servicio del terminal, cada ~60 s. En segundo plano **nunca se confía en
+una huella nueva**: un endpoint sin huella guardada se salta hasta conectar desde la app.
+
+**Terminal vivo** (`TerminalKeepAliveService`, servicio en primer plano `specialUse`): mantiene el
+proceso mientras haya terminales adjuntos; la conexión sigue en los `TerminalViewModel`. Se arranca
+con la app en primer plano al adjuntar el primero; si el sistema no lo deja, el terminal vuelve a
+hacer detach/reattach. Se desactiva en Ajustes → Avisos y segundo plano.
+
+**Limitación conocida:** a propósito no se usa WifiLock ni WakeLock. El servicio protege al proceso
+de que lo maten, no al móvil de dormirse: en Doze el sistema puede cortar la red y parar la CPU, así
+que la conexión puede caer y los `delay` retrasarse. Al despertar, o al volver a la app, el
+reintento con backoff reengancha (tmux conserva la sesión); si los intentos se agotan en segundo
+plano, el servicio se para y se reengancha al volver. Los avisos dependen de cuándo deje correr el
+sistema el trabajo periódico: 15 min es un mínimo, no una garantía.
+
+**Google Play:** `FOREGROUND_SERVICE_SPECIAL_USE` exige declarar el servicio en Play Console
+(Contenido de la app → Permisos de servicios en primer plano) con justificación y un vídeo. La
+descripción está en la `property` del manifiesto. La revisión de `specialUse` es manual y puede
+rechazarse: si ocurre, se puede retirar el servicio y los avisos siguen por WorkManager.
+
+### Probar por adb (teléfono físico)
+
+```bash
+adb shell dumpsys jobscheduler | grep 'JOB .*iaportafolio'   # id: número tras u0aNNN/ (WorkManager no adelanta un periódico antes de su hora)
+adb shell cmd jobscheduler run -f -n androidx.work.systemjobscheduler com.iaportafolio.argos <id>  # dispara la comprobación
+adb shell dumpsys activity services com.iaportafolio.argos         # ¿servicio en marcha? isForeground
+adb logcat -s Argos.agent Argos.terminal                           # fallos, sin secretos ni contenido
+adb shell dumpsys deviceidle force-idle                            # simula Doze (`unforce` para salir)
+```
+
 ## Pila
 
 | Apple | Android |
@@ -83,7 +118,7 @@ de cliente de prueba en `ssh/build/dev/argos_dev_ed25519`. `HOME` y tmux van ais
 | 3 | Terminal en vivo: PTY + `tmux attach`, fila de teclas, reattach | ✅ (probado en teléfono real) |
 | 4 | Proyectos + navegador de archivos SFTP | ✅ (probado en teléfono real) |
 | 5 | Agentes persistentes (stream-json, permisos, login guiado) | ✅ (probado en teléfono real con claude simulado) |
-| 6 | Segundo plano y avisos («terminó / espera tu permiso») | |
+| 6 | Segundo plano y avisos («terminó / espera tu permiso») | ⏳ (probado en teléfono real; falta ver el disparo periódico) |
 | 7 | QR desde el Mac (`ServerTransfer`) | |
 | 8 | Publicación en Google Play (cuenta de organización **Impulse Vibes**) | |
 

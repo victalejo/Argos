@@ -335,6 +335,7 @@
     <string name="terminal_connecting">Conectando…</string>
     <string name="terminal_reconnecting">Reconectando (intento %1$d)…</string>
     <string name="terminal_disconnected_title">Desconectado</string>
+    <string name="terminal_disconnected_by_user">Lo desconectaste desde la notificación. La sesión sigue viva en el servidor.</string>
     <string name="terminal_retrying_in">Reintentando en %1$d s…</string>
     <string name="terminal_ended_title">Sesión cerrada</string>
     <string name="terminal_ended">tmux cerró la conexión: hiciste detach o la sesión terminó. Si solo fue un detach, la sesión sigue en el servidor.</string>
@@ -393,4 +394,24 @@
     <string name="agents_resume_confirm_title">¿Reanudar en «%1$s»?</string>
     <string name="agents_resume_confirm_message">El servidor indica que este agente usa este modo. %1$s Si no lo elegiste tú, borra la conversación y crea otra.</string>
     <string name="agents_resume_confirm_action">Reanudar en «%1$s»</string>
+
+    <!-- Segundo plano -->
+    <string name="notification_channel_agents">Avisos de agentes</string>
+    <string name="notification_channel_agents_description">Cuando un agente termina o espera tu permiso.</string>
+    <string name="notification_channel_keep_alive">Terminal en segundo plano</string>
+    <string name="notification_channel_keep_alive_description">Indica que Argos mantiene terminales conectados.</string>
+    <string name="notification_agent_public">Un agente necesita tu atención</string>
+    <plurals name="keep_alive_notification">
+        <item quantity="one">Argos mantiene %d terminal conectado</item>
+        <item quantity="many">Argos mantiene %d terminales conectados</item>
+        <item quantity="other">Argos mantiene %d terminales conectados</item>
+    </plurals>
+    <string name="keep_alive_disconnect_all">Desconectar todo</string>
+    <string name="background_settings_title">Avisos y segundo plano</string>
+    <string name="background_agents_title">Avisos de agentes</string>
+    <string name="background_agents_detail">Revisa tus servidores cada cierto tiempo para avisarte de que un agente terminó o espera tu permiso.</string>
+    <string name="background_notifications_blocked">El sistema tiene bloqueadas las notificaciones de Argos: no verás estos avisos.</string>
+    <string name="background_open_system_settings">Abrir ajustes del sistema</string>
+    <string name="background_keep_terminal_title">Mantener el terminal conectado en segundo plano</string>
+    <string name="background_keep_terminal_detail">Sigue conectado al cambiar de app, con una notificación permanente. Si el móvil se duerme y corta la red, se reconecta al volver.</string>
 </resources>

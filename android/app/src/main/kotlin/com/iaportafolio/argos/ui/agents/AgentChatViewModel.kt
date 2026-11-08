@@ -3,6 +3,7 @@ package com.iaportafolio.argos.ui.agents
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.background.AgentAttentionTracker
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.agent.AgentPermissionDecision
 import com.iaportafolio.argos.core.agent.PersistentAgentScript
@@ -57,6 +58,7 @@ class AgentChatViewModel(
     private val tokens: ClaudeTokenStore,
     private val io: CoroutineDispatcher,
     private val policy: AgentChatPolicy = AgentChatPolicy(),
+    private val attention: AgentAttentionTracker = AgentAttentionTracker.None,
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(AgentChatUiState())
@@ -85,6 +87,7 @@ class AgentChatViewModel(
     /** Primer plano (ON_START): engancha si no hay ya un enganche en marcha. */
     fun onStart() {
         inForeground = true
+        attention.chatShown(serverId, agentId)
         if (superviseJob?.isActive == true || state.value.load == AgentChatLoad.Missing) return
         startSupervisor()
     }
@@ -92,6 +95,7 @@ class AgentChatViewModel(
     /** Segundo plano o salir (ON_STOP): deja de leer el log. El agente sigue en el servidor. */
     fun onStop() {
         inForeground = false
+        attention.chatHidden(serverId, agentId, session?.state?.value?.receivedBytes ?: 0)
         superviseJob?.cancel()
         superviseJob = null
         session?.detach()
@@ -136,6 +140,7 @@ class AgentChatViewModel(
                     val (ssh, exec, info) = found
                     service = ssh
                     knownLogBytes = info.logBytes
+                    attention.agentOpened(serverId)
                     mutableState.update {
                         it.copy(
                             load = AgentChatLoad.Ready,

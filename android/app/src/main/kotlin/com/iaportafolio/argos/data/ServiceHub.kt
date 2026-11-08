@@ -1,9 +1,7 @@
 package com.iaportafolio.argos.data
 
-import com.iaportafolio.argos.core.AuthMethod
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHConnector
-import com.iaportafolio.argos.core.SSHCredentials
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
 import kotlinx.coroutines.CancellationException
@@ -46,7 +44,7 @@ class ServiceHub(
         val (fresh, stale) = mutex.withLock {
             val cached = entries[server.id]
             if (cached != null && cached.server == server) return cached.service
-            val credentials = withContext(io) { credentials(server) }
+            val credentials = withContext(io) { secrets.credentials(server) }
             val entry = Entry(server, connector.service(server, credentials, trust))
             entries = entries + (server.id to entry)
             entry to cached
@@ -70,28 +68,5 @@ class ServiceHub(
         } catch (error: Exception) {
             ArgosLog.warn(ArgosLog.TAG_SSH, "Error al desconectar ${entry.server.endpoint}", error)
         }
-    }
-
-    private fun credentials(server: Server): SSHCredentials = when (server.authMethod) {
-        AuthMethod.PASSWORD -> SSHCredentials.Password(
-            secrets.read(server.id, SecretKind.PASSWORD)
-                ?: throw MissingCredentialsException(
-                    "No hay contraseña guardada para «${server.name}». Edita el servidor y escríbela.",
-                ),
-        )
-        AuthMethod.KEY -> SSHCredentials.PrivateKey(
-            openSSHPem = secrets.read(server.id, SecretKind.PRIVATE_KEY)
-                ?: throw MissingCredentialsException(
-                    "No hay clave privada importada para «${server.name}». Edita el servidor e impórtala.",
-                ),
-            passphrase = if (server.requiresPassphrase) {
-                secrets.read(server.id, SecretKind.PASSPHRASE)
-                    ?: throw MissingCredentialsException(
-                        "Falta la passphrase de la clave de «${server.name}». Edita el servidor y escríbela.",
-                    )
-            } else {
-                null
-            },
-        )
     }
 }

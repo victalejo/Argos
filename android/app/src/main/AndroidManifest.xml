@@ -3,6 +3,10 @@
 
     <!-- SSH saliente. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Terminal vivo en segundo plano y avisos de agentes. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".ArgosApplication"
@@ -16,16 +20,28 @@
         android:theme="@style/Theme.Argos">
 
         <!-- configChanges: app 100 % Compose; rotar, plegar o conectar un teclado físico no
-             recrea la Activity, así el terminal no hace detach/reattach (solo un resize). -->
+             recrea la Activity, así el terminal no hace detach/reattach (solo un resize).
+             singleTop: tocar un aviso reutiliza la Activity (onNewIntent) y sus terminales. -->
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:exported="true"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Lo que justifica la excepción ante Google Play: ver android/README.md. -->
+        <service
+            android:name=".background.TerminalKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the user's interactive SSH terminal sessions connected while the app is in the background, so that long-running remote commands stay visible and the session resumes instantly. Runs only while the user has a terminal open, only if the in-app setting is on, always shows an ongoing notification with a Disconnect all action, and stops when the last terminal closes. No suitable foreground service type covers a user-initiated persistent SSH connection." />
+        </service>
     </application>
 </manifest>

@@ -3,6 +3,7 @@ package com.iaportafolio.argos.ui.servers
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.background.AgentAttentionTracker
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.agent.AgentPermissionPreferences
@@ -12,6 +13,7 @@ import com.iaportafolio.argos.data.ArgosLog
 import com.iaportafolio.argos.data.SecretStore
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceProvider
+import com.iaportafolio.argos.data.TerminalSettingsStore
 import com.iaportafolio.argos.ui.common.UiText
 import com.iaportafolio.argos.ui.common.logFailures
 import com.iaportafolio.argos.ui.common.toUiText
@@ -32,6 +34,10 @@ data class ServersUiState(
     val message: UiText? = null,
     /** Modo de permisos por defecto de los agentes nuevos. */
     val agentPermissionMode: ClaudeAgentCommand.PermissionMode = AgentPermissionPreferences.FALLBACK,
+    /** Avisos de agentes («terminó», «espera tu permiso»). */
+    val agentNotificationsEnabled: Boolean = true,
+    /** Mantener el terminal conectado en segundo plano. */
+    val keepTerminalAlive: Boolean = true,
 )
 
 class ServersViewModel(
@@ -41,16 +47,29 @@ class ServersViewModel(
     private val services: ServiceProvider,
     private val agentPermissions: AgentPermissionStore,
     private val io: CoroutineDispatcher,
+    private val attention: AgentAttentionTracker,
+    private val terminalSettings: TerminalSettingsStore,
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(
-        ServersUiState(servers = repository.servers.value, agentPermissionMode = agentPermissions.globalMode()),
+        ServersUiState(
+            servers = repository.servers.value,
+            agentPermissionMode = agentPermissions.globalMode(),
+            agentNotificationsEnabled = attention.notificationsEnabled.value,
+            keepTerminalAlive = terminalSettings.settings.value.keepAliveInBackground,
+        ),
     )
     val state: StateFlow<ServersUiState> = mutableState.asStateFlow()
 
     init {
         viewModelScope.launch {
             repository.servers.collect { servers -> mutableState.update { it.copy(servers = servers) } }
+        }
+        viewModelScope.launch {
+            attention.notificationsEnabled.collect { enabled -> mutableState.update { it.copy(agentNotificationsEnabled = enabled) } }
+        }
+        viewModelScope.launch {
+            terminalSettings.settings.collect { settings -> mutableState.update { it.copy(keepTerminalAlive = settings.keepAliveInBackground) } }
         }
     }
 
@@ -67,6 +86,7 @@ class ServersViewModel(
                 withContext(io) {
                     repository.delete(server.id)
                     secrets.deleteAll(server.id)
+                    attention.serverDeleted(server.id)
                     // La huella es por host:puerto: solo se olvida si ningún otro servidor lo usa.
                     if (repository.servers.value.none { it.endpoint == server.endpoint }) {
                         hostKeys.forget(server.endpoint)
@@ -97,6 +117,10 @@ class ServersViewModel(
         agentPermissions.setGlobalMode(mode)
         mutableState.update { it.copy(agentPermissionMode = mode) }
     }
+
+    fun setAgentNotificationsEnabled(enabled: Boolean) = attention.setNotificationsEnabled(enabled)
+
+    fun setKeepTerminalAlive(enabled: Boolean) = terminalSettings.setKeepAliveInBackground(enabled)
 
     fun messageShown() = mutableState.update { it.copy(message = null) }
 }

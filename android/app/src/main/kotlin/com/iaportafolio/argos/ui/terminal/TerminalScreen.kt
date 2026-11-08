@@ -1,5 +1,6 @@
 package com.iaportafolio.argos.ui.terminal
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.iaportafolio.argos.R
@@ -74,10 +77,18 @@ fun TerminalScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var terminalView by remember { mutableStateOf<RemoteTerminalView?>(null) }
 
-    // Detach al pasar a segundo plano y reattach al volver (la sesión sigue viva en tmux).
+    // Esta pantalla también se detiene al navegar o cambiar de pestaña dentro de la app: solo es
+    // segundo plano si se detuvo la Activity. La sesión sigue viva en tmux en cualquier caso.
+    val activityLifecycle = (LocalActivity.current as? LifecycleOwner)?.lifecycle
     LifecycleStartEffect(viewModel) {
         viewModel.onStart()
-        onStopOrDispose { viewModel.onStop() }
+        onStopOrDispose {
+            if (activityLifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED) == false) {
+                viewModel.onStop()
+            } else {
+                viewModel.onLeave()
+            }
+        }
     }
 
     Scaffold(

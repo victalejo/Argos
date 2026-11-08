@@ -82,9 +82,14 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
     private val sessionListener = object : RemoteTerminalSession.Listener {
         override fun onScreenUpdated() = this@RemoteTerminalView.onScreenUpdated()
         override fun onCopyToClipboard(text: String) = copyFromRemote(text)
-        override fun onPasteRequested() = pasteFromClipboard()
+
+        // En segundo plano la conexión sigue viva: ni un servidor lee el portapapeles ni vibra el móvil.
+        override fun onPasteRequested() {
+            if (hasWindowFocus()) pasteFromClipboard()
+        }
+
         override fun onBell() {
-            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            if (hasWindowFocus()) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         }
     }
 

@@ -24,7 +24,7 @@ import com.iaportafolio.argos.ui.terminal.TerminalViewModel
 internal fun serversViewModel(container: AppContainer): ServersViewModel = viewModel(
     factory = viewModelFactory {
         initializer {
-            ServersViewModel(container.servers, container.secrets, container.hostKeys, container.services, container.agentPermissions, container.io)
+            ServersViewModel(container.servers, container.secrets, container.hostKeys, container.services, container.agentPermissions, container.io, container.agentNotifier, container.terminalSettings)
         }
     },
 )
@@ -97,6 +97,7 @@ internal fun terminalViewModel(
                 settingsStore = container.terminalSettings,
                 screen = RemoteTerminalSession(),
                 io = container.io,
+                keepAlive = container.activeTerminals,
             )
         }
     },
@@ -132,7 +133,15 @@ internal fun agentChatViewModel(container: AppContainer, serverId: String, agent
     key = "agent-chat:$serverId:$agentId",
     factory = viewModelFactory {
         initializer {
-            AgentChatViewModel(serverId, agentId, container.servers, container.services, container.claudeTokens, container.io)
+            AgentChatViewModel(
+                serverId,
+                agentId,
+                container.servers,
+                container.services,
+                container.claudeTokens,
+                container.io,
+                attention = container.agentNotifier,
+            )
         }
     },
 )

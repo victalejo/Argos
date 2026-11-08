@@ -22,6 +22,7 @@ import com.iaportafolio.argos.testing.FakeSSHService
 import com.iaportafolio.argos.testing.InMemoryClaudeTokens
 import com.iaportafolio.argos.testing.InMemoryServerRepository
 import com.iaportafolio.argos.testing.MainDispatcherExtension
+import com.iaportafolio.argos.testing.RecordingAttention
 import com.iaportafolio.argos.testing.SECRET_TOKEN
 import com.iaportafolio.argos.testing.SingleServiceProvider
 import com.iaportafolio.argos.testing.agentInfo
@@ -64,6 +65,7 @@ class AgentChatViewModelTest {
     private val ssh = FakeAgentService().apply { agents = listOf(agentInfo()) }
     private val provider = SingleServiceProvider(ssh)
     private val tokens = InMemoryClaudeTokens()
+    private val attention = RecordingAttention()
     private val policy = AgentChatPolicy(
         reconnect = ReconnectPolicy(delaysMillis = listOf(1_000, 2_000), maxAttempts = 2),
         livenessIntervalMillis = 60_000,
@@ -75,7 +77,7 @@ class AgentChatViewModelTest {
         val factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
                 @Suppress("UNCHECKED_CAST")
-                return AgentChatViewModel("S1", AGENT_1, repository, provider, tokens, main.dispatcher, policy) as T
+                return AgentChatViewModel("S1", AGENT_1, repository, provider, tokens, main.dispatcher, policy, attention) as T
             }
         }
         return ViewModelProvider.create(store, factory)[AgentChatViewModel::class]
@@ -732,5 +734,32 @@ class AgentChatViewModelTest {
         assertTrue(seen.size > 3)
         seen.forEach { assertFalse(SECRET_TOKEN in it, it) }
         assertNotNull(vm.state.value.error)
+    }
+
+    // MARK: - Avisos
+
+    @Test
+    fun `abrir un agente apunta el servidor y lo marca a la vista`() = chatTest {
+        attached()
+        assertEquals(listOf("S1"), attention.opened)
+        assertEquals(listOf("S1" to AGENT_1), attention.shown)
+    }
+
+    @Test
+    fun `un agente que no existe no apunta el servidor`() = chatTest {
+        ssh.agents = emptyList()
+        attached()
+        assertTrue(attention.opened.isEmpty())
+    }
+
+    @Test
+    fun `al pasar a segundo plano guarda lo recibido como visto`() = chatTest {
+        val vm = attached()
+        ssh.attaches.single().emit(AgentLog.result())
+        runCurrent()
+
+        vm.onStop()
+
+        assertEquals(listOf(Triple("S1", AGENT_1, bytes(AgentLog.result()))), attention.hidden)
     }
 }

@@ -33,7 +33,10 @@ class AttachCall(val session: String, val cols: Int, val rows: Int, private val 
 }
 
 /** [SSHServicing] de tmux ([FakeSSHService]) + canales PTY programables. */
-class FakeTerminalService(base: FakeSSHService = FakeSSHService()) : SSHServicing by base, TerminalStreaming {
+class FakeTerminalService(private val base: FakeSSHService = FakeSSHService()) : SSHServicing by base, TerminalStreaming {
+    /** ¿Se mató alguna sesión de tmux? Desconectar nunca debe hacerlo. */
+    fun killedSessions(): Boolean = base.calls.any { it.startsWith("kill:") || it.startsWith("stop:") }
+
     val calls = mutableListOf<AttachCall>()
 
     /** Comandos abiertos con `attachCommand` (también figuran en [calls]). */
@@ -129,4 +132,6 @@ class InMemoryTerminalSettings(initial: TerminalSettings = TerminalSettings()) :
     override fun setFontSize(sp: Int) = state.update { it.copy(fontSizeSp = TerminalSettings.clampFontSize(sp)) }
 
     override fun setKeepScreenOn(enabled: Boolean) = state.update { it.copy(keepScreenOn = enabled) }
+
+    override fun setKeepAliveInBackground(enabled: Boolean) = state.update { it.copy(keepAliveInBackground = enabled) }
 }

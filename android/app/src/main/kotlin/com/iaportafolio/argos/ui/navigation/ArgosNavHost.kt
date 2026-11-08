@@ -20,17 +20,21 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.background.AgentChatTarget
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.ui.agents.AgentChatScreen
 import com.iaportafolio.argos.ui.agents.AgentListEvent
 import com.iaportafolio.argos.ui.agents.AgentListScreen
 import com.iaportafolio.argos.ui.agents.AgentLoginScreen
+import com.iaportafolio.argos.ui.agents.RequestAgentNotificationPermission
 import com.iaportafolio.argos.ui.common.StatusMessage
 import com.iaportafolio.argos.ui.files.FilesScreen
 import com.iaportafolio.argos.ui.form.ServerFormScreen
@@ -76,7 +80,12 @@ private val LIST_PANE_WIDTH = 360.dp
  * iPad). Las sesiones sueltas abren directamente su terminal.
  */
 @Composable
-fun ArgosNavHost(container: AppContainer) {
+fun ArgosNavHost(
+    container: AppContainer,
+    /** Chat que pidió abrir un aviso (ya validado); [onChatTargetConsumed] al navegar. */
+    chatTarget: AgentChatTarget? = null,
+    onChatTargetConsumed: () -> Unit = {},
+) {
     val navController = rememberNavController()
     val openProject = { serverId: String, projectId: String -> navController.navigate(ProjectRoute(serverId, projectId)) }
     val openTerminal = { serverId: String, session: String -> navController.navigate(TerminalRoute(serverId, session)) }
@@ -120,6 +129,7 @@ fun ArgosNavHost(container: AppContainer) {
         }
         composable<AgentChatRoute> { entry ->
             val route = entry.toRoute<AgentChatRoute>()
+            RequestAgentNotificationPermission(container.agentNotifier)
             AgentChatScreen(
                 viewModel = agentChatViewModel(container, route.serverId, route.agentId),
                 agentId = route.agentId,
@@ -144,6 +154,20 @@ fun ArgosNavHost(container: AppContainer) {
             )
         }
     }
+    // Después del NavHost: su grafo ya está puesto al ejecutarse el efecto.
+    LaunchedEffect(chatTarget) {
+        chatTarget?.let {
+            navController.openChat(it)
+            onChatTargetConsumed()
+        }
+    }
+}
+
+/** Abre el chat del aviso, salvo que ya esté delante. */
+private fun NavController.openChat(target: AgentChatTarget) {
+    val route = AgentChatRoute(target.serverId, target.agentId)
+    val current = currentBackStackEntry?.takeIf { it.destination.hasRoute<AgentChatRoute>() }?.toRoute<AgentChatRoute>()
+    if (current != route) navigate(route)
 }
 
 @Composable
@@ -175,6 +199,8 @@ private fun ServersDestination(
                 onCancelDelete = viewModel::cancelDelete,
                 onForgetHostKey = viewModel::forgetHostKey,
                 onAgentPermissionModeChange = viewModel::setAgentPermissionMode,
+                onAgentNotificationsChange = viewModel::setAgentNotificationsEnabled,
+                onKeepTerminalAliveChange = viewModel::setKeepTerminalAlive,
                 onMessageShown = viewModel::messageShown,
                 modifier = modifier,
             )
@@ -333,6 +359,7 @@ private fun AgentsDestination(
                 title = stringResource(R.string.agents_pick),
             )
         } else {
+            RequestAgentNotificationPermission(container.agentNotifier)
             val chat = agentChatViewModel(container, serverId, agentId)
             val isAlive by remember(chat) { chat.state.map { it.isAlive }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
             // La lista refleja lo que se pare o reanude desde el chat de al lado.

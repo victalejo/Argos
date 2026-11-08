@@ -13,6 +13,8 @@ data class TerminalSettings(
     val fontSizeSp: Int = DEFAULT_FONT_SIZE_SP,
     /** Mantener la pantalla encendida mientras el terminal está a la vista. */
     val keepScreenOn: Boolean = true,
+    /** Seguir conectado en segundo plano con un servicio en primer plano. */
+    val keepAliveInBackground: Boolean = true,
 ) {
     companion object {
         const val DEFAULT_FONT_SIZE_SP = 12
@@ -27,6 +29,7 @@ interface TerminalSettingsStore {
     val settings: StateFlow<TerminalSettings>
     fun setFontSize(sp: Int)
     fun setKeepScreenOn(enabled: Boolean)
+    fun setKeepAliveInBackground(enabled: Boolean)
 }
 
 /** [TerminalSettingsStore] sobre `SharedPreferences` (no son secretos). */
@@ -37,6 +40,7 @@ class SharedPreferencesTerminalSettings(context: Context) : TerminalSettingsStor
         TerminalSettings(
             fontSizeSp = TerminalSettings.clampFontSize(prefs.getInt(KEY_FONT_SIZE, TerminalSettings.DEFAULT_FONT_SIZE_SP)),
             keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
+            keepAliveInBackground = prefs.getBoolean(KEY_KEEP_ALIVE, true),
         ),
     )
     override val settings: StateFlow<TerminalSettings> = state.asStateFlow()
@@ -53,9 +57,15 @@ class SharedPreferencesTerminalSettings(context: Context) : TerminalSettingsStor
         prefs.edit { putBoolean(KEY_KEEP_SCREEN_ON, enabled) }
     }
 
+    override fun setKeepAliveInBackground(enabled: Boolean) {
+        state.update { it.copy(keepAliveInBackground = enabled) }
+        prefs.edit { putBoolean(KEY_KEEP_ALIVE, enabled) }
+    }
+
     private companion object {
         const val FILE = "terminal"
         const val KEY_FONT_SIZE = "terminal.fontSize"
         const val KEY_KEEP_SCREEN_ON = "terminal.keepScreenOn"
+        const val KEY_KEEP_ALIVE = "terminal.keepAliveInBackground"
     }
 }

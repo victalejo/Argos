@@ -3,6 +3,8 @@ package com.iaportafolio.argos.ui.terminal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.background.ActiveTerminal
+import com.iaportafolio.argos.background.TerminalKeepAlive
 import com.iaportafolio.argos.core.PTYSize
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
@@ -51,9 +53,11 @@ sealed interface TerminalTarget {
  * Terminal en vivo de UNA sesión tmux (port de `TouchTerminalController` de iOS).
  *
  * Ciclo de vida con un único [state]: conectando → conectado → desconectado (con reintento
- * automático y backoff, o «Reconectar») / sesión terminada. Como en iOS, al pasar a segundo
- * plano ([onStop]) hace detach (cancela el attach: tmux desengancha el cliente y la sesión
- * sigue viva) y al volver ([onStart]) reengancha; tmux repinta la pantalla tal como estaba.
+ * automático y backoff, o «Reconectar») / sesión terminada. Con el servicio de [keepAlive] en
+ * marcha, pasar a segundo plano ([onStop]) no toca la conexión y la salida sigue llegando al
+ * emulador. Sin él, como en iOS, hace detach (cancela el attach: tmux desengancha el cliente y
+ * la sesión sigue viva) y al volver ([onStart]) reengancha; tmux repinta la pantalla tal como
+ * estaba. Salir de la pantalla ([onLeave]) siempre hace detach.
  *
  * La salida del PTY llega por un canal acotado (si la UI va por detrás, el lector SSH espera:
  * contrapresión real) y se vuelca al emulador en lotes desde el hilo principal.
@@ -72,7 +76,8 @@ class TerminalViewModel<S : TerminalSink>(
     private val target: TerminalTarget = TerminalTarget.TmuxSession,
     /** Observa la salida ya volcada al emulador (el login busca en ella su enlace). */
     private val outputTap: (List<ByteArray>) -> Unit = {},
-) : ViewModel() {
+    private val keepAlive: TerminalKeepAlive = TerminalKeepAlive.None,
+) : ViewModel(), ActiveTerminal {
 
     private val mutableState = MutableStateFlow(
         TerminalUiState(
@@ -87,6 +92,12 @@ class TerminalViewModel<S : TerminalSink>(
     private val viewSize = MutableStateFlow<PTYSize.Dimensions?>(null)
 
     private var connectJob: Job? = null
+
+    /** Identifica el attach vigente: uno anterior que termina tarde no debe soltar el registro. */
+    private var connectGeneration = 0
+
+    /** Parado por [onStop] con la conexión viva; lo sabe [onKeepAliveLost]. */
+    private var inBackground = false
 
     /** Canal de control del attach en curso (`null` si no hay ninguno abierto). */
     private var control: Channel<TerminalControlEvent>? = null
@@ -118,15 +129,49 @@ class TerminalViewModel<S : TerminalSink>(
 
     /** La pantalla pasa a primer plano (ON_START): engancha si no hay attach vivo. */
     fun onStart() {
-        if (connectJob?.isActive == true) return
+        inBackground = false
+        if (connectJob?.isActive == true) {
+            // Sigue conectado sin repintar. Si el servicio no estaba, se reintenta ahora en primer plano.
+            keepAlive.register(this)
+            return
+        }
         if (state.value.status == TerminalStatus.SessionEnded) return
         connect()
     }
 
-    /** La pantalla pasa a segundo plano (ON_STOP) o se cierra: detach (no kill). */
+    /** La app pasa a segundo plano (ON_STOP): con el servicio sigue conectado; sin él, detach (no kill). */
     fun onStop() {
+        if (keepAlive.keepsAliveInBackground && connectJob?.isActive == true) {
+            inBackground = true
+        } else {
+            detach()
+        }
+    }
+
+    /** Se sale de la pantalla (con la app aún en primer plano): detach (no kill). */
+    fun onLeave() = detach()
+
+    private fun detach() {
+        inBackground = false
         connectJob?.cancel()
         connectJob = null
+        keepAlive.unregister(this)
+    }
+
+    /** «Desconectar todo»: detach. Si el terminal está a la vista, se ofrece reconectar. */
+    override fun disconnectFromBackground() {
+        detach()
+        if (state.value.status != TerminalStatus.SessionEnded) {
+            setStatus(TerminalStatus.Disconnected(UiText.res(R.string.terminal_disconnected_by_user), retryInSeconds = null))
+        }
+    }
+
+    override fun onKeepAliveLost() {
+        if (inBackground) detach()
+    }
+
+    override fun onCleared() {
+        keepAlive.unregister(this)
     }
 
     /** «Reconectar»: intento nuevo desde cero (reinicia la cuenta de reintentos). */
@@ -135,10 +180,18 @@ class TerminalViewModel<S : TerminalSink>(
     private fun connect() {
         val previous = connectJob
         previous?.cancel()
+        val generation = ++connectGeneration
+        // Antes de lanzar y sin soltar el anterior: al reconectar la cuenta no pasa por cero.
+        keepAlive.register(this)
         connectJob = viewModelScope.launch {
             // El canal anterior debe cerrarse antes de abrir otro (un solo cliente tmux nuestro).
             previous?.cancelAndJoin()
-            runAttachLoop()
+            try {
+                runAttachLoop()
+            } finally {
+                // Sesión terminada o reintentos agotados: ya no hay nada que mantener vivo.
+                if (generation == connectGeneration) keepAlive.unregister(this@TerminalViewModel)
+            }
         }
     }
 

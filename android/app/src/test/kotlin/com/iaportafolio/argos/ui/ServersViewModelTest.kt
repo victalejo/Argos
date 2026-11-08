@@ -10,8 +10,10 @@ import com.iaportafolio.argos.testing.InMemoryAgentPermissionBackend
 import com.iaportafolio.argos.testing.FakeServiceProvider
 import com.iaportafolio.argos.testing.InMemorySecretStore
 import com.iaportafolio.argos.testing.InMemoryServerRepository
+import com.iaportafolio.argos.testing.InMemoryTerminalSettings
 import com.iaportafolio.argos.testing.InMemoryTrustStore
 import com.iaportafolio.argos.testing.MainDispatcherExtension
+import com.iaportafolio.argos.testing.RecordingAttention
 import com.iaportafolio.argos.testing.server
 import com.iaportafolio.argos.ui.common.UiText
 import com.iaportafolio.argos.ui.servers.ServersViewModel
@@ -22,6 +24,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import java.io.IOException
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -37,9 +40,11 @@ class ServersViewModelTest {
     private val secrets = InMemorySecretStore()
     private val trust = InMemoryTrustStore(mapOf("dev.example.com:22" to "SHA256:a", "prod.example.com:22" to "SHA256:b"))
     private val provider = FakeServiceProvider()
+    private val attention = RecordingAttention()
+    private val terminalSettings = InMemoryTerminalSettings()
 
     private fun TestScope.viewModel() =
-        ServersViewModel(repository, secrets, trust, provider, agentPermissions, main.dispatcher).also { advanceUntilIdle() }
+        ServersViewModel(repository, secrets, trust, provider, agentPermissions, main.dispatcher, attention, terminalSettings).also { advanceUntilIdle() }
 
     @Test
     fun `expone la lista del repositorio y sus cambios`() = runTest(main.dispatcher) {
@@ -73,6 +78,7 @@ class ServersViewModelTest {
         assertEquals(listOf("B"), secrets.deletedAll)
         assertNull(trust.known["prod.example.com:22"])
         assertEquals(listOf("B"), provider.invalidated)
+        assertEquals(listOf("B"), attention.deleted)
         assertNull(vm.state.value.pendingDeletion)
     }
 
@@ -95,6 +101,7 @@ class ServersViewModelTest {
         advanceUntilIdle()
         assertEquals(UiText.Plain("Disco lleno"), vm.state.value.message)
         assertTrue(secrets.deletedAll.isEmpty())
+        assertTrue(attention.deleted.isEmpty())
     }
 
     @Test
@@ -118,5 +125,21 @@ class ServersViewModelTest {
 
         assertEquals(ClaudeAgentCommand.PermissionMode.DEFAULT, vm.state.value.agentPermissionMode)
         assertEquals(ClaudeAgentCommand.PermissionMode.DEFAULT, agentPermissions.globalMode())
+    }
+
+    @Test
+    fun `los ajustes de segundo plano se reflejan y se guardan`() = runTest(main.dispatcher) {
+        val vm = viewModel()
+        assertTrue(vm.state.value.agentNotificationsEnabled)
+        assertTrue(vm.state.value.keepTerminalAlive)
+
+        vm.setAgentNotificationsEnabled(false)
+        vm.setKeepTerminalAlive(false)
+        advanceUntilIdle()
+
+        assertFalse(vm.state.value.agentNotificationsEnabled)
+        assertFalse(vm.state.value.keepTerminalAlive)
+        assertFalse(attention.notificationsEnabled.value)
+        assertFalse(terminalSettings.settings.value.keepAliveInBackground)
     }
 }
