@@ -275,4 +275,13 @@ struct HostKeyTrustTests {
         transfer.hostKeyFingerprint = nil
         #expect(!transfer.conflictsWithTrustedHostKey(storeURL: url))
     }
+
+    @Test func elQRSeAsociaAlServidorQueLlegoDelMacEnVezDeDuplicarlo() {
+        let transfer = ServerTransfer(name: "dev", host: "dev.example.com", port: 2222, username: "victor", keySeed: Data(repeating: 7, count: 32), keyComment: "argos-iphone-abc", hostKeyFingerprint: nil, createdAt: Date())
+        let delMac = Server(name: "dev", host: "DEV.example.com", port: 2222, username: "victor", authMethod: .key, privateKeyPath: "~/.ssh/dev")
+        let otroUsuario = Server(name: "dev root", host: "dev.example.com", port: 2222, username: "root", authMethod: .key, privateKeyPath: "~/.ssh/dev")
+        let conContrasena = Server(name: "dev pw", host: "dev.example.com", port: 2222, username: "victor", authMethod: .password, privateKeyPath: "")
+        #expect(transfer.matchingServer(in: [otroUsuario, conContrasena, delMac]) { _ in true }?.id == delMac.id)
+        #expect(transfer.matchingServer(in: [otroUsuario, conContrasena]) { _ in true } == nil)
+    }
 }

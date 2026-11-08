@@ -95,8 +95,8 @@ struct ImportServerSheet: View {
                         .multilineTextAlignment(.trailing)
                 }
             } footer: {
-                if hasDuplicate(of: transfer) {
-                    Text("Ya tienes un servidor con este usuario y dirección: se añadirá otro.")
+                if let existing = existingServer(for: transfer) {
+                    Text("Ya tienes «\(existing.name)» (llegó de tu Mac): este código le da la clave para conectarse desde aquí. No se crea otro servidor.")
                 }
             }
             if transfer.conflictsWithTrustedHostKey() {
@@ -114,7 +114,7 @@ struct ImportServerSheet: View {
                 }
             }
             Section {
-                Button("Añadir servidor") { add(transfer) }
+                Button(existingServer(for: transfer) == nil ? "Añadir servidor" : "Usar esta clave") { add(transfer) }
                     .frame(maxWidth: .infinity)
                     .bold()
                     .disabled(transfer.conflictsWithTrustedHostKey())
@@ -124,10 +124,8 @@ struct ImportServerSheet: View {
         }
     }
 
-    private func hasDuplicate(of transfer: ServerTransfer) -> Bool {
-        hub.store.servers.contains {
-            $0.host == transfer.host && $0.port == transfer.port && $0.username == transfer.username
-        }
+    private func existingServer(for transfer: ServerTransfer) -> Server? {
+        transfer.matchingServer(in: hub.store.servers) { ImportedKeyStore.needsImport($0) }
     }
 
     private func add(_ transfer: ServerTransfer) {

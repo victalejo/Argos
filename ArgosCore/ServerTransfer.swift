@@ -151,6 +151,21 @@ struct ServerTransfer: Equatable, Sendable {
         return known != hostKeyFingerprint
     }
 
+    // MARK: - Servidor existente
+
+    /// Servidor ya presente (p. ej. llegado del Mac por iCloud) al que pertenece este
+    /// código: mismo usuario, host y puerto, con acceso por clave. Recibe la clave en vez
+    /// de crear un duplicado. Si hay varios, el que aún no tiene clave en el dispositivo.
+    func matchingServer(in servers: [Server], needsKey: (Server) -> Bool) -> Server? {
+        let candidates = servers.filter {
+            $0.authMethod == .key
+                && $0.host.caseInsensitiveCompare(host) == .orderedSame
+                && $0.port == port
+                && $0.username == username
+        }
+        return candidates.first(where: needsKey) ?? candidates.first
+    }
+
     // MARK: - Clave
 
     /// Clave privada en formato OpenSSH, lista para `ImportedKeyStore`.

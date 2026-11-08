@@ -25,6 +25,7 @@ struct ProjectsView: View {
     @State private var pendingKill: TmuxSession?
     @State private var errorMessage: String?
     @State private var editingServer: ServerFormView.Mode?
+    @State private var scanningQR = false
 
     private enum SessionPrompt: Identifiable {
         case create
@@ -40,6 +41,9 @@ struct ProjectsView: View {
     private var viewModel: SessionsViewModel { hub.viewModel(for: currentServer) }
     /// El servidor tal como está guardado ahora (puede haberse editado tras abrir la vista).
     private var currentServer: Server { hub.store.server(withID: server.id) ?? server }
+    /// Servidor llegado del Mac por iCloud sin su clave en este dispositivo: no se intenta
+    /// conectar (fallaría seguro); se guía a recibirla del Mac.
+    private var needsKey: Bool { ImportedKeyStore.needsImport(currentServer) }
 
     var body: some View {
         content
@@ -56,12 +60,12 @@ struct ProjectsView: View {
                     .disabled(viewModel.state.isBusy)
                 }
             }
-            .task { if case .idle = viewModel.state { await viewModel.load() } }
+            .task { if !needsKey, case .idle = viewModel.state { await viewModel.load() } }
             .refreshable { await viewModel.load() }
             .onChange(of: scenePhase) { _, phase in
                 // Al volver de segundo plano la lista puede estar desfasada (y la conexión
                 // SSH, muerta): se recarga, lo que también reconecta.
-                if phase == .active, !viewModel.state.isBusy { Task { await viewModel.load() } }
+                if phase == .active, !needsKey, !viewModel.state.isBusy { Task { await viewModel.load() } }
             }
             .alert(promptTitle, isPresented: promptBinding) {
                 TextField("Nombre", text: $promptText)
@@ -84,11 +88,11 @@ struct ProjectsView: View {
             } message: {
                 Text("Se terminan los procesos que corren en ella (kill-session).")
             }
-            .sheet(item: $editingServer, onDismiss: {
-                // Guardar reinicia la conexión: reintentar con la clave recién importada.
-                Task { await hub.viewModel(for: currentServer).load() }
-            }) { mode in
+            .sheet(item: $editingServer, onDismiss: reloadAfterKeyChange) { mode in
                 ServerFormView(mode: mode)
+            }
+            .sheet(isPresented: $scanningQR, onDismiss: reloadAfterKeyChange) {
+                ImportServerSheet()
             }
             .alert("Algo salió mal", isPresented: errorBinding) {
                 Button("OK", role: .cancel) {}
@@ -99,8 +103,35 @@ struct ProjectsView: View {
 
     // MARK: - Contenido según el estado
 
+    /// Guardar o recibir una clave reinicia la conexión: reintentar con ella.
+    private func reloadAfterKeyChange() {
+        guard !needsKey else { return }
+        Task { await hub.viewModel(for: currentServer).load() }
+    }
+
+    private var missingKey: some View {
+        ContentUnavailableView {
+            Label("Falta la clave en este dispositivo", systemImage: "key.slash")
+        } description: {
+            Text("«\(currentServer.name)» llegó de tu Mac por iCloud, pero las claves SSH no viajan. En el Mac, abre el menú del servidor → «Enviar al iPhone…» y escanea el código: se crea una clave solo para este dispositivo.")
+        } actions: {
+            Button("Escanear QR del Mac", systemImage: "qrcode.viewfinder") { scanningQR = true }
+                .buttonStyle(.borderedProminent)
+            Button("Importar archivo de clave", systemImage: "key") { editingServer = .edit(currentServer) }
+        }
+    }
+
     @ViewBuilder
     private var content: some View {
+        if needsKey {
+            missingKey
+        } else {
+            connectionContent
+        }
+    }
+
+    @ViewBuilder
+    private var connectionContent: some View {
         switch viewModel.state {
         case .idle, .verifying, .loading:
             ProgressView("Conectando con \(server.name)…")
@@ -133,10 +164,6 @@ struct ProjectsView: View {
             } description: {
                 Text(message)
             } actions: {
-                if ImportedKeyStore.needsImport(currentServer) {
-                    Button("Importar clave", systemImage: "key") { editingServer = .edit(currentServer) }
-                        .buttonStyle(.borderedProminent)
-                }
                 Button("Reintentar") { Task { await viewModel.load() } }
             }
         case .loaded:

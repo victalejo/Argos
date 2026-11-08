@@ -197,6 +197,11 @@ struct ServerRowView: View {
                 Text(verbatim: "\(server.username)@\(server.host)\(server.port == 22 ? "" : ":\(server.port)")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if ImportedKeyStore.needsImport(server) {
+                    Label("Falta la clave · envíalo desde el Mac", systemImage: "key.slash")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
             }
         }
         .padding(.vertical, 2)

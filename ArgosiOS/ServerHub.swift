@@ -55,16 +55,20 @@ final class ServerHub {
         disconnect(server.id)
     }
 
-    /// Añade el servidor recibido del Mac por QR: guarda su clave dedicada y fija la
-    /// huella de host key que verificó el Mac.
+    /// Servidor del QR del Mac: guarda su clave dedicada y fija la huella de host key que
+    /// verificó el Mac. Si ese servidor ya está (llegó por iCloud), le pone la clave en vez
+    /// de duplicarlo.
     @discardableResult
     func importTransfer(_ transfer: ServerTransfer) throws -> Server {
         guard !transfer.conflictsWithTrustedHostKey() else {
             throw ServerTransfer.HostKeyConflictError(endpoint: "\(transfer.host):\(transfer.port)")
         }
-        let id = UUID()
-        let path = try ImportedKeyStore.store(Data(try transfer.privateKeyPEM().utf8), for: id)
-        let server = Server(
+        let existing = transfer.matchingServer(in: store.servers) { ImportedKeyStore.needsImport($0) }
+        let id = existing?.id ?? UUID()
+        let pem = Data(try transfer.privateKeyPEM().utf8)
+        let previousKey = existing.flatMap { try? Data(contentsOf: ImportedKeyStore.keyURL(for: $0.id, in: ImportedKeyStore.defaultDirectory())) }
+        let path = try ImportedKeyStore.store(pem, for: id)
+        var server = existing ?? Server(
             id: id,
             name: transfer.name,
             host: transfer.host,
@@ -73,10 +77,16 @@ final class ServerHub {
             authMethod: .key,
             privateKeyPath: path
         )
+        server.privateKeyPath = path
+        server.requiresPassphrase = false // la clave dedicada del QR no lleva passphrase
         do {
-            try save(server, secret: nil, isNew: true)
+            try save(server, secret: nil, isNew: existing == nil)
         } catch {
-            ImportedKeyStore.remove(for: id)
+            if let previousKey {
+                _ = try? ImportedKeyStore.store(previousKey, for: id)
+            } else {
+                ImportedKeyStore.remove(for: id)
+            }
             throw error
         }
         if let fingerprint = transfer.hostKeyFingerprint {
