@@ -100,8 +100,7 @@ internal class SshjConnection(
                 client = null
                 current?.let { withContext(Dispatchers.IO) { closeQuietly(it) } }
             }
-            val open = dedicated.toList()
-            dedicated.clear()
+            val open = dedicated.drainConcurrently()
             if (open.isNotEmpty()) withContext(Dispatchers.IO) { open.forEach(::closeQuietly) }
         }
     }
@@ -262,4 +261,14 @@ internal class SshjConnection(
         /** Permisos 0600: solo el usuario remoto puede leer o escribir la subida. */
         val PRIVATE_FILE: FileAttributes = FileAttributes.Builder().withPermissions(0b110_000_000).build()
     }
+}
+
+/**
+ * Saca y devuelve lo que haya en un conjunto concurrente. `toList()` de Kotlin NO vale aquí: con
+ * un elemento consulta `size` y luego `iterator().next()`, que lanza si otro hilo lo quitó entre
+ * medias. `toArray` toma una foto consistente, y quitar uno a uno no pierde lo añadido después.
+ */
+internal fun <T> MutableSet<T>.drainConcurrently(): List<T> {
+    val snapshot = ArrayList(this)
+    return snapshot.filter { remove(it) }
 }

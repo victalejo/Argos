@@ -348,11 +348,32 @@ class AgentChatViewModel(
         }
     }
 
-    /** Relanza el proceso con `--resume`. El token solo viaja por stdin. */
+    /**
+     * Pide reanudar. `meta.json` puede haberlo editado el propio agente, así que los modos que
+     * actúan sin preguntar exigen que el usuario los confirme ([confirmResume]).
+     */
     fun resume() {
         val current = session ?: return
         if (state.value.isResuming) return
-        mutableState.update { it.copy(isResuming = true) }
+        val meta = current.state.value.meta
+        if (meta.resumeRequiresConfirmation) {
+            mutableState.update { it.copy(confirmResumeMode = meta.resolvedPermissionMode) }
+        } else {
+            performResume(current)
+        }
+    }
+
+    fun cancelResume() = mutableState.update { it.copy(confirmResumeMode = null) }
+
+    fun confirmResume() {
+        val current = session ?: return
+        if (state.value.confirmResumeMode == null || state.value.isResuming) return
+        performResume(current)
+    }
+
+    /** Relanza el proceso con `--resume`. El token solo viaja por stdin. */
+    private fun performResume(current: PersistentAgentSession) {
+        mutableState.update { it.copy(isResuming = true, confirmResumeMode = null) }
         viewModelScope.launch {
             try {
                 superviseJob?.cancelAndJoin()

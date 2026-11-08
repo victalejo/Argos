@@ -47,6 +47,9 @@ sealed interface AgentListDialog {
     data object Permissions : AgentListDialog
 
     data class ConfirmDelete(val agentId: String, val title: String) : AgentListDialog
+
+    /** `meta.json` pide un modo que actúa sin preguntar: reanudar exige confirmarlo. */
+    data class ConfirmResume(val agentId: String, val mode: ClaudeAgentCommand.PermissionMode) : AgentListDialog
 }
 
 sealed interface AgentListEvent {

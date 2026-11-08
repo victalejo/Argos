@@ -25,13 +25,26 @@ data class PersistentAgentMeta(
     val createdAt: Instant,
     /**
      * Modo con el que se creó. Reanudar lo conserva para que nunca suban los permisos sin que
-     * nadie lo pida. Es texto para que un modo desconocido no invalide el `meta.json`.
+     * nadie lo pida. Es texto para que un modo desconocido no invalide el `meta.json`. El archivo
+     * vive en el servidor y puede editarlo el propio agente: no es de fiar para dar permisos sin
+     * preguntar (ver [resumeRequiresConfirmation]).
      */
     val permissionMode: String? = null,
 ) {
     /** Los agentes sin modo guardado (o desconocido) se crearon preguntando cada permiso. */
     val resolvedPermissionMode: ClaudeAgentCommand.PermissionMode
         get() = ClaudeAgentCommand.PermissionMode.fromRawValue(permissionMode) ?: ClaudeAgentCommand.PermissionMode.DEFAULT
+
+    /**
+     * Reanudar sin preguntar permitiría a un agente limitado subirse los permisos editando su
+     * `meta.json`, así que el usuario debe confirmar los modos que actúan sin pedir permiso.
+     * `default` y `plan` siguen preguntando antes de cada acción.
+     */
+    val resumeRequiresConfirmation: Boolean
+        get() = when (resolvedPermissionMode) {
+            ClaudeAgentCommand.PermissionMode.BYPASS_PERMISSIONS, ClaudeAgentCommand.PermissionMode.ACCEPT_EDITS -> true
+            ClaudeAgentCommand.PermissionMode.DEFAULT, ClaudeAgentCommand.PermissionMode.PLAN -> false
+        }
 
     companion object {
         private val ISO_PATTERN = Regex("""\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})""")

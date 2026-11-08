@@ -197,9 +197,28 @@ class AgentListViewModel(
         withContext(io) { ssh.runAgentScript(PersistentAgentScript.stop(agentId, delete = false)) }
     }
 
-    /** Relanza el proceso; el chat se engancha al abrirlo. El token solo viaja por stdin. */
+    /**
+     * Pide reanudar. `meta.json` puede haberlo editado el propio agente, así que los modos que
+     * actúan sin preguntar exigen que el usuario los confirme ([confirmResume]).
+     */
     fun resume(agentId: String) {
         val info = infos.firstOrNull { it.id == agentId } ?: return
+        if (info.meta.resumeRequiresConfirmation) {
+            mutableState.update { it.copy(dialog = AgentListDialog.ConfirmResume(agentId, info.meta.resolvedPermissionMode)) }
+        } else {
+            performResume(info)
+        }
+    }
+
+    fun confirmResume() {
+        val dialog = state.value.dialog as? AgentListDialog.ConfirmResume ?: return
+        dismissDialog()
+        infos.firstOrNull { it.id == dialog.agentId }?.let(::performResume)
+    }
+
+    /** Relanza el proceso; el chat se engancha al abrirlo. El token solo viaja por stdin. */
+    private fun performResume(info: PersistentAgentInfo) {
+        val agentId = info.id
         runOnAgent(agentId, "reanudar") { ssh ->
             val token = withContext(io) { tokens.read() }
             val session = PersistentAgentSession(ssh, ssh.agentExec(), info, viewModelScope)

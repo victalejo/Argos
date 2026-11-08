@@ -130,4 +130,22 @@ class HostKeyStoreAndPathsTest {
         assertEquals("/tmp/argos-pasted-42.png", UploadPaths.pasted("png", 42))
         assertEquals("/tmp/argos-42-a_b.txt", UploadPaths.dropped("a b.txt", 42))
     }
+
+    @Test
+    fun `vaciar las conexiones dedicadas no falla si otra corrutina las retira a la vez`() {
+        val set: MutableSet<Int> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+        val stop = java.util.concurrent.atomic.AtomicBoolean(false)
+        val churn = kotlin.concurrent.thread {
+            while (!stop.get()) {
+                set += 1
+                set -= 1
+            }
+        }
+        try {
+            repeat(2_000_000) { set.drainConcurrently() }
+        } finally {
+            stop.set(true)
+            churn.join()
+        }
+    }
 }

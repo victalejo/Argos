@@ -345,6 +345,8 @@ private fun AgentListDialogs(state: AgentListUiState, viewModel: AgentListViewMo
             onSelect = viewModel::setPermissionChoice,
             onDismiss = viewModel::dismissDialog,
         )
+        is AgentListDialog.ConfirmResume ->
+            ConfirmResumeDialog(dialog.mode, onConfirm = viewModel::confirmResume, onDismiss = viewModel::dismissDialog)
         is AgentListDialog.ConfirmDelete -> AlertDialog(
             onDismissRequest = viewModel::dismissDialog,
             title = { Text(stringResource(R.string.agents_delete_title, dialog.title)) },

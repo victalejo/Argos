@@ -664,11 +664,38 @@ class AgentChatViewModelTest {
         ssh.agents = listOf(agentInfo(isAlive = false, permissionMode = "acceptEdits"))
         val vm = attached()
         vm.resume()
+        assertEquals(ClaudeAgentCommand.PermissionMode.ACCEPT_EDITS, vm.state.value.confirmResumeMode)
+        vm.confirmResume()
         runCurrent()
         val command = ssh.launches.single().command
         assertTrue("--permission-mode acceptEdits" in command)
         assertFalse(ClaudeAgentCommand.PermissionMode.BYPASS_PERMISSIONS.rawValue in command)
         assertEquals(ClaudeAgentCommand.PermissionMode.ACCEPT_EDITS, vm.state.value.permissionMode)
+    }
+
+    @Test
+    fun `reanudar con todos los permisos segun el meta exige confirmar`() = chatTest {
+        ssh.agents = listOf(agentInfo(isAlive = false, permissionMode = "bypassPermissions"))
+        val vm = attached()
+        vm.resume()
+        runCurrent()
+        assertEquals(ClaudeAgentCommand.PermissionMode.BYPASS_PERMISSIONS, vm.state.value.confirmResumeMode)
+        assertTrue(ssh.launches.isEmpty(), "No debe relanzar sin confirmación")
+
+        vm.cancelResume()
+        runCurrent()
+        assertEquals(null, vm.state.value.confirmResumeMode)
+        assertTrue(ssh.launches.isEmpty())
+
+        vm.confirmResume()
+        runCurrent()
+        assertTrue(ssh.launches.isEmpty(), "Confirmar sin haberlo pedido no relanza")
+
+        vm.resume()
+        vm.confirmResume()
+        runCurrent()
+        assertEquals(null, vm.state.value.confirmResumeMode)
+        assertEquals(1, ssh.launches.size)
     }
 
     // MARK: - Secretos

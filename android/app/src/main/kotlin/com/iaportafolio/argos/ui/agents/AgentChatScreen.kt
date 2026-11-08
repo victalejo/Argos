@@ -148,6 +148,9 @@ fun AgentChatScreen(
             }
         }
     }
+    state.confirmResumeMode?.let { mode ->
+        ConfirmResumeDialog(mode, onConfirm = viewModel::confirmResume, onDismiss = viewModel::cancelResume)
+    }
     if (state.confirmDelete) {
         AlertDialog(
             onDismissRequest = viewModel::cancelDelete,

@@ -390,4 +390,7 @@
         <item quantity="many">%d ventanas</item>
         <item quantity="other">%d ventanas</item>
     </plurals>
+    <string name="agents_resume_confirm_title">¿Reanudar en «%1$s»?</string>
+    <string name="agents_resume_confirm_message">El servidor indica que este agente usa este modo. %1$s Si no lo elegiste tú, borra la conversación y crea otra.</string>
+    <string name="agents_resume_confirm_action">Reanudar en «%1$s»</string>
 </resources>

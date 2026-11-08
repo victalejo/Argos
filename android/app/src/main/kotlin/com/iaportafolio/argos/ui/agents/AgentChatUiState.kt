@@ -58,6 +58,8 @@ data class AgentChatUiState(
     val isStopping: Boolean = false,
     val isDeleting: Boolean = false,
     val confirmDelete: Boolean = false,
+    /** `meta.json` pide un modo que actúa sin preguntar: reanudar exige confirmarlo. */
+    val confirmResumeMode: ClaudeAgentCommand.PermissionMode? = null,
     /** Fallo de la última acción; se ve en la pantalla hasta que otra acción sale bien. */
     val error: UiText? = null,
 ) {

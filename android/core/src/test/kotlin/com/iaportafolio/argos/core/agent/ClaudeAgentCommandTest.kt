@@ -66,6 +66,18 @@ class ClaudeAgentCommandTest {
     }
 
     @Test
+    fun `reanudar pide confirmacion solo en los modos que actuan sin preguntar`() {
+        val meta = PersistentAgentMeta("/r", "t", java.time.Instant.EPOCH)
+        assertFalse(meta.resumeRequiresConfirmation)
+        ClaudeAgentCommand.PermissionMode.entries.forEach { mode ->
+            assertEquals(
+                mode == ClaudeAgentCommand.PermissionMode.BYPASS_PERMISSIONS || mode == ClaudeAgentCommand.PermissionMode.ACCEPT_EDITS,
+                meta.copy(permissionMode = mode.rawValue).resumeRequiresConfirmation,
+            )
+        }
+    }
+
+    @Test
     fun `preferencias - proyecto gana a global y global al fallback`() {
         val server = "ABC"
         val key = AgentPermissionPreferences.projectKey(server, "/r.x")

@@ -544,6 +544,27 @@ class AgentListViewModelTest {
     }
 
     @Test
+    fun `reanudar con todos los permisos segun el meta exige confirmar`() = runTest(main.dispatcher) {
+        ssh.agents = listOf(agentInfo(isAlive = false, permissionMode = "bypassPermissions"))
+        val vm = loaded()
+        vm.resume(AGENT_1)
+        advanceUntilIdle()
+        assertTrue(vm.state.value.dialog is AgentListDialog.ConfirmResume)
+        assertTrue(ssh.launches.isEmpty(), "No debe relanzar sin confirmación")
+
+        vm.dismissDialog()
+        vm.confirmResume()
+        advanceUntilIdle()
+        assertTrue(ssh.launches.isEmpty(), "Cancelar no relanza")
+
+        vm.resume(AGENT_1)
+        vm.confirmResume()
+        advanceUntilIdle()
+        assertEquals(1, ssh.launches.size)
+        assertTrue("--resume" in ssh.launches.single().command)
+    }
+
+    @Test
     fun `un fallo al reanudar se ve, sin el token`() = runTest(main.dispatcher) {
         tokens.token = SECRET_TOKEN
         ssh.agents = listOf(agentInfo(isAlive = false))

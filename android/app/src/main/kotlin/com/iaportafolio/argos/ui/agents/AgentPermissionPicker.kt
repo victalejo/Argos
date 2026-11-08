@@ -124,3 +124,16 @@ private fun PermissionOption(title: String, detail: String, selected: Boolean, o
         }
     }
 }
+
+/** Confirmación antes de reanudar en un modo que actúa sin preguntar: `meta.json` no es de fiar. */
+@Composable
+internal fun ConfirmResumeDialog(mode: PermissionMode, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val title = stringResource(mode.titleRes)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.agents_resume_confirm_title, title)) },
+        text = { Text(stringResource(R.string.agents_resume_confirm_message, stringResource(mode.detailRes))) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.agents_resume_confirm_action, title)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
