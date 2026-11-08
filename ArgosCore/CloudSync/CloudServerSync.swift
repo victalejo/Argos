@@ -94,7 +94,19 @@ final class CloudServerSync {
         let local = ServerSync.localDocument(
             servers: store.servers, knownHosts: localHosts, previous: previous, now: now
         )
-        let remote = ServerSync.decode(cloud.data(forKey: Self.documentKey)) ?? .empty
+        // Un documento remoto ilegible o de una versión más nueva NO se trata como vacío:
+        // se aborta sin escribir (si no, esta app borraría lo que otra versión guardó).
+        let remote: ServerSyncDocument
+        if let raw = cloud.data(forKey: Self.documentKey) {
+            guard let decoded = ServerSync.decode(raw),
+                  decoded.version <= ServerSyncDocument.supportedVersion else {
+                Log.store.error("Documento de iCloud ilegible o de una versión más nueva: no se sincroniza.")
+                return
+            }
+            remote = decoded
+        } else {
+            remote = .empty
+        }
         let merged = ServerSync.merge(local: local, remote: remote, now: now)
 
         let updated = ServerSync.applying(merged, to: store.servers)

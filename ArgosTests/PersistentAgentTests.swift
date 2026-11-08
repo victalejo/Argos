@@ -139,6 +139,13 @@ struct PersistentAgentScriptTests {
         #expect(log.contains(#"{"type":"token","value":"tok-secreto"}"#)) // el token llega por stdin
         #expect(log.contains(#""request_id":"r2""#)) // el permiso respondido queda anotado
 
+        // Instantáneas para los avisos: tamaño del log y su final, ejecutadas de verdad.
+        let snapshots = PersistentAgentScript.parseSnapshots(try shell(PersistentAgentScript.snapshots(), home: home))
+        #expect(snapshots.map(\.id) == [id])
+        #expect(snapshots.first?.isAlive == true)
+        #expect(snapshots.first?.logBytes == log.utf8.count)
+        #expect(snapshots.first?.tail.contains(#""line":{"n":2}"#) == true)
+
         let listed = PersistentAgentScript.parseList(try shell(PersistentAgentScript.list(), home: home))
         #expect(listed.map(\.id) == [id])
         #expect(listed.first?.isAlive == true)
@@ -339,5 +346,58 @@ struct PersistentAgentConversationTests {
     private func waitUntil(_ condition: () -> Bool) async throws {
         for _ in 0..<100 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
         #expect(condition())
+    }
+}
+
+@Suite("Avisos de agentes")
+struct AgentAttentionTests {
+
+    private let permiso = #"{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{}}}"#
+    private let respondido = #"{"type":"argos_permission_answered","request_id":"r1"}"#
+    private let resultado = #"{"type":"result","subtype":"success","is_error":false,"result":"Listo: 3 tests verdes."}"#
+    private let prompt = #"{"type":"user","message":{"content":"otra cosa"}}"#
+
+    @Test func detectaPermisoPendienteYTerminado() {
+        #expect(AgentAttention.evaluate(logTail: permiso) == .needsPermission(tool: "Bash"))
+        #expect(AgentAttention.evaluate(logTail: [permiso, respondido].joined(separator: "\n")) == .none)
+        #expect(AgentAttention.evaluate(logTail: [permiso, respondido, resultado].joined(separator: "\n"))
+                == .finished(summary: "Listo: 3 tests verdes.", isError: false))
+        // Tras un resultado, un prompt nuevo significa que vuelve a trabajar.
+        #expect(AgentAttention.evaluate(logTail: [resultado, prompt].joined(separator: "\n")) == .none)
+        // La primera línea cortada (trozo del final del log) se ignora.
+        #expect(AgentAttention.evaluate(logTail: "a\":1}\n" + resultado) != .none)
+    }
+
+    @Test func soloAvisaDeLoNuevoYUnaVez() {
+        let viejo = Date(timeIntervalSince1970: 1)
+        let ahora = Date(timeIntervalSince1970: 1_000_000)
+        func snap(_ bytes: Int, created: Date = viejo, tail: String) -> AgentLogSnapshot {
+            AgentLogSnapshot(id: "6a55640d-ac70-41ab-8426-6eb72d4fb5eb", isAlive: true, logBytes: bytes,
+                             title: "tienda", createdAt: created, tail: tail)
+        }
+        // Agente viejo nunca visto: solo referencia.
+        var r = AgentAttentionPlanner.notices(snapshots: [snap(100, tail: resultado)], seenBytes: [:], now: ahora)
+        #expect(r.notices.isEmpty)
+        // Creció y terminó: aviso.
+        r = AgentAttentionPlanner.notices(snapshots: [snap(200, tail: resultado)], seenBytes: r.seen, now: ahora)
+        #expect(r.notices.first?.title == "tienda: Claude terminó")
+        #expect(r.notices.first?.body == "Listo: 3 tests verdes.")
+        // Sin cambios: no se repite.
+        r = AgentAttentionPlanner.notices(snapshots: [snap(200, tail: resultado)], seenBytes: r.seen, now: ahora)
+        #expect(r.notices.isEmpty)
+        // Agente reciente nunca visto que pide permiso: aviso.
+        let nuevo = AgentAttentionPlanner.notices(snapshots: [snap(50, created: ahora, tail: permiso)], seenBytes: [:], now: ahora)
+        #expect(nuevo.notices.first?.title == "tienda: Claude espera tu permiso")
+        // Los agentes que desaparecen se olvidan.
+        #expect(AgentAttentionPlanner.notices(snapshots: [], seenBytes: r.seen, now: ahora).seen.isEmpty)
+    }
+
+    @Test func parseaLasInstantaneas() throws {
+        let meta = try JSONEncoder.projects.encode(PersistentAgentMeta(workingDirectory: "/srv", title: "srv", createdAt: Date(timeIntervalSince1970: 5)))
+        let id = "6a55640d-ac70-41ab-8426-6eb72d4fb5eb"
+        let output = "\(id)|1|42|\(meta.base64EncodedString())|\(Data(resultado.utf8).base64EncodedString())\nbasura|x"
+        let snapshots = PersistentAgentScript.parseSnapshots(output)
+        #expect(snapshots.count == 1)
+        #expect(snapshots[0].logBytes == 42 && snapshots[0].title == "srv" && snapshots[0].tail == resultado)
     }
 }

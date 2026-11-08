@@ -21,6 +21,9 @@ final class PersistentAgentSession {
     /// `false` si el proceso de claude terminó (se puede reanudar).
     private(set) var isAlive: Bool
     private(set) var isAttached = false
+    /// Bytes del log leídos en el enganche actual (desde el byte 1): lo que el usuario ya
+    /// ha visto. Los avisos en segundo plano solo avisan de lo posterior.
+    @ObservationIgnored private(set) var receivedBytes = 0
     var lastError: String?
 
     @ObservationIgnored private let service: any SSHServicing
@@ -109,6 +112,7 @@ final class PersistentAgentSession {
         generation += 1
         let current = generation
         state = AgentConversationState()
+        receivedBytes = 0
         isAttached = true
 
         let (outputStream, output) = AsyncStream<[UInt8]>.makeStream()
@@ -123,6 +127,7 @@ final class PersistentAgentSession {
                 var buffer = NDJSONLineBuffer()
                 for await chunk in outputStream {
                     guard let self, self.generation == current else { continue }
+                    self.receivedBytes += chunk.count
                     for line in buffer.append(chunk) {
                         guard let event = AgentProtocol.decode(line: line) else { continue }
                         AgentReducer.apply(event, to: &self.state, echoesUserMessages: true)

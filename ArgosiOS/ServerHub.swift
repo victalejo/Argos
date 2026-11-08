@@ -177,6 +177,11 @@ final class ServerHub {
         agents[session.id] = (server.id, session)
     }
 
+    /// Sesiones de agente abiertas en esta ejecución (para los avisos).
+    func agentSessions() -> [(Server.ID, PersistentAgentSession)] {
+        agents.values.map { ($0.server, $0.session) }
+    }
+
     /// Segundo plano: deja de leer los logs (los agentes siguen en el servidor).
     func suspendAgents() {
         suspendedAgents = agents.values.map(\.session).filter(\.isAttached)

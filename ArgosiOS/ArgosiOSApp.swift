@@ -7,8 +7,16 @@ import SwiftUI
 /// con el Mac el núcleo (`ArgosCore/`): modelo, SSH, proyectos en el servidor.
 @main
 struct ArgosiOSApp: App {
-    @State private var hub = ServerHub()
+    @State private var hub: ServerHub
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let hub = ServerHub()
+        _hub = State(initialValue: hub)
+        // La tarea de refresco en segundo plano debe registrarse antes de terminar de
+        // arrancar.
+        AgentNotifier.shared.register(hub: hub)
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -19,6 +27,7 @@ struct ArgosiOSApp: App {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background:
+                AgentNotifier.shared.prepareForBackground()
                 hub.suspendTerminals()
                 hub.suspendAgents()
             case .active:

@@ -79,7 +79,10 @@ struct AgentsView: View {
         } message: {
             Text(errorMessage ?? "")
         }
-        .task { await load() }
+        .task {
+            await load()
+            if !mine.isEmpty { AgentNotifier.shared.didUseAgents(on: server) }
+        }
     }
 
     private func load() async {
@@ -101,6 +104,7 @@ struct AgentsView: View {
                 )
                 let info = PersistentAgentInfo(id: session.id, isAlive: true, logBytes: 0, meta: session.meta)
                 hub.register(session, server: server)
+                AgentNotifier.shared.didUseAgents(on: server)
                 await load()
                 opened = AgentRoute(serverID: server.id, info: info)
             } catch {

@@ -51,6 +51,10 @@ struct ServerSyncDocument: Codable, Equatable, Sendable {
 
     static let empty = ServerSyncDocument()
 
+    /// Versión más alta del formato que entiende esta app. Un documento más nuevo (de
+    /// una versión posterior de Argos) no se toca.
+    static let supportedVersion = 1
+
     /// Las lápidas más viejas que esto se olvidan (todos los dispositivos ya las vieron).
     static let tombstoneLifetime: TimeInterval = 90 * 24 * 3600
 

@@ -231,6 +231,9 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.iaportafolio.argos.add-server
             CFBundleURLSchemes: [argos]
+        # Refresco en segundo plano para avisar de los agentes (AgentNotifier).
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [com.iaportafolio.argos.agents-refresh]
     dependencies:
       - package: Citadel
       - package: SwiftTerm

@@ -23,7 +23,9 @@
 		074A268030EE75CABDFE2F19 /* AgentSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B3C9EA0D67DBD87506B7FE4 /* AgentSessionStore.swift */; };
 		0760BAE66C22CE1FE6D504E0 /* TerminalSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CD68BD0E86C16C29E76195F /* TerminalSessionStore.swift */; };
 		082FF2631A3A4632E2D8FFD9 /* SessionsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB419067A72674C2B562CD8 /* SessionsViewModelTests.swift */; };
+		08C49A0228A3A343A166B269 /* AgentAttention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF01DC161034CE75FAD3986 /* AgentAttention.swift */; };
 		0B21DA7B48754F324FC724B9 /* ClaudeAgentCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21E4787BD5F166B91B11FA74 /* ClaudeAgentCommand.swift */; };
+		0C3FA5D522D540BE63AA5BE3 /* AgentAttention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF01DC161034CE75FAD3986 /* AgentAttention.swift */; };
 		0C82BA73D9849BB25FD893A0 /* AgentConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1896A6CFA17B78E6D2442B1E /* AgentConversationView.swift */; };
 		0C92826E0D26EC3BF5A171C5 /* OpenSSHKeyWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2102051ADBFD95B7CBEDC7 /* OpenSSHKeyWriter.swift */; };
 		0D1A852C8CD77B781BA7D60E /* CheckForUpdatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 816413CF1EAD669744469593 /* CheckForUpdatesView.swift */; };
@@ -160,6 +162,7 @@
 		64DB4DD5862F67996D88043A /* ClaudeSetupSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6180CF72146D7E59738C71E /* ClaudeSetupSheet.swift */; };
 		64F779B17ED5CC435EE4F915 /* CheckForUpdatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 816413CF1EAD669744469593 /* CheckForUpdatesView.swift */; };
 		65D1411C9EF20834845DB85E /* SessionConnectionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08D2A7E16EF1FCFA70044E47 /* SessionConnectionState.swift */; };
+		666070CD4F78716B40C0676B /* AgentAttention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF01DC161034CE75FAD3986 /* AgentAttention.swift */; };
 		6750377B81E359D044E1A831 /* SSHConfigReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63E2EF33D76A860F35F762F1 /* SSHConfigReader.swift */; };
 		6771EAC5455ACDDF0A009C40 /* TerminalScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76BD253B449F8613330A37E3 /* TerminalScreen.swift */; };
 		6845CE151886AAA79E1C6F3D /* ProjectSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61C6A70998E4772FD0B73A50 /* ProjectSettingsView.swift */; };
@@ -361,6 +364,7 @@
 		EE9AFB1E42EAC309C697EA24 /* ProjectFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C92DB35F8F742BAC94E10B /* ProjectFormSheet.swift */; };
 		EED44659BE0DAC3E536C5D6B /* ServersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E95F2552B450139F11984432 /* ServersView.swift */; };
 		EF09D9F90FF3ED69A22BBCF7 /* TouchTerminalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBF09EEF38CF0DA150C6FFC5 /* TouchTerminalController.swift */; };
+		EF4A6060B02FC63A04D10C7E /* AgentNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9DCB1C062EA6F43AC656077 /* AgentNotifier.swift */; };
 		EF80115750E0FEE83262C536 /* SSHDirectoryGrant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 306D20FCB4B399C70A82CA1E /* SSHDirectoryGrant.swift */; };
 		F196152A7EF6F710D99EC8D1 /* QuickSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4BF9725F48E501C0A92760 /* QuickSwitcher.swift */; };
 		F1E79F27C354064A67F83DC7 /* ImportServerLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE8F14B3518F57A7C2BFECF6 /* ImportServerLinkTests.swift */; };
@@ -421,6 +425,7 @@
 		267A8EBF6AC77BD9C61BA26C /* SafeMarkdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeMarkdownView.swift; sourceTree = "<group>"; };
 		26FAC4013C8FD7D733EE4A35 /* ProjectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectTests.swift; sourceTree = "<group>"; };
 		276FFCBB1A8FF9C989006451 /* RemotePrivateFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemotePrivateFile.swift; sourceTree = "<group>"; };
+		2CF01DC161034CE75FAD3986 /* AgentAttention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAttention.swift; sourceTree = "<group>"; };
 		2DC857E28C19E13F3CE6E99A /* ShellQuoting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellQuoting.swift; sourceTree = "<group>"; };
 		2E8D2897CB2C59012C299625 /* TmuxSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxSessionTests.swift; sourceTree = "<group>"; };
 		2EF7D70C12DBAB37FC61454C /* SessionNameValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameValidator.swift; sourceTree = "<group>"; };
@@ -575,6 +580,7 @@
 		F622DCEF74550A3586A38DF1 /* ClaudeActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeActivity.swift; sourceTree = "<group>"; };
 		F90B4A7138B11E2359E199E0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F9CFAFE51B7BEB72FA653861 /* TerminalSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettingsTests.swift; sourceTree = "<group>"; };
+		F9DCB1C062EA6F43AC656077 /* AgentNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentNotifier.swift; sourceTree = "<group>"; };
 		FB3483CAFD1FEEA9BA3E5327 /* SSHDirectoryAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHDirectoryAccess.swift; sourceTree = "<group>"; };
 		FBBEBD10E77A8720159A0C61 /* SSHSessionManagement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHSessionManagement.swift; sourceTree = "<group>"; };
 		FBF09EEF38CF0DA150C6FFC5 /* TouchTerminalController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchTerminalController.swift; sourceTree = "<group>"; };
@@ -722,6 +728,7 @@
 		48056A3283F055D7BCAA4C62 /* Agent */ = {
 			isa = PBXGroup;
 			children = (
+				2CF01DC161034CE75FAD3986 /* AgentAttention.swift */,
 				849D735DF41B96D22DDFE331 /* AgentConversationState.swift */,
 				F4884AE0603ED254C522F271 /* AgentProtocol.swift */,
 				6B3C9EA0D67DBD87506B7FE4 /* AgentSessionStore.swift */,
@@ -956,6 +963,7 @@
 			isa = PBXGroup;
 			children = (
 				D06DE552DCF2D3F56CCA76A6 /* AgentChatView.swift */,
+				F9DCB1C062EA6F43AC656077 /* AgentNotifier.swift */,
 				A73B80C8EE99A450416505ED /* AgentsView.swift */,
 				5A1634854C85105BBF1E36F4 /* ArgosiOSApp.swift */,
 				81B077DE45FF394D5752CA9B /* Assets.xcassets */,
@@ -1180,6 +1188,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7303CB8F4EDD6ECB4BCB6F31 /* AboutPanel.swift in Sources */,
+				08C49A0228A3A343A166B269 /* AgentAttention.swift in Sources */,
 				8A2089E0742F26DA0E540A70 /* AgentConversationState.swift in Sources */,
 				2EABD89CCF804B82F744CFF7 /* AgentConversationView.swift in Sources */,
 				D01A53C5EDFA76DECB3F4C67 /* AgentPanelView.swift in Sources */,
@@ -1301,8 +1310,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				666070CD4F78716B40C0676B /* AgentAttention.swift in Sources */,
 				F4C57CF6F8321A5878DF8C7E /* AgentChatView.swift in Sources */,
 				B58CB25044C51BDB94EA1E4F /* AgentConversationState.swift in Sources */,
+				EF4A6060B02FC63A04D10C7E /* AgentNotifier.swift in Sources */,
 				BF141D5151E7B526D17009F8 /* AgentProtocol.swift in Sources */,
 				15B828AEF1BE77A1701FC3D5 /* AgentSessionStore.swift in Sources */,
 				C273D9054CBDABEFB2A43F69 /* AgentStreamEvent.swift in Sources */,
@@ -1391,6 +1402,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3158D13541A69BDCAB8EA7DE /* AboutPanel.swift in Sources */,
+				0C3FA5D522D540BE63AA5BE3 /* AgentAttention.swift in Sources */,
 				F89953748CA3ACF05C483ED7 /* AgentConversationState.swift in Sources */,
 				0C82BA73D9849BB25FD893A0 /* AgentConversationView.swift in Sources */,
 				BC99CE881D864B4D19EE33DC /* AgentPanelView.swift in Sources */,

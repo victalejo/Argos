@@ -208,6 +208,26 @@ struct CloudServerSyncTests {
         #expect(TOFUHostKeyValidator.allTrusted(storeURL: iphone.knownHosts)["otro:2222"] == "SHA256:o")
     }
 
+    @Test func unDocumentoIlegibleODeOtraVersionNoSeSobrescribe() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("argos-cloud-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let cloud = MemoryCloud()
+        let mac = device(cloud, folder, "mac")
+        mac.store.add(server("a"))
+
+        cloud.values[CloudServerSync.documentKey] = Data("{no es json".utf8)
+        mac.sync.sync(now: t0)
+        #expect(cloud.values[CloudServerSync.documentKey] == Data("{no es json".utf8))
+
+        var futuro = ServerSyncDocument()
+        futuro.version = ServerSyncDocument.supportedVersion + 1
+        let futuroData = try ServerSync.encode(futuro)
+        cloud.values[CloudServerSync.documentKey] = futuroData
+        mac.sync.sync(now: t0)
+        #expect(cloud.values[CloudServerSync.documentKey] == futuroData)
+        #expect(mac.store.servers.map(\.name) == ["a"])
+    }
+
     @Test func desactivadaNoTocaICloud() {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("argos-cloud-\(UUID())")
         defer { try? FileManager.default.removeItem(at: folder) }
