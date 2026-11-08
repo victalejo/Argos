@@ -10,6 +10,14 @@ import SwiftUI
 
 // MARK: - Root view
 
+/// Servidor + servicio SSH para las hojas que operan sobre él («Enviar al iPhone»,
+/// «Dispositivos autorizados»). El servicio se fija al abrir la hoja.
+struct ServerSheetTarget: Identifiable {
+    let server: Server
+    let service: any SSHServicing
+    var id: Server.ID { server.id }
+}
+
 struct ContentView: View {
     @State private var store = ServerStore()
     @State private var selectedServerID: Server.ID?
@@ -25,9 +33,11 @@ struct ContentView: View {
     /// Servidor en el que se va a activar el indicador de Claude Code (confirmación).
     @State private var claudeHooksServer: Server?
     /// Servidor que se está enviando al iPhone por QR.
-    @State private var transferServer: Server?
+    /// Lleva el servicio capturado al abrir: la hoja no depende de `vms` mientras está
+    /// abierta (si la búsqueda fallaba, SwiftUI mostraba una hoja vacía imposible de cerrar).
+    @State private var transferServer: ServerSheetTarget?
     /// Servidor cuyos dispositivos autorizados (claves de iPhone/iPad) se están viendo.
-    @State private var devicesServer: Server?
+    @State private var devicesServer: ServerSheetTarget?
     /// Resultado de activar el indicador (alerta).
     @State private var claudeHooksResult: String?
 
@@ -89,15 +99,11 @@ struct ContentView: View {
                 save(server, secret: secret)
             }
         }
-        .sheet(item: $transferServer) { server in
-            if let service = vms[server.id]?.service {
-                ServerTransferSheet(server: server, service: service) { transferServer = nil }
-            }
+        .sheet(item: $transferServer) { target in
+            ServerTransferSheet(server: target.server, service: target.service) { transferServer = nil }
         }
-        .sheet(item: $devicesServer) { server in
-            if let service = vms[server.id]?.service {
-                AuthorizedDevicesSheet(server: server, service: service) { devicesServer = nil }
-            }
+        .sheet(item: $devicesServer) { target in
+            AuthorizedDevicesSheet(server: target.server, service: target.service) { devicesServer = nil }
         }
         .sheet(isPresented: $showSSHConfig) {
             SSHConfigSheet(
@@ -248,10 +254,10 @@ struct ContentView: View {
     private func serverActions(for server: Server) -> some View {
         Button("Editar servidor…", systemImage: "pencil") { serverFormMode = .edit(server) }
         Divider()
-        Button("Enviar al iPhone…", systemImage: "qrcode") { transferServer = server }
+        Button("Enviar al iPhone…", systemImage: "qrcode") { transferServer = sheetTarget(for: server) }
             .disabled(vms[server.id] == nil)
             .help("Muestra un QR para añadir este servidor en Argos para iPhone/iPad")
-        Button("Dispositivos autorizados…", systemImage: "lock.iphone") { devicesServer = server }
+        Button("Dispositivos autorizados…", systemImage: "lock.iphone") { devicesServer = sheetTarget(for: server) }
             .disabled(vms[server.id] == nil)
             .help("Ver y revocar los iPhone/iPad con acceso a este servidor")
         Button("Activar indicador de Claude Code…") { claudeHooksServer = server }
@@ -541,6 +547,10 @@ struct ContentView: View {
 
     /// Mantiene `vms` en sync con `store.servers`: crea VMs para nuevos servidores,
     /// elimina las de servidores borrados.
+    private func sheetTarget(for server: Server) -> ServerSheetTarget? {
+        vms[server.id].map { ServerSheetTarget(server: server, service: $0.service) }
+    }
+
     private func syncVMs() {
         let serverIDs = Set(store.servers.map { $0.id })
         for id in vms.keys where !serverIDs.contains(id) {
