@@ -51,11 +51,15 @@ struct AgentChatView: View {
         } message: {
             Text("Se detiene el agente y se borra su registro del servidor.")
         }
-        .confirmationDialog("¿Reanudar con todos los permisos?", isPresented: $confirmResume, titleVisibility: .visible) {
-            Button("Reanudar con todos los permisos", role: .destructive) { Task { await session.resume() } }
+        .confirmationDialog("¿Reanudar en «\(resumeMode.title)»?", isPresented: $confirmResume, titleVisibility: .visible) {
+            Button("Reanudar en «\(resumeMode.title)»", role: .destructive) { Task { await session.resume() } }
         } message: {
-            Text("El servidor indica que este agente usa este modo: ejecutará cualquier acción sin preguntar. Si no lo elegiste tú, borra la conversación y crea otra.")
+            Text("El servidor indica que este agente usa este modo. \(resumeMode.detail) Si no lo elegiste tú, borra la conversación y crea otra.")
         }
+    }
+
+    private var resumeMode: ClaudeAgentCommand.PermissionMode {
+        session.meta.resolvedPermissionMode
     }
 
     // MARK: - Transcripción

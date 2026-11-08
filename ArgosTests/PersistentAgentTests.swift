@@ -127,12 +127,12 @@ struct PersistentAgentScriptTests {
         #expect(meta.resolvedPermissionMode == .default)
     }
 
-    @Test func soloReanudarConTodosLosPermisosPideConfirmacion() {
+    @Test func reanudarEnUnModoQueActuaSinPreguntarPideConfirmacion() {
         var meta = PersistentAgentMeta(workingDirectory: "/srv", title: "t", createdAt: Date())
         #expect(!meta.resumeRequiresConfirmation)
         for mode in ClaudeAgentCommand.PermissionMode.allCases {
             meta.permissionMode = mode.rawValue
-            #expect(meta.resumeRequiresConfirmation == (mode == .bypassPermissions))
+            #expect(meta.resumeRequiresConfirmation == (mode == .bypassPermissions || mode == .acceptEdits))
         }
     }
 

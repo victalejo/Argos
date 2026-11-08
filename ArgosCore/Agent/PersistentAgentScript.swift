@@ -44,9 +44,13 @@ struct PersistentAgentMeta: Codable, Equatable, Sendable {
     }
 
     /// Reanudar sin preguntar permitiría a un agente limitado subirse los permisos
-    /// editando su `meta.json`, así que el usuario debe confirmar este modo.
+    /// editando su `meta.json`, así que el usuario debe confirmar los modos que actúan
+    /// sin pedir permiso. `default` y `plan` siguen preguntando antes de cada acción.
     var resumeRequiresConfirmation: Bool {
-        resolvedPermissionMode == .bypassPermissions
+        switch resolvedPermissionMode {
+        case .bypassPermissions, .acceptEdits: return true
+        case .default, .plan: return false
+        }
     }
 }
 
