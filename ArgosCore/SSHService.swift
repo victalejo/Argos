@@ -115,6 +115,9 @@ actor SSHService {
 
     /// Tarea de heartbeat de la conexión actual (keep-alive). Ver `startHeartbeat`.
     private var heartbeatTask: Task<Void, Never>?
+    /// `true` mientras el Mac duerme: el heartbeat no toca la red hasta
+    /// `resumeHeartbeat()`. Idea original de Kevin Jovy (PR #2).
+    private var heartbeatSuspended = false
     /// Conexiones dedicadas abiertas para canales de larga duración (terminales, agente).
     /// Se guardan para cerrarlas todas en `disconnect()`.
     private var dedicatedClients: [UUID: SSHClient] = [:]
@@ -419,11 +422,19 @@ actor SSHService {
     /// `heartbeatInterval` para: (a) evitar que NAT/firewall corten la conexión idle —la
     /// causa del "terminal congelado" al volver tras un rato—, y (b) detectar pronto una
     /// caída en vez de descubrirla al próximo uso (cuando el indicador seguiría "verde").
-    private func startHeartbeat() {
+    ///
+    /// `beatImmediately`: al despertar del reposo conviene comprobar la conexión YA (la
+    /// red pudo cambiar o el NAT olvidarla) en vez de esperar al primer intervalo.
+    private func startHeartbeat(beatImmediately: Bool = false) {
+        guard !heartbeatSuspended else { return }
         heartbeatTask?.cancel()
         heartbeatTask = Task { [weak self] in
+            var skipSleep = beatImmediately
             while !Task.isCancelled {
-                try? await Task.sleep(for: SSHService.heartbeatInterval)
+                if !skipSleep {
+                    try? await Task.sleep(for: SSHService.heartbeatInterval)
+                }
+                skipSleep = false
                 guard let self else { return }
                 let alive = await self.beat()
                 if !alive { return }
@@ -434,6 +445,8 @@ actor SSHService {
     /// Un latido: comprueba la conexión con un comando trivial. Devuelve `false` si la
     /// conexión está caída y la limpia, forzando una reconexión en la próxima operación.
     private func beat() async -> Bool {
+        // Si el reposo llegó con un latido ya en marcha, no tocar la red.
+        if heartbeatSuspended { return true }
         guard let client, client.isConnected else { return false }
         do {
             _ = try await capture(client, command: "true")
@@ -448,6 +461,22 @@ actor SSHService {
     private func stopHeartbeat() {
         heartbeatTask?.cancel()
         heartbeatTask = nil
+    }
+
+    /// Pausa el keep-alive sin cerrar la conexión: con el Mac dormido no se ejecuta
+    /// ningún comando proactivo. Las acciones explícitas siguen conectando.
+    func suspendHeartbeat() async {
+        heartbeatSuspended = true
+        stopHeartbeat()
+    }
+
+    /// Reanuda el keep-alive tras el reposo. Si queda conexión, late YA: si murió
+    /// durante el reposo se limpia y la próxima operación reconecta sola.
+    func resumeHeartbeat() async {
+        heartbeatSuspended = false
+        if let client, client.isConnected {
+            startHeartbeat(beatImmediately: true)
+        }
     }
 
     /// Construye el método de autenticación según el `authMethod` configurado:

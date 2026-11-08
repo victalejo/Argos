@@ -75,6 +75,8 @@ struct SessionTerminalView: View {
     @State private var isAutoReconnecting = false
     @State private var reconnectTask: Task<Void, Never>?
     @State private var showKillPaneConfirm = false
+    /// Con el Mac dormido no se sondea ni se reconecta solo (PR #2, Kevin Jovy).
+    @State private var sleepMonitor = SystemSleepMonitor.shared
     /// Ventana cuyo nombre se está editando (presenta el sheet de renombrar).
     @State private var renamingWindow: TmuxWindow?
     /// Ventana pendiente de confirmar su cierre.
@@ -155,6 +157,9 @@ struct SessionTerminalView: View {
         .onChange(of: windows) { Task { await refreshBranch() } }
         .onChange(of: controller?.status) { _, status in
             handleStatusChange(status)
+        }
+        .onChange(of: sleepMonitor.isAsleep) { _, asleep in
+            handleSleepChange(asleep: asleep)
         }
         .onDisappear {
             reconnectTask?.cancel()
@@ -346,7 +351,7 @@ struct SessionTerminalView: View {
         let maxInterval: Duration = .seconds(12)
         var interval = minInterval
         while !Task.isCancelled {
-            if controller?.status == .connected,
+            if !sleepMonitor.isAsleep, controller?.status == .connected,
                let fresh = try? await service.listWindows(session: session.name) {
                 if fresh != windows {
                     windows = fresh
@@ -534,6 +539,8 @@ struct SessionTerminalView: View {
             reconnectTask?.cancel()
             reconnectTask = nil
         case .failed:
+            // Con el Mac dormido no se abren conexiones; al despertar se reintenta.
+            guard !sleepMonitor.isAsleep else { return }
             guard autoReconnectCount < Self.maxAutoReconnects, reconnectTask == nil else { return }
             scheduleAutoReconnect()
         default:
@@ -547,9 +554,28 @@ struct SessionTerminalView: View {
         reconnectTask = Task {
             try? await Task.sleep(for: .seconds(delaySeconds))
             guard !Task.isCancelled else { return }
+            // El Mac se durmió durante la espera: se reintentará al despertar.
+            guard !sleepMonitor.isAsleep else {
+                isAutoReconnecting = false
+                reconnectTask = nil
+                return
+            }
             autoReconnectCount += 1
             reconnectTask = nil
             controller = store.reconnect(handle, service: service, sessionName: session.name)
+        }
+    }
+
+    /// Reposo del Mac: al dormir cancela el reintento pendiente; al despertar, si el
+    /// terminal cayó, vuelve a intentarlo desde cero (backoff 1,2,4… da tiempo a la red).
+    private func handleSleepChange(asleep: Bool) {
+        if asleep {
+            reconnectTask?.cancel()
+            reconnectTask = nil
+            isAutoReconnecting = false
+        } else if TerminalSleepPolicy.reconnectsOnWake(controller?.status), reconnectTask == nil {
+            autoReconnectCount = 0
+            scheduleAutoReconnect()
         }
     }
 

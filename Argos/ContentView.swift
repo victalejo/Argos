@@ -16,6 +16,9 @@ struct ContentView: View {
     @State private var selectedSession: SessionHandle?
     /// Un ViewModel por servidor (se crea al añadir, se destruye al eliminar).
     @State private var vms: [Server.ID: SessionsViewModel] = [:]
+    /// Reposo del Mac: mientras duerme se pausa el heartbeat de todos los servidores.
+    @State private var sleepMonitor = SystemSleepMonitor.shared
+    @State private var heartbeatSleep = HeartbeatSleepCoordinator()
 
     @State private var serverFormMode: ServerFormSheet.Mode?
     @State private var serverToDelete: Server?
@@ -74,6 +77,9 @@ struct ContentView: View {
             loadSelectedIfNeeded()
         }
         .onChange(of: store.servers) { _, _ in syncVMs() }
+        .onChange(of: sleepMonitor.isAsleep) { _, asleep in
+            heartbeatSleep.apply(asleep: asleep, to: vms.values.map(\.service))
+        }
         .onChange(of: selectedServerID) { _, newValue in
             persistedServerID = newValue?.uuidString ?? ""
             loadSelectedIfNeeded()

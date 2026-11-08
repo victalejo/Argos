@@ -171,6 +171,11 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     // MARK: - Ciclo de vida / terminal
     func disconnect() async {}
 
+    /// Orden de las llamadas de suspensión del keep-alive (`true` = suspender).
+    private(set) var heartbeatSuspensions: [Bool] = []
+    func suspendHeartbeat() async { heartbeatSuspensions.append(true) }
+    func resumeHeartbeat() async { heartbeatSuspensions.append(false) }
+
     func attachTerminal(
         session name: String,
         initialCols: Int,

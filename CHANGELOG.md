@@ -6,6 +6,14 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Corregido
+- **Sin tráfico SSH con el Mac dormido**: mientras el Mac está en reposo, Argos pausa el
+  keep-alive, el sondeo de ventanas y la reconexión automática del terminal. Al despertar
+  comprueba la conexión enseguida y, si el terminal cayó, se reconecta solo. Cambiar a otra
+  app no pausa nada (el keep-alive sigue evitando el «terminal congelado» al volver).
+  Gracias a **Kevin Jovy ([@AloreBB](https://github.com/AloreBB))**, que detectó el problema
+  y propuso la solución en la PR #2.
+
 ## [1.7.12] - 2026-11-07
 
 ### Añadido
