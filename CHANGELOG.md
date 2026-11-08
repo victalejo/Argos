@@ -6,6 +6,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.14] - 2026-11-07
+
+### Corregido
+- **Modo Agente del iPhone/iPad con servidores zsh** (p. ej. un Mac): fallaba con «No se
+  pudieron leer los agentes … no matches found». Los scripts del agente persistente, sus
+  avisos y la detección de agentes instalados se ejecutan ahora siempre con `sh`.
+
 ## [1.7.13] - 2026-11-07
 
 ### Corregido
