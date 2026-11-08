@@ -12,7 +12,12 @@
 //  Fusión: por servidor gana el cambio más reciente; un borrado (lápida) gana si es
 //  posterior a la última edición. Las huellas igual (olvidar una huella tras reinstalar
 //  un servidor se propaga), salvo que una huella remota NUNCA sustituye a una local
-//  DISTINTA: si iCloud trajera otra, sería sospechoso.
+//  DISTINTA, y solo se olvida aquí la MISMA huella que se olvidó allí.
+//
+//  Defensa ante un iCloud manipulado: las fechas del futuro se recortan a «ahora», y si
+//  una edición remota cambia host, puerto, usuario o método de un servidor, aquí se
+//  borran sus secretos (`credentialsToInvalidate`): la contraseña nunca viaja a un host
+//  que el usuario no eligió en ESTE dispositivo.
 //
 
 import Foundation
@@ -27,6 +32,12 @@ struct TrustedHost: Codable, Equatable, Sendable {
     var trustedAt: Date
 }
 
+/// Lápida de una huella olvidada: CUÁL se olvidó y cuándo.
+struct ForgottenHost: Codable, Equatable, Sendable {
+    var fingerprint: String
+    var forgottenAt: Date
+}
+
 struct ServerSyncDocument: Codable, Equatable, Sendable {
     var version = 1
     /// Por id de servidor (uuidString).
@@ -35,8 +46,8 @@ struct ServerSyncDocument: Codable, Equatable, Sendable {
     var deleted: [String: Date] = [:]
     /// Huellas confiadas por "host:puerto".
     var knownHosts: [String: TrustedHost] = [:]
-    /// Huellas olvidadas (lápidas): "host:puerto" → fecha.
-    var forgottenHosts: [String: Date] = [:]
+    /// Huellas olvidadas (lápidas) por "host:puerto".
+    var forgottenHosts: [String: ForgottenHost] = [:]
 
     static let empty = ServerSyncDocument()
 
@@ -91,17 +102,18 @@ enum ServerSync {
             }
             document.forgottenHosts[endpoint] = nil
         }
-        for endpoint in previous.knownHosts.keys where knownHosts[endpoint] == nil {
-            document.forgottenHosts[endpoint] = now
+        for (endpoint, old) in previous.knownHosts where knownHosts[endpoint] == nil {
+            document.forgottenHosts[endpoint] = ForgottenHost(fingerprint: old.fingerprint, forgottenAt: now)
         }
         return document
     }
 
     static func merge(
         local: ServerSyncDocument,
-        remote: ServerSyncDocument,
+        remote untrusted: ServerSyncDocument,
         now: Date = Date()
     ) -> ServerSyncDocument {
+        let remote = clampingFutureDates(untrusted, now: now)
         var merged = ServerSyncDocument()
 
         // Lápidas: la más reciente de cada id; las caducadas se olvidan.
@@ -121,9 +133,10 @@ enum ServerSync {
         }
 
         // Huellas.
-        for (endpoint, date) in local.forgottenHosts.merging(remote.forgottenHosts, uniquingKeysWith: max)
-        where now.timeIntervalSince(date) < ServerSyncDocument.tombstoneLifetime {
-            merged.forgottenHosts[endpoint] = date
+        let forgotten = local.forgottenHosts.merging(remote.forgottenHosts) { $0.forgottenAt >= $1.forgottenAt ? $0 : $1 }
+        for (endpoint, tombstone) in forgotten
+        where now.timeIntervalSince(tombstone.forgottenAt) < ServerSyncDocument.tombstoneLifetime {
+            merged.forgottenHosts[endpoint] = tombstone
         }
         for endpoint in Set(local.knownHosts.keys).union(remote.knownHosts.keys) {
             let mine = local.knownHosts[endpoint], theirs = remote.knownHosts[endpoint]
@@ -137,7 +150,10 @@ enum ServerSync {
                 winner = mine ?? theirs
             }
             guard let winner else { continue }
-            if let forgottenAt = merged.forgottenHosts[endpoint], forgottenAt >= winner.trustedAt { continue }
+            // Una lápida solo borra la MISMA huella que se olvidó (y posterior a confiarla).
+            if let tombstone = merged.forgottenHosts[endpoint],
+               tombstone.fingerprint == winner.fingerprint,
+               tombstone.forgottenAt >= winner.trustedAt { continue }
             merged.knownHosts[endpoint] = winner
             merged.forgottenHosts[endpoint] = nil
         }
@@ -172,8 +188,34 @@ enum ServerSync {
         let add = document.knownHosts
             .filter { local[$0.key] == nil }
             .mapValues(\.fingerprint)
-        let forget = local.keys.filter { document.knownHosts[$0] == nil && document.forgottenHosts[$0] != nil }
+        let forget = local.filter { endpoint, fingerprint in
+            document.knownHosts[endpoint] == nil && document.forgottenHosts[endpoint]?.fingerprint == fingerprint
+        }.keys
         return (add, forget.sorted())
+    }
+
+    /// Servidores cuyos secretos locales hay que borrar: los que una edición remota
+    /// cambió de host, puerto, usuario o método (si no, la contraseña guardada aquí se
+    /// enviaría a un destino que este dispositivo nunca confirmó).
+    static func credentialsToInvalidate(before: [Server], after: [Server]) -> [Server.ID] {
+        let old = Dictionary(uniqueKeysWithValues: before.map { ($0.id, $0) })
+        return after.compactMap { new in
+            guard let previous = old[new.id] else { return nil }
+            let changed = previous.host != new.host || previous.port != new.port
+                || previous.username != new.username || previous.authMethod != new.authMethod
+            return changed ? new.id : nil
+        }
+    }
+
+    /// Un dispositivo con el reloj adelantado (o un documento manipulado) no puede
+    /// «ganar» siempre: ninguna fecha remota cuenta como posterior a ahora.
+    static func clampingFutureDates(_ document: ServerSyncDocument, now: Date) -> ServerSyncDocument {
+        var copy = document
+        copy.servers = copy.servers.mapValues { var s = $0; s.modifiedAt = min(s.modifiedAt, now); return s }
+        copy.deleted = copy.deleted.mapValues { min($0, now) }
+        copy.knownHosts = copy.knownHosts.mapValues { var h = $0; h.trustedAt = min(h.trustedAt, now); return h }
+        copy.forgottenHosts = copy.forgottenHosts.mapValues { var f = $0; f.forgottenAt = min(f.forgottenAt, now); return f }
+        return copy
     }
 
     // MARK: - Codificación (iCloud clave-valor guarda Data)

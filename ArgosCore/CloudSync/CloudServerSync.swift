@@ -98,6 +98,11 @@ final class CloudServerSync {
         let merged = ServerSync.merge(local: local, remote: remote, now: now)
 
         let updated = ServerSync.applying(merged, to: store.servers)
+        for id in ServerSync.credentialsToInvalidate(before: store.servers, after: updated) {
+            KeychainStore.deletePassword(for: id)
+            KeychainStore.deletePassphrase(for: id)
+            Log.store.notice("iCloud cambió el destino de un servidor: se borran sus secretos locales.")
+        }
         let survivors = Set(updated.map(\.id))
         for removed in store.servers where !survivors.contains(removed.id) {
             onRemoteRemoval?(removed)

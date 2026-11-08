@@ -84,11 +84,37 @@ struct ServerSyncDocumentTests {
     @Test func olvidarUnaHuellaSePropaga() {
         // Dispositivo A olvidó la huella (servidor reinstalado) después de confiarla.
         var a = ServerSyncDocument(), b = ServerSyncDocument()
-        a.forgottenHosts["srv:22"] = t0 + 50
+        a.forgottenHosts["srv:22"] = ForgottenHost(fingerprint: "SHA256:vieja", forgottenAt: t0 + 50)
         b.knownHosts["srv:22"] = TrustedHost(fingerprint: "SHA256:vieja", trustedAt: t0)
         let merged = ServerSync.merge(local: b, remote: a, now: t0 + 60)
         #expect(merged.knownHosts["srv:22"] == nil)
         #expect(ServerSync.hostChanges(in: merged, local: ["srv:22": "SHA256:vieja"]).forget == ["srv:22"])
+    }
+
+    @Test func unaLapidaDeOtraHuellaNoBorraLaLocal() {
+        // iCloud manipulado: «olvida» una huella que NO es la fijada aquí.
+        var local = ServerSyncDocument(), remote = ServerSyncDocument()
+        local.knownHosts["srv:22"] = TrustedHost(fingerprint: "SHA256:fijada", trustedAt: t0)
+        remote.forgottenHosts["srv:22"] = ForgottenHost(fingerprint: "SHA256:otra", forgottenAt: t0 + 50)
+        let merged = ServerSync.merge(local: local, remote: remote, now: t0 + 60)
+        #expect(merged.knownHosts["srv:22"]?.fingerprint == "SHA256:fijada")
+        #expect(ServerSync.hostChanges(in: merged, local: ["srv:22": "SHA256:fijada"]).forget.isEmpty)
+    }
+
+    @Test func lasFechasDelFuturoNoGananSiempre() {
+        let id = UUID()
+        var local = ServerSyncDocument(), remote = ServerSyncDocument()
+        local.servers[id.uuidString] = SyncedServer(server: server("local", id: id), modifiedAt: t0)
+        remote.servers[id.uuidString] = SyncedServer(server: server("del-futuro", id: id), modifiedAt: t0 + 999_999)
+        // Recortada a «ahora» (= t0), empata con la local y gana la local.
+        #expect(ServerSync.merge(local: local, remote: remote, now: t0).servers[id.uuidString]?.server.name == "local")
+    }
+
+    @Test func cambiarElDestinoDesdeOtroDispositivoInvalidaLosSecretos() {
+        let a = server("a"), b = server("b")
+        var aMovido = a; aMovido.host = "atacante.example"
+        var bRenombrado = b; bRenombrado.name = "b2"
+        #expect(ServerSync.credentialsToInvalidate(before: [a, b], after: [aMovido, bRenombrado]) == [a.id])
     }
 
     @Test func aplicarConservaOrdenYBookmarksLocales() {
