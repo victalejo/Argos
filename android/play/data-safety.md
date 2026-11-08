@@ -65,10 +65,6 @@ dispositivos.
 
 ## Lo que no he podido verificar
 
-- **La política de privacidad web NO menciona Android** (descargada con `curl` el 2026-11-08): la
-  sección «App Argos (macOS, iPhone y iPad)» habla del Llavero (Keychain) y de GitHub como canal de
-  actualizaciones. Antes de publicar hay que añadir Android (Keystore de Android, permisos de cámara y
-  notificaciones, sin copias de seguridad). El resto («no recoge, transmite ni vende datos
-  personales», «sólo se conecta a los servidores que tú configuras») sí aplica.
-- El correo de contacto que aparece en esa política es `marketing@iaportafolio.com`; no figura en la
-  ficha de Apple (que usa GitHub Issues como soporte). Ver `checklist.md`.
+- La política de privacidad web cubre Android desde el 2026-11-08 (Keystore, cámara solo para el QR,
+  avisos locales).
+- Correo de contacto de la ficha de Play: `alejo@iaportafolio.com`.

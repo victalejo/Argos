@@ -10,9 +10,7 @@ En orden. Lo marcado con ⚠️ no lo puede hacer la CI ni este repo.
       un **sitio web** de la organización verificado en Search Console si Play lo pide.
 - [ ] ⚠️ Datos de contacto públicos de la organización (correo, teléfono y, al tener la app gratuita
       sin compras, la dirección puede no mostrarse; revisa lo que exige Play Console en tu caso). El
-      correo de la ficha debe ser real y atendido: **TODO** decidir cuál. La ficha de Apple solo usa
-      GitHub Issues; la política de privacidad usa `marketing@iaportafolio.com`. Escríbelo en Play
-      Console → Ficha de Play Store → Detalles de contacto (o crea `app/src/main/play/contact-email.txt`).
+      correo de la ficha: **alejo@iaportafolio.com** (en `app/src/main/play/contact-email.txt`).
 - [ ] Las cuentas de **organización** no tienen el requisito de «prueba cerrada con 12 testers durante
       14 días» que se aplica a las cuentas personales nuevas: se puede pasar de prueba interna a
       producción directamente cuando esté lista.
@@ -60,9 +58,8 @@ ls app/build/outputs/bundle/release/app-release.aab
 
 ## 4. Contenido de la app (Play Console → Política → Contenido de la app)
 
-- [ ] **Política de privacidad:** `https://iaportafolio.com/privacidad#argos`. ⚠️ Antes, actualiza la
-      página: hoy dice «App Argos (macOS, iPhone y iPad)» y habla del Llavero; añade Android
-      (Keystore, cámara solo para el QR, notificaciones, sin copias de seguridad).
+- [ ] **Política de privacidad:** `https://iaportafolio.com/privacidad#argos` (ya cubre Android desde el
+      2026-11-08: Keystore, cámara solo para el QR y avisos locales).
 - [ ] **Acceso a la app:** `review-notes.md` (servidor demo; contraseña copiada a mano).
 - [ ] **Anuncios:** No contiene anuncios.
 - [ ] **Clasificación del contenido:** `content-rating.md`.

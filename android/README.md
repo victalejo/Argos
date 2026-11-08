@@ -193,7 +193,7 @@ Android del plugin `com.mikepenz.aboutlibraries.plugin`) con las dependencias de
 
 `app/src/main/play/`: `default-language.txt` (`es-419`), `listings/{es-419,es-ES,en-US}/` (título ≤30,
 descripción breve ≤80, completa ≤4000), `release-notes/es-419/internal.txt` (≤500) y
-`contact-website.txt`. **TODO:** `contact-email.txt` (no hay correo de soporte en la ficha de Apple).
+`contact-website.txt` y `contact-email.txt` (alejo@iaportafolio.com).
 `PlayListingTest` valida longitudes y que la ficha no prometa funciones solo de Apple. La ficha
 describe SOLO lo que existe en Android: si quitas o añades una función, actualízala.
 
