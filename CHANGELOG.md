@@ -10,7 +10,12 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ### Añadido
 - **Modo de permisos de los agentes configurable** en Ajustes y por proyecto (Mac, iPhone y
-  iPad). Sigue siendo «todos los permisos» por defecto; con root, los agentes preguntan.
+  iPad). Es «todos los permisos» por defecto; con root, los agentes preguntan.
+
+### Cambiado
+- **Los agentes nuevos de iPhone y iPad arrancan con todos los permisos**, como en el Mac: ya
+  no preguntan antes de cada acción. Para que pregunten, cámbialo en Ajustes o en el proyecto.
+  Los agentes que ya existían conservan su modo.
 
 ### Corregido
 - **Menos avisos del llavero al abrir el Agente en el Mac**: comprobar si hay token ya no lo
@@ -24,6 +29,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 - Las subidas a `/tmp` usan nombre aleatorio, apertura exclusiva y permisos 0600.
 - Reanudar un agente persistente que actúa sin preguntar pide confirmación: su modo se guarda
   en el servidor, donde el propio agente podría cambiarlo.
+- Un modo de permisos guardado que no se reconoce pregunta cada acción en vez de dar más
+  permisos.
 
 ## [1.7.14] - 2026-11-07
 
