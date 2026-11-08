@@ -27,6 +27,10 @@ private const val CLIENT_KEY_COMMENT = "argos-dev-client"
  * - `HOME` y tmux aislados en `<dir>/home` y `<dir>/tmux` (no toca tus sesiones reales); SFTP
  *   usa el mismo `HOME`.
  * - Proyecto de demo para el explorador de archivos en `~/proyectos/demo` ([ensureDemoProject]).
+ * - `claude` SIMULADO en `~/.local/bin` ([FakeClaude]): guion creíble, sin red ni consumo. El PATH
+ *   no resuelve el `claude` real y, si por lo que sea lo hiciera, el servidor no arranca. Para
+ *   simular «no logueado»: `touch <dir>/home/.fake-claude-logged-out` (sin reiniciar). Al
+ *   detenerlo mata los agentes que sigan corriendo; se pueden reanudar en el siguiente arranque.
  *
  * El argumento es el directorio de trabajo (`android/ssh/build/dev`).
  */
@@ -41,6 +45,13 @@ fun main(args: Array<String>) {
         port = DEV_PORT,
     )
     val demo = ensureDemoProject(server.home)
+    val fakeClaude = FakeClaude.install(server.home)
+    try {
+        FakeClaude.verifyResolves(server)
+    } catch (error: IllegalStateException) {
+        server.close()
+        throw error
+    }
     val stopped = CountDownLatch(1)
     Runtime.getRuntime().addShutdownHook(
         Thread {
@@ -59,6 +70,8 @@ fun main(args: Array<String>) {
         |  Clave cliente (OpenSSH, sin passphrase): ${clientKey.privateFile}
         |  HOME remoto: ${server.home}   (SFTP sirve el mismo HOME)
         |  Proyecto demo: ${demoProjectSummary(demo)}   (en la app: ~/proyectos/demo)
+        |  Claude:      $fakeClaude   (SIMULADO, sin red ni consumo)
+        |  No logueado: touch ${server.home.resolve(FakeClaude.LOGGED_OUT_MARKER)}   (rm para volver)
         |  Prueba:      ssh -p $DEV_PORT -i ${clientKey.privateFile} $DEV_USER@127.0.0.1 tmux -V
         |Ctrl+C para detenerlo.
         |

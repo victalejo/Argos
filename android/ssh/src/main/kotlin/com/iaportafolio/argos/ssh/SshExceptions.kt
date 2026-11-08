@@ -1,8 +1,5 @@
 package com.iaportafolio.argos.ssh
 
-import com.iaportafolio.argos.core.agent.AgentExecCommands
-import com.iaportafolio.argos.core.agent.PersistentAgentError
-
 /**
  * Fallos al ABRIR la conexión (antes de poder ejecutar nada). En Apple los lanza Citadel con
  * sus propios tipos; aquí se traducen a mensajes accionables en español para la UI
@@ -59,13 +56,14 @@ sealed class SshTerminalException(message: String, cause: Throwable?) : Exceptio
 }
 
 /**
- * El script corto del agente persistente terminó con error (port de `AgentExecError`). El
- * mensaje incluye el final del stderr remoto, mucho más útil que un error de canal genérico.
+ * Se cortó (o no se pudo abrir) el canal exec del agente ([SshjSSHService.runAgentExec]). El agente
+ * corre en el servidor desacoplado de la conexión: basta con volver a engancharse.
  */
-class AgentExecException(val detail: String) : Exception(AgentExecCommands.agentExecErrorMessage(detail))
-
-/** Error del agente persistente (port de `PersistentAgentError` como excepción). */
-class PersistentAgentException(val error: PersistentAgentError) : Exception(error.message)
+class SshAgentChannelException(val endpoint: String, cause: Throwable? = null) : Exception(
+    "Se perdió la conexión con $endpoint en el canal del agente. Si ya estaba en marcha, sigue " +
+        "trabajando en el servidor: vuelve a conectar para retomarlo.",
+    cause,
+)
 
 /**
  * Fallos del explorador de archivos por SFTP ([SshjSSHService.listRemoteDirectory],

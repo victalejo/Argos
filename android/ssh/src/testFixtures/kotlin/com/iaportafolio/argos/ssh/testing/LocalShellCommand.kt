@@ -12,9 +12,10 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 
 /**
- * Ejecuta un comando SSH en la máquina local con `/bin/sh -c`, como haría `sshd` con el shell
+ * Ejecuta un comando SSH en la máquina local con `<loginShell> -c`, como haría `sshd` con el shell
  * del usuario, pero con un ENTORNO CONTROLADO ([environment]: `HOME`, `TMUX_TMPDIR`, `PATH`…)
  * para no tocar el `$HOME` ni las sesiones tmux reales de quien corre los tests.
  *
@@ -28,6 +29,7 @@ internal class LocalShellCommand(
     private val command: String?,
     private val environment: Map<String, String>,
     private val workingDirectory: Path,
+    private val loginShell: String = "/bin/sh",
 ) : Command {
     private var stdin: InputStream? = null
     private var stdout: OutputStream? = null
@@ -75,12 +77,33 @@ internal class LocalShellCommand(
         }
     }
 
+    /**
+     * Con PTY (OpenSSH manda SIGHUP) se mata. Sin PTY, sshd solo cierra las tuberías: el proceso ve
+     * EOF en stdin y termina por su cuenta, ejecutando sus `trap` (cerrojo del lanzador del agente,
+     * `tail` de un enganche). Un SIGKILL inmediato los dejaría huérfanos, algo que en un servidor
+     * real no pasa. Solo se fuerza si tras un margen sigue vivo.
+     */
     override fun destroy(channel: ChannelSession) {
-        process?.destroyForcibly()
+        val running = process ?: return
+        if (running is PtyProcess) {
+            running.destroyForcibly()
+            return
+        }
+        try {
+            running.outputStream.close()
+        } catch (_: IOException) {
+            // Ya estaba cerrado: el proceso ya vio el EOF.
+        }
+        daemon("reap") {
+            if (!running.waitFor(EOF_GRACE_SECONDS, TimeUnit.SECONDS)) {
+                running.destroy()
+                if (!running.waitFor(TERM_GRACE_SECONDS, TimeUnit.SECONDS)) running.destroyForcibly()
+            }
+        }
     }
 
     private fun startPlain(processEnvironment: Map<String, String>): Process {
-        val builder = ProcessBuilder("/bin/sh", "-c", script()).directory(workingDirectory.toFile())
+        val builder = ProcessBuilder(loginShell, "-c", script()).directory(workingDirectory.toFile())
         builder.environment().clear()
         builder.environment().putAll(processEnvironment)
         return builder.start()
@@ -88,7 +111,7 @@ internal class LocalShellCommand(
 
     /** PTY real con el tamaño pedido; `window-change` → [PtyProcess.setWinSize]. */
     private fun startPty(env: Environment, processEnvironment: Map<String, String>): PtyProcess {
-        val pty = PtyProcessBuilder(arrayOf("/bin/sh", "-c", script()))
+        val pty = PtyProcessBuilder(arrayOf(loginShell, "-c", script()))
             .setEnvironment(processEnvironment)
             .setDirectory(workingDirectory.toString())
             .setInitialColumns(env.dimension(Environment.ENV_COLUMNS) ?: DEFAULT_COLUMNS)
@@ -123,8 +146,18 @@ internal class LocalShellCommand(
     }
 
     private fun copyStdin(from: InputStream, to: OutputStream) {
+        val buffer = ByteArray(BUFFER_SIZE)
         try {
-            to.use { from.copyTo(it) }
+            to.use { stdin ->
+                // Con flush en cada bloque: la tubería del proceso va con búfer y un lanzador que
+                // espera UNA línea por stdin (el token) se quedaría esperando para siempre.
+                while (true) {
+                    val read = from.read(buffer)
+                    if (read < 0) break
+                    stdin.write(buffer, 0, read)
+                    stdin.flush()
+                }
+            }
         } catch (_: IOException) {
             // EOF/cierre del canal o el proceso ya terminó.
         }
@@ -140,5 +173,7 @@ internal class LocalShellCommand(
         const val BUFFER_SIZE = 8 * 1024
         const val DEFAULT_COLUMNS = 80
         const val DEFAULT_ROWS = 24
+        const val EOF_GRACE_SECONDS = 3L
+        const val TERM_GRACE_SECONDS = 1L
     }
 }

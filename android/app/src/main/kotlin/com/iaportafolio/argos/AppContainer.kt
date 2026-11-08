@@ -3,6 +3,8 @@ package com.iaportafolio.argos
 import android.content.Context
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHConnector
+import com.iaportafolio.argos.data.AgentPermissionStore
+import com.iaportafolio.argos.data.ClaudeTokenStore
 import com.iaportafolio.argos.data.ContentResolverDocumentReader
 import com.iaportafolio.argos.data.ContentResolverDocumentWriter
 import com.iaportafolio.argos.data.DocumentReader
@@ -13,9 +15,11 @@ import com.iaportafolio.argos.data.FileServerRepository
 import com.iaportafolio.argos.data.KeystoreSecretCipher
 import com.iaportafolio.argos.data.ProjectPreferencesStore
 import com.iaportafolio.argos.data.SecretStore
+import com.iaportafolio.argos.data.SecretStoreClaudeTokens
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceHub
 import com.iaportafolio.argos.data.ServiceProvider
+import com.iaportafolio.argos.data.SharedPreferencesAgentPermissions
 import com.iaportafolio.argos.data.SharedPreferencesProjectPreferences
 import com.iaportafolio.argos.data.SharedPreferencesTerminalSettings
 import com.iaportafolio.argos.data.TerminalSettingsStore
@@ -38,6 +42,10 @@ class AppContainer(
     val servers: ServerRepository by lazy { FileServerRepository(File(filesDir, SERVERS_FILE), io) }
 
     val secrets: SecretStore by lazy { EncryptedSecretStore(File(filesDir, SECRETS_DIR), KeystoreSecretCipher()) }
+
+    val claudeTokens: ClaudeTokenStore by lazy { SecretStoreClaudeTokens(secrets) }
+
+    val agentPermissions: AgentPermissionStore by lazy { AgentPermissionStore(SharedPreferencesAgentPermissions(appContext)) }
 
     val hostKeys: HostKeyTrustStore by lazy { FileHostKeyTrustStore(File(filesDir, KNOWN_HOSTS_FILE)) }
 

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -34,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -44,6 +46,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.Server
+import com.iaportafolio.argos.core.agent.ClaudeAgentCommand
+import com.iaportafolio.argos.ui.agents.GlobalPermissionDialog
 import com.iaportafolio.argos.ui.common.MessageEffect
 import com.iaportafolio.argos.ui.common.StatusMessage
 
@@ -61,14 +65,38 @@ fun ServersScreen(
     onCancelDelete: () -> Unit,
     onForgetHostKey: (Server) -> Unit,
     onMessageShown: () -> Unit,
+    onAgentPermissionModeChange: (ClaudeAgentCommand.PermissionMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbar = remember { SnackbarHostState() }
     MessageEffect(state.message, snackbar, onMessageShown)
+    var menuOpen by remember { mutableStateOf(false) }
+    var editingPermissions by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.servers_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.servers_title)) },
+                actions = {
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.servers_settings))
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.agents_permissions_global_title)) },
+                                leadingIcon = { Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    editingPermissions = true
+                                },
+                            )
+                        }
+                    }
+                },
+            )
+        },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAdd,
@@ -104,6 +132,14 @@ fun ServersScreen(
                 }
             }
         }
+    }
+
+    if (editingPermissions) {
+        GlobalPermissionDialog(
+            mode = state.agentPermissionMode,
+            onSelect = onAgentPermissionModeChange,
+            onDismiss = { editingPermissions = false },
+        )
     }
 
     state.pendingDeletion?.let { server ->

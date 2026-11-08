@@ -112,7 +112,7 @@ fun TerminalScreen(
 }
 
 @Composable
-private fun TerminalHost(
+internal fun TerminalHost(
     viewModel: TerminalViewModel<RemoteTerminalSession>,
     state: TerminalUiState,
     onViewCreated: (RemoteTerminalView?) -> Unit,

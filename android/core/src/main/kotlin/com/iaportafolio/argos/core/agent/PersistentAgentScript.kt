@@ -23,7 +23,16 @@ data class PersistentAgentMeta(
     val workingDirectory: String,
     val title: String,
     val createdAt: Instant,
+    /**
+     * Modo con el que se creó. Reanudar lo conserva para que nunca suban los permisos sin que
+     * nadie lo pida. Es texto para que un modo desconocido no invalide el `meta.json`.
+     */
+    val permissionMode: String? = null,
 ) {
+    /** Los agentes sin modo guardado (o desconocido) se crearon preguntando cada permiso. */
+    val resolvedPermissionMode: ClaudeAgentCommand.PermissionMode
+        get() = ClaudeAgentCommand.PermissionMode.fromRawValue(permissionMode) ?: ClaudeAgentCommand.PermissionMode.DEFAULT
+
     companion object {
         private val ISO_PATTERN = Regex("""\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})""")
         private val ISO_WRITER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(ZoneOffset.UTC)
@@ -34,11 +43,12 @@ data class PersistentAgentMeta(
          */
         fun encode(meta: PersistentAgentMeta): String = SwiftJson.pretty(
             JsonObject(
-                mapOf(
-                    "workingDirectory" to JsonPrimitive(meta.workingDirectory),
-                    "title" to JsonPrimitive(meta.title),
-                    "createdAt" to JsonPrimitive(ISO_WRITER.format(meta.createdAt.truncatedTo(ChronoUnit.SECONDS))),
-                ),
+                buildMap {
+                    put("workingDirectory", JsonPrimitive(meta.workingDirectory))
+                    put("title", JsonPrimitive(meta.title))
+                    put("createdAt", JsonPrimitive(ISO_WRITER.format(meta.createdAt.truncatedTo(ChronoUnit.SECONDS))))
+                    meta.permissionMode?.let { put("permissionMode", JsonPrimitive(it)) }
+                },
             ),
             escapeSlashes = false,
             numbers = SwiftJson.Numbers.SHORTEST,
@@ -50,7 +60,7 @@ data class PersistentAgentMeta(
             val workingDirectory = obj["workingDirectory"].stringOrNull ?: return null
             val title = obj["title"].stringOrNull ?: return null
             val createdAt = obj["createdAt"].stringOrNull?.let(::parseDate) ?: return null
-            return PersistentAgentMeta(workingDirectory, title, createdAt)
+            return PersistentAgentMeta(workingDirectory, title, createdAt, obj["permissionMode"].stringOrNull)
         }
 
         private fun parseDate(text: String): Instant? {

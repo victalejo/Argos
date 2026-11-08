@@ -14,41 +14,71 @@ class ClaudeAgentCommandTest {
         val command = ClaudeAgentCommand.build(
             claudePath = "/usr/bin/claude",
             workingDirectory = "/home/u/repo",
-            oauthToken = "tok",
             sessionID = "11111111-1111-1111-1111-111111111111",
         )
         assertTrue(command.contains("--input-format stream-json"))
         assertTrue(command.contains("--output-format stream-json"))
         assertTrue(command.contains("--permission-prompt-tool stdio"))
-        assertTrue(command.contains("--permission-mode bypassPermissions"))
         assertTrue(command.contains("--session-id 11111111-1111-1111-1111-111111111111"))
     }
 
     @Test
-    fun `neutraliza ANTHROPIC_API_KEY e inyecta el token de suscripcion`() {
-        val command = ClaudeAgentCommand.build("/usr/bin/claude", "/repo", "secreto", "s")
-        assertTrue(command.contains("env -u ANTHROPIC_API_KEY"))
-        assertTrue(command.contains("CLAUDE_CODE_OAUTH_TOKEN='secreto'"))
+    fun `con root bypassPermissions pasa a preguntar`() {
+        val command = ClaudeAgentCommand.persistent(
+            "/c",
+            "s",
+            resume = false,
+            permissionMode = ClaudeAgentCommand.PermissionMode.BYPASS_PERMISSIONS,
+        )
+        assertTrue(command.contains("""--permission-mode "$([ "$(id -u)" = 0 ] && echo default || echo bypassPermissions)""""))
     }
 
     @Test
-    fun `entrecomilla cwd, token y binario contra inyeccion de shell`() {
-        val command = ClaudeAgentCommand.build("/opt/claude", "/tmp/a b; rm -rf ~", "x'; echo hi", "s")
+    fun `el token va por stdin y nunca en la linea de comandos`() {
+        val command = ClaudeAgentCommand.build("/usr/bin/claude", "/repo", "s")
+        assertTrue(command.contains("env -u ANTHROPIC_API_KEY"))
+        assertTrue(command.contains("IFS= read -r ARGOS_OAUTH"))
+        assertFalse(command.contains("CLAUDE_CODE_OAUTH_TOKEN='"))
+    }
+
+    @Test
+    fun `tokenLine quita saltos y espacios para no inyectar un prompt`() {
+        assertEquals("abcPROMPT\n", String(ClaudeAgentCommand.tokenLine(" abc\nPROMPT ")))
+        assertEquals("\n", String(ClaudeAgentCommand.tokenLine(null)))
+    }
+
+    @Test
+    fun `entrecomilla cwd y binario contra inyeccion de shell`() {
+        val command = ClaudeAgentCommand.build("/opt/claude", "/tmp/a b; rm -rf ~", "s")
         assertTrue(command.contains("cd '/tmp/a b; rm -rf ~'"))
-        assertTrue(command.contains("""CLAUDE_CODE_OAUTH_TOKEN='x'\''; echo hi'"""))
         assertFalse(command.contains("&& rm -rf"))
     }
 
     @Test
-    fun `sin token usa el login del servidor y nunca la API`() {
-        val command = ClaudeAgentCommand.build("/usr/bin/claude", "/repo", null, "s")
-        assertTrue(command.contains("env -u ANTHROPIC_API_KEY"))
-        assertFalse(command.contains("CLAUDE_CODE_OAUTH_TOKEN"))
+    fun `meta conserva el modo y un modo ausente o desconocido pregunta`() {
+        val now = java.time.Instant.parse("2026-01-02T03:04:05Z")
+        val meta = PersistentAgentMeta("/r", "t", now, "plan")
+        assertEquals(meta, PersistentAgentMeta.decode(PersistentAgentMeta.encode(meta)))
+        assertEquals(ClaudeAgentCommand.PermissionMode.PLAN, meta.resolvedPermissionMode)
+        assertEquals(ClaudeAgentCommand.PermissionMode.DEFAULT, meta.copy(permissionMode = null).resolvedPermissionMode)
+        assertEquals(ClaudeAgentCommand.PermissionMode.DEFAULT, meta.copy(permissionMode = "futuro").resolvedPermissionMode)
+        assertFalse(PersistentAgentMeta.encode(meta.copy(permissionMode = null)).contains("permissionMode"))
     }
 
     @Test
-    fun `token vacio se trata como ausente`() {
-        assertFalse(ClaudeAgentCommand.build("/c", "/r", "", "s").contains("CLAUDE_CODE_OAUTH_TOKEN"))
+    fun `preferencias - proyecto gana a global y global al fallback`() {
+        val server = "ABC"
+        val key = AgentPermissionPreferences.projectKey(server, "/r.x")
+        assertEquals("agentPermissionMode:ABC:L3IueA==", key)
+        val modes = mutableMapOf<String, String>()
+        fun effective() = AgentPermissionPreferences.effectiveMode(server, "/r.x") { modes[it] }
+        assertEquals(ClaudeAgentCommand.PermissionMode.BYPASS_PERMISSIONS, effective())
+        modes[AgentPermissionPreferences.GLOBAL_KEY] = "plan"
+        assertEquals(ClaudeAgentCommand.PermissionMode.PLAN, effective())
+        modes[key] = AgentPermissionPreferences.USE_GLOBAL_CHOICE
+        assertEquals(ClaudeAgentCommand.PermissionMode.PLAN, effective())
+        modes[key] = "default"
+        assertEquals(ClaudeAgentCommand.PermissionMode.DEFAULT, effective())
     }
 
     @Test
@@ -61,22 +91,23 @@ class ClaudeAgentCommandTest {
 
     @Test
     fun `build con directorio tilde usa HOME`() {
-        val command = ClaudeAgentCommand.build("/c", "~", null, "s")
+        val command = ClaudeAgentCommand.build("/c", "~", "s")
         assertTrue(command.contains("cd \"\$HOME\" &&"))
         assertFalse(command.contains("cd '~'"))
     }
 
     @Test
     fun `el modo de permisos se refleja en la bandera`() {
-        val command = ClaudeAgentCommand.build("/c", "/r", "t", "s", ClaudeAgentCommand.PermissionMode.ACCEPT_EDITS)
+        val command = ClaudeAgentCommand.build("/c", "/r", "s", ClaudeAgentCommand.PermissionMode.ACCEPT_EDITS)
         assertTrue(command.contains("--permission-mode acceptEdits"))
     }
 
     @Test
     fun `el comando anuncia el PID antes del exec`() {
-        val command = ClaudeAgentCommand.build("/u/bin/claude", "~/p", null, "s")
+        val command = ClaudeAgentCommand.build("/u/bin/claude", "~/p", "s")
         assertTrue(command.contains("argos_pid"))
-        assertTrue(command.contains("&& exec env -u ANTHROPIC_API_KEY"))
+        assertTrue(command.contains("exec env -u ANTHROPIC_API_KEY"))
+        assertTrue(command.indexOf("argos_pid") < command.indexOf("exec env"))
     }
 
     @Test

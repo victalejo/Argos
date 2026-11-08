@@ -46,13 +46,23 @@ class SwiftParityGoldenTest {
     @Test
     fun `comandos de claude`() {
         assertGolden(
-            "build-token",
-            ClaudeAgentCommand.build("/usr/bin/claude", "~/mi proyecto", "x'; echo hi", "11111111-1111-1111-1111-111111111111"),
+            "build-bypass",
+            ClaudeAgentCommand.build("/usr/bin/claude", "~/mi proyecto", "11111111-1111-1111-1111-111111111111"),
         )
         assertGolden(
-            "build-notoken",
-            ClaudeAgentCommand.build("/opt/c laude", "/tmp/a b; rm -rf ~", null, "s", ClaudeAgentCommand.PermissionMode.ACCEPT_EDITS),
+            "build-accept",
+            ClaudeAgentCommand.build("/opt/c laude", "/tmp/a b; rm -rf ~", "s", ClaudeAgentCommand.PermissionMode.ACCEPT_EDITS),
         )
+        assertGolden(
+            "persistent-bypass",
+            ClaudeAgentCommand.persistent(
+                "/usr/bin/claude",
+                id,
+                resume = false,
+                permissionMode = ClaudeAgentCommand.PermissionMode.BYPASS_PERMISSIONS,
+            ),
+        )
+        assertGolden("token-line", String(ClaudeAgentCommand.tokenLine(" sk-ant\nPROMPT tok\t"), Charsets.UTF_8))
         assertGolden("persistent-new", ClaudeAgentCommand.persistent("/usr/bin/claude", id, resume = false))
         assertGolden(
             "persistent-resume",

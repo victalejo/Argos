@@ -9,25 +9,31 @@ import kotlinx.serialization.json.JsonPrimitive
  * (port de `ArgosCore/Agent/ClaudeAgentCommand.swift`). Las cadenas son BYTE A BYTE las de
  * Swift.
  *
- * SEGURIDAD: en [build] el token de suscripción viaja como asignación de entorno en la
- * propia línea de comando (`CLAUDE_CODE_OAUTH_TOKEN=…`), visible vía `ps` para el MISMO
- * usuario y root. El agente persistente ([persistent]) lo recibe por stdin.
+ * SEGURIDAD: el token de suscripción viaja por stdin ([tokenLine]) y se exporta con un
+ * builtin. La línea de comandos la puede leer cualquier usuario del servidor (`ps`), así que
+ * el token nunca va en ella.
  */
 object ClaudeAgentCommand {
 
     /** Modo de permisos con el que arranca el agente. */
     enum class PermissionMode(val rawValue: String) {
-        /** Pregunta por cada herramienta no pre-aprobada (botones en la UI). */
-        DEFAULT("default"),
+        /** Todos los permisos; el CLI lo rechaza con root: ver [modeArgument]. */
+        BYPASS_PERMISSIONS("bypassPermissions"),
 
         /** Auto-aprueba ediciones de archivos; pregunta el resto. */
         ACCEPT_EDITS("acceptEdits"),
 
+        /** Pregunta por cada herramienta no pre-aprobada (botones en la UI). */
+        DEFAULT("default"),
+
         /** Solo lectura/exploración. */
         PLAN("plan"),
+        ;
 
-        /** Todos los permisos (el CLI lo rechaza si el usuario remoto es root). */
-        BYPASS_PERMISSIONS("bypassPermissions"),
+        companion object {
+            /** Como `PermissionMode(rawValue:)`: `null` si el modo es desconocido. */
+            fun fromRawValue(rawValue: String?): PermissionMode? = entries.firstOrNull { it.rawValue == rawValue }
+        }
     }
 
     /** Banderas base, comunes a toda invocación headless con protocolo de control. */
@@ -43,31 +49,47 @@ object ClaudeAgentCommand {
     const val PID_EVENT_TYPE = "argos_pid"
 
     /**
-     * Línea de comando completa para ejecutar por SSH (canal exec).
+     * Línea de comando completa para ejecutar por SSH (canal exec). La PRIMERA línea de stdin
+     * debe ser [tokenLine]: con token, se exporta; vacía, el CLI usa la credencial de
+     * `claude login` guardada en el SERVIDOR.
      *
      * @param claudePath ruta absoluta del binario `claude` en el servidor.
      * @param workingDirectory directorio de trabajo remoto (repo) donde corre el agente.
-     * @param oauthToken token de suscripción; si es `null`/vacío se usa el `claude login`
-     *   guardado en el SERVIDOR.
      * @param sessionID UUID de la sesión (permite reanudar luego con `--resume`).
      */
     fun build(
         claudePath: String,
         workingDirectory: String,
-        oauthToken: String?,
         sessionID: String,
         permissionMode: PermissionMode = PermissionMode.BYPASS_PERMISSIONS,
     ): String {
         val directory = cdTarget(workingDirectory)
         val binary = ShellQuoting.singleQuoted(claudePath)
-        val flags = (baseFlags + listOf("--permission-mode", permissionMode.rawValue, "--session-id", sessionID))
+        val flags = (baseFlags + listOf("--permission-mode", modeArgument(permissionMode), "--session-id", sessionID))
             .joinToString(" ")
         // `env -u ANTHROPIC_API_KEY` GARANTIZA que nunca se facture contra la API.
-        val token = if (!oauthToken.isNullOrEmpty()) "CLAUDE_CODE_OAUTH_TOKEN=${ShellQuoting.singleQuoted(oauthToken)} " else ""
-        val environment = "env -u ANTHROPIC_API_KEY $token"
+        // `read` no consume más allá de la primera línea: el resto de stdin es para claude.
+        val readToken = "IFS= read -r ARGOS_OAUTH; " +
+            "[ -n \"\$ARGOS_OAUTH\" ] && export CLAUDE_CODE_OAUTH_TOKEN=\"\$ARGOS_OAUTH\"; unset ARGOS_OAUTH"
         // `exec` conserva el PID de la shell: el anunciado es el del propio `claude`.
         val announcePID = "echo \"{\\\"type\\\":\\\"$PID_EVENT_TYPE\\\",\\\"pid\\\":\$\$}\""
-        return "cd $directory && $announcePID && exec $environment$binary $flags"
+        return "cd $directory && $announcePID && { $readToken; exec env -u ANTHROPIC_API_KEY $binary $flags; }"
+    }
+
+    /**
+     * Primera línea de stdin del comando: el token, o vacía si no hay. Sin saltos de línea ni
+     * espacios: lo que siguiera a un salto le llegaría a claude como un prompt.
+     */
+    fun tokenLine(oauthToken: String?): ByteArray =
+        ((oauthToken ?: "").filterNot { it.isWhitespace() } + "\n").toByteArray(Charsets.UTF_8)
+
+    /**
+     * Valor de `--permission-mode`. El CLI rechaza `bypassPermissions` con root y el agente no
+     * llegaría a arrancar, así que con root se pregunta cada acción.
+     */
+    private fun modeArgument(mode: PermissionMode): String {
+        if (mode != PermissionMode.BYPASS_PERMISSIONS) return mode.rawValue
+        return "\"\$([ \"\$(id -u)\" = 0 ] && echo ${PermissionMode.DEFAULT.rawValue} || echo ${mode.rawValue})\""
     }
 
     /**
@@ -84,7 +106,7 @@ object ClaudeAgentCommand {
         val flags = (
             baseFlags + listOf(
                 "--replay-user-messages",
-                "--permission-mode", permissionMode.rawValue,
+                "--permission-mode", modeArgument(permissionMode),
                 if (resume) "--resume" else "--session-id", sessionID,
             )
             ).joinToString(" ")

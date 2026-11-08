@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.PTYSize
+import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.TerminalControlEvent
 import com.iaportafolio.argos.core.TerminalStreaming
@@ -35,6 +36,17 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 
+/** Qué ejecuta el PTY del terminal. */
+sealed interface TerminalTarget {
+    /** `tmux attach` a la sesión (el caso normal). */
+    data object TmuxSession : TerminalTarget
+
+    /** Un comando suelto (login de Claude); se resuelve al abrir porque puede necesitar el servidor. */
+    fun interface Command : TerminalTarget {
+        suspend fun resolve(service: SSHServicing): String
+    }
+}
+
 /**
  * Terminal en vivo de UNA sesión tmux (port de `TouchTerminalController` de iOS).
  *
@@ -57,6 +69,9 @@ class TerminalViewModel<S : TerminalSink>(
     val screen: S,
     private val io: CoroutineDispatcher,
     private val policy: ReconnectPolicy = ReconnectPolicy(),
+    private val target: TerminalTarget = TerminalTarget.TmuxSession,
+    /** Observa la salida ya volcada al emulador (el login busca en ella su enlace). */
+    private val outputTap: (List<ByteArray>) -> Unit = {},
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(
@@ -158,13 +173,14 @@ class TerminalViewModel<S : TerminalSink>(
         var connected = false
         var server: Server? = null
         return try {
-            val target = repository.server(serverId) ?: throw TerminalServerMissingException()
-            server = target
-            val streaming = terminalStreaming(target)
+            val current = repository.server(serverId) ?: throw TerminalServerMissingException()
+            server = current
+            val service = services.service(current)
+            val streaming = service as? TerminalStreaming ?: throw TerminalStreamingUnavailableException()
             val size = initialSize()
             if (screenDirty) screen.reset()
             screenDirty = false
-            runChannel(streaming, size) {
+            runChannel(service, streaming, size) {
                 screenDirty = true
                 if (!connected) {
                     connected = true
@@ -180,16 +196,18 @@ class TerminalViewModel<S : TerminalSink>(
         }
     }
 
-    private suspend fun terminalStreaming(server: Server): TerminalStreaming =
-        services.service(server) as? TerminalStreaming ?: throw TerminalStreamingUnavailableException()
-
     /** Tamaño inicial del PTY: espera (poco) a la primera medición de la vista. */
     private suspend fun initialSize(): PTYSize.Dimensions {
         val measured = viewSize.value ?: withTimeoutOrNull(policy.initialSizeWaitMillis) { viewSize.filterNotNull().first() }
         return PTYSize.initial(measured?.cols ?: 0, measured?.rows ?: 0)
     }
 
-    private suspend fun runChannel(streaming: TerminalStreaming, size: PTYSize.Dimensions, onOutput: () -> Unit) {
+    private suspend fun runChannel(
+        service: SSHServicing,
+        streaming: TerminalStreaming,
+        size: PTYSize.Dimensions,
+        onOutput: () -> Unit,
+    ) {
         val channel = Channel<TerminalControlEvent>(Channel.UNLIMITED)
         val output = Channel<ByteArray>(OUTPUT_CAPACITY)
         control = channel
@@ -200,8 +218,12 @@ class TerminalViewModel<S : TerminalSink>(
                 try {
                     withContext(io) {
                         // Copia defensiva: el contrato no garantiza que el bloque no se reutilice.
-                        streaming.attachTerminal(sessionName, size.cols, size.rows, channel.receiveAsFlow()) { bytes ->
-                            output.send(bytes.copyOf())
+                        val deliver: suspend (ByteArray) -> Unit = { bytes -> output.send(bytes.copyOf()) }
+                        when (target) {
+                            TerminalTarget.TmuxSession ->
+                                streaming.attachTerminal(sessionName, size.cols, size.rows, channel.receiveAsFlow(), deliver)
+                            is TerminalTarget.Command ->
+                                streaming.attachCommand(target.resolve(service), size.cols, size.rows, channel.receiveAsFlow(), deliver)
                         }
                     }
                 } finally {
@@ -228,6 +250,7 @@ class TerminalViewModel<S : TerminalSink>(
                 bytes += next.size
             }
             screen.feed(batch)
+            outputTap(batch)
             onOutput()
             yield()
         }

@@ -60,6 +60,7 @@ fun ProjectScreen(
     onBack: () -> Unit,
     terminal: @Composable (project: Project) -> Unit,
     files: @Composable (project: Project, twoPane: Boolean) -> Unit,
+    agents: @Composable (project: Project, twoPane: Boolean) -> Unit,
 ) {
     val snackbar = remember { SnackbarHostState() }
     MessageEffect(state.message, snackbar, viewModel::messageShown)
@@ -79,7 +80,7 @@ fun ProjectScreen(
                             StoppedProject(project, state.isStarting, viewModel::start, onBack)
                         }
                         ProjectTab.FILES -> files(project, wide)
-                        ProjectTab.AGENTS -> AgentsPlaceholder(project, onBack)
+                        ProjectTab.AGENTS -> agents(project, wide)
                     }
                 }
             }
@@ -201,17 +202,5 @@ private fun StoppedProject(project: Project, isStarting: Boolean, onStart: () ->
                 Text(stringResource(R.string.project_start))
             }
         }
-    }
-}
-
-@Composable
-private fun AgentsPlaceholder(project: Project, onBack: () -> Unit) {
-    Scaffold(topBar = { SimpleTopBar(project.name, project.path, onBack) }) { padding ->
-        StatusMessage(
-            icon = painterResource(R.drawable.ic_sparkles),
-            title = stringResource(R.string.project_tab_agents),
-            body = stringResource(R.string.project_agents_soon),
-            modifier = Modifier.padding(padding),
-        )
     }
 }

@@ -5,6 +5,10 @@ import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.TerminalControlEvent
 import com.iaportafolio.argos.core.TerminalStreaming
 import com.iaportafolio.argos.core.agent.AgentExecCommands
+import com.iaportafolio.argos.core.agent.AgentExecException
+import com.iaportafolio.argos.core.agent.AgentExecStreaming
+import com.iaportafolio.argos.core.agent.ClaudeAuthStatus
+import com.iaportafolio.argos.core.agent.PersistentAgentException
 import com.iaportafolio.argos.core.agent.PersistentAgentError
 import com.iaportafolio.argos.core.agent.RemoteDirectoryListing
 import com.iaportafolio.argos.core.files.RemoteFileBrowsing
@@ -44,14 +48,29 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * Y es [RemoteFileBrowsing] (port de `Files/SSHFileBrowser.swift`): explorador de solo lectura
  * por SFTP con un cliente SFTP reutilizado por conexión ([SshjFileBrowser]).
+ *
+ * Y es [AgentExecStreaming] (resto de `Agent/SSHAgentExec.swift`): canal exec sin PTY para lanzar
+ * el agente y seguir su log, cada uno en una conexión dedicada ([SshjAgentExec]).
  */
 class SshjSSHService internal constructor(private val connection: SshjConnection) :
     SSHServicing,
     TerminalStreaming,
-    RemoteFileBrowsing {
+    RemoteFileBrowsing,
+    AgentExecStreaming {
 
     private val terminal = SshjTerminal(connection)
     private val files = SshjFileBrowser(connection)
+    private val agentExec = SshjAgentExec(connection)
+
+    // MARK: Canal exec del agente
+
+    override suspend fun runAgentExec(command: String, stdin: Flow<ByteArray>, output: suspend (ByteArray) -> Unit) =
+        agentExec.run(command, stdin, output)
+
+    override suspend fun claudeAuthStatus(): ClaudeAuthStatus? {
+        val claudePath = locateClaude() ?: return null
+        return AgentExecCommands.parseAuthStatus(connection.capture(AgentExecCommands.claudeAuthStatus(claudePath)).stdout)
+    }
 
     // MARK: Explorador de archivos (SFTP)
 
@@ -155,7 +174,7 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
         runManagement(TmuxCommands.newAgentWindow(session, agent, directory))
 
     override suspend fun installedCodingAgents(): Set<CodingAgent> =
-        CodingAgent.parseInstalled(connection.capture(CodingAgent.installedAgentsScript).stdout)
+        CodingAgent.parseInstalled(connection.capture(posixShell(CodingAgent.installedAgentsScript)).stdout)
 
     override suspend fun gitBranch(path: String): String? {
         val result = connection.capture(TmuxCommands.gitBranch(path))
@@ -259,7 +278,8 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     )
 
     override suspend fun runAgentScript(command: String): String {
-        val result = connection.capture(command)
+        // Bajo `sh`: con zsh como shell de login, el comodín del listado sin agentes abortaría.
+        val result = connection.capture(posixShell(command))
         if (result.exitCode == 0) return result.stdout
         val detail = result.stderr.trim()
         if (AgentExecCommands.isAgentDead(detail)) throw PersistentAgentException(PersistentAgentError.NOT_RUNNING)

@@ -10,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -24,6 +26,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.core.projects.Project
+import com.iaportafolio.argos.ui.agents.AgentChatScreen
+import com.iaportafolio.argos.ui.agents.AgentListEvent
+import com.iaportafolio.argos.ui.agents.AgentListScreen
+import com.iaportafolio.argos.ui.agents.AgentLoginScreen
 import com.iaportafolio.argos.ui.common.StatusMessage
 import com.iaportafolio.argos.ui.files.FilesScreen
 import com.iaportafolio.argos.ui.form.ServerFormScreen
@@ -35,6 +42,8 @@ import com.iaportafolio.argos.ui.projects.ProjectsScreen
 import com.iaportafolio.argos.ui.servers.ServersScreen
 import com.iaportafolio.argos.ui.sessions.SessionsLoad
 import com.iaportafolio.argos.ui.terminal.TerminalScreen
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 
 /** Rutas tipadas de Navigation Compose. */
@@ -52,6 +61,12 @@ data class ProjectRoute(val serverId: String, val projectId: String)
 
 @Serializable
 data class TerminalRoute(val serverId: String, val sessionName: String)
+
+@Serializable
+data class AgentChatRoute(val serverId: String, val agentId: String)
+
+@Serializable
+data class AgentLoginRoute(val serverId: String)
 
 private val LIST_PANE_WIDTH = 360.dp
 
@@ -94,7 +109,32 @@ fun ArgosNavHost(container: AppContainer) {
         }
         composable<ProjectRoute> { entry ->
             val route = entry.toRoute<ProjectRoute>()
-            ProjectDestination(container, route.serverId, route.projectId, onBack = { navController.popBackStack() })
+            ProjectDestination(
+                container = container,
+                serverId = route.serverId,
+                projectId = route.projectId,
+                onBack = { navController.popBackStack() },
+                onOpenAgent = { navController.navigate(AgentChatRoute(route.serverId, it)) },
+                onOpenLogin = { navController.navigate(AgentLoginRoute(route.serverId)) },
+            )
+        }
+        composable<AgentChatRoute> { entry ->
+            val route = entry.toRoute<AgentChatRoute>()
+            AgentChatScreen(
+                viewModel = agentChatViewModel(container, route.serverId, route.agentId),
+                agentId = route.agentId,
+                onBack = { navController.popBackStack() },
+                onClosed = { navController.popBackStack() },
+            )
+        }
+        composable<AgentLoginRoute> { entry ->
+            val route = entry.toRoute<AgentLoginRoute>()
+            val login = agentLoginViewModel(container, route.serverId)
+            AgentLoginScreen(
+                login = login,
+                terminal = agentLoginTerminalViewModel(container, route.serverId, login),
+                onClose = { navController.popBackStack() },
+            )
         }
         composable<TerminalRoute> { entry ->
             val route = entry.toRoute<TerminalRoute>()
@@ -134,6 +174,7 @@ private fun ServersDestination(
                 onConfirmDelete = viewModel::confirmDelete,
                 onCancelDelete = viewModel::cancelDelete,
                 onForgetHostKey = viewModel::forgetHostKey,
+                onAgentPermissionModeChange = viewModel::setAgentPermissionMode,
                 onMessageShown = viewModel::messageShown,
                 modifier = modifier,
             )
@@ -208,7 +249,14 @@ private fun ProjectsDestination(
 }
 
 @Composable
-private fun ProjectDestination(container: AppContainer, serverId: String, projectId: String, onBack: () -> Unit) {
+private fun ProjectDestination(
+    container: AppContainer,
+    serverId: String,
+    projectId: String,
+    onBack: () -> Unit,
+    onOpenAgent: (String) -> Unit,
+    onOpenLogin: () -> Unit,
+) {
     val viewModel = projectViewModel(container, serverId, projectId)
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Al volver a primer plano la sesión pudo detenerse o arrancar desde otro cliente.
@@ -230,5 +278,74 @@ private fun ProjectDestination(container: AppContainer, serverId: String, projec
         files = { project, twoPane ->
             FilesScreen(viewModel = filesViewModel(container, serverId, project.path), twoPane = twoPane, onExit = onBack)
         },
+        agents = { project, twoPane ->
+            AgentsDestination(container, serverId, project, twoPane, onBack, onOpenAgent, onOpenLogin)
+        },
     )
+}
+
+/** En móvil la lista abre el chat a pantalla completa; en pantallas anchas, lista y chat lado a lado. */
+@Composable
+private fun AgentsDestination(
+    container: AppContainer,
+    serverId: String,
+    project: Project,
+    twoPane: Boolean,
+    onBack: () -> Unit,
+    onOpenAgent: (String) -> Unit,
+    onOpenLogin: () -> Unit,
+) {
+    val viewModel = agentListViewModel(container, serverId, project.name, project.path)
+    var selectedId by rememberSaveable(project.path) { mutableStateOf<String?>(null) }
+    val currentTwoPane by rememberUpdatedState(twoPane)
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is AgentListEvent.OpenAgent -> if (currentTwoPane) selectedId = event.agentId else onOpenAgent(event.agentId)
+                AgentListEvent.OpenLogin -> onOpenLogin()
+            }
+        }
+    }
+    // Al volver del chat o del login: un agente pudo cambiar y la sesión de Claude, abrirse.
+    LifecycleResumeEffect(viewModel) {
+        viewModel.refresh()
+        onPauseOrDispose { }
+    }
+    val list = @Composable { modifier: Modifier ->
+        AgentListScreen(
+            viewModel = viewModel,
+            selectedAgentId = if (twoPane) selectedId else null,
+            onBack = onBack,
+            modifier = modifier,
+        )
+    }
+    if (!twoPane) {
+        list(Modifier.fillMaxSize())
+        return
+    }
+    Row(Modifier.fillMaxSize()) {
+        list(Modifier.width(LIST_PANE_WIDTH).fillMaxHeight())
+        VerticalDivider()
+        val agentId = selectedId
+        if (agentId == null) {
+            StatusMessage(
+                icon = painterResource(R.drawable.ic_sparkles),
+                title = stringResource(R.string.agents_pick),
+            )
+        } else {
+            val chat = agentChatViewModel(container, serverId, agentId)
+            val isAlive by remember(chat) { chat.state.map { it.isAlive }.distinctUntilChanged() }.collectAsStateWithLifecycle(initialValue = null)
+            // La lista refleja lo que se pare o reanude desde el chat de al lado.
+            LaunchedEffect(chat, isAlive) { if (isAlive != null) viewModel.refresh() }
+            AgentChatScreen(
+                viewModel = chat,
+                agentId = agentId,
+                onBack = null,
+                onClosed = {
+                    selectedId = null
+                    viewModel.refresh()
+                },
+            )
+        }
+    }
 }

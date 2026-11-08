@@ -1,6 +1,8 @@
 package com.iaportafolio.argos.ssh
 
 import com.iaportafolio.argos.core.SSHCredentials
+import com.iaportafolio.argos.core.agent.AgentExecException
+import com.iaportafolio.argos.core.agent.PersistentAgentException
 import com.iaportafolio.argos.core.SSHServiceError
 import com.iaportafolio.argos.core.ShellQuoting
 import com.iaportafolio.argos.core.agent.PersistentAgentError

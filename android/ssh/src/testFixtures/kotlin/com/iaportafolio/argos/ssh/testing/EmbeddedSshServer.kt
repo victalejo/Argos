@@ -7,6 +7,7 @@ import org.apache.sshd.common.config.keys.PublicKeyEntryResolver
 import org.apache.sshd.common.digest.BuiltinDigests
 import org.apache.sshd.common.file.FileSystemFactory
 import org.apache.sshd.common.session.SessionContext
+import org.apache.sshd.core.CoreModuleProperties
 import org.apache.sshd.server.SshServer
 import org.apache.sshd.server.command.CommandFactory
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider
@@ -31,7 +32,10 @@ import java.util.concurrent.TimeUnit
  *
  * Ejecuta los comandos en ESTA máquina con `/bin/sh -c`, pero aislados: `HOME` es [home] y
  * `TMUX_TMPDIR` es [tmuxDir], así que el servidor tmux de los tests es otro distinto del del
- * usuario. [close] mata ese servidor tmux.
+ * usuario, y el PATH nunca resuelve un `claude` instalado en la máquina (ver [environmentFor]).
+ * [close] mata ese servidor tmux y los agentes que sigan corriendo en este `HOME`.
+ *
+ * Como OpenSSH (`MaxSessions`), admite [MAX_CHANNELS_PER_CONNECTION] canales por conexión.
  *
  * Autenticación: contraseña ([password]) y claves públicas autorizadas (líneas OpenSSH).
  * SFTP habilitado (subidas y explorador de archivos) sobre el sistema de archivos real, con
@@ -51,6 +55,9 @@ class EmbeddedSshServer private constructor(
 ) : AutoCloseable {
 
     val port: Int get() = sshd.port
+
+    /** Conexiones SSH abiertas en este momento. */
+    val activeConnections: Int get() = sshd.activeSessions.size
 
     /** Línea OpenSSH de la clave de host (`ecdsa-sha2-nistp256 AAAA…`), para `ssh-keygen -l`. */
     val hostPublicKeyLine: String get() = PublicKeyEntry.toString(hostPublicKey)
@@ -78,14 +85,49 @@ class EmbeddedSshServer private constructor(
         runLocal("tmux kill-server 2>/dev/null; true")
     }
 
+    /**
+     * Procesos de esta máquina que son agentes o enganches de este `HOME`: el `claude` simulado,
+     * su vigía y los `tail` del log. Líneas `pid args`. La línea de comandos lleva la ruta.
+     */
+    fun agentProcesses(): List<String> {
+        val own = generateSequence(ProcessHandle.current()) { it.parent().orElse(null) }.map { it.pid() }.toSet()
+        val process = ProcessBuilder("ps", "axww", "-o", "pid=,args=").redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+        process.waitFor(LOCAL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val roots = setOf(home.toString(), home.toRealPath().toString())
+        val markers = roots.flatMap { listOf("$it/$AGENT_BINARY_PATH", "$it/$AGENTS_PATH/") }
+        return output.lineSequence()
+            .map { it.trim() }
+            .filter { line -> markers.any { it in line } }
+            .filter { it.substringBefore(' ').toLongOrNull() !in own }
+            .toList()
+    }
+
+    /** Mata (SIGKILL) todo lo que devuelve [agentProcesses]. */
+    fun killAgentProcesses() {
+        val pids = agentProcesses().map { it.substringBefore(' ') }
+        if (pids.isEmpty()) return
+        ProcessBuilder(listOf("kill", "-9") + pids).redirectErrorStream(true).start().apply {
+            inputStream.readBytes()
+            waitFor(LOCAL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        }
+    }
+
     override fun close() {
         killTmux()
+        killAgentProcesses()
         sshd.stop(true)
         if (tmuxDir.startsWith(SHORT_TMP_ROOT)) tmuxDir.toFile().deleteRecursively()
     }
 
     companion object {
         private const val LOCAL_TIMEOUT_SECONDS = 30L
+
+        /** `MaxSessions` por defecto de OpenSSH: lo que justifica las conexiones dedicadas. */
+        const val MAX_CHANNELS_PER_CONNECTION = 10
+
+        private const val AGENT_BINARY_PATH = FakeClaude.RELATIVE_PATH
+        private const val AGENTS_PATH = ".config/argos/agents"
 
         /**
          * Los sockets Unix admiten ~104 bytes de ruta (macOS). tmux crea
@@ -119,6 +161,7 @@ class EmbeddedSshServer private constructor(
          * @param port 0 = puerto efímero.
          * @param hostKeyFile clave de host persistente (se genera la primera vez).
          * @param authorizedKeys líneas OpenSSH (`ssh-ed25519 AAAA… comentario`) aceptadas.
+         * @param loginShell shell con el que `sshd` ejecuta los comandos (p. ej. `/bin/zsh`).
          */
         fun start(
             workDir: Path,
@@ -128,10 +171,11 @@ class EmbeddedSshServer private constructor(
             bindAddress: String = "127.0.0.1",
             port: Int = 0,
             hostKeyFile: Path = workDir.resolve("host_key"),
+            loginShell: String = "/bin/sh",
         ): EmbeddedSshServer {
             val home = Files.createDirectories(workDir.resolve("home"))
             val tmuxDir = tmuxDirectory(workDir)
-            val environment = environmentFor(username, home, tmuxDir)
+            val environment = environmentFor(username, home, tmuxDir, workDir)
             val accepted = authorizedKeys.map(::parsePublicKey)
             val hostKeys = SimpleGeneratorHostKeyProvider(hostKeyFile)
 
@@ -144,11 +188,12 @@ class EmbeddedSshServer private constructor(
                     user == username && accepted.any { KeyUtils.compareKeys(it, key) }
                 }
                 keyboardInteractiveAuthenticator = null
-                commandFactory = CommandFactory { _, command -> LocalShellCommand(command, environment, home) }
-                shellFactory = ShellFactory { LocalShellCommand(null, environment, home) }
+                commandFactory = CommandFactory { _, command -> LocalShellCommand(command, environment, home, loginShell) }
+                shellFactory = ShellFactory { LocalShellCommand(null, environment, home, loginShell) }
                 fileSystemFactory = HomeFileSystemFactory(home)
                 subsystemFactories = listOf(HomeSftpSubsystemFactory(home))
             }
+            CoreModuleProperties.MAX_CONCURRENT_CHANNELS.set(sshd, MAX_CHANNELS_PER_CONNECTION)
             sshd.start()
             val hostPublicKey = hostKeys.loadKeys(null).first().public
             return EmbeddedSshServer(sshd, username, password, home, tmuxDir, hostPublicKey, environment)
@@ -160,19 +205,40 @@ class EmbeddedSshServer private constructor(
         /**
          * Entorno de los comandos: aislado del usuario real, con un PATH que encuentra tmux en
          * macOS (Homebrew) y Linux, y la locale UTF-8 para que tmux no degrade los caracteres.
+         *
+         * NUNCA debe resolver el `claude` real de la máquina: el `PATH` heredado suele traer
+         * `~/.local/bin`. Se quitan los directorios con un `claude` y `~/.local/bin` del `HOME`
+         * aislado (donde va [FakeClaude]) va el primero.
          */
-        private fun environmentFor(username: String, home: Path, tmuxDir: Path): Map<String, String> {
+        private fun environmentFor(username: String, home: Path, tmuxDir: Path, workDir: Path): Map<String, String> {
             val inherited = System.getenv("PATH").orEmpty().split(File.pathSeparator).filter { it.isNotBlank() }
-            val path = (TOOL_DIRECTORIES + inherited).distinct().joinToString(File.pathSeparator)
+            val (withClaude, clean) = (TOOL_DIRECTORIES + inherited).distinct().partition(::containsClaude)
+            val tools = listOfNotNull(tmuxShim(workDir, withClaude, clean))
+            val isolatedBin = home.resolve(AGENT_BINARY_PATH).parent.toString()
             return mapOf(
                 "HOME" to home.toString(),
                 "USER" to username,
                 "LOGNAME" to username,
                 "SHELL" to "/bin/sh",
-                "PATH" to path,
+                "PATH" to (listOf(isolatedBin) + tools + clean).joinToString(File.pathSeparator),
                 "TMUX_TMPDIR" to tmuxDir.toString(),
                 "LANG" to (System.getenv("LANG") ?: "C.UTF-8"),
             )
+        }
+
+        private fun containsClaude(directory: String): Boolean = Files.isExecutable(Path.of(directory, "claude"))
+
+        /**
+         * Si tmux solo está en un directorio que se quitó del PATH por tener un `claude`
+         * (Homebrew con claude-code), se enlaza en un directorio propio. Devuelve ese directorio.
+         */
+        private fun tmuxShim(workDir: Path, excluded: List<String>, kept: List<String>): String? {
+            if (kept.any { Files.isExecutable(Path.of(it, "tmux")) }) return null
+            val tmux = excluded.map { Path.of(it, "tmux") }.firstOrNull(Files::isExecutable) ?: return null
+            val shimDir = Files.createDirectories(workDir.resolve("tools"))
+            Files.deleteIfExists(shimDir.resolve("tmux"))
+            Files.createSymbolicLink(shimDir.resolve("tmux"), tmux)
+            return shimDir.toString()
         }
     }
 }

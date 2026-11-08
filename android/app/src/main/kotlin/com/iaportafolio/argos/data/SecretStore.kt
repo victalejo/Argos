@@ -11,6 +11,9 @@ enum class SecretKind(internal val fileSuffix: String) {
     PASSWORD("password"),
     PASSPHRASE("passphrase"),
     PRIVATE_KEY("key"),
+
+    /** Token de `claude setup-token`; global, ver [ClaudeTokenStore]. */
+    CLAUDE_OAUTH_TOKEN("claude-oauth-token"),
 }
 
 /** Un secreto existe pero no se puede leer (clave del Keystore perdida, archivo alterado…). */
@@ -19,7 +22,8 @@ class SecretUnavailableException(kind: SecretKind, cause: Throwable? = null) : E
         SecretKind.PASSWORD -> "No se pudo leer la contraseña guardada."
         SecretKind.PASSPHRASE -> "No se pudo leer la passphrase guardada."
         SecretKind.PRIVATE_KEY -> "No se pudo leer la clave privada importada."
-    } + " Edita el servidor y vuelve a introducirla.",
+        SecretKind.CLAUDE_OAUTH_TOKEN -> "No se pudo leer el token de Claude."
+    } + if (kind == SecretKind.CLAUDE_OAUTH_TOKEN) " Bórralo y vuelve a pegarlo." else " Edita el servidor y vuelve a introducirla.",
     cause,
 )
 

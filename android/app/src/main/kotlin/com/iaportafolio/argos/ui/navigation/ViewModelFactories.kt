@@ -5,6 +5,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.iaportafolio.argos.AppContainer
+import com.iaportafolio.argos.ui.agents.AgentChatViewModel
+import com.iaportafolio.argos.ui.agents.AgentListViewModel
+import com.iaportafolio.argos.ui.agents.AgentLoginViewModel
 import com.iaportafolio.argos.ui.files.RemoteFilesViewModel
 import com.iaportafolio.argos.ui.form.ServerFormViewModel
 import com.iaportafolio.argos.ui.project.ProjectViewModel
@@ -12,6 +15,8 @@ import com.iaportafolio.argos.ui.projects.FolderPickerViewModel
 import com.iaportafolio.argos.ui.projects.ProjectsViewModel
 import com.iaportafolio.argos.ui.servers.ServersViewModel
 import com.iaportafolio.argos.terminal.RemoteTerminalSession
+import com.iaportafolio.argos.ui.terminal.ReconnectPolicy
+import com.iaportafolio.argos.ui.terminal.TerminalTarget
 import com.iaportafolio.argos.ui.terminal.TerminalViewModel
 
 /** ViewModels creados con las dependencias del [AppContainer] (DI manual, sin Hilt/Koin). */
@@ -19,7 +24,7 @@ import com.iaportafolio.argos.ui.terminal.TerminalViewModel
 internal fun serversViewModel(container: AppContainer): ServersViewModel = viewModel(
     factory = viewModelFactory {
         initializer {
-            ServersViewModel(container.servers, container.secrets, container.hostKeys, container.services, container.io)
+            ServersViewModel(container.servers, container.secrets, container.hostKeys, container.services, container.agentPermissions, container.io)
         }
     },
 )
@@ -92,6 +97,78 @@ internal fun terminalViewModel(
                 settingsStore = container.terminalSettings,
                 screen = RemoteTerminalSession(),
                 io = container.io,
+            )
+        }
+    },
+)
+
+/** Uno por carpeta: si el proyecto cambia de carpeta, sus agentes son otros. */
+@Composable
+internal fun agentListViewModel(
+    container: AppContainer,
+    serverId: String,
+    projectName: String,
+    workingDirectory: String,
+): AgentListViewModel = viewModel(
+    key = "agents:$serverId:$workingDirectory",
+    factory = viewModelFactory {
+        initializer {
+            AgentListViewModel(
+                serverId,
+                projectName,
+                workingDirectory,
+                container.servers,
+                container.services,
+                container.claudeTokens,
+                container.agentPermissions,
+                container.io,
+            )
+        }
+    },
+)
+
+@Composable
+internal fun agentChatViewModel(container: AppContainer, serverId: String, agentId: String): AgentChatViewModel = viewModel(
+    key = "agent-chat:$serverId:$agentId",
+    factory = viewModelFactory {
+        initializer {
+            AgentChatViewModel(serverId, agentId, container.servers, container.services, container.claudeTokens, container.io)
+        }
+    },
+)
+
+@Composable
+internal fun agentLoginViewModel(container: AppContainer, serverId: String): AgentLoginViewModel = viewModel(
+    key = "agent-login:$serverId",
+    factory = viewModelFactory {
+        initializer { AgentLoginViewModel(serverId, container.servers, container.services) }
+    },
+)
+
+/**
+ * El PTY de `claude auth login`. Sin reintentos automáticos: relanzar el comando invalidaría el
+ * enlace que el usuario tiene abierto en el navegador.
+ */
+@Composable
+internal fun agentLoginTerminalViewModel(
+    container: AppContainer,
+    serverId: String,
+    login: AgentLoginViewModel,
+): TerminalViewModel<RemoteTerminalSession> = viewModel(
+    key = "agent-login-terminal:$serverId",
+    factory = viewModelFactory {
+        initializer {
+            TerminalViewModel(
+                serverId = serverId,
+                sessionName = "claude auth login",
+                repository = container.servers,
+                services = container.services,
+                settingsStore = container.terminalSettings,
+                screen = RemoteTerminalSession(),
+                io = container.io,
+                policy = ReconnectPolicy(maxAttempts = 0),
+                target = TerminalTarget.Command(login::loginCommand),
+                outputTap = login::onTerminalOutput,
             )
         }
     },

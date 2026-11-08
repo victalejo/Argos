@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.Server
+import com.iaportafolio.argos.core.agent.AgentPermissionPreferences
+import com.iaportafolio.argos.core.agent.ClaudeAgentCommand
+import com.iaportafolio.argos.data.AgentPermissionStore
 import com.iaportafolio.argos.data.ArgosLog
 import com.iaportafolio.argos.data.SecretStore
 import com.iaportafolio.argos.data.ServerRepository
@@ -27,6 +30,8 @@ data class ServersUiState(
     val pendingDeletion: Server? = null,
     /** Aviso puntual (snackbar): resultado de una acción o error. */
     val message: UiText? = null,
+    /** Modo de permisos por defecto de los agentes nuevos. */
+    val agentPermissionMode: ClaudeAgentCommand.PermissionMode = AgentPermissionPreferences.FALLBACK,
 )
 
 class ServersViewModel(
@@ -34,10 +39,13 @@ class ServersViewModel(
     private val secrets: SecretStore,
     private val hostKeys: HostKeyTrustStore,
     private val services: ServiceProvider,
+    private val agentPermissions: AgentPermissionStore,
     private val io: CoroutineDispatcher,
 ) : ViewModel() {
 
-    private val mutableState = MutableStateFlow(ServersUiState(servers = repository.servers.value))
+    private val mutableState = MutableStateFlow(
+        ServersUiState(servers = repository.servers.value, agentPermissionMode = agentPermissions.globalMode()),
+    )
     val state: StateFlow<ServersUiState> = mutableState.asStateFlow()
 
     init {
@@ -83,6 +91,11 @@ class ServersViewModel(
                 mutableState.update { it.copy(message = error.toUiText()) }
             }
         }
+    }
+
+    fun setAgentPermissionMode(mode: ClaudeAgentCommand.PermissionMode) {
+        agentPermissions.setGlobalMode(mode)
+        mutableState.update { it.copy(agentPermissionMode = mode) }
     }
 
     fun messageShown() = mutableState.update { it.copy(message = null) }

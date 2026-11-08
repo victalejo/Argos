@@ -28,6 +28,7 @@ import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.EnumSet
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /** Resultado de un comando remoto: un código distinto de 0 NO es una excepción. */
@@ -52,8 +53,14 @@ internal class SshjConnection(
     private val mutex = Mutex()
     private var client: SSHClient? = null
 
+    /** Conexiones de canales largos abiertas ahora mismo (ver [withDedicatedClient]). */
+    private val dedicated: MutableSet<SSHClient> = ConcurrentHashMap.newKeySet()
+
     /** `host:puerto` del servidor, para los mensajes de error. */
     val endpoint: String get() = server.endpoint
+
+    /** Espera máxima al cierre de un canal tras leer su salida. */
+    val channelCloseTimeoutSeconds: Long get() = settings.channelCloseTimeoutSeconds
 
     /** Conexión viva (la abre si hace falta). */
     suspend fun connectedClient(): SSHClient = mutex.withLock {
@@ -64,7 +71,28 @@ internal class SshjConnection(
         }
     }
 
-    /** Cierra la conexión si está abierta. Idempotente y no cancelable a medias. */
+    /**
+     * Ejecuta [block] sobre una conexión PROPIA (mismas credenciales y TOFU) que se cierra siempre
+     * al terminar, también si se cancela (port de `withDedicatedClient` de `SSHService.swift`).
+     * OpenSSH limita los canales por conexión (`MaxSessions`, 10 por defecto): los canales de
+     * larga duración de los agentes no deben agotar los de la conexión compartida.
+     *
+     * El cliente se crea ANTES de conectar para poder cerrarlo pase lo que pase: si la cancelación
+     * llegara justo al terminar de conectar, un cliente devuelto por `withContext` se perdería.
+     */
+    suspend fun <T> withDedicatedClient(block: suspend (SSHClient) -> T): T {
+        val pending = withContext(Dispatchers.IO) { newClient() }
+        try {
+            runInterruptible(Dispatchers.IO) { connect(pending) }
+            dedicated += pending.ssh
+            return block(pending.ssh)
+        } finally {
+            dedicated -= pending.ssh
+            withContext(NonCancellable + Dispatchers.IO) { closeQuietly(pending.ssh) }
+        }
+    }
+
+    /** Cierra la conexión y las dedicadas abiertas. Idempotente y no cancelable a medias. */
     suspend fun disconnect() {
         withContext(NonCancellable) {
             mutex.withLock {
@@ -72,6 +100,9 @@ internal class SshjConnection(
                 client = null
                 current?.let { withContext(Dispatchers.IO) { closeQuietly(it) } }
             }
+            val open = dedicated.toList()
+            dedicated.clear()
+            if (open.isNotEmpty()) withContext(Dispatchers.IO) { open.forEach(::closeQuietly) }
         }
     }
 
@@ -133,7 +164,15 @@ internal class SshjConnection(
 
     // MARK: Apertura
 
+    private class PendingClient(val ssh: SSHClient, val verifier: TofuHostKeyVerifier)
+
     private suspend fun open(): SSHClient = runInterruptible(Dispatchers.IO) {
+        val pending = newClient()
+        connect(pending)
+        pending.ssh
+    }
+
+    private fun newClient(): PendingClient {
         val verifier = TofuHostKeyVerifier(server.endpoint, trust)
         val ssh = SSHClient(SshjConnector.config()).apply {
             addHostKeyVerifier(verifier)
@@ -142,13 +181,18 @@ internal class SshjConnection(
             connection.keepAlive.keepAliveInterval = settings.keepAliveIntervalSeconds
             (connection.keepAlive as? KeepAliveRunner)?.maxAliveCount = settings.keepAliveMaxMissed
         }
+        return PendingClient(ssh, verifier)
+    }
+
+    /** Conecta y autentica; si falla, cierra el cliente y lanza el error traducido. */
+    private fun connect(pending: PendingClient) {
+        val ssh = pending.ssh
         try {
             ssh.connect(server.host, server.port)
             authenticate(ssh)
-            ssh
         } catch (error: IOException) {
             closeQuietly(ssh)
-            throw translate(error, verifier)
+            throw translate(error, pending.verifier)
         } catch (error: SSHServiceError) {
             closeQuietly(ssh)
             throw error

@@ -36,6 +36,9 @@ class AttachCall(val session: String, val cols: Int, val rows: Int, private val 
 class FakeTerminalService(base: FakeSSHService = FakeSSHService()) : SSHServicing by base, TerminalStreaming {
     val calls = mutableListOf<AttachCall>()
 
+    /** Comandos abiertos con `attachCommand` (también figuran en [calls]). */
+    val commands = mutableListOf<String>()
+
     /** Errores al ABRIR (uno por intento, en orden); vacío = el attach se abre. */
     val openErrors = ArrayDeque<Exception>()
     var openAttempts = 0
@@ -70,7 +73,10 @@ class FakeTerminalService(base: FakeSSHService = FakeSSHService()) : SSHServicin
         initialRows: Int,
         control: Flow<TerminalControlEvent>,
         output: suspend (ByteArray) -> Unit,
-    ) = throw UnsupportedOperationException("No usado")
+    ) {
+        commands += command
+        attachTerminal(command, initialCols, initialRows, control, output)
+    }
 }
 
 /** Proveedor con un servicio cualquiera (con o sin [TerminalStreaming]). */

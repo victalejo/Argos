@@ -156,7 +156,129 @@
     <string name="project_stopped_title">Proyecto detenido</string>
     <string name="project_stopped_body">No hay sesión tmux en marcha. Al arrancarlo se crea en %1$s y se lanza su comando de arranque.</string>
     <string name="project_start">Arrancar</string>
-    <string name="project_agents_soon">Llega en la fase 5.</string>
+
+    <!-- Agentes: lista -->
+    <string name="agents_title">Agentes</string>
+    <string name="agents_refresh">Recargar</string>
+    <string name="agents_loading">Leyendo los agentes…</string>
+    <string name="agents_failed_title">No se pudieron leer los agentes</string>
+    <string name="agents_unsupported">Esta conexión no admite agentes persistentes. Actualiza Argos e inténtalo de nuevo.</string>
+    <string name="agents_new">Nuevo agente</string>
+    <string name="agents_new_footer">El agente trabaja en el servidor: puedes bloquear el teléfono o cerrar Argos y volver luego a ver qué hizo.</string>
+    <string name="agents_empty">Aún no hay agentes en esta carpeta.</string>
+    <string name="agents_pick">Elige un agente para ver su conversación</string>
+    <string name="agents_more_for">Más opciones de %1$s</string>
+    <string name="agents_open">Abrir</string>
+    <string name="agents_stop">Parar</string>
+    <string name="agents_resume">Reanudar</string>
+    <string name="agents_alive">En marcha</string>
+    <string name="agents_dead">Detenido</string>
+    <string name="agents_row_description">%1$s, %2$s, creado el %3$s, permisos: %4$s</string>
+    <string name="agents_delete_title">¿Borrar «%1$s»?</string>
+    <string name="agents_delete_message">Se detiene el agente y se borra su registro del servidor. No se puede deshacer.</string>
+    <string name="agents_stop_failed">No se pudo parar el agente.</string>
+    <string name="agents_claude_missing_title">Claude Code no está instalado</string>
+    <string name="agents_claude_missing">Instala Claude Code en %1$s desde la pestaña Terminal con «curl -fsSL https://claude.ai/install.sh | bash» y vuelve a comprobarlo.</string>
+    <string name="agents_claude_recheck">Comprobar de nuevo</string>
+    <string name="agents_signed_in">Claude conectado</string>
+    <string name="agents_signed_in_plan">Claude conectado · %1$s</string>
+    <string name="agents_signed_out_with_token">Sin sesión en el servidor: se usará tu token guardado</string>
+    <string name="agents_signed_out">Sin sesión de Claude en este servidor</string>
+
+    <!-- Agentes: modo de permisos (mismos textos que AgentPermissionPreferences.swift) -->
+    <string name="agent_mode_bypass_title">Todos los permisos</string>
+    <string name="agent_mode_bypass_detail">Ejecuta cualquier acción sin preguntar. Si el usuario del servidor es root, Claude no lo permite y se pregunta cada acción.</string>
+    <string name="agent_mode_accept_edits_title">Aceptar ediciones</string>
+    <string name="agent_mode_accept_edits_detail">Edita archivos sin preguntar y pide permiso para lo demás.</string>
+    <string name="agent_mode_default_title">Preguntar siempre</string>
+    <string name="agent_mode_default_detail">Pide permiso antes de cada acción que no esté aprobada.</string>
+    <string name="agent_mode_plan_title">Solo planificar</string>
+    <string name="agent_mode_plan_detail">Explora y propone cambios sin modificar nada.</string>
+    <string name="agents_permissions_label">Permisos</string>
+    <string name="agents_permissions_new_only">Para los agentes nuevos: los que ya existen conservan su modo.</string>
+    <string name="agents_permissions_use_global">Usar el ajuste global (%1$s)</string>
+    <string name="agents_permissions_use_global_detail">Sigue el modo elegido en los ajustes de la pantalla de servidores.</string>
+    <string name="agents_permissions_global_title">Permisos de los agentes</string>
+    <string name="agents_permissions_global_footer">Cada proyecto puede usar otro desde su pestaña Agentes. Se aplica a las conversaciones nuevas y se guarda solo en este dispositivo.</string>
+    <string name="servers_settings">Ajustes</string>
+
+    <!-- Agentes: autenticación de Claude -->
+    <string name="agents_auth_title">Conecta tu cuenta de Claude</string>
+    <string name="agents_auth_body">%1$s todavía no tiene sesión de Claude. Se usa tu suscripción, nunca la API de pago.</string>
+    <string name="agents_auth_login">Iniciar sesión en el servidor</string>
+    <string name="agents_auth_token">Pegar un token</string>
+    <string name="agents_login_menu">Iniciar sesión en Claude…</string>
+    <string name="agents_token_menu">Token de suscripción…</string>
+    <string name="agents_token_title">Token de suscripción</string>
+    <string name="agents_token_body">Alternativa a iniciar sesión en cada servidor: genera un token con «claude setup-token» y pégalo aquí. Vale para todos tus servidores y se guarda cifrado con el almacén de claves de Android, solo en este dispositivo.</string>
+    <string name="agents_token_label">Token (claude setup-token)</string>
+    <string name="agents_token_saved">Hay un token guardado. Por seguridad no se puede ver.</string>
+    <string name="agents_token_delete">Borrar token</string>
+    <string name="agents_token_deleted">Token borrado</string>
+    <string name="agents_token_invalid">Ese texto no parece un token: pégalo entero, sin espacios ni saltos de línea.</string>
+    <string name="agents_token_save_failed">No se pudo guardar el token en este dispositivo. Inténtalo de nuevo.</string>
+    <string name="agents_token_unreadable">No se pudo leer el token guardado de Claude. Bórralo y vuelve a pegarlo.</string>
+    <string name="action_close">Cerrar</string>
+
+    <!-- Agentes: conversación -->
+    <string name="agents_chat_loading">Abriendo la conversación…</string>
+    <string name="agents_chat_failed_title">No se pudo abrir el agente</string>
+    <string name="agents_chat_missing_title">Este agente ya no existe</string>
+    <string name="agents_chat_missing">Se borró del servidor desde otro dispositivo.</string>
+    <string name="agents_chat_options">Opciones del agente</string>
+    <string name="agents_chat_reload">Recargar</string>
+    <string name="agents_chat_delete">Borrar conversación</string>
+    <string name="agents_chat_status_connecting">Conectando…</string>
+    <string name="agents_chat_status_working">Trabajando…</string>
+    <string name="agents_chat_status_idle">Esperando tu mensaje</string>
+    <string name="agents_chat_status_permission">Espera tu permiso</string>
+    <string name="agents_chat_status_terminated">Terminado</string>
+    <string name="agents_chat_status_error">Con errores</string>
+    <string name="agents_chat_empty_title">Escribe tu primer mensaje</string>
+    <string name="agents_chat_empty">Claude Code trabajará en %1$s.</string>
+    <string name="agents_chat_reconnecting">Reconectando con el agente (intento %1$d)…</string>
+    <string name="agents_chat_retrying_in">Sin conexión con el agente. Reintentando en %1$d s…</string>
+    <string name="agents_chat_lost_title">Sin conexión con el agente. Sigue trabajando en el servidor.</string>
+    <string name="agents_chat_connection_lost">Se perdió la conexión con el servidor.</string>
+    <string name="agents_chat_reconnect">Reconectar</string>
+    <string name="agents_chat_dead">El agente ya no está en marcha en el servidor. Reanúdalo para seguir la conversación.</string>
+    <string name="agents_chat_placeholder">Pide algo a Claude…</string>
+    <string name="agents_chat_placeholder_dead">El agente está detenido</string>
+    <string name="agents_chat_send">Enviar</string>
+    <string name="agents_chat_to_bottom">Ir al final de la conversación</string>
+    <string name="agents_chat_dismiss_error">Cerrar el aviso</string>
+    <string name="agents_chat_thinking">Pensamiento</string>
+    <string name="agents_chat_tool_output">Resultado de la herramienta</string>
+    <string name="agents_chat_tool_error">La herramienta falló</string>
+    <string name="agents_chat_turn_done">Listo</string>
+    <string name="agents_chat_turn_done_cost">Listo · %1$.4f USD</string>
+    <string name="agents_chat_turn_error">Terminó con error</string>
+    <string name="agents_permission_title">Claude quiere usar %1$s</string>
+    <string name="agents_permission_detail_show">Ver todos los datos</string>
+    <string name="agents_permission_detail_hide">Ocultar los datos</string>
+    <string name="agents_permission_allow">Permitir</string>
+    <string name="agents_permission_deny">Denegar</string>
+    <string name="agents_permission_offline">Sin conexión con el agente: podrás responder al reconectar.</string>
+
+    <!-- Agentes: inicio de sesión guiado -->
+    <string name="agents_login_title">Conectar Claude</string>
+    <string name="agents_login_subtitle">En %1$s</string>
+    <string name="agents_login_step_open">1. Autoriza en el navegador</string>
+    <string name="agents_login_preparing">Preparando el enlace…</string>
+    <string name="agents_login_open">Abrir la página</string>
+    <string name="agents_login_copy">Copiar enlace</string>
+    <string name="agents_login_copied">Enlace copiado</string>
+    <string name="agents_login_clip_label">Enlace de autorización</string>
+    <string name="agents_login_step_code">2. Pega el código que te da la página</string>
+    <string name="agents_login_code">Código de autorización</string>
+    <string name="agents_login_confirm">Confirmar</string>
+    <string name="agents_login_verifying">Comprobando la sesión…</string>
+    <string name="agents_login_success">Conectado</string>
+    <string name="agents_login_success_detail">Conectado · %1$s</string>
+    <string name="agents_login_not_confirmed">No se pudo confirmar la sesión. Revisa el código o usa el terminal de abajo.</string>
+    <string name="agents_login_ended">El inicio de sesión se cerró sin completarse.</string>
+    <string name="agents_login_restart">Empezar de nuevo</string>
+    <string name="agents_login_terminal_starting">Abriendo el terminal…</string>
 
     <!-- Archivos -->
     <string name="files_unsupported">Esta conexión no permite explorar archivos. Actualiza Argos e inténtalo de nuevo.</string>

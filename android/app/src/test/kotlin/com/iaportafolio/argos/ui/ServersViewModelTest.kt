@@ -3,7 +3,10 @@
 package com.iaportafolio.argos.ui
 
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.core.agent.ClaudeAgentCommand
+import com.iaportafolio.argos.data.AgentPermissionStore
 import com.iaportafolio.argos.data.SecretKind
+import com.iaportafolio.argos.testing.InMemoryAgentPermissionBackend
 import com.iaportafolio.argos.testing.FakeServiceProvider
 import com.iaportafolio.argos.testing.InMemorySecretStore
 import com.iaportafolio.argos.testing.InMemoryServerRepository
@@ -24,6 +27,8 @@ import kotlin.test.assertTrue
 
 class ServersViewModelTest {
 
+    private val agentPermissions = AgentPermissionStore(InMemoryAgentPermissionBackend())
+
     @JvmField
     @RegisterExtension
     val main = MainDispatcherExtension()
@@ -34,7 +39,7 @@ class ServersViewModelTest {
     private val provider = FakeServiceProvider()
 
     private fun TestScope.viewModel() =
-        ServersViewModel(repository, secrets, trust, provider, main.dispatcher).also { advanceUntilIdle() }
+        ServersViewModel(repository, secrets, trust, provider, agentPermissions, main.dispatcher).also { advanceUntilIdle() }
 
     @Test
     fun `expone la lista del repositorio y sus cambios`() = runTest(main.dispatcher) {
@@ -102,5 +107,16 @@ class ServersViewModelTest {
         assertEquals(UiText.res(R.string.host_key_forgotten, "dev"), vm.state.value.message)
         vm.messageShown()
         assertNull(vm.state.value.message)
+    }
+
+    @Test
+    fun `el ajuste global de permisos arranca en todos los permisos y se guarda`() = runTest(main.dispatcher) {
+        val vm = viewModel()
+        assertEquals(ClaudeAgentCommand.PermissionMode.BYPASS_PERMISSIONS, vm.state.value.agentPermissionMode)
+
+        vm.setAgentPermissionMode(ClaudeAgentCommand.PermissionMode.DEFAULT)
+
+        assertEquals(ClaudeAgentCommand.PermissionMode.DEFAULT, vm.state.value.agentPermissionMode)
+        assertEquals(ClaudeAgentCommand.PermissionMode.DEFAULT, agentPermissions.globalMode())
     }
 }
