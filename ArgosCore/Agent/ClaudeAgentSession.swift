@@ -36,13 +36,15 @@ final class ClaudeAgentSession {
     private let stdinStream: AsyncStream<[UInt8]>
     private let stdinContinuation: AsyncStream<[UInt8]>.Continuation
 
-    init(service: any SSHServicing, command: String, workingDirectory: String) {
+    /// `oauthToken`: se envía como primera línea de stdin (ver `ClaudeAgentCommand.build`).
+    init(service: any SSHServicing, command: String, workingDirectory: String, oauthToken: String?) {
         self.service = service
         self.command = command
         self.workingDirectory = workingDirectory
         let (stream, continuation) = AsyncStream<[UInt8]>.makeStream()
         self.stdinStream = stream
         self.stdinContinuation = continuation
+        continuation.yield(ClaudeAgentCommand.tokenLine(oauthToken))
         start()
     }
 

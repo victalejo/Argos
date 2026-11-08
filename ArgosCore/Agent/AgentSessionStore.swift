@@ -16,6 +16,8 @@ struct AgentTab: Identifiable {
     /// Número visible ("Conversación 2"), creciente por proyecto.
     let number: Int
     let session: ClaudeAgentSession
+    /// Modo con el que arrancó: puede diferir del que el selector aplica a las nuevas.
+    let permissionMode: ClaudeAgentCommand.PermissionMode
 
     /// Título: el inicio del primer mensaje del usuario, o "Conversación N".
     @MainActor var title: String {
@@ -62,14 +64,19 @@ final class AgentSessionStore {
         for handle: SessionHandle,
         service: any SSHServicing,
         command: String,
-        workingDirectory: String
+        workingDirectory: String,
+        oauthToken: String?,
+        permissionMode: ClaudeAgentCommand.PermissionMode
     ) -> AgentTab {
         let number = (counters[handle] ?? 0) + 1
         counters[handle] = number
         let tab = AgentTab(
             id: UUID(),
             number: number,
-            session: ClaudeAgentSession(service: service, command: command, workingDirectory: workingDirectory)
+            session: ClaudeAgentSession(
+                service: service, command: command, workingDirectory: workingDirectory, oauthToken: oauthToken
+            ),
+            permissionMode: permissionMode
         )
         tabsByHandle[handle, default: []].append(tab)
         selectedByHandle[handle] = tab.id

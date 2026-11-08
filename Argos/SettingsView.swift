@@ -2,7 +2,7 @@
 //  SettingsView.swift
 //  Argos
 //
-//  Ventana de Ajustes (⌘,) con pestañas: Terminal, Proyectos, Actualizaciones y (en el
+//  Ventana de Ajustes (⌘,) con pestañas: Terminal, Proyectos, Agente, Actualizaciones y (en el
 //  canal App Store) Permisos.
 //
 
@@ -26,6 +26,9 @@ struct SettingsView: View {
 
             ProjectSettingsView()
                 .tabItem { Label("Proyectos", systemImage: "folder") }
+
+            AgentSettingsView()
+                .tabItem { Label("Agente", systemImage: "sparkles") }
 
             // Un `#if` por pestaña y con UNA sola vista: si un bloque `#if` agrupa
             // varias, el TabView de Ajustes en macOS solo muestra la última.

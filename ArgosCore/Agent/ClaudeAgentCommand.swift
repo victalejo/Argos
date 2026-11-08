@@ -5,10 +5,9 @@
 //  Construcción pura (testeable) del comando remoto que lanza `claude` headless en
 //  modo stream-json sobre el canal exec de SSH. Ver memoria `argos-claude-agent-protocol`.
 //
-//  SEGURIDAD: el token de suscripción se pasa como asignación de entorno en la propia
-//  línea de comando (`CLAUDE_CODE_OAUTH_TOKEN=…`). En un servidor compartido sería
-//  visible vía `ps`/`/proc` para el MISMO usuario y root. Aceptable para servidores
-//  propios; endurecerlo (token a fichero 0600) queda para una fase posterior.
+//  SEGURIDAD: el token de suscripción viaja por stdin (ver `tokenLine`) y se exporta con
+//  un builtin. La línea de comandos la puede leer cualquier usuario del servidor (`ps`),
+//  así que el token nunca va en ella.
 //
 
 import Foundation
@@ -16,16 +15,16 @@ import Foundation
 enum ClaudeAgentCommand {
 
     /// Modo de permisos con el que arranca el agente.
-    enum PermissionMode: String, Sendable {
-        /// Pregunta por cada herramienta no pre-aprobada (botones en la UI).
-        case `default`
+    enum PermissionMode: String, CaseIterable, Sendable {
+        /// Todos los permisos: ejecuta cualquier herramienta sin preguntar.
+        /// (El CLI lo rechaza si el usuario remoto es root: ver `modeArgument`.)
+        case bypassPermissions
         /// Auto-aprueba ediciones de archivos; pregunta el resto.
         case acceptEdits
+        /// Pregunta por cada herramienta no pre-aprobada (botones en la UI).
+        case `default`
         /// Solo lectura/exploración.
         case plan
-        /// Todos los permisos: ejecuta cualquier herramienta sin preguntar.
-        /// (El CLI lo rechaza si el usuario remoto es root.)
-        case bypassPermissions
     }
 
     /// Banderas base, comunes a toda invocación headless con protocolo de control.
@@ -38,18 +37,17 @@ enum ClaudeAgentCommand {
     ]
 
     /// Construye la línea de comando completa para ejecutar por SSH (canal exec).
+    /// La PRIMERA línea de stdin debe ser `tokenLine(_:)`: con token, se exporta; vacía, el
+    /// CLI usa la credencial de `claude login` guardada en el SERVIDOR.
     ///
     /// - Parameters:
     ///   - claudePath: ruta absoluta del binario `claude` en el servidor (de `locateClaude`).
     ///   - workingDirectory: directorio de trabajo remoto (repo) donde corre el agente.
-    ///   - oauthToken: token de suscripción (`claude setup-token`). Si es `nil`/vacío, se
-    ///     omite y el CLI usa la credencial de `claude login` guardada en el SERVIDOR.
     ///   - sessionID: UUID de la sesión (permite reanudar luego con `--resume`).
     ///   - permissionMode: modo de permisos inicial.
     static func build(
         claudePath: String,
         workingDirectory: String,
-        oauthToken: String?,
         sessionID: String,
         permissionMode: PermissionMode = .bypassPermissions
     ) -> String {
@@ -57,22 +55,34 @@ enum ClaudeAgentCommand {
         let binary = ShellQuoting.singleQuoted(claudePath)
 
         let flags = (baseFlags + [
-            "--permission-mode", permissionMode.rawValue,
+            "--permission-mode", modeArgument(permissionMode),
             "--session-id", sessionID,
         ]).joined(separator: " ")
 
         // `env -u ANTHROPIC_API_KEY` GARANTIZA que nunca se facture contra la API: sin
         // esa variable el CLI solo puede usar la suscripción (token o login del servidor).
-        // Si hay token, se inyecta; si no, se usa la credencial de `claude login` del server.
-        var environment = "env -u ANTHROPIC_API_KEY "
-        if let oauthToken, !oauthToken.isEmpty {
-            environment += "CLAUDE_CODE_OAUTH_TOKEN=\(ShellQuoting.singleQuoted(oauthToken)) "
-        }
+        // `read` no consume más allá de la primera línea: el resto de stdin es para claude.
+        let readToken = "IFS= read -r ARGOS_OAUTH; "
+            + "[ -n \"$ARGOS_OAUTH\" ] && export CLAUDE_CODE_OAUTH_TOKEN=\"$ARGOS_OAUTH\"; unset ARGOS_OAUTH"
 
         // Antes de nada se anuncia el PID: `exec` conserva el PID de la shell, así que es
         // el del propio `claude`. Permite matarlo al cerrar la pestaña (sin huérfanos).
         let announcePID = "echo \"{\\\"type\\\":\\\"\(pidEventType)\\\",\\\"pid\\\":$$}\""
-        return "cd \(directory) && \(announcePID) && exec \(environment)\(binary) \(flags)"
+        return "cd \(directory) && \(announcePID) && { \(readToken); exec env -u ANTHROPIC_API_KEY \(binary) \(flags); }"
+    }
+
+    /// Primera línea de stdin del comando: el token de suscripción, o vacía si no hay.
+    /// Sin saltos de línea: lo que siguiera a uno le llegaría a claude como un prompt.
+    static func tokenLine(_ oauthToken: String?) -> [UInt8] {
+        let token = (oauthToken ?? "").filter { !$0.isNewline && !$0.isWhitespace }
+        return Array((token + "\n").utf8)
+    }
+
+    /// Valor de `--permission-mode`. El CLI rechaza `bypassPermissions` con root y el agente
+    /// no llegaría a arrancar, así que con root se pregunta cada acción.
+    private static func modeArgument(_ mode: PermissionMode) -> String {
+        guard mode == .bypassPermissions else { return mode.rawValue }
+        return "\"$([ \"$(id -u)\" = 0 ] && echo \(PermissionMode.default.rawValue) || echo \(mode.rawValue))\""
     }
 
     /// Tipo de la línea NDJSON con la que el comando anuncia el PID del agente.
@@ -89,7 +99,7 @@ enum ClaudeAgentCommand {
     ) -> String {
         let flags = (baseFlags + [
             "--replay-user-messages",
-            "--permission-mode", permissionMode.rawValue,
+            "--permission-mode", modeArgument(permissionMode),
             resume ? "--resume" : "--session-id", sessionID,
         ]).joined(separator: " ")
         return "env -u ANTHROPIC_API_KEY \(ShellQuoting.singleQuoted(claudePath)) \(flags)"

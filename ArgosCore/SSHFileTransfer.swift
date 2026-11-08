@@ -13,35 +13,57 @@ import NIOCore
 
 extension SSHService {
 
-    /// Sube datos crudos a `/tmp/argos-pasted-<timestamp>.<ext>` en el servidor y
-    /// devuelve la ruta remota absoluta. Se usa `/tmp` por ser siempre escribible y
-    /// de ruta absoluta conocida (no depende de resolver `$HOME`).
+    /// Sube datos crudos a una ruta privada de `/tmp` (ver `RemoteUpload`) y devuelve la
+    /// ruta remota absoluta. Se usa `/tmp` por ser siempre escribible y de ruta absoluta
+    /// conocida (no depende de resolver `$HOME`).
     ///
     /// - Parameters:
     ///   - data: bytes del archivo (p. ej. PNG de un screenshot).
     ///   - fileExtension: extensión sin punto (p. ej. "png").
     /// - Returns: ruta remota absoluta del archivo subido.
     func uploadPastedFile(data: Data, fileExtension: String) async throws -> String {
-        try await upload(data: data, toRemotePath: "/tmp/argos-pasted-\(Self.stamp()).\(fileExtension)")
+        try await uploadPrivately(data: data, toRemotePath: RemoteUpload.pastedPath(fileExtension: fileExtension))
     }
 
-    /// Sube un archivo arrastrado desde Finder, conservando su nombre (saneado) bajo
-    /// `/tmp/argos-<timestamp>-<nombre>`. Devuelve la ruta remota absoluta.
+    /// Sube un archivo arrastrado desde Finder a una ruta privada de `/tmp`, conservando
+    /// su nombre (saneado). Devuelve la ruta remota absoluta.
     func uploadDroppedFile(data: Data, originalName: String) async throws -> String {
-        let safeName = Self.sanitize(originalName)
-        return try await upload(data: data, toRemotePath: "/tmp/argos-\(Self.stamp())-\(safeName)")
+        try await uploadPrivately(data: data, toRemotePath: RemoteUpload.droppedPath(originalName: originalName))
     }
 
-    /// Escribe `data` en `remotePath` vía SFTP (crea/trunca). Lanza `uploadFailed`.
+    /// Crea `remotePath` en exclusiva y con permisos 0600. Falla si la ruta ya existe.
+    private func uploadPrivately(data: Data, toRemotePath remotePath: String) async throws -> String {
+        var attributes = SFTPFileAttributes()
+        attributes.permissions = RemoteUpload.privatePermissions
+        return try await write(
+            data,
+            to: remotePath,
+            flags: SFTPOpenFileFlags(rawValue: RemoteUpload.exclusiveOpenFlags),
+            attributes: attributes
+        )
+    }
+
+    /// Escribe `data` en `remotePath` vía SFTP (crea/trunca). Lanza `uploadFailed`. Solo
+    /// para rutas del usuario: en `/tmp` hay que usar `uploadPrivately`.
     /// El contenido viaja por el canal SFTP, nunca por la línea de comandos (no queda
     /// expuesto en `ps` a otros usuarios del servidor).
     func upload(data: Data, toRemotePath remotePath: String) async throws -> String {
+        try await write(data, to: remotePath, flags: [.write, .create, .truncate], attributes: .none)
+    }
+
+    private func write(
+        _ data: Data,
+        to remotePath: String,
+        flags: SFTPOpenFileFlags,
+        attributes: SFTPFileAttributes
+    ) async throws -> String {
         let client = try await connectedClient()
         do {
             try await client.withSFTP { sftp in
                 try await sftp.withFile(
                     filePath: remotePath,
-                    flags: [.write, .create, .truncate]
+                    flags: flags,
+                    attributes: attributes
                 ) { file in
                     try await file.write(ByteBuffer(bytes: data))
                 }
@@ -52,17 +74,5 @@ extension SSHService {
         }
         Log.ssh.notice("Archivo subido por SFTP a \(remotePath, privacy: .public) (\(data.count, privacy: .public) bytes)")
         return remotePath
-    }
-
-    private static func stamp() -> Int { Int(Date().timeIntervalSince1970 * 1000) }
-
-    /// Sanea un nombre de archivo: deja solo `[A-Za-z0-9._-]`, el resto → `_`. Evita
-    /// rutas, espacios y caracteres que romperían la ruta al insertarla en el terminal.
-    private static func sanitize(_ name: String) -> String {
-        let base = (name as NSString).lastPathComponent
-        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")
-        let scalars = base.unicodeScalars.map { allowed.contains($0) ? Character($0) : "_" }
-        let result = String(scalars)
-        return result.isEmpty ? "archivo" : result
     }
 }

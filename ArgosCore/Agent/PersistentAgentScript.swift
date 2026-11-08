@@ -32,6 +32,14 @@ struct PersistentAgentMeta: Codable, Equatable, Sendable {
     var workingDirectory: String
     var title: String
     var createdAt: Date
+    /// Modo con el que se creó. Reanudar lo conserva para que nunca suban los permisos sin
+    /// que nadie lo pida. Es texto para que un modo desconocido no invalide el `meta.json`.
+    var permissionMode: String? = nil
+
+    /// Los agentes sin modo guardado se crearon preguntando cada permiso.
+    var resolvedPermissionMode: ClaudeAgentCommand.PermissionMode {
+        permissionMode.flatMap(ClaudeAgentCommand.PermissionMode.init(rawValue:)) ?? .default
+    }
 }
 
 enum PersistentAgentScript {

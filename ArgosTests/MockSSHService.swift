@@ -196,6 +196,8 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     private(set) var agentStdinLines: [String] = []
     /// Último comando recibido por `runAgentExec`.
     private(set) var lastAgentCommand: String?
+    /// Todos los comandos recibidos por `runAgentExec`, en orden.
+    private(set) var agentCommands: [String] = []
     /// Comandos del agente persistente recibidos y respuesta (stdout) a cada uno.
     private(set) var agentScripts: [String] = []
     var agentScriptOutput: (String) throws -> String = { _ in "" }
@@ -240,6 +242,7 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws {
         lastAgentCommand = command
+        agentCommands.append(command)
         for line in agentScript {
             output.yield(Array((line + "\n").utf8))
         }

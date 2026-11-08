@@ -42,6 +42,9 @@ struct AgentsView: View {
             } else {
                 List {
                     Section {
+                        LabeledContent("Permisos") {
+                            AgentPermissionPicker(serverID: server.id, workingDirectory: workingDirectory)
+                        }
                         Button(action: launch) {
                             HStack {
                                 Label("Nuevo agente", systemImage: "plus.bubble")
@@ -100,7 +103,12 @@ struct AgentsView: View {
             defer { isLaunching = false }
             do {
                 let session = try await PersistentAgentSession.launch(
-                    service: service, workingDirectory: workingDirectory, title: title
+                    service: service,
+                    workingDirectory: workingDirectory,
+                    title: title,
+                    permissionMode: AgentPermissionPreferences.effectiveMode(
+                        serverID: server.id, workingDirectory: workingDirectory
+                    )
                 )
                 let info = PersistentAgentInfo(id: session.id, isAlive: true, logBytes: 0, meta: session.meta)
                 hub.register(session, server: server)
@@ -134,7 +142,7 @@ private struct AgentRowView: View {
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(info.meta.title).font(.body.weight(.medium))
-                Text(info.meta.createdAt.formatted(date: .abbreviated, time: .shortened))
+                Text("\(info.meta.createdAt.formatted(date: .abbreviated, time: .shortened)) · \(info.meta.resolvedPermissionMode.title)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

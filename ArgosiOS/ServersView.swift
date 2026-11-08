@@ -70,6 +70,8 @@ struct ServerList: View {
     @State private var editing: ServerFormView.Mode?
     @State private var pendingDeletion: Server?
     @AppStorage(CloudServerSync.enabledKey) private var cloudSyncEnabled = true
+    @AppStorage(AgentPermissionPreferences.globalKey)
+    private var agentPermissionMode = AgentPermissionPreferences.fallback.rawValue
     /// Alta desde el QR del Mac (con el código ya leído si llegó por enlace).
     @State private var importing: ImportRequest?
     @State private var linkError: String?
@@ -123,6 +125,14 @@ struct ServerList: View {
                 Menu("Ajustes", systemImage: "gearshape") {
                     Toggle("Sincronizar con iCloud", systemImage: "icloud", isOn: $cloudSyncEnabled)
                     Text("Servidores y huellas, con tu Mac y tus otros dispositivos. Las contraseñas y claves no viajan.")
+                    Picker(selection: $agentPermissionMode) {
+                        ForEach(ClaudeAgentCommand.PermissionMode.allCases, id: \.self) { mode in
+                            Label(mode.title, systemImage: mode.symbolName).tag(mode.rawValue)
+                        }
+                    } label: {
+                        Label("Permisos de los agentes", systemImage: "sparkles")
+                    }
+                    .pickerStyle(.menu)
                 }
             }
         }

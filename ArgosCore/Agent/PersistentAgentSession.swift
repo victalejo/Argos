@@ -47,10 +47,11 @@ final class PersistentAgentSession {
         service: any SSHServicing,
         workingDirectory: String,
         title: String,
+        permissionMode: ClaudeAgentCommand.PermissionMode = .default,
         oauthToken: String? = KeychainStore.claudeOAuthToken()
     ) async throws -> PersistentAgentSession {
         let id = UUID().uuidString.lowercased()
-        let meta = PersistentAgentMeta(workingDirectory: workingDirectory, title: title, createdAt: Date())
+        let meta = PersistentAgentMeta(workingDirectory: workingDirectory, title: title, createdAt: Date(), permissionMode: permissionMode.rawValue)
         try await start(service: service, id: id, meta: meta, resume: false, oauthToken: oauthToken)
         return PersistentAgentSession(
             service: service,
@@ -81,13 +82,15 @@ final class PersistentAgentSession {
         guard let claudePath = try await service.locateClaude() else {
             throw PersistentAgentError.claudeMissing
         }
-        let invocation = ClaudeAgentCommand.persistent(claudePath: claudePath, sessionID: id, resume: resume)
+        let invocation = ClaudeAgentCommand.persistent(
+            claudePath: claudePath, sessionID: id, resume: resume, permissionMode: meta.resolvedPermissionMode
+        )
         let command = try PersistentAgentScript.launch(id: id, meta: meta, claudeInvocation: invocation)
 
         // El token va por stdin (primera línea), nunca en la línea de comandos. stdin se
         // cierra en cuanto el lanzador responde (PID o «ya vivo»).
         let (stdin, input) = AsyncStream<[UInt8]>.makeStream()
-        input.yield(Array(((oauthToken ?? "") + "\n").utf8))
+        input.yield(ClaudeAgentCommand.tokenLine(oauthToken))
         let (outputStream, output) = AsyncStream<[UInt8]>.makeStream()
         let run = Task { try await service.runAgentExec(command: command, stdin: stdin, output: output) }
         var reply = ""

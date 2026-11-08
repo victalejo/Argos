@@ -137,6 +137,13 @@ struct AgentPanelView: View {
                 }
             }
             Spacer()
+            if let folder {
+                AgentPermissionPicker(serverID: handle.serverID, workingDirectory: folder)
+                    .id(AgentPermissionPreferences.projectKey(serverID: handle.serverID, workingDirectory: folder))
+                    .font(.caption)
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+            }
             authChip
             Menu {
                 Button("Comprobar de nuevo") { Task { await prepare() } }
@@ -313,13 +320,22 @@ struct AgentPanelView: View {
             return
         }
         readiness = .ready
+        let mode = AgentPermissionPreferences.effectiveMode(serverID: handle.serverID, workingDirectory: folder)
         let command = ClaudeAgentCommand.build(
             claudePath: claudePath,
             workingDirectory: folder,
-            oauthToken: KeychainStore.claudeOAuthToken(),
-            sessionID: UUID().uuidString.lowercased()
+            sessionID: UUID().uuidString.lowercased(),
+            permissionMode: mode
         )
-        store.newTab(for: handle, service: service, command: command, workingDirectory: folder)
+        store.newTab(
+            for: handle,
+            service: service,
+            command: command,
+            workingDirectory: folder,
+            // Con sesión en el servidor el token sobra: no se toca el llavero (evita su aviso).
+            oauthToken: authStatus?.loggedIn == true ? nil : KeychainStore.claudeOAuthToken(),
+            permissionMode: mode
+        )
     }
 
     private func startLogin() {
@@ -401,6 +417,9 @@ private struct AgentTabChip: View {
             Button(action: onSelect) {
                 HStack(spacing: 7) {
                     statusDot
+                    Image(systemName: tab.permissionMode.symbolName)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                     Text(tab.title)
                         .font(.callout.weight(isSelected ? .semibold : .regular))
                         .lineLimit(1)
@@ -410,7 +429,8 @@ private struct AgentTabChip: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Conversación: \(tab.title)")
+            .help("Permisos de esta conversación: \(tab.permissionMode.title)")
+            .accessibilityLabel("Conversación: \(tab.title), \(tab.permissionMode.title)")
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             Button(action: onClose) {
                 Image(systemName: "xmark")

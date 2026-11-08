@@ -101,6 +101,32 @@ struct PersistentAgentScriptTests {
         #expect(reanudar.contains("--resume \(id)"))
     }
 
+    @Test func elModoExplicitoLlegaALaInvocacionPersistente() {
+        let plan = ClaudeAgentCommand.persistent(
+            claudePath: "/c", sessionID: id, resume: false, permissionMode: .plan
+        )
+        #expect(plan.contains("--permission-mode plan"))
+        let bypass = ClaudeAgentCommand.persistent(
+            claudePath: "/c", sessionID: id, resume: false, permissionMode: .bypassPermissions
+        )
+        #expect(bypass.contains("echo bypassPermissions"))
+    }
+
+    @Test func elMetaGuardaElModoYToleraMetasAntiguosODesconocidos() throws {
+        var meta = PersistentAgentMeta(workingDirectory: "/srv", title: "t", createdAt: Date(timeIntervalSince1970: 0))
+        // Sin modo: mismo JSON de siempre (lo comparten Mac, iPhone y Android).
+        #expect(!String(decoding: try JSONEncoder.projects.encode(meta), as: UTF8.self).contains("permissionMode"))
+        #expect(meta.resolvedPermissionMode == .default)
+
+        meta.permissionMode = "plan"
+        let decoded = try JSONDecoder.projects.decode(PersistentAgentMeta.self, from: JSONEncoder.projects.encode(meta))
+        #expect(decoded.resolvedPermissionMode == .plan)
+
+        // Un modo de una versión futura no hace desaparecer al agente y no da más permisos.
+        meta.permissionMode = "modo-futuro"
+        #expect(meta.resolvedPermissionMode == .default)
+    }
+
     /// Ejecuta de verdad el lanzador con `sh`: un «claude» simulado responde por cada
     /// línea de la FIFO. Comprueba el log, que sobrevive sin cliente y que se puede parar.
     @Test func elLanzadorFuncionaDeVerdadConSh() async throws {
@@ -263,6 +289,38 @@ struct PersistentAgentConversationTests {
         #expect(launch.contains("--session-id \(session.id)"))
         #expect(!launch.contains("tok-123")) // el token nunca en la línea de comandos…
         #expect(mock.agentStdinLines.first == "tok-123") // …sino por stdin
+    }
+
+    @MainActor
+    @Test func lanzarGuardaElModoYReanudarNoLoCambia() async throws {
+        let mock = MockSSHService()
+        mock.agentScript = ["4242"]
+        let session = try await PersistentAgentSession.launch(
+            service: mock, workingDirectory: "/srv/app", title: "app", permissionMode: .plan, oauthToken: nil
+        )
+        #expect(session.meta.resolvedPermissionMode == .plan)
+        #expect(try #require(mock.lastAgentCommand).contains("--permission-mode plan"))
+
+        await session.resume(oauthToken: nil)
+        session.detach()
+        let commands = mock.agentCommands
+        #expect(commands.contains { $0.contains("--resume \(session.id)") && $0.contains("--permission-mode plan") })
+    }
+
+    @MainActor
+    @Test func reanudarUnAgenteAntiguoNoLeSubeLosPermisos() async throws {
+        let mock = MockSSHService()
+        mock.agentScript = ["4242"]
+        let info = PersistentAgentInfo(
+            id: UUID().uuidString.lowercased(),
+            isAlive: false,
+            logBytes: 0,
+            meta: PersistentAgentMeta(workingDirectory: "/srv", title: "viejo", createdAt: Date())
+        )
+        let session = PersistentAgentSession(service: mock, info: info)
+        await session.resume(oauthToken: nil)
+        session.detach()
+        #expect(mock.agentCommands.contains { $0.contains("--resume \(info.id)") && $0.contains("--permission-mode default") })
     }
 
     @MainActor
