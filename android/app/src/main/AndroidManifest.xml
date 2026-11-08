@@ -7,6 +7,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Solo para leer el QR de «Enviar al iPhone…» del Mac; se pide en el momento. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- La cámara es opcional: sin ella se pega el enlace. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
         android:name=".ArgosApplication"
@@ -31,6 +36,14 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Enlace del QR del Mac (argos://add-server?d=…) leído con la cámara del sistema u
+                 otra app: abre la confirmación, nunca importa sin que el usuario la acepte. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="argos" android:host="add-server" />
             </intent-filter>
         </activity>
 

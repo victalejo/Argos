@@ -37,7 +37,9 @@ import java.util.concurrent.TimeUnit
  *
  * Como OpenSSH (`MaxSessions`), admite [MAX_CHANNELS_PER_CONNECTION] canales por conexión.
  *
- * Autenticación: contraseña ([password]) y claves públicas autorizadas (líneas OpenSSH).
+ * Autenticación: contraseña ([password]) y claves públicas autorizadas: las líneas OpenSSH de
+ * `authorizedKeys` y, como un sshd de verdad, las de `~/.ssh/authorized_keys` del [home] aislado,
+ * releídas en cada intento (así una clave autorizada con el servidor en marcha vale al momento).
  * SFTP habilitado (subidas y explorador de archivos) sobre el sistema de archivos real, con
  * [home] como directorio inicial: las rutas relativas y `realpath(".")` dan el mismo `HOME`
  * aislado que ven los comandos. `realpath` resuelve symlinks como OpenSSH
@@ -185,7 +187,8 @@ class EmbeddedSshServer private constructor(
                 keyPairProvider = hostKeys
                 setPasswordAuthenticator { user, pass, _ -> user == username && pass == password }
                 setPublickeyAuthenticator { user, key, _ ->
-                    user == username && accepted.any { KeyUtils.compareKeys(it, key) }
+                    user == username &&
+                        (accepted + homeAuthorizedKeys(home)).any { KeyUtils.compareKeys(it, key) }
                 }
                 keyboardInteractiveAuthenticator = null
                 commandFactory = CommandFactory { _, command -> LocalShellCommand(command, environment, home, loginShell) }
@@ -201,6 +204,22 @@ class EmbeddedSshServer private constructor(
 
         private fun parsePublicKey(line: String): PublicKey =
             AuthorizedKeyEntry.parseAuthorizedKeyEntry(line).resolvePublicKey(null, PublicKeyEntryResolver.FAILING)
+
+        /** Ruta de `authorized_keys` dentro del `HOME` aislado (la misma que usa OpenSSH). */
+        fun authorizedKeysFile(home: Path): Path = home.resolve(".ssh").resolve("authorized_keys")
+
+        /**
+         * Claves de `~/.ssh/authorized_keys` del [home] aislado. Ignora líneas en blanco,
+         * comentarios y entradas ilegibles (como OpenSSH, que salta las líneas que no entiende).
+         */
+        private fun homeAuthorizedKeys(home: Path): List<PublicKey> {
+            val file = authorizedKeysFile(home)
+            if (!Files.isRegularFile(file)) return emptyList()
+            return Files.readAllLines(file)
+                .map(String::trim)
+                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .mapNotNull { line -> runCatching { parsePublicKey(line) }.getOrNull() }
+        }
 
         /**
          * Entorno de los comandos: aislado del usuario real, con un PATH que encuentra tmux en

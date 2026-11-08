@@ -38,6 +38,7 @@ import com.iaportafolio.argos.ui.agents.RequestAgentNotificationPermission
 import com.iaportafolio.argos.ui.common.StatusMessage
 import com.iaportafolio.argos.ui.files.FilesScreen
 import com.iaportafolio.argos.ui.form.ServerFormScreen
+import com.iaportafolio.argos.ui.importer.ImportServerScreen
 import com.iaportafolio.argos.ui.project.ProjectScreen
 import com.iaportafolio.argos.ui.project.WIDE_LAYOUT_MIN_WIDTH
 import com.iaportafolio.argos.ui.projects.FolderPickerDialog
@@ -72,6 +73,16 @@ data class AgentChatRoute(val serverId: String, val agentId: String)
 @Serializable
 data class AgentLoginRoute(val serverId: String)
 
+/**
+ * «Añadir desde el Mac». Sin argumentos a propósito: el enlace de un deep link lleva la semilla
+ * de la clave y no debe acabar en el estado guardado de la navegación (se pasa en memoria).
+ */
+@Serializable
+data object ImportServerRoute
+
+/** Clave del `savedStateHandle` de [ServersRoute] con el id del servidor recién importado. */
+private const val IMPORTED_SERVER_KEY = "importedServerId"
+
 private val LIST_PANE_WIDTH = 360.dp
 
 /**
@@ -85,15 +96,24 @@ fun ArgosNavHost(
     /** Chat que pidió abrir un aviso (ya validado); [onChatTargetConsumed] al navegar. */
     chatTarget: AgentChatTarget? = null,
     onChatTargetConsumed: () -> Unit = {},
+    /** Enlace `argos://add-server` de un deep link (ya filtrado); [onImportLinkConsumed] al atenderlo. */
+    importLink: String? = null,
+    onImportLinkConsumed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+    // Solo en memoria (no `rememberSaveable`): lleva la semilla de la clave.
+    var pendingImportLink by remember { mutableStateOf<String?>(null) }
     val openProject = { serverId: String, projectId: String -> navController.navigate(ProjectRoute(serverId, projectId)) }
     val openTerminal = { serverId: String, session: String -> navController.navigate(TerminalRoute(serverId, session)) }
     NavHost(navController = navController, startDestination = ServersRoute) {
-        composable<ServersRoute> {
+        composable<ServersRoute> { entry ->
+            val imported by entry.savedStateHandle.getStateFlow<String?>(IMPORTED_SERVER_KEY, null).collectAsStateWithLifecycle()
             ServersDestination(
                 container = container,
+                importedServerId = imported,
+                onImportedServerShown = { entry.savedStateHandle[IMPORTED_SERVER_KEY] = null },
                 onAdd = { navController.navigate(ServerFormRoute()) },
+                onImport = { navController.navigate(ImportServerRoute) },
                 onEdit = { id -> navController.navigate(ServerFormRoute(id)) },
                 onOpenProjects = { id -> navController.navigate(ProjectsRoute(id)) },
                 onOpenProject = openProject,
@@ -105,6 +125,25 @@ fun ArgosNavHost(
             val viewModel = serverFormViewModel(container, route.serverId)
             val state by viewModel.state.collectAsStateWithLifecycle()
             ServerFormScreen(state = state, actions = viewModel, onClose = { navController.popBackStack() })
+        }
+        composable<ImportServerRoute> {
+            val viewModel = importServerViewModel(container)
+            val state by viewModel.state.collectAsStateWithLifecycle()
+            LaunchedEffect(pendingImportLink) {
+                pendingImportLink?.let {
+                    viewModel.onDeepLink(it)
+                    pendingImportLink = null
+                }
+            }
+            LaunchedEffect(state.importedServerId) {
+                state.importedServerId?.let { id ->
+                    viewModel.importHandled()
+                    // Como `onImported` de iOS: vuelve a la lista y abre el servidor nuevo.
+                    navController.getBackStackEntry<ServersRoute>().savedStateHandle[IMPORTED_SERVER_KEY] = id
+                    navController.popBackStack<ServersRoute>(inclusive = false)
+                }
+            }
+            ImportServerScreen(state = state, actions = viewModel, onClose = { navController.popBackStack() })
         }
         composable<ProjectsRoute> { entry ->
             val route = entry.toRoute<ProjectsRoute>()
@@ -161,6 +200,15 @@ fun ArgosNavHost(
             onChatTargetConsumed()
         }
     }
+    LaunchedEffect(importLink) {
+        importLink?.let {
+            pendingImportLink = it
+            if (navController.currentBackStackEntry?.destination?.hasRoute<ImportServerRoute>() != true) {
+                navController.navigate(ImportServerRoute)
+            }
+            onImportLinkConsumed()
+        }
+    }
 }
 
 /** Abre el chat del aviso, salvo que ya esté delante. */
@@ -173,7 +221,10 @@ private fun NavController.openChat(target: AgentChatTarget) {
 @Composable
 private fun ServersDestination(
     container: AppContainer,
+    importedServerId: String?,
+    onImportedServerShown: () -> Unit,
     onAdd: () -> Unit,
+    onImport: () -> Unit,
     onEdit: (String) -> Unit,
     onOpenProjects: (String) -> Unit,
     onOpenProject: (serverId: String, projectId: String) -> Unit,
@@ -187,11 +238,19 @@ private fun ServersDestination(
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val twoPane = maxWidth >= WIDE_LAYOUT_MIN_WIDTH
+        // Recién importado desde el Mac: se abre (en tablet, se selecciona).
+        LaunchedEffect(importedServerId) {
+            importedServerId?.let { id ->
+                onImportedServerShown()
+                if (twoPane) selectedId = id else onOpenProjects(id)
+            }
+        }
         val list = @Composable { modifier: Modifier ->
             ServersScreen(
                 state = state,
                 selectedServerId = if (twoPane) selected else null,
                 onAdd = onAdd,
+                onImport = onImport,
                 onOpen = { server -> if (twoPane) selectedId = server.id else onOpenProjects(server.id) },
                 onEdit = { server -> onEdit(server.id) },
                 onRequestDelete = viewModel::requestDelete,

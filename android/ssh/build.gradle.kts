@@ -29,11 +29,14 @@ dependencies {
     // PTY real (macOS y Linux) para el sshd de pruebas: propaga window-change con setWinSize.
     testFixturesImplementation(libs.pty4j)
     testFixturesImplementation(libs.bouncycastle.bcprov)
+    // QR de prueba (`devTransferLink`): el mismo ZXing que decodifica en la app.
+    testFixturesImplementation(libs.zxing.core)
     testFixturesRuntimeOnly(libs.slf4j.nop)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.sshd.core)
+    testImplementation(libs.zxing.core)
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
@@ -67,4 +70,22 @@ tasks.register<JavaExec>("devServer") {
     classpath = sourceSets["testFixtures"].runtimeClasspath
     mainClass.set("com.iaportafolio.argos.ssh.testing.DevSshServerKt")
     args(layout.buildDirectory.dir("dev").get().asFile.absolutePath)
+}
+
+/**
+ * Enlace y QR de prueba de «Enviar al iPhone» para el `devServer`, sin Mac:
+ *
+ *     ./gradlew :ssh:devTransferLink              # válido 5 minutos
+ *     ./gradlew :ssh:devTransferLink -Pcaducado   # ya caducado (prueba del aviso)
+ *
+ * Crea una clave Ed25519 nueva, la autoriza en `build/dev/home/.ssh/authorized_keys` y escribe
+ * `build/dev/transfer-link.txt` y `build/dev/transfer-qr.png` con la huella real del host.
+ */
+tasks.register<JavaExec>("devTransferLink") {
+    group = "argos"
+    description = "Enlace argos://add-server y QR de prueba para el devServer (127.0.0.1:2222)."
+    classpath = sourceSets["testFixtures"].runtimeClasspath
+    mainClass.set("com.iaportafolio.argos.ssh.testing.DevTransferLinkKt")
+    val expired = providers.gradleProperty("caducado").isPresent
+    args(listOfNotNull(layout.buildDirectory.dir("dev").get().asFile.absolutePath, "--caducado".takeIf { expired }))
 }

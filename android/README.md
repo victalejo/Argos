@@ -61,6 +61,33 @@ Imprime la huella de host (persistente en `ssh/build/dev/host_key`) y deja una c
 de cliente de prueba en `ssh/build/dev/argos_dev_ed25519`. `HOME` y tmux van aislados en
 `ssh/build/dev/` (no toca tus sesiones reales). Ctrl+C lo detiene.
 
+### QR de prueba sin Mac (importar servidor)
+
+```bash
+./gradlew :ssh:devTransferLink              # enlace válido 5 min (-Pcaducado: ya caducado)
+```
+
+Hace lo mismo que «Enviar al iPhone…» del Mac para el `devServer`: crea una clave Ed25519 nueva,
+la autoriza en `ssh/build/dev/home/.ssh/authorized_keys` (el servidor embebido relee ese archivo en
+cada intento, como OpenSSH, así que vale con el `devServer` ya en marcha) y escribe
+`ssh/build/dev/transfer-link.txt` (enlace `argos://add-server?d=…` con la huella real del host y
+`127.0.0.1:2222`) y `ssh/build/dev/transfer-qr.png` (ábrelo en la pantalla y escanéalo). Deep link:
+
+```bash
+adb shell "am start -W -a android.intent.action.VIEW -d '$(cat ssh/build/dev/transfer-link.txt)' com.iaportafolio.argos"
+```
+
+## Importar desde el Mac (`ui/importer/`)
+
+Servidores → «Importar desde el Mac (QR)»: escáner con **CameraX + ZXing core** (solo QR, sin ML
+Kit ni servicios de Google ni red), enlace pegado o deep link `argos://add-server` (abre la
+confirmación; **nunca importa sin que el usuario la acepte**). El permiso `CAMERA` se pide en el
+momento; la cámara es opcional (`uses-feature required="false"`) y se libera al salir. La
+confirmación replica la de iOS (huella, duplicado, conflicto de identidad bloqueante).
+`ServerImporter` guarda la clave cifrada con el Keystore, la huella del QR si el endpoint no tenía
+ninguna y deshace lo escrito si falla algún paso. El enlace con la semilla no se guarda en el
+estado de navegación ni en logs.
+
 ## Segundo plano (`background/`)
 
 **Avisos de agentes** (`AgentNotifier`, como `AgentNotifier.swift`): sin push ni servidores
@@ -119,7 +146,7 @@ adb shell dumpsys deviceidle force-idle                            # simula Doze
 | 4 | Proyectos + navegador de archivos SFTP | ✅ (probado en teléfono real) |
 | 5 | Agentes persistentes (stream-json, permisos, login guiado) | ✅ (probado en teléfono real con claude simulado) |
 | 6 | Segundo plano y avisos («terminó / espera tu permiso») | ✅ (probado en teléfono real) |
-| 7 | QR desde el Mac (`ServerTransfer`) | |
+| 7 | QR desde el Mac (`ServerTransfer`): escáner, enlace pegado, deep link | ✅ (probado en teléfono real; cámara real sin probar con el Mac) |
 | 8 | Publicación en Google Play (cuenta de organización **Impulse Vibes**) | |
 
 MVP = fases 0–3.

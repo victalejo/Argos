@@ -22,6 +22,7 @@ import com.iaportafolio.argos.data.FileServerRepository
 import com.iaportafolio.argos.data.KeystoreSecretCipher
 import com.iaportafolio.argos.data.ProjectPreferencesStore
 import com.iaportafolio.argos.data.SecretStore
+import com.iaportafolio.argos.data.ServerImporter
 import com.iaportafolio.argos.data.SecretStoreClaudeTokens
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceHub
@@ -55,6 +56,8 @@ class AppContainer(
     val agentPermissions: AgentPermissionStore by lazy { AgentPermissionStore(SharedPreferencesAgentPermissions(appContext)) }
 
     val hostKeys: HostKeyTrustStore by lazy { FileHostKeyTrustStore(File(filesDir, KNOWN_HOSTS_FILE)) }
+
+    val serverImporter: ServerImporter by lazy { ServerImporter(servers, secrets, hostKeys) }
 
     val services: ServiceProvider by lazy { ServiceHub(connector, secrets, hostKeys, io) }
 

@@ -21,6 +21,7 @@
     <string name="servers_delete_message">Se borran sus datos de acceso de este dispositivo. Las sesiones y proyectos del servidor no se tocan.</string>
     <string name="servers_delete_confirm">Borrar servidor</string>
     <string name="servers_pick">Elige un servidor</string>
+    <string name="servers_import">Importar desde el Mac (QR)</string>
     <string name="host_key_forgotten">Huella de «%1$s» olvidada. La próxima conexión confiará en la nueva.</string>
 
     <!-- Formulario de servidor -->
@@ -414,4 +415,38 @@
     <string name="background_open_system_settings">Abrir ajustes del sistema</string>
     <string name="background_keep_terminal_title">Mantener el terminal conectado en segundo plano</string>
     <string name="background_keep_terminal_detail">Sigue conectado al cambiar de app, con una notificación permanente. Si el móvil se duerme y corta la red, se reconecta al volver.</string>
+
+    <!-- Importar desde el Mac (QR de «Enviar al iPhone…») -->
+    <string name="import_title">Añadir desde el Mac</string>
+    <string name="import_scan_hint">En el Mac, abre el menú del servidor y elige «Enviar al iPhone…». Apunta la cámara al código.</string>
+    <string name="import_camera_explanation">Argos usa la cámara solo para leer el código QR que muestra tu Mac. Las imágenes no se guardan ni salen del dispositivo.</string>
+    <string name="import_camera_denied">Sin permiso de cámara no se puede escanear. Puedes concederlo en Ajustes › Permisos, o pegar abajo el enlace del código.</string>
+    <string name="import_camera_allow">Permitir cámara</string>
+    <string name="import_camera_settings">Abrir ajustes</string>
+    <string name="import_camera_missing">Este dispositivo no tiene cámara. Pega abajo el enlace del código.</string>
+    <string name="import_camera_failed">No se pudo abrir la cámara. Pega abajo el enlace del código.</string>
+    <string name="import_camera_preview">Vista de la cámara para escanear el código QR del Mac</string>
+    <string name="import_paste_title">O pega el enlace</string>
+    <string name="import_paste_label">Enlace del código</string>
+    <string name="import_paste_placeholder" translatable="false">argos://add-server?d=…</string>
+    <string name="import_paste_continue">Continuar</string>
+    <string name="import_field_name">Nombre</string>
+    <string name="import_field_server">Servidor</string>
+    <string name="import_field_access">Acceso</string>
+    <string name="import_access_value">Clave creada en el Mac solo para este dispositivo</string>
+    <string name="import_field_identity">Identidad del servidor</string>
+    <string name="import_identity_tofu">Se confiará en ella en la primera conexión</string>
+    <string name="import_duplicate">Ya tienes un servidor con este usuario y dirección: se añadirá otro.</string>
+    <string name="import_conflict">La identidad de este servidor no coincide con la que ya conoce este dispositivo. Puede ser un código falso o un servidor reinstalado: no se añadirá. Si lo reinstalaste, usa «Olvidar host key» en el menú del servidor y vuelve a escanear.</string>
+    <string name="import_add">Añadir servidor</string>
+    <string name="import_scan_again">Escanear otro código</string>
+    <string name="import_footer">Añade solo códigos generados por tu propio Mac.</string>
+    <string name="import_save_failed">No se pudo añadir el servidor: %1$s</string>
+    <string name="import_error_empty">Pega el enlace argos://add-server… del código del Mac.</string>
+    <string name="import_error_too_long">El texto es demasiado largo para ser un código de Argos.</string>
+    <string name="import_error_not_argos">Este código no es de Argos. En el Mac, abre el menú del servidor y elige «Enviar al iPhone…».</string>
+    <string name="import_error_malformed">El código está incompleto o dañado. Genera otro en el Mac.</string>
+    <string name="import_error_version">Este código lo generó otra versión de Argos. Actualiza Argos en el Mac y en este dispositivo.</string>
+    <string name="import_error_expired">El código caducó (dura 5 minutos). En el Mac, pulsa «Mostrar de nuevo».</string>
+    <string name="import_error_invalid">El código contiene datos de servidor no válidos. Genera otro en el Mac.</string>
 </resources>

@@ -10,6 +10,7 @@ import com.iaportafolio.argos.ui.agents.AgentListViewModel
 import com.iaportafolio.argos.ui.agents.AgentLoginViewModel
 import com.iaportafolio.argos.ui.files.RemoteFilesViewModel
 import com.iaportafolio.argos.ui.form.ServerFormViewModel
+import com.iaportafolio.argos.ui.importer.ImportServerViewModel
 import com.iaportafolio.argos.ui.project.ProjectViewModel
 import com.iaportafolio.argos.ui.projects.FolderPickerViewModel
 import com.iaportafolio.argos.ui.projects.ProjectsViewModel
@@ -36,6 +37,13 @@ internal fun serverFormViewModel(container: AppContainer, serverId: String?): Se
         initializer {
             ServerFormViewModel(serverId, container.servers, container.secrets, container.services, container.documents, container.io)
         }
+    },
+)
+
+@Composable
+internal fun importServerViewModel(container: AppContainer): ImportServerViewModel = viewModel(
+    factory = viewModelFactory {
+        initializer { ImportServerViewModel(container.servers, container.serverImporter, container.io) }
     },
 )
 

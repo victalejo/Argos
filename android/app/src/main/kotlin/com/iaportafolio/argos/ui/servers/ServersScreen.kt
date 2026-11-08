@@ -1,7 +1,12 @@
 package com.iaportafolio.argos.ui.servers
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -26,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -38,6 +44,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -59,6 +66,8 @@ fun ServersScreen(
     state: ServersUiState,
     selectedServerId: String?,
     onAdd: () -> Unit,
+    /** «Importar desde el Mac (QR)»: el servidor que manda «Enviar al iPhone…». */
+    onImport: () -> Unit,
     onOpen: (Server) -> Unit,
     onEdit: (Server) -> Unit,
     onRequestDelete: (Server) -> Unit,
@@ -110,11 +119,20 @@ fun ServersScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAdd,
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text(stringResource(R.string.servers_add)) },
-            )
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ExtendedFloatingActionButton(
+                    onClick = onImport,
+                    icon = { Icon(painterResource(R.drawable.ic_qr_code), contentDescription = null) },
+                    text = { Text(stringResource(R.string.servers_import)) },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+                ExtendedFloatingActionButton(
+                    onClick = onAdd,
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text(stringResource(R.string.servers_add)) },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
@@ -126,6 +144,11 @@ fun ServersScreen(
                 modifier = Modifier.padding(padding),
             ) {
                 Button(onClick = onAdd) { Text(stringResource(R.string.servers_add)) }
+                OutlinedButton(onClick = onImport) {
+                    Icon(painterResource(R.drawable.ic_qr_code), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.servers_import))
+                }
             }
         } else {
             LazyColumn(
@@ -234,4 +257,5 @@ private fun ServerRow(
 private fun Server.address(): String =
     "$username@$host" + if (port == Server.DEFAULT_PORT) "" else ":$port"
 
-private val FAB_CLEARANCE = 88.dp
+/** Hueco al final de la lista para los dos botones flotantes apilados. */
+private val FAB_CLEARANCE = 160.dp

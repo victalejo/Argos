@@ -87,6 +87,11 @@ dependencies {
     implementation(libs.termux.terminal.view)
     // Vista previa de Markdown (Apache 2.0, mikepenz). Sin imageTransformer: nunca carga imágenes remotas.
     implementation(libs.markdown.renderer.m3)
+    // Escáner del QR del Mac (Apache 2.0): CameraX + ZXing core. Sin ML Kit ni servicios de Google.
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.zxing.core)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
