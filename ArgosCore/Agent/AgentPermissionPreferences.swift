@@ -3,7 +3,8 @@
 //  Argos
 //
 //  Modo de permisos con el que arrancan los agentes: el del proyecto si se eligió uno,
-//  si no el de Ajustes y, sin nada configurado, todos los permisos. Se guarda en este
+//  si no el de Ajustes y, sin nada configurado, todos los permisos. Un valor guardado que
+//  no se reconoce pregunta cada acción: nunca da más permisos. Se guarda en este
 //  dispositivo; nunca en `projects.json`, que comparten los demás clientes.
 //
 
@@ -41,6 +42,8 @@ extension ClaudeAgentCommand.PermissionMode {
 enum AgentPermissionPreferences {
 
     static let fallback = ClaudeAgentCommand.PermissionMode.bypassPermissions
+    /// Para un valor guardado que no se reconoce (otra versión de la app, edición externa).
+    static let unrecognized = ClaudeAgentCommand.PermissionMode.default
     /// Sin puntos: `UserDefaults` observa las claves como rutas KVO.
     static let globalKey = "agentPermissionMode"
     /// Valor guardado en un proyecto que sigue el ajuste global.
@@ -52,8 +55,20 @@ enum AgentPermissionPreferences {
         return "\(globalKey):\(serverID.uuidString):\(path)"
     }
 
+    /// Modo global a partir de lo guardado (`nil`: nada guardado).
+    static func storedGlobalMode(_ stored: String?) -> ClaudeAgentCommand.PermissionMode {
+        guard let stored else { return fallback }
+        return ClaudeAgentCommand.PermissionMode(rawValue: stored) ?? unrecognized
+    }
+
+    /// Elección de un proyecto a partir de lo guardado; `nil` si sigue el ajuste global.
+    static func storedProjectChoice(_ stored: String?) -> ClaudeAgentCommand.PermissionMode? {
+        guard let stored, stored != useGlobalChoice else { return nil }
+        return ClaudeAgentCommand.PermissionMode(rawValue: stored) ?? unrecognized
+    }
+
     static func globalMode(defaults: UserDefaults = .standard) -> ClaudeAgentCommand.PermissionMode {
-        defaults.string(forKey: globalKey).flatMap(ClaudeAgentCommand.PermissionMode.init(rawValue:)) ?? fallback
+        storedGlobalMode(defaults.string(forKey: globalKey))
     }
 
     static func effectiveMode(
@@ -62,7 +77,6 @@ enum AgentPermissionPreferences {
         defaults: UserDefaults = .standard
     ) -> ClaudeAgentCommand.PermissionMode {
         let key = projectKey(serverID: serverID, workingDirectory: workingDirectory)
-        return defaults.string(forKey: key).flatMap(ClaudeAgentCommand.PermissionMode.init(rawValue:))
-            ?? globalMode(defaults: defaults)
+        return storedProjectChoice(defaults.string(forKey: key)) ?? globalMode(defaults: defaults)
     }
 }

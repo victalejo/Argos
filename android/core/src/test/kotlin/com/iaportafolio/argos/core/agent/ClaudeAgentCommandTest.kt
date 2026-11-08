@@ -94,6 +94,19 @@ class ClaudeAgentCommandTest {
     }
 
     @Test
+    fun `preferencias - un valor desconocido pregunta en vez de dar todos los permisos`() {
+        val key = AgentPermissionPreferences.projectKey("ABC", "/r")
+        val modes = mutableMapOf(AgentPermissionPreferences.GLOBAL_KEY to "basura")
+        fun effective() = AgentPermissionPreferences.effectiveMode("ABC", "/r") { modes[it] }
+        assertEquals(ClaudeAgentCommand.PermissionMode.DEFAULT, AgentPermissionPreferences.globalMode { modes[it] })
+        assertEquals(ClaudeAgentCommand.PermissionMode.DEFAULT, effective())
+
+        modes[AgentPermissionPreferences.GLOBAL_KEY] = "bypassPermissions"
+        modes[key] = "modo-futuro"
+        assertEquals(ClaudeAgentCommand.PermissionMode.DEFAULT, effective())
+    }
+
+    @Test
     fun `expande la tilde a HOME en vez de dejarla entre comillas`() {
         assertEquals("\"\$HOME\"", ClaudeAgentCommand.cdTarget("~"))
         assertEquals("\"\$HOME\"/'mi proyecto'", ClaudeAgentCommand.cdTarget("~/mi proyecto"))

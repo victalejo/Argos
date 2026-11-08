@@ -40,7 +40,9 @@ class AgentPermissionStore(private val backend: AgentPermissionBackend) {
         AgentPermissionPreferences.effectiveMode(serverId, workingDirectory, state.value::get)
 
     fun selection(serverId: String, workingDirectory: String): AgentPermissionSelection = AgentPermissionSelection(
-        choice = PermissionMode.fromRawValue(state.value[AgentPermissionPreferences.projectKey(serverId, workingDirectory)]),
+        choice = AgentPermissionPreferences.storedProjectChoice(
+            state.value[AgentPermissionPreferences.projectKey(serverId, workingDirectory)],
+        ),
         global = globalMode(),
     )
 

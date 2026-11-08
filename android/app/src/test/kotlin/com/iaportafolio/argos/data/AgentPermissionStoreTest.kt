@@ -49,13 +49,25 @@ class AgentPermissionStoreTest {
     }
 
     @Test
-    fun `un valor desconocido no se interpreta como elección`() {
+    fun `la elección vacía sigue el ajuste global`() {
         val odd = AgentPermissionStore(
             InMemoryAgentPermissionBackend(
                 mapOf(AgentPermissionPreferences.GLOBAL_KEY to "default", projectKey to AgentPermissionPreferences.USE_GLOBAL_CHOICE),
             ),
         )
         assertNull(odd.selection("S1", "/srv/api.v2").choice)
+        assertEquals(PermissionMode.DEFAULT, odd.effectiveMode("S1", "/srv/api.v2"))
+    }
+
+    @Test
+    fun `una elección desconocida se muestra como el modo con el que arrancaría`() {
+        val odd = AgentPermissionStore(
+            InMemoryAgentPermissionBackend(
+                mapOf(AgentPermissionPreferences.GLOBAL_KEY to "bypassPermissions", projectKey to "modo-futuro"),
+            ),
+        )
+        val selection = odd.selection("S1", "/srv/api.v2")
+        assertEquals(PermissionMode.DEFAULT, selection.effective)
         assertEquals(PermissionMode.DEFAULT, odd.effectiveMode("S1", "/srv/api.v2"))
     }
 }

@@ -114,7 +114,8 @@ Convenciones:
 - El **token de Claude** viaja por stdin, nunca en la línea de comandos (`ps`). Las subidas
   a `/tmp` usan `RemoteUpload`: nombre aleatorio, apertura exclusiva y 0600.
 - Los agentes arrancan en **`bypassPermissions`** por defecto; se cambia en Ajustes o por
-  proyecto (`AgentPermissionPreferences`, en el dispositivo). Con root pasan a preguntar.
+  proyecto (`AgentPermissionPreferences`, en el dispositivo). Con root o un valor guardado
+  que no se reconoce, pasan a preguntar.
   Un agente persistente guarda su modo en `meta.json` y lo conserva al reanudar.
 - Verificación de **host key TOFU**: la primera conexión confía y guarda la huella
   SHA256; un cambio posterior aborta (posible MitM). Para re-confiar tras una

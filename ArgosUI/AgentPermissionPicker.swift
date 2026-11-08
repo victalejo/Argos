@@ -21,11 +21,11 @@ struct AgentPermissionPicker: View {
     }
 
     private var globalMode: ClaudeAgentCommand.PermissionMode {
-        ClaudeAgentCommand.PermissionMode(rawValue: global) ?? AgentPermissionPreferences.fallback
+        AgentPermissionPreferences.storedGlobalMode(global)
     }
 
     private var effectiveMode: ClaudeAgentCommand.PermissionMode {
-        ClaudeAgentCommand.PermissionMode(rawValue: choice) ?? globalMode
+        AgentPermissionPreferences.storedProjectChoice(choice) ?? globalMode
     }
 
     var body: some View {

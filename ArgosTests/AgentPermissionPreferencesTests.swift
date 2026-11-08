@@ -56,9 +56,21 @@ struct AgentPermissionPreferencesTests {
         ) == .bypassPermissions)
     }
 
-    @Test func unValorIlegibleNoRompeNiCambiaElResultado() {
+    @Test func unAjusteGlobalDesconocidoPregunta() {
         defaults.set("basura", forKey: AgentPermissionPreferences.globalKey)
-        #expect(AgentPermissionPreferences.globalMode(defaults: defaults) == .bypassPermissions)
+        #expect(AgentPermissionPreferences.globalMode(defaults: defaults) == .default)
+        #expect(AgentPermissionPreferences.effectiveMode(
+            serverID: serverID, workingDirectory: "/srv/app", defaults: defaults
+        ) == .default)
+    }
+
+    @Test func unaEleccionDeProyectoDesconocidaPreguntaAunqueAjustesDigaOtraCosa() {
+        defaults.set("bypassPermissions", forKey: AgentPermissionPreferences.globalKey)
+        let key = AgentPermissionPreferences.projectKey(serverID: serverID, workingDirectory: "/srv/app")
+        defaults.set("modo-futuro", forKey: key)
+        #expect(AgentPermissionPreferences.effectiveMode(
+            serverID: serverID, workingDirectory: "/srv/app", defaults: defaults
+        ) == .default)
     }
 
     @Test func laClaveDelProyectoNoLlevaPuntos() {
