@@ -118,7 +118,7 @@ adb shell dumpsys deviceidle force-idle                            # simula Doze
 | 3 | Terminal en vivo: PTY + `tmux attach`, fila de teclas, reattach | ✅ (probado en teléfono real) |
 | 4 | Proyectos + navegador de archivos SFTP | ✅ (probado en teléfono real) |
 | 5 | Agentes persistentes (stream-json, permisos, login guiado) | ✅ (probado en teléfono real con claude simulado) |
-| 6 | Segundo plano y avisos («terminó / espera tu permiso») | ⏳ (probado en teléfono real; falta ver el disparo periódico) |
+| 6 | Segundo plano y avisos («terminó / espera tu permiso») | ✅ (probado en teléfono real) |
 | 7 | QR desde el Mac (`ServerTransfer`) | |
 | 8 | Publicación en Google Play (cuenta de organización **Impulse Vibes**) | |
 
