@@ -26,11 +26,13 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
-      # Las librerías Compose actuales exigen compileSdk 37.
+      # El runner ya trae el SDK (ANDROID_HOME). setup-android@v3 falla pidiendo el paquete
+      # obsoleto 'tools', así que usamos su sdkmanager directamente. Compose exige compileSdk 37.
       - name: Instalar plataforma Android 37
-        run: sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
+        run: |
+          SDKMANAGER=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;37.0.0"
 
       - uses: gradle/actions/setup-gradle@v5
 
