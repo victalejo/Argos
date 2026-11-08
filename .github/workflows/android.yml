@@ -18,6 +18,7 @@ defaults:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
@@ -37,8 +38,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       # Los tests de integración de ssh levantan un sshd embebido que ejecuta tmux real.
+      # Límite de tiempo: un mirror de apt colgado bloqueó la CI 30 min. Primero sin
+      # `update` (el índice del runner suele bastar); si falla, se actualiza y se reintenta.
       - name: Instalar tmux
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq tmux
+        timeout-minutes: 5
+        run: |
+          sudo apt-get install -y -qq tmux \
+            || (sudo apt-get update -qq && sudo apt-get install -y -qq tmux)
+          tmux -V
 
       # core es Kotlin/JVM puro: sus tests son la paridad con ArgosTests (Swift).
       - name: Tests del núcleo y de SSH
