@@ -195,8 +195,16 @@ class SshjTerminalIntegrationTest {
         assertTrue(output.chunks.size > 1, "Se esperaban varios bloques")
         assertTrue(output.chunks.all { it.size <= MAX_CHUNK }, "Bloque mayor que el máximo")
         assertContains(output.text(), text)
-        // Prueba de que el caso se ejercita: algún bloque termina en un byte inicial multibyte.
-        assertTrue(output.chunks.any { (it.last().toInt() and UTF8_LEAD_MASK) == UTF8_LEAD_MASK })
+        // Prueba de que el caso se ejercita: algún corte entre bloques cae a mitad de un carácter
+        // (el byte siguiente es de continuación, 10xxxxxx). Cuenta cualquier posición del corte,
+        // no solo tras el byte inicial: cómo trocea el PTY depende del sistema y del momento.
+        val stream = output.chunks.fold(ByteArray(0)) { acc, chunk -> acc + chunk }
+        var offset = 0
+        val cutsMidCharacter = output.chunks.dropLast(1).count { chunk ->
+            offset += chunk.size
+            (stream[offset].toInt() and UTF8_LEAD_MASK) == UTF8_CONTINUATION
+        }
+        assertTrue(cutsMidCharacter > 0, "Ningún corte cayó a mitad de carácter en ${output.chunks.size} bloques")
     }
 
     @Test
@@ -258,5 +266,6 @@ class SshjTerminalIntegrationTest {
         const val UTF8_REPEAT = 20_000
         const val MAX_CHUNK = 16 * 1024
         const val UTF8_LEAD_MASK = 0xC0
+        const val UTF8_CONTINUATION = 0x80
     }
 }
