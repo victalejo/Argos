@@ -61,6 +61,11 @@ La **CI** (`.github/workflows/ci.yml`) corre build + test con cobertura y
   SSH en segundo plano: el terminal hace detach/reattach y los agentes son
   **persistentes** (`PersistentAgentScript`/`PersistentAgentSession`: claude corre en el
   servidor leyendo de una FIFO y escribiendo un log; la app se engancha al log).
+  Avisos «terminó / espera tu permiso» con notificaciones locales en segundo plano
+  (`AgentNotifier`, BGAppRefreshTask; sin push porque no hay servidor intermedio).
+- **iCloud** (`ArgosCore/CloudSync/`): servidores y huellas TOFU sincronizados por iCloud
+  clave-valor entre la variante App Store del Mac y el iPhone/iPad (nunca secretos). La
+  variante GitHub no lo incluye (sin perfil no hay entitlement de iCloud).
 - No es un módulo Swift aparte (sin `public`): son fuentes compartidas por ambos
   targets. Los tests (`@testable import Argos`) siguen cubriendo el núcleo.
 
