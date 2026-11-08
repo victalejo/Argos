@@ -101,3 +101,10 @@ enum CodingAgent: String, CaseIterable, Identifiable, Sendable {
         return agents
     }
 }
+
+/// Agentes instalados por servidor: el menú «+» se pinta al instante con lo último
+/// conocido mientras se vuelve a comprobar en segundo plano (Mac e iOS).
+@MainActor
+enum InstalledAgentsCache {
+    static var agents: [Server.ID: Set<CodingAgent>] = [:]
+}

@@ -53,7 +53,7 @@ struct ProjectScreen: View {
         case (.agent, let path?):
             AgentsView(server: server, workingDirectory: path, title: target.title)
         default:
-            TerminalScreen(server: server, sessionName: target.sessionName)
+            TerminalScreen(server: server, sessionName: target.sessionName, projectPath: target.path)
         }
     }
 }

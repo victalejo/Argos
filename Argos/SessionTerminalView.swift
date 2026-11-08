@@ -263,7 +263,7 @@ struct SessionTerminalView: View {
                 .foregroundStyle(foreground)
                 .lineLimit(1)
             if let workingPath {
-                Text(ProjectRow.shortPath(workingPath))
+                Text(PathDisplay.short(workingPath))
                     .font(.system(size: 12))
                     .foregroundStyle(foreground.opacity(0.5))
                     .lineLimit(1)
@@ -717,13 +717,6 @@ private struct TabIdentity: Hashable {
         }
         self.installedAgents = installedAgents
     }
-}
-
-/// Agentes instalados por servidor: el menú «+» se pinta al instante con lo último
-/// conocido mientras se vuelve a comprobar en segundo plano.
-@MainActor
-enum InstalledAgentsCache {
-    static var agents: [Server.ID: Set<CodingAgent>] = [:]
 }
 
 /// Etiqueta compacta (icono pequeño pegado al texto) para la barra inferior.

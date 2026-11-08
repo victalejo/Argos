@@ -3,12 +3,11 @@
 //  Argos
 //
 //  Mascota pixel-art de Claude Code dibujada a partir de una cuadrícula (sin assets):
-//  nítida a cualquier tamaño. `ClaudeMascot` es la vista de SwiftUI (pestañas, cabecera
-//  del terminal) y `ClaudeMascot.menuImage` la versión NSImage para los menús, donde
-//  las vistas de SwiftUI no se pintan.
+//  nítida a cualquier tamaño. Compartida por la app de Mac y la de iPhone/iPad
+//  (carpeta `ArgosUI/`: SwiftUI puro, sin AppKit ni UIKit). En el Mac,
+//  `CodingAgent.menuImage` la convierte en NSImage para los menús.
 //
 
-import AppKit
 import SwiftUI
 
 struct ClaudeMascot: View {
@@ -51,31 +50,13 @@ struct ClaudeMascot: View {
         .accessibilityHidden(true)
     }
 
-    private static func color(for char: Character) -> Color? {
+    /// Color de una celda de la cuadrícula (`nil` = vacía).
+    static func color(for char: Character) -> Color? {
         switch char {
         case "#": return bodyColor
         case "o": return eyeColor
         default: return nil
         }
-    }
-
-    /// Imagen NO-template para los ítems de menú (en NSMenu, los SF Symbols y las
-    /// imágenes template se pintan monocromas).
-    static func menuImage(height: CGFloat = 13) -> NSImage {
-        let cell = height / CGFloat(rows)
-        let size = NSSize(width: cell * CGFloat(columns), height: height)
-        let image = NSImage(size: size, flipped: true) { _ in
-            for (row, line) in grid.enumerated() {
-                for (column, char) in line.enumerated() {
-                    guard let color = Self.color(for: char) else { continue }
-                    NSColor(color).setFill()
-                    NSRect(x: CGFloat(column) * cell, y: CGFloat(row) * cell, width: cell, height: cell).fill()
-                }
-            }
-            return true
-        }
-        image.isTemplate = false
-        return image
     }
 }
 
@@ -113,22 +94,17 @@ extension CodingAgent {
         switch self {
         case .claude: return ClaudeMascot.bodyColor
         case .codex: return .blue
-        case .grok: return .primary
+        // Gris neutro: se ve igual sobre la barra oscura del iPhone y en modo claro/oscuro.
+        case .grok: return Color(white: 0.6)
         }
     }
+}
 
-    /// Imagen del ítem del menú «+».
-    var menuImage: NSImage {
-        switch self {
-        case .claude:
-            return ClaudeMascot.menuImage()
-        case .codex, .grok:
-            let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-                .applying(.init(paletteColors: [NSColor(tint)]))
-            let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: displayName)?
-                .withSymbolConfiguration(config) ?? NSImage()
-            image.isTemplate = false
-            return image
-        }
+/// Ruta abreviada para cabeceras («…/Desarrollo/citrus»): las dos últimas carpetas.
+enum PathDisplay {
+    static func short(_ path: String) -> String {
+        let components = path.split(separator: "/")
+        guard components.count > 2 else { return path }
+        return "…/" + components.suffix(2).joined(separator: "/")
     }
 }

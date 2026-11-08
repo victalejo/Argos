@@ -95,9 +95,7 @@ struct ProjectRow: View {
 
     /// Últimos dos componentes de la ruta ("…/Desarrollo/coro") para que quepa.
     static func shortPath(_ path: String) -> String {
-        let components = path.split(separator: "/")
-        guard components.count > 2 else { return path }
-        return "…/" + components.suffix(2).joined(separator: "/")
+        PathDisplay.short(path)
     }
 }
 

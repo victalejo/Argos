@@ -63,6 +63,9 @@ targetTemplates:
       # Núcleo multiplataforma (modelo, SSH, stores, view models). Lo compilan tanto
       # la app de Mac como ArgosiOS: NO puede importar AppKit/SwiftUI/SwiftTerm.
       - path: ArgosCore
+      # Vistas SwiftUI compartidas Mac + iPhone/iPad (sin AppKit/UIKit): mascota e
+      # iconos de agentes.
+      - path: ArgosUI
     settings:
       base:
         PRODUCT_NAME: Argos
@@ -200,6 +203,7 @@ targets:
         excludes:
           - "*.entitlements"
       - path: ArgosCore
+      - path: ArgosUI
     entitlements:
       path: ArgosiOS/ArgosiOS.entitlements
       properties:
