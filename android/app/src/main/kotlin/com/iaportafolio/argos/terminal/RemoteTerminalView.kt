@@ -81,7 +81,7 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
 
     private val sessionListener = object : RemoteTerminalSession.Listener {
         override fun onScreenUpdated() = this@RemoteTerminalView.onScreenUpdated()
-        override fun onCopyToClipboard(text: String) = copyToClipboard(text)
+        override fun onCopyToClipboard(text: String) = copyFromRemote(text)
         override fun onPasteRequested() = pasteFromClipboard()
         override fun onBell() {
             performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -524,6 +524,16 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
         return emulator.getSelectedText(range.startColumn, range.startRow, range.endColumn, range.endRow)
     }
 
+    /**
+     * Copia pedida por el SERVIDOR (OSC 52, `set-clipboard` de tmux). El contenido es remoto y
+     * no fiable: solo se acepta mientras el usuario está mirando el terminal (ventana con
+     * foco) y con un tope de tamaño; nunca se lee el portapapeles hacia el servidor.
+     */
+    private fun copyFromRemote(text: String) {
+        if (!hasWindowFocus() || text.length > MAX_REMOTE_CLIP_CHARS) return
+        copyToClipboard(text)
+    }
+
     private fun copyToClipboard(text: String) {
         val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
         clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.terminal_clip_label), text))
@@ -587,6 +597,9 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
         const val FLING_SCALE = 0.25f
         const val MENU_COPY = 1
         const val MENU_PASTE = 2
+
+        /** Tope de una copia OSC 52 (el portapapeles de Android ronda 1 MB por transacción). */
+        const val MAX_REMOTE_CLIP_CHARS = 256 * 1024
         const val BACKSPACE = "\u007F"
     }
 }
