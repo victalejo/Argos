@@ -69,6 +69,7 @@ struct ServerList: View {
     @Environment(ServerHub.self) private var hub
     @State private var editing: ServerFormView.Mode?
     @State private var pendingDeletion: Server?
+    @AppStorage(CloudServerSync.enabledKey) private var cloudSyncEnabled = true
     /// Alta desde el QR del Mac (con el código ya leído si llegó por enlace).
     @State private var importing: ImportRequest?
     @State private var linkError: String?
@@ -116,6 +117,12 @@ struct ServerList: View {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Escanear QR del Mac", systemImage: "qrcode.viewfinder") {
                     importing = ImportRequest(transfer: nil)
+                }
+            }
+            ToolbarItem(placement: .topBarLeading) {
+                Menu("Ajustes", systemImage: "gearshape") {
+                    Toggle("Sincronizar con iCloud", systemImage: "icloud", isOn: $cloudSyncEnabled)
+                    Text("Servidores y huellas, con tu Mac y tus otros dispositivos. Las contraseñas y claves no viajan.")
                 }
             }
         }

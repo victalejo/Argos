@@ -25,8 +25,17 @@ final class ServerHub {
     /// Agentes que estaban enganchados al pasar a segundo plano (se reenganchan al volver).
     @ObservationIgnored private var suspendedAgents: [PersistentAgentSession] = []
 
-    init(store: ServerStore = ServerStore()) {
+    /// Sincronización de servidores y huellas con el Mac y otros iPhone/iPad (iCloud).
+    @ObservationIgnored private(set) var cloudSync: CloudServerSync?
+
+    init(store: ServerStore = ServerStore(), syncWithICloud: Bool = true) {
         self.store = store
+        guard syncWithICloud else { return }
+        let sync = CloudServerSync(store: store)
+        // Borrado en otro dispositivo: limpiar lo de este (conexiones, secretos, clave).
+        sync.onRemoteRemoval = { [weak self] server in self?.forgetLocally(server) }
+        sync.start()
+        cloudSync = sync
     }
 
     // MARK: - Servidores
@@ -78,10 +87,16 @@ final class ServerHub {
 
     /// Borra el servidor con TODO lo suyo: secretos, clave importada y conexiones.
     func remove(_ server: Server) {
+        forgetLocally(server)
+        store.remove(server)
+    }
+
+    /// Lo propio de este dispositivo de un servidor que ya no está.
+    private func forgetLocally(_ server: Server) {
         disconnect(server.id)
         KeychainStore.deletePassword(for: server.id)
+        KeychainStore.deletePassphrase(for: server.id)
         ImportedKeyStore.remove(for: server.id)
-        store.remove(server)
     }
 
     // MARK: - Sesiones

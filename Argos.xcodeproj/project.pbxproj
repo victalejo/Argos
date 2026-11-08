@@ -33,6 +33,7 @@
 		10E9AA4F645AEABDC2F457C7 /* ArgosiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1634854C85105BBF1E36F4 /* ArgosiOSApp.swift */; };
 		11059C7266A85D3B7574CDB5 /* SafeMarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267A8EBF6AC77BD9C61BA26C /* SafeMarkdownView.swift */; };
 		13BE1659C730822798172FAC /* TerminalPoolEvictionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B141663A032DDBE018951E /* TerminalPoolEvictionTests.swift */; };
+		142C9A46515546B6C5065F41 /* ServerSyncDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52FA91469F01EE60174BE275 /* ServerSyncDocument.swift */; };
 		145B98D05020F9DAD5F628B8 /* SSHFileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813BA47AFE3577E5DFBB180C /* SSHFileTransfer.swift */; };
 		14CDFBABDA1688F97A9A9CA6 /* FileDownloadStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EEC0CBCE324EDB6B2A1FEE /* FileDownloadStatus.swift */; };
 		15B828AEF1BE77A1701FC3D5 /* AgentSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B3C9EA0D67DBD87506B7FE4 /* AgentSessionStore.swift */; };
@@ -56,6 +57,7 @@
 		1FCF4BE73DE9EBADAAFFFFD9 /* ClaudeAgentCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21E4787BD5F166B91B11FA74 /* ClaudeAgentCommand.swift */; };
 		21671F122FFB29FF9F72ECED /* PermissionsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40F777834E8F1CC0C18643EF /* PermissionsSettingsView.swift */; };
 		2345B5DFD8B54A20C24FEEF2 /* FuzzyMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD28202533882A5CB63BEE6 /* FuzzyMatcher.swift */; };
+		24DAEE090E00C37149A8204C /* CloudServerSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFCEDB005F2F7FFA7A4F1A6F /* CloudServerSync.swift */; };
 		26036EF5115914A09B3F97DB /* SessionHandle.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBA69BF79D6259B0ABC9E832 /* SessionHandle.swift */; };
 		260FED2BC0CBC4CB71DA03E9 /* FileDownloadStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EEC0CBCE324EDB6B2A1FEE /* FileDownloadStatus.swift */; };
 		26BB93E46D63EF09B58BED4B /* SSHDirectoryAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB3483CAFD1FEEA9BA3E5327 /* SSHDirectoryAccess.swift */; };
@@ -69,6 +71,7 @@
 		2A3ECEACD402AB29FB31C683 /* SSHFileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813BA47AFE3577E5DFBB180C /* SSHFileTransfer.swift */; };
 		2BDF280CD0A8D8EB7045E630 /* TerminalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D4C35BD2EF9667D8B33C9E /* TerminalSettings.swift */; };
 		2C1146B64A090BE9C24FEA2D /* ImportedKeyStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7471B5E3471A32D5CA3FD86 /* ImportedKeyStoreTests.swift */; };
+		2CCE2456A7730EFBC18B5AA0 /* ServerSyncDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52FA91469F01EE60174BE275 /* ServerSyncDocument.swift */; };
 		2DBF40D425C5760B2428C94D /* ServerResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CCD80467366708643AC65A3 /* ServerResources.swift */; };
 		2EABD89CCF804B82F744CFF7 /* AgentConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1896A6CFA17B78E6D2442B1E /* AgentConversationView.swift */; };
 		2F42796449AE560C96AC07FD /* agent-stream-real.ndjson in Resources */ = {isa = PBXBuildFile; fileRef = C446903CF24F607571E833CA /* agent-stream-real.ndjson */; };
@@ -138,6 +141,7 @@
 		58609851BBEC45D6D542FF3F /* AccessibilityLabelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCDCAA94C902FE2D4561CA06 /* AccessibilityLabelTests.swift */; };
 		58649171E91088A62A9CB72B /* AgentSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B3C9EA0D67DBD87506B7FE4 /* AgentSessionStore.swift */; };
 		588A7961C983C0BCDBE0B57E /* OpenSSHKeyWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F2102051ADBFD95B7CBEDC7 /* OpenSSHKeyWriter.swift */; };
+		594C3DEC3ACA7CAFAD2D62D6 /* CloudServerSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFCEDB005F2F7FFA7A4F1A6F /* CloudServerSync.swift */; };
 		5A331F0F7C4EB117DFE954A0 /* SSHServerResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B1BAFF2EC54DEFF7B46B74 /* SSHServerResources.swift */; };
 		5BA1FD9E112AB820AC29ECE1 /* SSHService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C88531520B72F5C15C563D6C /* SSHService.swift */; };
 		5BADE10A0C70B6720F78D002 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEECBB39FDCBB809955B4868 /* JSONValue.swift */; };
@@ -151,6 +155,7 @@
 		610A781768F36E5B71B985D3 /* ProjectFormSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C92DB35F8F742BAC94E10B /* ProjectFormSheet.swift */; };
 		6201DA23727064BEA5B1C12D /* HostKeyVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70128DFCBDD1912AAEF6B9D6 /* HostKeyVerifier.swift */; };
 		6235DDEECED77E2985B68E0A /* ClaudeLoginOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB2697196F6487E710541614 /* ClaudeLoginOutput.swift */; };
+		624D441DA47C481869DDED37 /* CloudSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04DEE1C2F9A7C63EA7913A97 /* CloudSyncTests.swift */; };
 		64C6E1C55C939730A0DE4012 /* LocalProjectFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CF69BF4BB6CFCB1DD0BAAAD /* LocalProjectFiles.swift */; };
 		64DB4DD5862F67996D88043A /* ClaudeSetupSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6180CF72146D7E59738C71E /* ClaudeSetupSheet.swift */; };
 		64F779B17ED5CC435EE4F915 /* CheckForUpdatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 816413CF1EAD669744469593 /* CheckForUpdatesView.swift */; };
@@ -183,6 +188,7 @@
 		78D3E6D44F83F3EA35FFF631 /* SSHConfigHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C8D98F8AA68B063706E4D /* SSHConfigHost.swift */; };
 		79306D8000D451C22EE72856 /* Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AE6042D54B1DBC3E322EFBC /* Logging.swift */; };
 		79B58FF6058AF51F89E75DB3 /* AgentReducerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD3649128C092F654F1D437E /* AgentReducerTests.swift */; };
+		7B40348A18E943EAA6071CDC /* CloudServerSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFCEDB005F2F7FFA7A4F1A6F /* CloudServerSync.swift */; };
 		7DEB33C0D67B26CCDBC9CABF /* Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156ECCC03245407DD5C767E6 /* Server.swift */; };
 		7DF69F0082078BA5B780F526 /* SessionsViewModel+Projects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3AE352B1B4D4FB7626085D /* SessionsViewModel+Projects.swift */; };
 		7E11FA78BCBCC2BDF17D19B4 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 60C3CDCC9DE8F78D4AE61C12 /* MarkdownUI */; };
@@ -268,6 +274,7 @@
 		B37593A82AD589AA1AE16558 /* ServerResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CCD80467366708643AC65A3 /* ServerResources.swift */; };
 		B4D0F70E2BF70FA81A3B9EC2 /* CollapsedSessionGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1736907C57E217A07F6D831 /* CollapsedSessionGroups.swift */; };
 		B58CB25044C51BDB94EA1E4F /* AgentConversationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849D735DF41B96D22DDFE331 /* AgentConversationState.swift */; };
+		B5AF4FA49D03B5FBC99FBA08 /* ServerSyncDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52FA91469F01EE60174BE275 /* ServerSyncDocument.swift */; };
 		B5B61EB708B76F72F761C216 /* PersistentAgentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49119A65513715F8CB843F4F /* PersistentAgentTests.swift */; };
 		B634D41B02F247E2E8F6E535 /* Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AE6042D54B1DBC3E322EFBC /* Logging.swift */; };
 		B64F67267E607EF02D082823 /* ArgosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17F27F1BDF8240FDE090119 /* ArgosApp.swift */; };
@@ -392,6 +399,7 @@
 
 /* Begin PBXFileReference section */
 		02E8704EA1B7155FFBB55544 /* FileBrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserModel.swift; sourceTree = "<group>"; };
+		04DEE1C2F9A7C63EA7913A97 /* CloudSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncTests.swift; sourceTree = "<group>"; };
 		0599ACF64C75A677D230E70E /* ServerHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerHub.swift; sourceTree = "<group>"; };
 		08D2A7E16EF1FCFA70044E47 /* SessionConnectionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConnectionState.swift; sourceTree = "<group>"; };
 		0A5A06C15E0E69E0D86623E5 /* ArgosTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArgosTheme.swift; sourceTree = "<group>"; };
@@ -439,6 +447,7 @@
 		4CD68BD0E86C16C29E76195F /* TerminalSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionStore.swift; sourceTree = "<group>"; };
 		50D2FE460795B4342E7429DB /* FilesPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesPanelView.swift; sourceTree = "<group>"; };
 		51A65346F7AD2EEB2A5C5878 /* ServerServiceFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerServiceFactory.swift; sourceTree = "<group>"; };
+		52FA91469F01EE60174BE275 /* ServerSyncDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerSyncDocument.swift; sourceTree = "<group>"; };
 		536A8D4A19CBF5C885CC3224 /* ProjectSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSettings.swift; sourceTree = "<group>"; };
 		540E5225132A2E59FBFD83CB /* QRCodeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeRenderer.swift; sourceTree = "<group>"; };
 		5432292C094173E4CC1D72F4 /* ClaudeAgentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAgentSession.swift; sourceTree = "<group>"; };
@@ -540,6 +549,7 @@
 		CB2697196F6487E710541614 /* ClaudeLoginOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLoginOutput.swift; sourceTree = "<group>"; };
 		CC329A38D26C812EA00D5407 /* SessionNameSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameSheet.swift; sourceTree = "<group>"; };
 		CD3AC653A136E494AD535400 /* ArgosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ArgosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CFCEDB005F2F7FFA7A4F1A6F /* CloudServerSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudServerSync.swift; sourceTree = "<group>"; };
 		D06DE552DCF2D3F56CCA76A6 /* AgentChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatView.swift; sourceTree = "<group>"; };
 		D2F5B1B9C7410877FC6132DD /* LooseSessionFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LooseSessionFilesView.swift; sourceTree = "<group>"; };
 		D373BD5CC9EBD53251E1B7C4 /* FuzzyMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuzzyMatcherTests.swift; sourceTree = "<group>"; };
@@ -662,6 +672,15 @@
 			path = Files;
 			sourceTree = "<group>";
 		};
+		2AB263C7C602C5CC8B6F78A7 /* CloudSync */ = {
+			isa = PBXGroup;
+			children = (
+				CFCEDB005F2F7FFA7A4F1A6F /* CloudServerSync.swift */,
+				52FA91469F01EE60174BE275 /* ServerSyncDocument.swift */,
+			);
+			path = CloudSync;
+			sourceTree = "<group>";
+		};
 		303397540395DD1B8485EADE /* Sync */ = {
 			isa = PBXGroup;
 			children = (
@@ -778,6 +797,7 @@
 				6EB505950A24A675F5D87A4A /* ClaudeAgentCommandTests.swift */,
 				4C88A364DE5AFD0F5B8418AC /* ClaudeLoginOutputTests.swift */,
 				C77C948AAE0767A64ECA8DB0 /* ClaudeStatusTests.swift */,
+				04DEE1C2F9A7C63EA7913A97 /* CloudSyncTests.swift */,
 				580B30858CA725D258C48648 /* CollapsedGroupsTests.swift */,
 				9D9EC06EA69AD60B075D4B46 /* FileBrowserTests.swift */,
 				89636A0E6D02EA4066923573 /* FolderNameValidatorTests.swift */,
@@ -869,6 +889,7 @@
 			children = (
 				48056A3283F055D7BCAA4C62 /* Agent */,
 				B0450DAD639F0B398CFD5A71 /* ClaudeStatus */,
+				2AB263C7C602C5CC8B6F78A7 /* CloudSync */,
 				4423997F444D36E4E2E8D4C6 /* Files */,
 				12F71D716EA75EAA3C27510C /* Monitor */,
 				EEA0C94995C64090CAFAF9DB /* Projects */,
@@ -1178,6 +1199,7 @@
 				04F7590F87FAD9A92785E1F5 /* ClaudeHookInstaller.swift in Sources */,
 				106A3D5939FFCD9A4AC5FFE3 /* ClaudeLoginOutput.swift in Sources */,
 				64DB4DD5862F67996D88043A /* ClaudeSetupSheet.swift in Sources */,
+				7B40348A18E943EAA6071CDC /* CloudServerSync.swift in Sources */,
 				15C48A613BB79AF4F7B3A7B4 /* CodeTextView.swift in Sources */,
 				48FC0F290C18E7801C19DA73 /* CollapsedSessionGroups.swift in Sources */,
 				6B78960D933DD7F03DBBA69E /* ContentView.swift in Sources */,
@@ -1250,6 +1272,7 @@
 				91D60173B0782FC2FAFD713D /* ServerServiceFactory.swift in Sources */,
 				B6DF1304CC177651C15A76A3 /* ServerSessionsSection.swift in Sources */,
 				DB4727A48403F18E2C48EDB5 /* ServerStore.swift in Sources */,
+				2CCE2456A7730EFBC18B5AA0 /* ServerSyncDocument.swift in Sources */,
 				29B9A00BF83C8D2A70FD24D1 /* ServerTransfer.swift in Sources */,
 				3E6089D19464F03A63BD70F3 /* ServerTransferSheet.swift in Sources */,
 				3CE800A837A70CDF30169552 /* SessionConnectionState.swift in Sources */,
@@ -1291,6 +1314,7 @@
 				CE70C4667F3AA10E9620FDB0 /* ClaudeAgentSession.swift in Sources */,
 				74CC24229540104ECA3F516A /* ClaudeHookInstaller.swift in Sources */,
 				92D93573246C733B464CD011 /* ClaudeLoginOutput.swift in Sources */,
+				594C3DEC3ACA7CAFAD2D62D6 /* CloudServerSync.swift in Sources */,
 				B4D0F70E2BF70FA81A3B9EC2 /* CollapsedSessionGroups.swift in Sources */,
 				9A8C83C391EBD7AFD155524B /* ErrorMessage.swift in Sources */,
 				5F03954FCA07EBF01EE89341 /* FileBrowserModel.swift in Sources */,
@@ -1343,6 +1367,7 @@
 				2DBF40D425C5760B2428C94D /* ServerResources.swift in Sources */,
 				2776F4E9725D97539E048F86 /* ServerServiceFactory.swift in Sources */,
 				8F045E6C52705F8E5C289292 /* ServerStore.swift in Sources */,
+				142C9A46515546B6C5065F41 /* ServerSyncDocument.swift in Sources */,
 				582C26BDFEFB59DFF513863B /* ServerTransfer.swift in Sources */,
 				EED44659BE0DAC3E536C5D6B /* ServersView.swift in Sources */,
 				C18E8B974D3E0F61C115C4A6 /* SessionConnectionState.swift in Sources */,
@@ -1385,6 +1410,7 @@
 				1B94EFC0E78D0A27ABB166A7 /* ClaudeHookInstaller.swift in Sources */,
 				6235DDEECED77E2985B68E0A /* ClaudeLoginOutput.swift in Sources */,
 				45741B23BD7CA2ABEA97153C /* ClaudeSetupSheet.swift in Sources */,
+				24DAEE090E00C37149A8204C /* CloudServerSync.swift in Sources */,
 				4B84D0E2CA929D4E5DA32C82 /* CodeTextView.swift in Sources */,
 				442631DCAB81510B7F5903D2 /* CollapsedSessionGroups.swift in Sources */,
 				569DE49E7206D43C7319BE71 /* ContentView.swift in Sources */,
@@ -1457,6 +1483,7 @@
 				36D378E42490D1726F8150A0 /* ServerServiceFactory.swift in Sources */,
 				1643F4EDDB2DEC62DBC6A7B5 /* ServerSessionsSection.swift in Sources */,
 				A66CA29EB7B34E65854ABACE /* ServerStore.swift in Sources */,
+				B5AF4FA49D03B5FBC99FBA08 /* ServerSyncDocument.swift in Sources */,
 				FBAE8C4EC81BC90852A75EC3 /* ServerTransfer.swift in Sources */,
 				5FC26DFF948C6D3C36DECA80 /* ServerTransferSheet.swift in Sources */,
 				65D1411C9EF20834845DB85E /* SessionConnectionState.swift in Sources */,
@@ -1493,6 +1520,7 @@
 				D9133F6112661892126C7B4B /* ClaudeAgentCommandTests.swift in Sources */,
 				953194EB68DD0AE6D6A5BB81 /* ClaudeLoginOutputTests.swift in Sources */,
 				445FE3EA6A6C3769A07480CF /* ClaudeStatusTests.swift in Sources */,
+				624D441DA47C481869DDED37 /* CloudSyncTests.swift in Sources */,
 				A70671E68C5E329B03BD0807 /* CollapsedGroupsTests.swift in Sources */,
 				3EAF372B9422A1D0FE851C6B /* FileBrowserTests.swift in Sources */,
 				709BD3E5EA47D2587DB1B1EE /* FolderNameValidatorTests.swift in Sources */,
@@ -1722,6 +1750,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = ArgosiOS/ArgosiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = L6WGLNT9XZ;
@@ -1752,6 +1781,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = ArgosiOS/ArgosiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = L6WGLNT9XZ;

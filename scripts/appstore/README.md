@@ -9,7 +9,9 @@ Hay **dos variantes** de la app de Mac, generadas desde la plantilla `ArgosMac` 
 | `ArgosAppStore` | Mac App Store (flag `APPSTORE`) | App Store     | el usuario concede la carpeta una vez | script de usuario + `NSUserAppleScriptTask`         |
 
 Las dos hacen lo mismo; la de App Store no usa ninguna excepción temporal
-(Ajustes → Permisos muestra y revoca lo concedido).
+(Ajustes → Permisos muestra y revoca lo concedido) y además sincroniza servidores y
+huellas con iPhone/iPad por iCloud clave-valor (capacidad ICLOUD del App ID; si se
+regeneran los perfiles, deben incluir `com.apple.developer.ubiquity-kvstore-identifier`).
 
 ## Subir un build
 
@@ -30,7 +32,7 @@ que `ExportOptions.plist` usa firma **manual** con material del llavero de sesi�
 - **Apple Distribution: Impulse Vibes S A S** (`PJ8AR2TRWA`): firma la app.
 - **3rd Party Mac Developer Installer: Impulse Vibes S A S** (`22MD2PXSD9`, creado
   por la API el 2026-11-06, caduca 2027-11-06): firma el `.pkg`.
-- Perfil **Argos Mac App Store** (`MAC_APP_STORE`, bundle id `YH7WZ4KP29`) en
+- Perfil **Argos Mac App Store** (`MAC_APP_STORE`, id `BZ8LA6RTY8`, bundle id `YH7WZ4KP29`; regenerado el 2026-11-07 con iCloud) en
   `~/Library/Developer/Xcode/UserData/Provisioning Profiles/`. Caduca con el
   certificado de distribución (2027-08-19): regénéralo por la API entonces.
 
@@ -44,7 +46,7 @@ scripts/appstore/upload-ios.sh
 
 Archiva con firma automática y exporta con `ExportOptions-iOS.plist`: certificado
 **Apple Distribution** y perfil **Argos iOS App Store** (`IOS_APP_STORE`, id
-`L5FCFD2RHL`, creado por la API el 2026-11-07; caduca con el certificado). El grupo
+`6WHKKAQ6K7`, regenerado por la API el 2026-11-07 con iCloud; caduca con el certificado). El grupo
 interno de TestFlight «Equipo» recibe todos los builds.
 
 Prueba de extremo a extremo contra la cuenta de demostración (ver

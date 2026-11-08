@@ -19,6 +19,10 @@ final class ServerStore {
 
     private let storeURL: URL
 
+    /// Se invoca tras cada cambio LOCAL (alta, edición, borrado). Lo usa la
+    /// sincronización con iCloud; `replaceAll` (cambios que llegan de iCloud) no lo llama.
+    @ObservationIgnored var onLocalChange: (() -> Void)?
+
     init(storeURL: URL = ServerStore.defaultStoreURL()) {
         self.storeURL = storeURL
         // Primer arranque: lista vacía (la UI muestra el estado "Sin servidores" con
@@ -32,18 +36,28 @@ final class ServerStore {
     func add(_ server: Server) {
         servers.append(server)
         persist()
+        onLocalChange?()
     }
 
     func update(_ server: Server) {
         guard let index = servers.firstIndex(where: { $0.id == server.id }) else { return }
         servers[index] = server
         persist()
+        onLocalChange?()
     }
 
     /// Borra el servidor y su passphrase asociada en Keychain.
     func remove(_ server: Server) {
         servers.removeAll { $0.id == server.id }
         KeychainStore.deletePassphrase(for: server.id)
+        persist()
+        onLocalChange?()
+    }
+
+    /// Sustituye la lista entera (cambios llegados de iCloud). No avisa a `onLocalChange`.
+    func replaceAll(_ newServers: [Server]) {
+        guard newServers != servers else { return }
+        servers = newServers
         persist()
     }
 

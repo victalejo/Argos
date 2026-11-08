@@ -22,6 +22,7 @@ struct ArgosiOSApp: App {
                 hub.suspendTerminals()
                 hub.suspendAgents()
             case .active:
+                hub.cloudSync?.sync()
                 hub.reconnectTerminals()
                 hub.resumeAgents()
             default: break

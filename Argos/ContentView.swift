@@ -36,6 +36,12 @@ struct ContentView: View {
     /// cambies de sesión o de modo.
     @State private var agentStore = AgentSessionStore()
 
+    #if APPSTORE
+    /// Sincronización de servidores y huellas con iPhone/iPad por iCloud (solo el canal
+    /// App Store: la de GitHub no tiene el entitlement de iCloud).
+    @State private var cloudSync: CloudServerSync?
+    #endif
+
     /// Modo elegido por sesión en la 3ª columna (terminal por defecto).
     @State private var detailModes: [SessionHandle: DetailMode] = [:]
 
@@ -58,6 +64,9 @@ struct ContentView: View {
         .tint(ArgosTheme.controlAccent)
         .frame(minWidth: 1040, minHeight: 640)
         .onAppear {
+            #if APPSTORE
+            startCloudSync()
+            #endif
             syncVMs()
             if selectedServerID == nil {
                 selectedServerID = restoredServerID() ?? store.servers.first?.id
@@ -590,8 +599,24 @@ struct ContentView: View {
         save(server, secret: nil)
     }
 
+    #if APPSTORE
+    private func startCloudSync() {
+        guard cloudSync == nil else { return }
+        let sync = CloudServerSync(store: store)
+        // Borrado en otro dispositivo: limpiar lo de este Mac (conexiones y secretos).
+        sync.onRemoteRemoval = { server in forgetLocally(server) }
+        sync.start()
+        cloudSync = sync
+    }
+    #endif
+
     private func delete(_ server: Server) {
         store.remove(server)
+        forgetLocally(server)
+    }
+
+    /// Lo propio de este Mac de un servidor que ya no está (conexiones, secretos, selección).
+    private func forgetLocally(_ server: Server) {
         vms.removeValue(forKey: server.id)
         terminalStore.closeAll(forServer: server.id)
         agentStore.closeAll(forServer: server.id)

@@ -10,6 +10,7 @@ import AppKit
 import SwiftUI
 
 struct PermissionsSettingsView: View {
+    @AppStorage(CloudServerSync.enabledKey) private var cloudSyncEnabled = true
     @State private var sshStatus = SSHDirectoryAccess.currentStatus()
     @State private var scriptInstalled = TerminalScriptBridge.isInstalled()
     @State private var message: String?
@@ -27,6 +28,17 @@ struct PermissionsSettingsView: View {
             .padding(22)
 
             Form {
+                Section {
+                    Toggle(isOn: $cloudSyncEnabled) {
+                        Label("Sincronizar con iCloud", systemImage: "icloud")
+                        Text("Tus servidores y huellas confiadas, en el iPhone y el iPad.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                } footer: {
+                    Text("Viaja por tu iCloud: nombre, host, puerto y usuario de cada servidor. Las contraseñas, passphrases y claves privadas no salen de este Mac.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
                 Section {
                     LabeledContent {
                         sshButton

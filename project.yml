@@ -158,6 +158,8 @@ targets:
     entitlements:
       path: Argos/ArgosAppStore.entitlements
       properties:
+        # iCloud clave-valor: servidores y huellas sincronizados con iPhone/iPad.
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(CFBundleIdentifier)
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
         com.apple.security.files.user-selected.read-write: true
@@ -195,7 +197,13 @@ targets:
     deploymentTarget: "18.0"
     sources:
       - path: ArgosiOS
+        excludes:
+          - "*.entitlements"
       - path: ArgosCore
+    entitlements:
+      path: ArgosiOS/ArgosiOS.entitlements
+      properties:
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(CFBundleIdentifier)
     settings:
       base:
         PRODUCT_NAME: Argos

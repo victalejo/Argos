@@ -79,6 +79,35 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         }
     }
 
+    /// Todas las huellas confiadas ("host:puerto" → "SHA256:…"), para sincronizarlas.
+    static func allTrusted(storeURL: URL = defaultStoreURL()) -> [String: String] {
+        fileLock.lock()
+        defer { fileLock.unlock() }
+        return load(from: storeURL)
+    }
+
+    /// Añade huellas que llegan de otro dispositivo. NUNCA reemplaza una existente.
+    static func trust(_ entries: [String: String], storeURL: URL = defaultStoreURL()) {
+        guard !entries.isEmpty else { return }
+        fileLock.lock()
+        defer { fileLock.unlock() }
+        var known = load(from: storeURL)
+        let before = known.count
+        known.merge(entries) { existing, _ in existing }
+        if known.count != before { save(known, to: storeURL) }
+    }
+
+    /// Olvida huellas por "host:puerto" (olvidadas en otro dispositivo).
+    static func forget(endpoints: [String], storeURL: URL = defaultStoreURL()) {
+        guard !endpoints.isEmpty else { return }
+        fileLock.lock()
+        defer { fileLock.unlock() }
+        var known = load(from: storeURL)
+        let before = known.count
+        endpoints.forEach { known.removeValue(forKey: $0) }
+        if known.count != before { save(known, to: storeURL) }
+    }
+
     /// `true` si ya hay una huella confiada para el endpoint (p. ej. para saber si una
     /// prueba de conexión la registró por primera vez y hay que deshacerlo).
     static func isTrusted(host: String, port: Int, storeURL: URL = defaultStoreURL()) -> Bool {
