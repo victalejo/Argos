@@ -91,6 +91,7 @@
 		31BF718E53D0CBA2E7A1B9F7 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54C65ED06FBCFA6B658D6F5E /* QRScannerView.swift */; };
 		32C4E7B567C3CC41CB93FD0F /* AppStoreLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67485B3C1FC7ECD4983661EC /* AppStoreLinks.swift */; };
 		33028194EE09F9131687C16D /* SSHAgentExec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A9E35745379524CD9CA086 /* SSHAgentExec.swift */; };
+		345A4A4776F4BE5601CA3AB0 /* TerminalMouseSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC74D5206AEF8E75B044932F /* TerminalMouseSelection.swift */; };
 		34E23C3B76059D5F90C4ABCB /* ClaudeMascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1925E36B7C272ED0F9641803 /* ClaudeMascot.swift */; };
 		35F5E6B3A7266FE13AFC1910 /* CodingAgentMenuImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE509FF0BB37932870321619 /* CodingAgentMenuImage.swift */; };
 		3615E693E1F239573D370538 /* SSHKeyAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE75C08C11A58E74DCB6E5D0 /* SSHKeyAuthorization.swift */; };
@@ -372,6 +373,7 @@
 		DE13D03316B8B0B960259577 /* MacSyncStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03149B3C9CA533F95EBFFF9 /* MacSyncStore.swift */; };
 		DE3BDF69942A527B06CEE36F /* MockSSHService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC724DB505B98A68667B540E /* MockSSHService.swift */; };
 		DF49736CE76FF4A51BFC6EBC /* ProjectRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 410C22953E31B83A9B58B822 /* ProjectRow.swift */; };
+		DFD1C6FC4F8CC48FBA1EA50C /* TerminalMouseSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC74D5206AEF8E75B044932F /* TerminalMouseSelection.swift */; };
 		DFFFFB7732D2155DDD905E9E /* SessionGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A556E113E95BE7FDF3CF88AA /* SessionGroup.swift */; };
 		E1611C7DC92A96DCB1659732 /* SSHService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C88531520B72F5C15C563D6C /* SSHService.swift */; };
 		E3B0589279A4EBB673D0FF10 /* PersistentAgentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E7E4E03C8C3F7B52F120FA /* PersistentAgentSession.swift */; };
@@ -598,6 +600,7 @@
 		CAAEAB6603C928D16563A835 /* RemoteFileEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteFileEntry.swift; sourceTree = "<group>"; };
 		CB2697196F6487E710541614 /* ClaudeLoginOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLoginOutput.swift; sourceTree = "<group>"; };
 		CC329A38D26C812EA00D5407 /* SessionNameSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNameSheet.swift; sourceTree = "<group>"; };
+		CC74D5206AEF8E75B044932F /* TerminalMouseSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalMouseSelection.swift; sourceTree = "<group>"; };
 		CD3AC653A136E494AD535400 /* ArgosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ArgosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CFCEDB005F2F7FFA7A4F1A6F /* CloudServerSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudServerSync.swift; sourceTree = "<group>"; };
 		D06DE552DCF2D3F56CCA76A6 /* AgentChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatView.swift; sourceTree = "<group>"; };
@@ -843,6 +846,7 @@
 				220CBBB363C64472A8DE9188 /* SettingsView.swift */,
 				9C50A322D11CBE7687006F31 /* SSHConfigSheet.swift */,
 				708D2840430F88F8B09980A7 /* SystemSleep.swift */,
+				CC74D5206AEF8E75B044932F /* TerminalMouseSelection.swift */,
 				4CD68BD0E86C16C29E76195F /* TerminalSessionStore.swift */,
 				F3D4C35BD2EF9667D8B33C9E /* TerminalSettings.swift */,
 				6ADFDC0F1DA5966F2F9DFFD3 /* WindowBar.swift */,
@@ -1394,6 +1398,7 @@
 				5FC03154D5E1425E0CBE8746 /* SyntaxHighlighter.swift in Sources */,
 				C10A768BCF360B33E0384721 /* SystemSleep.swift in Sources */,
 				B0C3A133D18F87B2A9BD632C /* TabCommands.swift in Sources */,
+				345A4A4776F4BE5601CA3AB0 /* TerminalMouseSelection.swift in Sources */,
 				046D1798AC549810F9F62290 /* TerminalScriptBridge.swift in Sources */,
 				B6714B0FA12FB657731D9DB3 /* TerminalSessionStore.swift in Sources */,
 				2BDF280CD0A8D8EB7045E630 /* TerminalSettings.swift in Sources */,
@@ -1625,6 +1630,7 @@
 				96CA8B4E715FC6FD4102F79E /* SyntaxHighlighter.swift in Sources */,
 				1DB03CD6855DC4F0238E627E /* SystemSleep.swift in Sources */,
 				93AA486CA2A784E4924ADA27 /* TabCommands.swift in Sources */,
+				DFD1C6FC4F8CC48FBA1EA50C /* TerminalMouseSelection.swift in Sources */,
 				42AA5357546E61C00D0A83CA /* TerminalScriptBridge.swift in Sources */,
 				0760BAE66C22CE1FE6D504E0 /* TerminalSessionStore.swift in Sources */,
 				55CA1D615B2DB24F4A399C4A /* TerminalSettings.swift in Sources */,

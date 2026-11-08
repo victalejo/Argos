@@ -55,6 +55,9 @@ final class LiveTerminalController: TerminalViewDelegate {
     /// Monitor local de eventos de rueda (reenvía el scroll al PTY; ver `forwardWheel`).
     private var scrollMonitor: Any?
 
+    /// Selección local arrastrando aunque tmux tenga `mouse on` (ver `TerminalMouseSelection`).
+    private var mouseSelection: TerminalMouseSelection?
+
     /// Tarea que revela el terminal tras un breve margen desde la primera salida,
     /// dando tiempo a que tmux repinte la pantalla (evita el "flash" negro de attach).
     private var revealTask: Task<Void, Never>?
@@ -83,6 +86,9 @@ final class LiveTerminalController: TerminalViewDelegate {
             self?.handleDroppedFiles(urls)
         }
         installScrollMonitor()
+        let selection = TerminalMouseSelection(terminalView: terminalView)
+        selection.install()
+        mouseSelection = selection
         start()
     }
 
@@ -257,6 +263,8 @@ final class LiveTerminalController: TerminalViewDelegate {
             NSEvent.removeMonitor(scrollMonitor)
             self.scrollMonitor = nil
         }
+        mouseSelection?.uninstall()
+        mouseSelection = nil
         revealTask?.cancel()
         revealTask = nil
         task?.cancel()
