@@ -140,7 +140,9 @@ extension SSHService {
     /// del agente (para validar antes de arrancar y evitar un `cd` fallido).
     func runAgentScript(_ command: String) async throws -> String {
         let client = try await connectedClient()
-        let result = try await capture(client, command: command)
+        // Bajo `sh`: con zsh como shell de login, el comodín del listado sin agentes
+        // abortaba con «no matches found».
+        let result = try await capture(client, command: ShellQuoting.posixShell(command))
         guard result.exitCode == 0 else {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             if detail.contains("ARGOS_AGENT_DEAD") { throw PersistentAgentError.notRunning }
@@ -210,7 +212,7 @@ extension SSHService {
         do {
             // Conexión dedicada: evita agotar el `MaxSessions` de la conexión compartida.
             try await withDedicatedClient { client in
-                try await client.withExec(command) { inbound, outbound in
+                try await client.withExec(ShellQuoting.posixShell(command)) { inbound, outbound in
                     try await withThrowingTaskGroup(of: Void.self) { group in
                         // Proceso remoto -> consumidor: solo stdout (donde va el NDJSON).
                         group.addTask {

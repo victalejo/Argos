@@ -63,3 +63,11 @@ struct ShellQuotingTests {
         #expect(ShellQuoting.singleQuoted("''") == "'" + esc + esc + "'")
     }
 }
+
+@Suite("ShellQuoting.posixShell")
+struct PosixShellTests {
+    @Test("Envuelve el script en sh -c con comillas simples")
+    func wraps() {
+        #expect(ShellQuoting.posixShell("echo 'hola' $HOME") == "sh -c 'echo '\\''hola'\\'' $HOME'")
+    }
+}

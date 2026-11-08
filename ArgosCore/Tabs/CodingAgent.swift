@@ -68,7 +68,8 @@ enum CodingAgent: String, CaseIterable, Identifiable, Sendable {
     /// Script de shell que imprime `argos-agent:<binario>` por cada agente instalado.
     /// Prueba el PATH del shell de login del usuario y, después, los directorios
     /// habituales y las versiones de Node de nvm. Solo usa constantes (sin entrada
-    /// del usuario), así que no hay nada que entrecomillar.
+    /// del usuario), así que no hay nada que entrecomillar. Es POSIX: se ejecuta con
+    /// `ShellQuoting.posixShell` (con zsh, el comodín de nvm sin coincidencias abortaría).
     static var installedAgentsScript: String {
         let binaries = allCases.map(\.binary).joined(separator: " ")
         let directories = fallbackDirectories.map { "\"\($0)\"" }.joined(separator: " ")
@@ -76,7 +77,7 @@ enum CodingAgent: String, CaseIterable, Identifiable, Sendable {
         found=$("${SHELL:-sh}" -lc 'for b in \(binaries); do command -v "$b" >/dev/null 2>&1 && echo "$b"; done' 2>/dev/null)
         for b in \(binaries); do
           hit=""
-          case " $(echo $found) " in *" $b "*) hit=1;; esac
+          for f in $found; do [ "$f" = "$b" ] && hit=1; done
           if [ -z "$hit" ]; then
             for d in \(directories) "$HOME"/.nvm/versions/node/*/bin; do
               [ -x "$d/$b" ] && { hit=1; break; }

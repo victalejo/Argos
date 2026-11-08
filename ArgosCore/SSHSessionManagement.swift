@@ -124,7 +124,7 @@ extension SSHService {
     /// Agentes de terminal instalados en el servidor (para el menú «+»).
     func installedCodingAgents() async throws -> Set<CodingAgent> {
         let client = try await connectedClient()
-        let result = try await capture(client, command: CodingAgent.installedAgentsScript)
+        let result = try await capture(client, command: ShellQuoting.posixShell(CodingAgent.installedAgentsScript))
         return CodingAgent.parseInstalled(result.stdout)
     }
 

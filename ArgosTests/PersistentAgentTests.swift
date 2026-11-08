@@ -401,3 +401,68 @@ struct AgentAttentionTests {
         #expect(snapshots[0].logBytes == 42 && snapshots[0].title == "srv" && snapshots[0].tail == resultado)
     }
 }
+
+/// Servidores con zsh como shell de login (p. ej. un Mac): los scripts POSIX de Argos
+/// deben correr bajo `sh`, o un comodín sin coincidencias aborta con «no matches found».
+@Suite("Scripts bajo zsh")
+struct ZshLoginShellTests {
+
+    private func zsh(_ command: String, home: URL) throws -> (status: Int32, output: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-c", command]
+        process.environment = ["HOME": home.path, "PATH": "/usr/bin:/bin:/usr/sbin:/sbin"]
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = out
+        try process.run()
+        process.waitUntilExit()
+        let text = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        return (process.terminationStatus, text)
+    }
+
+    private func emptyHome() throws -> URL {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("argos-zsh-\(UUID())")
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        return home
+    }
+
+    @Test("Listar agentes sin ninguno: zsh directo falla, envuelto en sh funciona")
+    func listWithoutAgents() throws {
+        let home = try emptyHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        try FileManager.default.createDirectory(
+            at: home.appendingPathComponent(".config/argos/agents"), withIntermediateDirectories: true)
+
+        let direct = try zsh(PersistentAgentScript.list(), home: home)
+        #expect(direct.status != 0)
+        #expect(direct.output.contains("no matches found"))
+
+        let wrapped = try zsh(ShellQuoting.posixShell(PersistentAgentScript.list()), home: home)
+        #expect(wrapped.status == 0)
+        #expect(PersistentAgentScript.parseList(wrapped.output).isEmpty)
+    }
+
+    @Test("Avisos (snapshots) sin agentes funcionan bajo sh desde zsh")
+    func snapshotsWithoutAgents() throws {
+        let home = try emptyHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let wrapped = try zsh(ShellQuoting.posixShell(PersistentAgentScript.snapshots()), home: home)
+        #expect(wrapped.status == 0)
+    }
+
+    @Test("Detectar agentes instalados no aborta sin nvm (zsh)")
+    func installedAgentsWithoutNvm() throws {
+        let home = try emptyHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let bin = home.appendingPathComponent(".local/bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        let fake = bin.appendingPathComponent("codex")
+        try "#!/bin/sh\n".write(to: fake, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake.path)
+
+        let result = try zsh(ShellQuoting.posixShell(CodingAgent.installedAgentsScript), home: home)
+        #expect(result.status == 0)
+        #expect(CodingAgent.parseInstalled(result.output).contains(.codex))
+    }
+}

@@ -23,4 +23,13 @@ enum ShellQuoting {
     static func singleQuoted(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
+
+    /// Ejecuta `script` con `sh` (POSIX), sea cual sea el shell de login del usuario.
+    /// Por SSH, el comando lo interpreta el shell de login: con zsh, un comodín sin
+    /// coincidencias (`dir/*/`) aborta el script («no matches found») y las variables
+    /// sin comillas no se parten por espacios. Los scripts de Argos son POSIX: deben
+    /// correr siempre bajo `sh`.
+    static func posixShell(_ script: String) -> String {
+        "sh -c " + singleQuoted(script)
+    }
 }
