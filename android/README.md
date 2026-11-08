@@ -82,7 +82,7 @@ de cliente de prueba en `ssh/build/dev/argos_dev_ed25519`. `HOME` y tmux van ais
 | 2 | SSH + servidores: sshj, TOFU, contraseña/clave importada, CRUD de sesiones tmux | ✅ (probado en teléfono real) |
 | 3 | Terminal en vivo: PTY + `tmux attach`, fila de teclas, reattach | ✅ (probado en teléfono real) |
 | 4 | Proyectos + navegador de archivos SFTP | ✅ (probado en teléfono real) |
-| 5 | Agentes persistentes (stream-json, permisos, login guiado) | |
+| 5 | Agentes persistentes (stream-json, permisos, login guiado) | ✅ (probado en teléfono real con claude simulado) |
 | 6 | Segundo plano y avisos («terminó / espera tu permiso») | |
 | 7 | QR desde el Mac (`ServerTransfer`) | |
 | 8 | Publicación en Google Play (cuenta de organización **Impulse Vibes**) | |
