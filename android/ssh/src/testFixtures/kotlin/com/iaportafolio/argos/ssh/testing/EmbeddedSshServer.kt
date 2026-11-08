@@ -5,15 +5,25 @@ import org.apache.sshd.common.config.keys.KeyUtils
 import org.apache.sshd.common.config.keys.PublicKeyEntry
 import org.apache.sshd.common.config.keys.PublicKeyEntryResolver
 import org.apache.sshd.common.digest.BuiltinDigests
+import org.apache.sshd.common.file.FileSystemFactory
+import org.apache.sshd.common.session.SessionContext
 import org.apache.sshd.server.SshServer
 import org.apache.sshd.server.command.CommandFactory
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider
 import org.apache.sshd.server.shell.ShellFactory
+import org.apache.sshd.server.channel.ChannelSession
+import org.apache.sshd.server.command.Command
+import org.apache.sshd.sftp.server.SftpSubsystem
+import org.apache.sshd.sftp.server.SftpSubsystemConfigurator
 import org.apache.sshd.sftp.server.SftpSubsystemFactory
 import java.io.File
+import java.nio.file.FileSystem
+import java.nio.file.FileSystems
+import java.nio.file.LinkOption
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.PublicKey
+import java.util.AbstractMap
 import java.util.concurrent.TimeUnit
 
 /**
@@ -24,7 +34,10 @@ import java.util.concurrent.TimeUnit
  * usuario. [close] mata ese servidor tmux.
  *
  * Autenticación: contraseña ([password]) y claves públicas autorizadas (líneas OpenSSH).
- * SFTP habilitado (subidas). Escucha solo en [bindAddress].
+ * SFTP habilitado (subidas y explorador de archivos) sobre el sistema de archivos real, con
+ * [home] como directorio inicial: las rutas relativas y `realpath(".")` dan el mismo `HOME`
+ * aislado que ven los comandos. `realpath` resuelve symlinks como OpenSSH
+ * ([HomeSftpSubsystemFactory]). Escucha solo en [bindAddress].
  */
 class EmbeddedSshServer private constructor(
     private val sshd: SshServer,
@@ -133,7 +146,8 @@ class EmbeddedSshServer private constructor(
                 keyboardInteractiveAuthenticator = null
                 commandFactory = CommandFactory { _, command -> LocalShellCommand(command, environment, home) }
                 shellFactory = ShellFactory { LocalShellCommand(null, environment, home) }
-                subsystemFactories = listOf(SftpSubsystemFactory())
+                fileSystemFactory = HomeFileSystemFactory(home)
+                subsystemFactories = listOf(HomeSftpSubsystemFactory(home))
             }
             sshd.start()
             val hostPublicKey = hostKeys.loadKeys(null).first().public
@@ -160,5 +174,57 @@ class EmbeddedSshServer private constructor(
                 "LANG" to (System.getenv("LANG") ?: "C.UTF-8"),
             )
         }
+    }
+}
+
+/**
+ * Sistema de archivos REAL (rutas absolutas sin enjaular, como un sshd de verdad) con [home]
+ * como directorio inicial de SFTP, igual que el `HOME` de los comandos.
+ */
+private class HomeFileSystemFactory(private val home: Path) : FileSystemFactory {
+    override fun getUserHomeDir(session: SessionContext?): Path = home
+
+    override fun createFileSystem(session: SessionContext?): FileSystem = FileSystems.getDefault()
+}
+
+/**
+ * SFTP que se comporta como el `sftp-server` de OpenSSH en lo que importa al explorador:
+ * - el directorio inicial es [home] (MINA usaría el directorio de trabajo de la JVM);
+ * - `realpath` resuelve los symlinks (`realpath(3)`). MINA solo normaliza la ruta léxicamente;
+ *   sin esto, la contención del explorador (basada en `realpath`, igual que en Apple) no se
+ *   podría probar contra un symlink.
+ */
+private class HomeSftpSubsystemFactory(private val home: Path) : SftpSubsystemFactory() {
+    override fun createSubsystem(channel: ChannelSession): Command = HomeSftpSubsystem(channel, this, home)
+}
+
+private class HomeSftpSubsystem(
+    channel: ChannelSession,
+    configurator: SftpSubsystemConfigurator,
+    private val home: Path,
+) : SftpSubsystem(channel, configurator) {
+
+    override fun setFileSystem(fileSystem: FileSystem) {
+        super.setFileSystem(fileSystem)
+        defaultDir = home
+    }
+
+    override fun doRealPathV345(
+        id: Int,
+        path: String,
+        p: Path,
+        vararg options: LinkOption,
+    ): AbstractMap.SimpleImmutableEntry<Path, Boolean> {
+        val normalized = super.doRealPathV345(id, path, p, *options)
+        val location = normalized.key
+        val parent: Path? = location.parent
+        val name: Path? = location.fileName
+        // Como el `realpath` de OpenBSD que usa OpenSSH: el último componente puede no existir.
+        val real = when {
+            Files.exists(location) -> location.toRealPath()
+            parent != null && name != null && Files.exists(parent) -> parent.toRealPath().resolve(name)
+            else -> return normalized
+        }
+        return AbstractMap.SimpleImmutableEntry(real, normalized.value)
     }
 }

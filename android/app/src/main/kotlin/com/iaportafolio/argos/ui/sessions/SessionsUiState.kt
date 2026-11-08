@@ -1,8 +1,6 @@
 package com.iaportafolio.argos.ui.sessions
 
-import com.iaportafolio.argos.core.tmux.SessionGroup
 import com.iaportafolio.argos.core.tmux.TmuxSession
-import com.iaportafolio.argos.ui.common.UiText
 
 /** Paso del arranque mientras se conecta (port de los estados intermedios de `SessionsLoadState`). */
 enum class ConnectStep {
@@ -60,17 +58,4 @@ sealed interface SessionDialog {
     ) : NameInput
 
     data class ConfirmKill(val session: TmuxSession) : SessionDialog
-}
-
-data class SessionsUiState(
-    val serverName: String = "",
-    val load: SessionsLoad = SessionsLoad.Connecting(ConnectStep.VERIFYING),
-    val groups: List<SessionGroup> = emptyList(),
-    /** Recarga con la lista visible (pull-to-refresh). */
-    val isRefreshing: Boolean = false,
-    val dialog: SessionDialog? = null,
-    val message: UiText? = null,
-) {
-    /** Hay una operación de red de arranque en curso (deshabilita «Nueva sesión»). */
-    val isBusy: Boolean get() = load is SessionsLoad.Connecting || isRefreshing
 }

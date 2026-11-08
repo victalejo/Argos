@@ -6,6 +6,10 @@ import com.iaportafolio.argos.core.TerminalControlEvent
 import com.iaportafolio.argos.core.TerminalStreaming
 import com.iaportafolio.argos.core.agent.AgentExecCommands
 import com.iaportafolio.argos.core.agent.PersistentAgentError
+import com.iaportafolio.argos.core.agent.RemoteDirectoryListing
+import com.iaportafolio.argos.core.files.RemoteFileBrowsing
+import com.iaportafolio.argos.core.files.RemoteFileContent
+import com.iaportafolio.argos.core.files.RemoteFileEntry
 import com.iaportafolio.argos.core.keys.AuthorizedKeysCommands
 import com.iaportafolio.argos.core.keys.RemoteHomeFileCommands
 import com.iaportafolio.argos.core.projects.Project
@@ -23,6 +27,7 @@ import com.iaportafolio.argos.core.tmux.TmuxWindow
 import com.iaportafolio.argos.core.tmux.WindowColor
 import com.iaportafolio.argos.core.tmux.WindowNameValidator
 import kotlinx.coroutines.flow.Flow
+import java.io.OutputStream
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -36,12 +41,33 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * También es [TerminalStreaming] (port de `SSHTerminalSession.swift`): cada terminal en vivo
  * es un canal PTY propio sobre la MISMA conexión ([SshjTerminal]), en paralelo a la gestión.
+ *
+ * Y es [RemoteFileBrowsing] (port de `Files/SSHFileBrowser.swift`): explorador de solo lectura
+ * por SFTP con un cliente SFTP reutilizado por conexión ([SshjFileBrowser]).
  */
 class SshjSSHService internal constructor(private val connection: SshjConnection) :
     SSHServicing,
-    TerminalStreaming {
+    TerminalStreaming,
+    RemoteFileBrowsing {
 
     private val terminal = SshjTerminal(connection)
+    private val files = SshjFileBrowser(connection)
+
+    // MARK: Explorador de archivos (SFTP)
+
+    override suspend fun listRemoteDirectory(path: String, root: String): List<RemoteFileEntry> =
+        files.listRemoteDirectory(path, root)
+
+    override suspend fun readRemoteFile(path: String, root: String, maxBytes: Long): RemoteFileContent =
+        files.readRemoteFile(path, root, maxBytes)
+
+    override suspend fun downloadRemoteFile(path: String, root: String, destination: OutputStream): Long =
+        files.downloadRemoteFile(path, root, destination)
+
+    override suspend fun indexProjectFiles(root: String): List<String> = files.indexProjectFiles(root)
+
+    override suspend fun listRemoteDirectories(path: String): RemoteDirectoryListing =
+        files.listRemoteDirectories(path)
 
     // MARK: Terminal en vivo
 
@@ -68,7 +94,10 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
         return TmuxOutputParser.parseListSessions(result.stdout, result.stderr, result.exitCode)
     }
 
-    override suspend fun disconnect() = connection.disconnect()
+    override suspend fun disconnect() {
+        files.close()
+        connection.disconnect()
+    }
 
     /**
      * Prueba la conexión (host key + autenticación) y devuelve el usuario remoto (`whoami`).

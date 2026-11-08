@@ -14,9 +14,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.tmux.SessionNameValidator
 
+/** Acciones de los diálogos de sesión tmux (crear / renombrar / cerrar). */
+interface SessionDialogActions {
+    fun dismissDialog()
+    fun onDialogTextChange(text: String)
+    fun submitDialog()
+    fun confirmKill()
+}
+
 /** Diálogos de crear / renombrar / cerrar sesión. */
 @Composable
-internal fun SessionDialogs(dialog: SessionDialog?, actions: SessionsActions) {
+internal fun SessionDialogs(dialog: SessionDialog?, actions: SessionDialogActions) {
     when (dialog) {
         is SessionDialog.NameInput -> NameDialog(dialog, actions)
         is SessionDialog.ConfirmKill -> AlertDialog(
@@ -35,7 +43,7 @@ internal fun SessionDialogs(dialog: SessionDialog?, actions: SessionsActions) {
 }
 
 @Composable
-private fun NameDialog(dialog: SessionDialog.NameInput, actions: SessionsActions) {
+private fun NameDialog(dialog: SessionDialog.NameInput, actions: SessionDialogActions) {
     val isCreate = dialog is SessionDialog.Create
     val canSubmit = !dialog.isSubmitting && SessionNameValidator.isValid(dialog.text)
     AlertDialog(

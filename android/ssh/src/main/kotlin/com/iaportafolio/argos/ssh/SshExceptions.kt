@@ -66,3 +66,43 @@ class AgentExecException(val detail: String) : Exception(AgentExecCommands.agent
 
 /** Error del agente persistente (port de `PersistentAgentError` como excepción). */
 class PersistentAgentException(val error: PersistentAgentError) : Exception(error.message)
+
+/**
+ * Fallos del explorador de archivos por SFTP ([SshjSSHService.listRemoteDirectory],
+ * [SshjSSHService.readRemoteFile], [SshjSSHService.downloadRemoteFile]). Traducen los códigos
+ * de estado SFTP a mensajes accionables en español. La ruta fuera del proyecto es
+ * [com.iaportafolio.argos.core.files.FileBrowserException.OutsideProject] (contrato de `core`).
+ */
+sealed class RemoteFileException(val path: String, message: String, cause: Throwable?) : Exception(message, cause) {
+
+    /** La ruta no existe en el servidor (borrada, renombrada o un enlace roto). */
+    class NotFound(path: String, cause: Throwable? = null) : RemoteFileException(
+        path,
+        "'$path' ya no existe en el servidor. Actualiza la carpeta: puede que se haya borrado o renombrado.",
+        cause,
+    )
+
+    /** El usuario remoto no tiene permiso para leer la ruta. */
+    class PermissionDenied(path: String, cause: Throwable? = null) : RemoteFileException(
+        path,
+        "Sin permiso para leer '$path' en el servidor. Revisa sus permisos (p. ej. `chmod u+r`) o " +
+            "el usuario con el que te conectas.",
+        cause,
+    )
+
+    /** Fallo SFTP no clasificado (subsistema no disponible, canal cerrado, error del servidor…). */
+    class SftpFailed(path: String, cause: Throwable? = null) : RemoteFileException(
+        path,
+        "Falló el acceso por SFTP a '$path': ${cause?.message ?: "sin detalles"}. Vuelve a intentarlo; " +
+            "si persiste, comprueba que el servidor SSH tenga activado el subsistema SFTP.",
+        cause,
+    )
+
+    /** La descarga llegó del servidor pero no se pudo escribir en el destino local. */
+    class DestinationFailed(path: String, cause: Throwable? = null) : RemoteFileException(
+        path,
+        "No se pudo guardar '$path' en el dispositivo: ${cause?.message ?: "sin detalles"}. Comprueba " +
+            "el espacio libre o elige otra ubicación.",
+        cause,
+    )
+}

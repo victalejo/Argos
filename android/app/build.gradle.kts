@@ -84,6 +84,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     // Emulador de terminal (Apache 2.0): TerminalEmulator + TerminalRenderer + KeyHandler.
     implementation(libs.termux.terminal.view)
+    // Vista previa de Markdown (Apache 2.0, mikepenz). Sin imageTransformer: nunca carga imágenes remotas.
+    implementation(libs.markdown.renderer.m3)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

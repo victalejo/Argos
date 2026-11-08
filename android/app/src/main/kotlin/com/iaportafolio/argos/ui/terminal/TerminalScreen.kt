@@ -62,7 +62,15 @@ import com.iaportafolio.argos.ui.common.asString
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TerminalScreen(viewModel: TerminalViewModel<RemoteTerminalSession>, onBack: () -> Unit) {
+fun TerminalScreen(
+    viewModel: TerminalViewModel<RemoteTerminalSession>,
+    onBack: () -> Unit,
+    /**
+     * Abrir el teclado al entrar. En la pantalla de proyecto va a `false`: el teclado tapaba
+     * las pestañas (Terminal · Archivos · Agentes); se abre al tocar el terminal.
+     */
+    autoShowKeyboard: Boolean = true,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var terminalView by remember { mutableStateOf<RemoteTerminalView?>(null) }
 
@@ -95,7 +103,7 @@ fun TerminalScreen(viewModel: TerminalViewModel<RemoteTerminalSession>, onBack: 
                 .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
         ) {
             Box(Modifier.weight(1f)) {
-                TerminalHost(viewModel, state, onViewCreated = { terminalView = it })
+                TerminalHost(viewModel, state, onViewCreated = { terminalView = it }, autoShowKeyboard = autoShowKeyboard)
                 StatusOverlay(state.status, onReconnect = viewModel::reconnect, onBack = onBack)
             }
             ExtraKeysRow(state.modifiers, onKey = viewModel::pressExtraKey)
@@ -108,6 +116,7 @@ private fun TerminalHost(
     viewModel: TerminalViewModel<RemoteTerminalSession>,
     state: TerminalUiState,
     onViewCreated: (RemoteTerminalView?) -> Unit,
+    autoShowKeyboard: Boolean,
 ) {
     val description = stringResource(R.string.terminal_description, state.sessionName)
     val callbacks = remember(viewModel) { ViewModelCallbacks(viewModel) }
@@ -117,7 +126,7 @@ private fun TerminalHost(
             RemoteTerminalView(context, callbacks).also { view ->
                 view.attach(viewModel.screen)
                 onViewCreated(view)
-                view.post { view.showKeyboard() }
+                if (autoShowKeyboard) view.post { view.showKeyboard() }
             }
         },
         update = { view ->

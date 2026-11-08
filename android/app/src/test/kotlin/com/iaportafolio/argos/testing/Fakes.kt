@@ -139,7 +139,7 @@ class FakeServiceProvider(var service: FakeSSHService = FakeSSHService()) : Serv
     }
 }
 
-/** Doble de [SSHServicing] para la parte de tmux; el resto no se usa en la fase 2. */
+/** Doble de [SSHServicing] para tmux y proyectos; el resto no se usa todavía. */
 class FakeSSHService : SSHServicing {
     var tmuxInstalled = true
     var canSudo = false
@@ -154,6 +154,15 @@ class FakeSSHService : SSHServicing {
 
     val calls = mutableListOf<String>()
     var disconnects = 0
+
+    /** `projects.json` del servidor. */
+    var projects: List<Project> = emptyList()
+    var projectsError: Exception? = null
+    var saveError: Exception? = null
+    var startError: Exception? = null
+    var firstPanePaths: Map<String, String> = emptyMap()
+    var firstPaneError: Exception? = null
+    val savedProjects = mutableListOf<List<Project>>()
 
     override suspend fun listSessions(): List<TmuxSession> {
         calls += "list"
@@ -208,7 +217,38 @@ class FakeSSHService : SSHServicing {
         sessions = sessions.filterNot { it.name == name }
     }
 
-    private fun unused(): Nothing = throw IOException("No usado en la fase 2")
+    override suspend fun loadProjects(): List<Project> {
+        calls += "loadProjects"
+        projectsError?.let { throw it }
+        return projects
+    }
+
+    override suspend fun saveProjects(projects: List<Project>) {
+        calls += "saveProjects"
+        saveError?.let { throw it }
+        this.projects = projects
+        savedProjects += projects
+    }
+
+    override suspend fun sessionFirstPanePaths(): Map<String, String> {
+        calls += "firstPanePaths"
+        firstPaneError?.let { throw it }
+        return firstPanePaths
+    }
+
+    override suspend fun startProject(sessionName: String, path: String, startupCommand: String?) {
+        calls += "start:$sessionName|$path|$startupCommand"
+        startError?.let { throw it }
+        sessions = sessions + session(sessionName)
+    }
+
+    override suspend fun stopSession(sessionName: String) {
+        calls += "stop:$sessionName"
+        managementError?.let { throw it }
+        sessions = sessions.filterNot { it.name == sessionName }
+    }
+
+    private fun unused(): Nothing = throw IOException("No usado todavía")
 
     override suspend fun listWindows(session: String): List<TmuxWindow> = unused()
     override suspend fun selectWindow(session: String, index: Int) = unused()
@@ -228,11 +268,6 @@ class FakeSSHService : SSHServicing {
     override suspend fun sendKeys(session: String, keys: String, enter: Boolean) = unused()
     override suspend fun claudeHooksInstalled(): Boolean = unused()
     override suspend fun installClaudeHooks() = unused()
-    override suspend fun loadProjects(): List<Project> = unused()
-    override suspend fun saveProjects(projects: List<Project>) = unused()
-    override suspend fun sessionFirstPanePaths(): Map<String, String> = unused()
-    override suspend fun startProject(sessionName: String, path: String, startupCommand: String?) = unused()
-    override suspend fun stopSession(sessionName: String) = unused()
     override suspend fun uploadPastedFile(data: ByteArray, fileExtension: String): String = unused()
     override suspend fun uploadDroppedFile(data: ByteArray, originalName: String): String = unused()
     override suspend fun locateClaude(): String? = unused()

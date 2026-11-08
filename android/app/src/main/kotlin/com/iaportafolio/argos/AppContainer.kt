@@ -4,15 +4,19 @@ import android.content.Context
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHConnector
 import com.iaportafolio.argos.data.ContentResolverDocumentReader
+import com.iaportafolio.argos.data.ContentResolverDocumentWriter
 import com.iaportafolio.argos.data.DocumentReader
+import com.iaportafolio.argos.data.DocumentWriter
 import com.iaportafolio.argos.data.EncryptedSecretStore
 import com.iaportafolio.argos.data.FileHostKeyTrustStore
 import com.iaportafolio.argos.data.FileServerRepository
 import com.iaportafolio.argos.data.KeystoreSecretCipher
+import com.iaportafolio.argos.data.ProjectPreferencesStore
 import com.iaportafolio.argos.data.SecretStore
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceHub
 import com.iaportafolio.argos.data.ServiceProvider
+import com.iaportafolio.argos.data.SharedPreferencesProjectPreferences
 import com.iaportafolio.argos.data.SharedPreferencesTerminalSettings
 import com.iaportafolio.argos.data.TerminalSettingsStore
 import kotlinx.coroutines.CoroutineDispatcher
@@ -42,6 +46,10 @@ class AppContainer(
     val documents: DocumentReader by lazy { ContentResolverDocumentReader(appContext.contentResolver) }
 
     val terminalSettings: TerminalSettingsStore by lazy { SharedPreferencesTerminalSettings(appContext) }
+
+    val documentWriter: DocumentWriter by lazy { ContentResolverDocumentWriter(appContext.contentResolver) }
+
+    val projectPreferences: ProjectPreferencesStore by lazy { SharedPreferencesProjectPreferences(appContext) }
 
     private companion object {
         const val SERVERS_FILE = "servers.json"

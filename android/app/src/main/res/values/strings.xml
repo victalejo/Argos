@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="es">
     <string name="app_name">Argos</string>
 
     <!-- Comunes -->
@@ -68,15 +68,12 @@
     <string name="sessions_connecting">Conectando con %1$s…</string>
     <string name="sessions_installing">Instalando tmux en el servidor…</string>
     <string name="sessions_configuring">Configurando tmux…</string>
-    <string name="sessions_loading">Cargando sesiones…</string>
     <string name="sessions_tmux_missing_title">Falta tmux</string>
     <string name="sessions_tmux_missing">tmux no está instalado en el servidor y no se puede instalar sin contraseña. Instálalo (por ejemplo, «sudo apt install tmux») y vuelve a intentarlo.</string>
     <string name="sessions_host_key_title">La huella del servidor cambió</string>
     <string name="sessions_host_key_trust">Olvidar la huella y reintentar</string>
     <string name="sessions_failed_title">No se pudo conectar</string>
     <string name="sessions_server_missing">Este servidor ya no existe.</string>
-    <string name="sessions_empty_title">Sin sesiones</string>
-    <string name="sessions_empty">Crea una sesión con «+».</string>
     <string name="sessions_attached">adjunta</string>
     <string name="sessions_rename">Renombrar</string>
     <string name="sessions_kill">Cerrar sesión</string>
@@ -89,6 +86,119 @@
     <string name="sessions_name_hint">Usa «grupo/nombre» para agruparla. Sin «:» ni «.».</string>
     <string name="sessions_kill_title">¿Cerrar la sesión «%1$s»?</string>
     <string name="sessions_kill_message">Se terminan los procesos que corren en ella (kill-session).</string>
+
+    <!-- Proyectos -->
+    <string name="projects_loading">Cargando proyectos y sesiones…</string>
+    <string name="projects_new">Nuevo proyecto</string>
+    <string name="projects_more">Más acciones</string>
+    <string name="projects_import">Importar sesiones como proyectos</string>
+    <string name="projects_empty_title">Sin proyectos ni sesiones</string>
+    <string name="projects_empty">Crea un proyecto anclado a una carpeta del servidor. Los que añadas desde Argos en el Mac o el iPhone aparecen aquí.</string>
+    <string name="projects_filter_label">%1$s (%2$d)</string>
+    <string name="projects_filter_empty">Nada en «%1$s»</string>
+    <string name="projects_loose_sessions">Sesiones sin proyecto</string>
+    <string name="projects_group_collapsed">Contraído</string>
+    <string name="projects_group_expanded">Expandido</string>
+    <string name="projects_stopped_subtitle">Detenido · %1$s</string>
+    <string name="projects_on_mac">En el Mac de %1$s</string>
+    <string name="projects_running">En marcha</string>
+    <string name="projects_more_for">Más opciones del proyecto %1$s</string>
+    <string name="projects_open">Abrir</string>
+    <string name="projects_start">Arrancar y abrir</string>
+    <string name="projects_stop">Detener</string>
+    <string name="projects_remove">Quitar de Argos</string>
+    <string name="projects_convert">Convertir en proyecto</string>
+    <string name="projects_form_new">Nuevo proyecto</string>
+    <string name="projects_form_edit">Editar proyecto</string>
+    <string name="projects_form_convert">Convertir en proyecto</string>
+    <string name="projects_form_create">Crear</string>
+    <string name="projects_form_identity">Identidad</string>
+    <string name="projects_form_name">Nombre</string>
+    <string name="projects_form_group">Grupo</string>
+    <string name="projects_form_group_placeholder">Sin grupo</string>
+    <string name="projects_form_group_hint">Opcional. Elige uno existente o escribe uno nuevo.</string>
+    <string name="projects_form_group_new">Se creará el grupo «%1$s» al guardar.</string>
+    <string name="projects_form_group_pick">Elegir un grupo existente</string>
+    <string name="projects_form_no_group">Sin grupo</string>
+    <string name="projects_form_folder">Carpeta del servidor</string>
+    <string name="projects_form_path">Carpeta</string>
+    <string name="projects_form_path_placeholder">/home/usuario/proyecto</string>
+    <string name="projects_form_path_hint">Elige una carpeta o escribe una ruta completa que empiece por /.</string>
+    <string name="projects_form_path_prefilling">Buscando la carpeta de la sesión…</string>
+    <string name="projects_form_browse">Explorar carpetas…</string>
+    <string name="projects_form_command">Al iniciar el proyecto</string>
+    <string name="projects_form_command_default">Predeterminado (%1$s)</string>
+    <string name="projects_form_command_nothing">nada</string>
+    <string name="projects_form_command_custom">Personalizado…</string>
+    <string name="projects_form_command_label">Comando</string>
+    <!-- Los guiones dobles son opciones de línea de comandos, no una raya. -->
+    <string name="projects_form_command_placeholder" tools:ignore="TypographyDashes">cc --continue, npm run dev…</string>
+    <string name="projects_import_title">Importar sesiones como proyectos</string>
+    <string name="projects_import_body">Cada sesión se guarda como proyecto anclado a la carpeta en la que está. Las sesiones siguen corriendo; solo dejan de ser «sueltas».</string>
+    <string name="projects_import_loading">Leyendo carpetas de las sesiones…</string>
+    <string name="projects_import_empty">No hay sesiones sueltas con una carpeta conocida.</string>
+    <string name="projects_import_confirm">Importar %1$d</string>
+
+    <!-- Selector de carpetas -->
+    <string name="folder_picker_title">Elegir carpeta del servidor</string>
+    <string name="folder_picker_use">Usar esta</string>
+    <string name="folder_picker_up">Subir un nivel</string>
+    <string name="folder_picker_loading">Leyendo carpetas…</string>
+    <string name="folder_picker_empty">(sin subcarpetas)</string>
+
+    <!-- Pantalla de proyecto -->
+    <string name="project_tab_terminal">Terminal</string>
+    <string name="project_tab_files">Archivos</string>
+    <string name="project_tab_agents">Agentes</string>
+    <string name="project_loading">Abriendo el proyecto…</string>
+    <string name="project_missing_title">El proyecto ya no existe</string>
+    <string name="project_missing">Se quitó de este servidor desde otro dispositivo.</string>
+    <string name="project_stopped_title">Proyecto detenido</string>
+    <string name="project_stopped_body">No hay sesión tmux en marcha. Al arrancarlo se crea en %1$s y se lanza su comando de arranque.</string>
+    <string name="project_start">Arrancar</string>
+    <string name="project_agents_soon">Llega en la fase 5.</string>
+
+    <!-- Archivos -->
+    <string name="files_unsupported">Esta conexión no permite explorar archivos. Actualiza Argos e inténtalo de nuevo.</string>
+    <string name="files_loading">Cargando la carpeta…</string>
+    <string name="files_failed_title">No se pudo abrir la carpeta</string>
+    <string name="files_empty">Carpeta vacía</string>
+    <string name="files_pick">Elige un archivo para verlo</string>
+    <string name="files_search">Buscar archivos</string>
+    <string name="files_search_hint">Buscar por nombre…</string>
+    <string name="files_search_close">Cerrar la búsqueda</string>
+    <string name="files_search_clear">Borrar la búsqueda</string>
+    <string name="files_search_prompt">Escribe parte del nombre o de la ruta</string>
+    <string name="files_search_empty">Sin coincidencias</string>
+    <string name="files_indexing">Indexando el proyecto…</string>
+    <string name="files_index_failed">No se pudo indexar el proyecto</string>
+    <string name="files_show_hidden">Mostrar ocultos y carpetas pesadas</string>
+    <string name="files_more_for">Más opciones de %1$s</string>
+    <string name="files_download">Descargar</string>
+    <string name="files_copy_path">Copiar ruta</string>
+    <string name="files_path_copied">Ruta copiada</string>
+    <string name="files_path_clip_label">Ruta del servidor</string>
+    <string name="files_preview_loading">Cargando…</string>
+    <string name="files_preview_failed">No se pudo abrir</string>
+    <string name="files_preview_close">Cerrar la vista previa</string>
+    <string name="files_truncated">Archivo grande: se muestra solo el principio. Descárgalo para verlo entero.</string>
+    <string name="files_binary_title">Archivo binario</string>
+    <string name="files_binary_body">No se puede previsualizar. Descárgalo para abrirlo con otra app.</string>
+    <string name="files_pdf_title">Documento PDF</string>
+    <string name="files_pdf_body">Descárgalo para abrirlo con tu lector de PDF.</string>
+    <string name="files_image_invalid">Imagen no válida</string>
+    <string name="files_image_description">Vista previa de la imagen</string>
+    <string name="files_link_title">¿Abrir este enlace?</string>
+    <string name="files_link_open">Abrir</string>
+    <string name="files_downloading">Descargando %1$s… %2$s</string>
+    <string name="files_downloading_of">Descargando %1$s… %2$s de %3$s</string>
+    <string name="files_download_saved">«%1$s» guardado</string>
+    <string name="files_download_failed">No se pudo descargar «%1$s»: %2$s</string>
+    <string name="files_download_cancelled">Descarga cancelada</string>
+    <string name="files_download_busy">Ya hay una descarga en curso</string>
+    <string name="files_download_dismiss">Cerrar el aviso de descarga</string>
+    <string name="files_download_progress">Progreso de la descarga</string>
+
     <!-- Terminal en vivo -->
     <string name="terminal_description">Terminal de la sesión %1$s. Toca para mostrar el teclado; mantén pulsado para seleccionar.</string>
     <string name="terminal_keyboard">Mostrar u ocultar el teclado</string>
@@ -148,6 +258,11 @@
     <string name="key_state_off">Desactivado</string>
     <string name="key_state_once">Activo para la próxima tecla</string>
     <string name="key_state_locked">Fijado</string>
+    <plurals name="files_hidden_count">
+        <item quantity="one">%d elemento oculto · mostrar</item>
+        <item quantity="many">%d elementos ocultos · mostrar</item>
+        <item quantity="other">%d elementos ocultos · mostrar</item>
+    </plurals>
     <plurals name="sessions_windows">
         <item quantity="one">%d ventana</item>
         <item quantity="many">%d ventanas</item>

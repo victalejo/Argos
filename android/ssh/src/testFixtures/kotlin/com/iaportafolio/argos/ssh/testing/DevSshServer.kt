@@ -24,7 +24,9 @@ private const val CLIENT_KEY_COMMENT = "argos-dev-client"
  * - Host key persistente en `<dir>/host_key`: la huella no cambia entre arranques (TOFU).
  * - Clave Ed25519 de cliente de prueba en `<dir>/argos_dev_ed25519` (OpenSSH, sin passphrase)
  *   y su `.pub`, autorizada en el servidor.
- * - `HOME` y tmux aislados en `<dir>/home` y `<dir>/tmux` (no toca tus sesiones reales).
+ * - `HOME` y tmux aislados en `<dir>/home` y `<dir>/tmux` (no toca tus sesiones reales); SFTP
+ *   usa el mismo `HOME`.
+ * - Proyecto de demo para el explorador de archivos en `~/proyectos/demo` ([ensureDemoProject]).
  *
  * El argumento es el directorio de trabajo (`android/ssh/build/dev`).
  */
@@ -38,6 +40,7 @@ fun main(args: Array<String>) {
         authorizedKeys = listOf(clientKey.publicLine),
         port = DEV_PORT,
     )
+    val demo = ensureDemoProject(server.home)
     val stopped = CountDownLatch(1)
     Runtime.getRuntime().addShutdownHook(
         Thread {
@@ -54,7 +57,8 @@ fun main(args: Array<String>) {
         |  Huella host: ${server.hostFingerprint}
         |  Clave host:  ${server.hostPublicKeyLine}
         |  Clave cliente (OpenSSH, sin passphrase): ${clientKey.privateFile}
-        |  HOME remoto: ${server.home}
+        |  HOME remoto: ${server.home}   (SFTP sirve el mismo HOME)
+        |  Proyecto demo: ${demoProjectSummary(demo)}   (en la app: ~/proyectos/demo)
         |  Prueba:      ssh -p $DEV_PORT -i ${clientKey.privateFile} $DEV_USER@127.0.0.1 tmux -V
         |Ctrl+C para detenerlo.
         |
