@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.18] - 2026-11-08
+
+### Corregido
+- **iPhone/iPad: servidores llegados del Mac por iCloud.** Si usan una clave de `~/.ssh`, el
+  error ya explica que las claves no viajan por iCloud y ofrece «Importar clave» (antes pedía
+  conceder `~/.ssh` en unos Ajustes que en iOS no existen).
+- **La clave importada en el iPhone ya no rompe el servidor en el Mac**: su ruta (dentro de la
+  app del iPhone) no se sube a iCloud, y lo que llega de iCloud no pisa la clave importada.
+
 ## [1.7.17] - 2026-11-08
 
 ### Corregido
