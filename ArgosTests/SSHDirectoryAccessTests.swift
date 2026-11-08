@@ -107,6 +107,26 @@ struct SSHDirectoryAccessTests {
         #expect(hint?.contains("Ajustes") == true)
     }
 
+    @Test("Se ofrece conceder ~/.ssh solo si la clave depende de ese permiso")
+    func offersGrantOnlyWhenNeeded() {
+        let server = Server(name: "dev", host: "h", username: "u", privateKeyPath: "~/.ssh/dev")
+        #expect(SSHDirectoryAccess.needsGrant(for: server, hasGrant: false))
+        #expect(!SSHDirectoryAccess.needsGrant(for: server, hasGrant: true))
+
+        var outside = server
+        outside.privateKeyPath = "/tmp/dev"
+        #expect(!SSHDirectoryAccess.needsGrant(for: outside, hasGrant: false))
+
+        // Con el archivo elegido en el formulario, se lee por su propio bookmark.
+        var chosenFile = server
+        chosenFile.privateKeyBookmark = Data([1])
+        #expect(!SSHDirectoryAccess.needsGrant(for: chosenFile, hasGrant: false))
+
+        var password = server
+        password.authMethod = .password
+        #expect(!SSHDirectoryAccess.needsGrant(for: password, hasGrant: false))
+    }
+
     @Test("Con permiso o fuera de ~/.ssh no se añade la pista")
     func noHintOtherwise() {
         #expect(SSHDirectoryAccess.unreadableKeyHint(path: "~/.ssh/id", hasGrant: true, home: home) == nil)

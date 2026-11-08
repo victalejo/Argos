@@ -79,6 +79,15 @@ enum SSHDirectoryAccess {
             + "o elige el archivo de la clave en el formulario del servidor."
     }
 
+    /// ¿Conectar a este servidor depende de conceder ~/.ssh? No con contraseña ni con una
+    /// clave elegida en el formulario, que se lee por su propio bookmark.
+    static func needsGrant(for server: Server, hasGrant: Bool, home: String = realHome) -> Bool {
+        server.authMethod == .key
+            && server.privateKeyBookmark == nil
+            && !hasGrant
+            && isInsideSSHDirectory(server.privateKeyPath, home: home)
+    }
+
     // MARK: - Permiso persistido
 
     static func hasGrant(defaults: UserDefaults = .standard) -> Bool {

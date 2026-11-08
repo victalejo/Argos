@@ -30,6 +30,7 @@ struct ServerSessionsSection: View {
     @State private var projectSettings = ProjectSettings.shared
     @State private var syncCenter = ProjectSyncCenter.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         switch vm.state {
@@ -134,6 +135,19 @@ struct ServerSessionsSection: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
+                #if APPSTORE
+                if SSHDirectoryAccess.needsGrant(for: server, hasGrant: SSHDirectoryAccess.hasGrant()) {
+                    Button {
+                        SettingsNavigation.shared.tab = .permissions
+                        openSettings()
+                    } label: {
+                        Label("Abrir Permisos", systemImage: "lock.shield")
+                    }
+                    .font(.caption.weight(.medium))
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+                #endif
                 Button {
                     Task { await vm.load() }
                 } label: {
