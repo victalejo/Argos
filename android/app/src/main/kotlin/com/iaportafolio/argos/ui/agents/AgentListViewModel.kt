@@ -212,8 +212,16 @@ class AgentListViewModel(
 
     fun confirmResume() {
         val dialog = state.value.dialog as? AgentListDialog.ConfirmResume ?: return
+        val info = infos.firstOrNull { it.id == dialog.agentId }
+        // La lista se refresca sola: si el modo cambió desde que se preguntó, lo aprobado ya no
+        // es lo que se lanzaría (el `meta.json` lo puede editar el agente). Se vuelve a preguntar.
+        if (info != null && info.meta.resolvedPermissionMode != dialog.mode) {
+            dismissDialog()
+            resume(info.id)
+            return
+        }
         dismissDialog()
-        infos.firstOrNull { it.id == dialog.agentId }?.let(::performResume)
+        info?.let(::performResume)
     }
 
     /** Relanza el proceso; el chat se engancha al abrirlo. El token solo viaja por stdin. */

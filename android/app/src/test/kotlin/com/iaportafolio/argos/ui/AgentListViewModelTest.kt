@@ -565,6 +565,23 @@ class AgentListViewModelTest {
     }
 
     @Test
+    fun `si el modo cambia tras preguntar no reanuda con lo no aprobado`() = runTest(main.dispatcher) {
+        ssh.agents = listOf(agentInfo(isAlive = false, permissionMode = "acceptEdits"))
+        val vm = loaded()
+        vm.resume(AGENT_1)
+
+        ssh.agents = listOf(agentInfo(isAlive = false, permissionMode = "bypassPermissions"))
+        vm.refresh()
+        advanceUntilIdle()
+        vm.confirmResume()
+        advanceUntilIdle()
+
+        assertTrue(ssh.launches.isEmpty(), "No debe lanzar un modo que nadie aprobó")
+        val dialog = vm.state.value.dialog as AgentListDialog.ConfirmResume
+        assertEquals(PermissionMode.BYPASS_PERMISSIONS, dialog.mode)
+    }
+
+    @Test
     fun `un fallo al reanudar se ve, sin el token`() = runTest(main.dispatcher) {
         tokens.token = SECRET_TOKEN
         ssh.agents = listOf(agentInfo(isAlive = false))
