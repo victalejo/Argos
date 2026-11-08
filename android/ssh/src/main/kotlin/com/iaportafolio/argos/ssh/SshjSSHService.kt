@@ -226,7 +226,7 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
         val home = runChecked(RemoteHomeFileCommands.prepareWrite(relativePath, backup), failure)
         val tempPath = RemoteHomeFileCommands.tempUploadPath(home, relativePath)
             ?: throw SSHServiceError.CommandFailed(0, "No se pudo resolver \$HOME en el servidor.")
-        connection.upload(data, tempPath)
+        connection.upload(data, tempPath, exclusive = false)
         runChecked(RemoteHomeFileCommands.commitWrite(relativePath), failure)
     }
 

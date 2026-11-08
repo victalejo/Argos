@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
+import kotlin.io.path.writeText
 import java.time.Instant
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
@@ -170,9 +171,33 @@ class SshjTmuxIntegrationTest {
             assertTrue(bytes.contentEquals(pasted.readBytes()))
             assertTrue(dropped.fileName.toString().matches(Regex("argos-\\d+-mi_foto__\\.txt")))
             assertEquals("hola", dropped.readText())
+            assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(pasted)))
+            assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(dropped)))
         } finally {
             pasted.deleteIfExists()
             dropped.deleteIfExists()
+        }
+    }
+
+    @Test
+    fun `una subida no sigue un symlink plantado en tmp`() = runBlocking<Unit> {
+        val victim = Files.createTempFile(workDir, "victima", ".txt").also { it.writeText("intacto") }
+        val planted = Path.of("/tmp", "argos-symlink-${System.nanoTime()}.txt")
+        Files.createSymbolicLink(planted, victim)
+        val connection = SshjConnection(
+            testServer(server.port),
+            SSHCredentials.Password(PASSWORD),
+            InMemoryTrustStore(),
+            SshjConnector.Settings(),
+        )
+        try {
+            assertFailsWith<SSHServiceError.UploadFailed> {
+                connection.upload("malicioso".toByteArray(), planted.toString())
+            }
+            assertEquals("intacto", victim.readText())
+        } finally {
+            connection.disconnect()
+            planted.deleteIfExists()
         }
     }
 

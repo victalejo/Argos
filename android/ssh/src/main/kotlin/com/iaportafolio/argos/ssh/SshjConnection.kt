@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import net.schmizz.keepalive.KeepAliveRunner
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.connection.channel.direct.Session
+import net.schmizz.sshj.sftp.FileAttributes
 import net.schmizz.sshj.sftp.OpenMode
 import net.schmizz.sshj.transport.TransportException
 import net.schmizz.sshj.userauth.UserAuthException
@@ -102,15 +103,20 @@ internal class SshjConnection(
     }
 
     /**
-     * Escribe [data] en [remotePath] por SFTP (crea/trunca): el contenido nunca viaja por la
-     * línea de comandos (no queda expuesto en `ps`). Lanza [SSHServiceError.UploadFailed].
+     * Escribe [data] en [remotePath] por SFTP: el contenido nunca viaja por la línea de
+     * comandos (no queda expuesto en `ps`). Se crea con permisos 0600. Con [exclusive] (por
+     * defecto, para rutas en `/tmp`, que es compartido) se abre con `O_EXCL`: falla si ya
+     * existe, incluido un symlink plantado por otro usuario. Solo se pasa `false` para un
+     * temporal ya preparado en un directorio privado de `$HOME` (umask 077), que hay que
+     * truncar. Lanza [SSHServiceError.UploadFailed].
      */
-    suspend fun upload(data: ByteArray, remotePath: String): String {
+    suspend fun upload(data: ByteArray, remotePath: String, exclusive: Boolean = true): String {
+        val mode = if (exclusive) OpenMode.EXCL else OpenMode.TRUNC
         val ssh = connectedClient()
         try {
             runInterruptible(Dispatchers.IO) {
                 ssh.newSFTPClient().use { sftp ->
-                    sftp.open(remotePath, EnumSet.of(OpenMode.WRITE, OpenMode.CREAT, OpenMode.TRUNC)).use { file ->
+                    sftp.open(remotePath, EnumSet.of(OpenMode.WRITE, OpenMode.CREAT, mode), PRIVATE_FILE).use { file ->
                         file.RemoteFileOutputStream(0).use { it.write(data) }
                     }
                 }
@@ -204,5 +210,8 @@ internal class SshjConnection(
     private companion object {
         /** El proceso terminó por una señal (sin `exit-status`). */
         const val SIGNAL_EXIT_CODE = -1
+
+        /** Permisos 0600: solo el usuario remoto puede leer o escribir la subida. */
+        val PRIVATE_FILE: FileAttributes = FileAttributes.Builder().withPermissions(0b110_000_000).build()
     }
 }
