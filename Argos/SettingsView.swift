@@ -11,55 +11,34 @@ import Sparkle
 #endif
 import SwiftUI
 
-enum SettingsTab: Hashable {
-    case appearance, terminal, projects, agent, permissions, updates
-}
-
-/// Permite abrir Ajustes en una pestaña concreta desde otra ventana: se fija `tab` y luego
-/// se llama a `openSettings`.
-@MainActor
-@Observable
-final class SettingsNavigation {
-    static let shared = SettingsNavigation()
-    var tab = SettingsTab.appearance
-}
-
 struct SettingsView: View {
-    @Bindable private var navigation = SettingsNavigation.shared
-
     #if !APPSTORE
     let updater: SPUUpdater
     #endif
 
     var body: some View {
-        TabView(selection: $navigation.tab) {
+        TabView {
             AppearanceSettingsView()
                 .tabItem { Label("Apariencia", systemImage: "paintpalette") }
-                .tag(SettingsTab.appearance)
 
             TerminalSettingsView()
                 .tabItem { Label("Terminal", systemImage: "terminal") }
-                .tag(SettingsTab.terminal)
 
             ProjectSettingsView()
                 .tabItem { Label("Proyectos", systemImage: "folder") }
-                .tag(SettingsTab.projects)
 
             AgentSettingsView()
                 .tabItem { Label("Agente", systemImage: "sparkles") }
-                .tag(SettingsTab.agent)
 
             // Un `#if` por pestaña y con UNA sola vista: si un bloque `#if` agrupa
             // varias, el TabView de Ajustes en macOS solo muestra la última.
             #if APPSTORE
             PermissionsSettingsView()
                 .tabItem { Label("Permisos", systemImage: "lock.shield") }
-                .tag(SettingsTab.permissions)
             #endif
 
             updatesTab
                 .tabItem { Label("Actualizaciones", systemImage: "arrow.triangle.2.circlepath") }
-                .tag(SettingsTab.updates)
         }
         .tint(ArgosTheme.controlAccent)
         .frame(width: 540, height: 480)

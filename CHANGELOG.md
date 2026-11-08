@@ -7,8 +7,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [Unreleased]
 
 ### Añadido
-- **Botón «Abrir Permisos» en el error de conexión** de la versión de Mac App Store: si falta
-  conceder la carpeta `~/.ssh`, abre Ajustes directamente en la pestaña Permisos.
+- **Conceder `~/.ssh` desde el error de conexión** en la versión de Mac App Store: un botón
+  abre el panel para dar acceso y reconecta al confirmar, sin pasar por Ajustes.
 
 ## [1.7.15] - 2026-11-08
 

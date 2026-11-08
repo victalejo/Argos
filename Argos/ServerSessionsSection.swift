@@ -30,7 +30,7 @@ struct ServerSessionsSection: View {
     @State private var projectSettings = ProjectSettings.shared
     @State private var syncCenter = ProjectSyncCenter.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.openSettings) private var openSettings
+    @State private var sshGrantError: String?
 
     var body: some View {
         switch vm.state {
@@ -137,15 +137,18 @@ struct ServerSessionsSection: View {
                     .textSelection(.enabled)
                 #if APPSTORE
                 if SSHDirectoryAccess.needsGrant(for: server, hasGrant: SSHDirectoryAccess.hasGrant()) {
-                    Button {
-                        SettingsNavigation.shared.tab = .permissions
-                        openSettings()
-                    } label: {
-                        Label("Abrir Permisos", systemImage: "lock.shield")
+                    Button(action: grantSSHDirectoryAndReconnect) {
+                        Label("Conceder acceso a ~/.ssh…", systemImage: "key")
                     }
                     .font(.caption.weight(.medium))
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                }
+                if let sshGrantError {
+                    Text(sshGrantError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 #endif
                 Button {
@@ -166,6 +169,21 @@ struct ServerSessionsSection: View {
             projectList
         }
     }
+
+    #if APPSTORE
+    /// Pide la carpeta ~/.ssh y, si se concede, reconecta sin más pasos.
+    private func grantSSHDirectoryAndReconnect() {
+        sshGrantError = nil
+        switch SSHDirectoryGrant.request() {
+        case .granted:
+            Task { await vm.load() }
+        case .cancelled:
+            break
+        case .failed(let message):
+            sshGrantError = message
+        }
+    }
+    #endif
 
     // MARK: - Proyectos
 
