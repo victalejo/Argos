@@ -15,39 +15,81 @@ struct ClaudeStatusTests {
 
     // MARK: - Parseo y agregación
 
-    @Test("Parsea list-panes ignorando paneles sin estado y nombres con '|'")
+    @Test("Parsea el sondeo ignorando paneles sin estado y nombres con '|'")
     func parsesPanes() {
         let output = """
-        waiting|1|api
-        |2|api
-        done|1|web|front
-        working|3|api
-        basura|1|x
+        -|waiting|%1|1|api
+        -||%2|2|api
+        -|done|%3|1|web|front
+        -|working|%4|3|api
+        -|basura|%5|1|x
+        -|done||1|sin-pane
         """
         let snapshot = ClaudeActivitySnapshot(listPanesOutput: output)
         #expect(snapshot.activity(forSession: "api") == .waiting)
         #expect(snapshot.activity(forSession: "web|front") == .done)
         #expect(snapshot.activity(forSession: "x") == nil)
+        #expect(snapshot.activity(forSession: "sin-pane") == nil)
         #expect(snapshot.windows(forSession: "api") == [1: .waiting, 3: .working])
     }
 
     @Test("Prioridad por sesión: esperando > terminó > trabajando")
     func priority() {
-        let snapshot = ClaudeActivitySnapshot(listPanesOutput: "working|1|s\ndone|2|s")
+        let snapshot = ClaudeActivitySnapshot(listPanesOutput: "-|working|%1|1|s\n-|done|%2|2|s")
         #expect(snapshot.activity(forSession: "s") == .done)
-        let withWaiting = ClaudeActivitySnapshot(listPanesOutput: "done|1|s\nwaiting|2|s\nworking|3|s")
+        let withWaiting = ClaudeActivitySnapshot(listPanesOutput: "-|done|%1|1|s\n-|waiting|%2|2|s\n-|working|%3|3|s")
         #expect(withWaiting.activity(forSession: "s") == .waiting)
     }
 
     @Test("Solo notifica al ENTRAR en esperando/terminó, no al seguir igual ni al trabajar")
     func transitions() {
-        let old = ClaudeActivitySnapshot(listPanesOutput: "working|1|a\nwaiting|1|b\nworking|1|c")
-        let new = ClaudeActivitySnapshot(listPanesOutput: "done|1|a\nwaiting|1|b\nworking|1|c\nwaiting|1|d")
+        let old = ClaudeActivitySnapshot(listPanesOutput: "-|working|%1|1|a\n-|waiting|%2|1|b\n-|working|%3|1|c")
+        let new = ClaudeActivitySnapshot(listPanesOutput: "-|done|%1|1|a\n-|waiting|%2|1|b\n-|working|%3|1|c\n-|waiting|%4|1|d")
         let changes = new.notableTransitions(since: old)
         #expect(changes == [
-            ClaudeTransition(session: "a", activity: .done),
-            ClaudeTransition(session: "d", activity: .waiting),
+            ClaudeTransition(session: "a", window: 1, activity: .done),
+            ClaudeTransition(session: "d", window: 1, activity: .waiting),
         ])
+    }
+
+    @Test("Una ventana que ya terminó NO oculta el aviso de otra ventana de la sesión")
+    func transitionsPerPane() {
+        // Antes se agregaba por sesión: con la ventana 1 en «terminó», la 2 pasaba de
+        // trabajando a terminó sin que cambiara el agregado y no había aviso.
+        let old = ClaudeActivitySnapshot(listPanesOutput: "-|done|%1|1|s\n2|working|%2|2|s")
+        let new = ClaudeActivitySnapshot(listPanesOutput: "-|done|%1|1|s\n-|done|%2|2|s")
+        #expect(new.notableTransitions(since: old) == [ClaudeTransition(session: "s", window: 2, activity: .done)])
+        let waiting = ClaudeActivitySnapshot(listPanesOutput: "-|done|%1|1|s\n-|waiting|%2|2|s")
+        #expect(waiting.notableTransitions(since: new) == [ClaudeTransition(session: "s", window: 2, activity: .waiting)])
+    }
+
+    @Test("Dos paneles de la misma ventana dan un solo aviso")
+    func onePerWindow() {
+        let new = ClaudeActivitySnapshot(listPanesOutput: "-|done|%1|1|s\n-|done|%2|1|s")
+        #expect(new.notableTransitions(since: .empty) == [ClaudeTransition(session: "s", window: 1, activity: .done)])
+    }
+
+    @Test("Interrumpido con Esc (sin Stop): ya no se queda «trabajando» y no avisa")
+    func interruptedIsQuietDone() {
+        let old = ClaudeActivitySnapshot(listPanesOutput: "2|working|%1|1|s")
+        let new = ClaudeActivitySnapshot(listPanesOutput: "0|working|%1|1|s")
+        #expect(new.activity(forSession: "s") == .done)
+        #expect(new.notableTransitions(since: old).isEmpty)
+        // Y al terminar de verdad el siguiente turno sí avisa.
+        let again = ClaudeActivitySnapshot(listPanesOutput: "2|working|%1|1|s")
+        let finished = ClaudeActivitySnapshot(listPanesOutput: "-|done|%1|1|s")
+        #expect(finished.notableTransitions(since: again) == [ClaudeTransition(session: "s", window: 1, activity: .done)])
+    }
+
+    @Test("Corrección con la pantalla", arguments: [
+        ("working", "2", ClaudeActivity.working), ("working", "1", .working),
+        ("working", "0", .done), ("working", "-", .working),
+        ("waiting", "2", .working), ("waiting", "1", .waiting),
+        ("waiting", "0", .waiting), ("done", "0", .done),
+    ])
+    func screenCorrection(hook: String, screen: String, expected: ClaudeActivity) {
+        let snapshot = ClaudeActivitySnapshot(listPanesOutput: "\(screen)|\(hook)|%1|1|s")
+        #expect(snapshot.activity(forSession: "s") == expected)
     }
 
     // MARK: - Hooks en settings.json
@@ -72,6 +114,28 @@ struct ClaudeStatusTests {
         for event in ["Stop", "PermissionRequest", "Notification", "PostToolUse", "SessionEnd"] {
             #expect(hooks[event] != nil, "falta \(event)")
         }
+    }
+
+    @Test("Cubre interrupciones por error y herramientas fallidas")
+    func coversFailureEvents() throws {
+        let hooks = try #require(ClaudeHookInstaller.installing(into: [:])["hooks"] as? [String: Any])
+        for event in ["PostToolUseFailure", "PermissionDenied", "StopFailure"] {
+            #expect(hooks[event] != nil, "falta \(event)")
+        }
+    }
+
+    @Test("Hooks de una versión anterior: no cuentan como instalados, pero sí como nuestros")
+    func detectsOutdatedHooks() throws {
+        var installed = ClaudeHookInstaller.installing(into: [:])
+        var hooks = try #require(installed["hooks"] as? [String: Any])
+        hooks["StopFailure"] = nil
+        installed["hooks"] = hooks
+        #expect(!ClaudeHookInstaller.isInstalled(in: installed))
+        #expect(ClaudeHookInstaller.hasAnyOurs(in: installed))
+        #expect(ClaudeHookInstaller.isInstalled(in: ClaudeHookInstaller.installing(into: installed)))
+        #expect(!ClaudeHookInstaller.hasAnyOurs(in: try ClaudeHookInstaller.parseSettings("""
+        {"hooks":{"Stop":[{"hooks":[{"type":"command","command":"say listo"}]}]}}
+        """)))
     }
 
     @Test("Instalar dos veces no duplica los hooks (idempotente)")

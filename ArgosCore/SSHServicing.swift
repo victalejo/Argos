@@ -80,6 +80,8 @@ protocol SSHServicing: Sendable {
     func claudeActivity() async throws -> ClaudeActivitySnapshot
     func claudeHooksInstalled() async throws -> Bool
     func installClaudeHooks() async throws
+    /// Actualiza hooks de Argos de una versión anterior (si los hay). `true` si escribió.
+    @discardableResult func upgradeClaudeHooksIfOutdated() async throws -> Bool
 
     // MARK: - Proyectos (carpetas con sesión tmux efímera)
 

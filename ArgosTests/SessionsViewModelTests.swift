@@ -168,14 +168,25 @@ struct SessionsViewModelTests {
         let vm = SessionsViewModel(service: mock)
         await vm.load()
 
-        mock.claudeSnapshot = ClaudeActivitySnapshot(listPanesOutput: "done|1|api")
+        mock.claudeSnapshot = ClaudeActivitySnapshot(listPanesOutput: "-|done|%1|1|api")
         #expect(await vm.refreshClaudeActivity().isEmpty)
         #expect(vm.claudeActivity.activity(forSession: "api") == .done)
 
-        mock.claudeSnapshot = ClaudeActivitySnapshot(listPanesOutput: "working|1|api")
+        mock.claudeSnapshot = ClaudeActivitySnapshot(listPanesOutput: "-|working|%1|1|api")
         #expect(await vm.refreshClaudeActivity().isEmpty)
 
-        mock.claudeSnapshot = ClaudeActivitySnapshot(listPanesOutput: "waiting|1|api")
-        #expect(await vm.refreshClaudeActivity() == [ClaudeTransition(session: "api", activity: .waiting)])
+        mock.claudeSnapshot = ClaudeActivitySnapshot(listPanesOutput: "-|waiting|%1|1|api")
+        #expect(await vm.refreshClaudeActivity() == [ClaudeTransition(session: "api", window: 1, activity: .waiting)])
+    }
+
+    @Test("Claude: el primer sondeo intenta actualizar los hooks antiguos, una sola vez")
+    func claudeHooksUpgradeOnce() async {
+        let mock = MockSSHService()
+        mock.sessions = [session("api")]
+        let vm = SessionsViewModel(service: mock)
+        await vm.load()
+        _ = await vm.refreshClaudeActivity()
+        _ = await vm.refreshClaudeActivity()
+        #expect(mock.claudeHookUpgrades == 1)
     }
 }

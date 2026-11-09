@@ -57,7 +57,7 @@ struct CollapsedGroupsTests {
 
     @Test("El aviso de un grupo colapsado es el estado de Claude más urgente")
     func groupClaudeActivity() {
-        let snapshot = ClaudeActivitySnapshot(listPanesOutput: "working|1|g/a\nwaiting|1|g/b\ndone|1|g/c")
+        let snapshot = ClaudeActivitySnapshot(listPanesOutput: "-|working|%1|1|g/a\n-|waiting|%2|1|g/b\n-|done|%3|1|g/c")
         let sessions = ["g/a", "g/b", "g/c"].map {
             TmuxSession(name: $0, windowCount: 1, isAttached: false, createdAt: Date(timeIntervalSince1970: 0))
         }

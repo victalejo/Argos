@@ -562,7 +562,16 @@ struct SessionsColumn: View {
 
     /// Sondea el estado de Claude Code de todos los servidores cargados (un comando
     /// por servidor cada pocos segundos) y notifica las transiciones relevantes.
+    ///
+    /// Mientras sondea, la app declara una actividad para que App Nap no la duerma con
+    /// la ventana oculta o tapada: si no, los sondeos se espaciaban minutos y los avisos
+    /// llegaban tarde o nunca (se perdían estados breves como «esperando»).
     private func pollClaudeActivity() async {
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: .userInitiatedAllowingIdleSystemSleep,
+            reason: "Avisos de Claude Code en las sesiones remotas"
+        )
+        defer { ProcessInfo.processInfo.endActivity(activity) }
         while !Task.isCancelled {
             for server in servers {
                 guard let vm = vms[server.id] else { continue }
@@ -570,7 +579,10 @@ struct SessionsColumn: View {
                 if vm.claudeActivity != .empty {
                     ClaudeActivityNotifier.shared.requestAuthorizationIfNeeded()
                 }
-                ClaudeActivityNotifier.shared.notify(serverName: server.name, transitions: transitions)
+                let viewing = selection?.serverID == server.id ? selection?.sessionID : nil
+                ClaudeActivityNotifier.shared.notify(
+                    serverName: server.name, transitions: transitions, viewing: viewing
+                )
             }
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
         }

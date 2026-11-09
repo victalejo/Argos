@@ -145,6 +145,7 @@ final class SessionsViewModel {
         else { return [] }
         let isFirstPoll = !hasPolledClaude
         hasPolledClaude = true
+        if isFirstPoll { await upgradeClaudeHooks() }
         guard fresh != claudeActivity else { return [] }
         let transitions = isFirstPoll ? [] : fresh.notableTransitions(since: claudeActivity)
         claudeActivity = fresh
@@ -152,6 +153,18 @@ final class SessionsViewModel {
     }
 
     private var hasPolledClaude = false
+
+    /// Una vez por arranque: si el indicador se activó con hooks de una versión
+    /// anterior, se actualizan (los de ahora cubren más casos). Fallar no es grave.
+    private func upgradeClaudeHooks() async {
+        do {
+            if try await service.upgradeClaudeHooksIfOutdated() {
+                Log.ssh.notice("Hooks de Claude actualizados en el servidor")
+            }
+        } catch {
+            Log.ssh.error("Actualizar hooks de Claude: \(error.userMessage, privacy: .public)")
+        }
+    }
 
     // MARK: - Proyectos (ver SessionsViewModel+Projects.swift)
 

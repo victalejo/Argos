@@ -111,6 +111,8 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func claudeActivity() async throws -> ClaudeActivitySnapshot { claudeSnapshot }
     func claudeHooksInstalled() async throws -> Bool { false }
     func installClaudeHooks() async throws {}
+    var claudeHookUpgrades = 0
+    func upgradeClaudeHooksIfOutdated() async throws -> Bool { claudeHookUpgrades += 1; return false }
 
     var storedProjects: [Project] = []
     var panePaths: [String: String] = [:]

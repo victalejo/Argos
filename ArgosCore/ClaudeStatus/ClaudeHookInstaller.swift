@@ -37,11 +37,20 @@ enum ClaudeHookInstaller {
     private static let entries: [(event: String, matcher: String?, state: ClaudeActivity?)] = [
         ("UserPromptSubmit", nil, .working),
         ("PostToolUse", nil, .working),
+        // Sin estos, una herramienta que falla tras aprobarla (o un permiso denegado en
+        // modo auto) dejaba el panel «esperando» hasta el final del turno.
+        ("PostToolUseFailure", nil, .working),
+        ("PermissionDenied", nil, .working),
+        // También AskUserQuestion / ExitPlanMode, incluso en bypassPermissions.
         ("PermissionRequest", nil, .waiting),
         ("Notification", "permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input", .waiting),
         ("Stop", nil, .done),
+        // Un error de la API corta el turno SIN `Stop`: se quedaba «trabajando».
+        ("StopFailure", nil, .done),
         ("SessionEnd", nil, nil),
     ]
+    // Interrumpir con Esc no dispara ningún hook: lo corrige el sondeo mirando la
+    // pantalla (`ClaudeScreenSignal`).
 
     /// Comando del hook. Sin `$TMUX_PANE` (Claude fuera de tmux) no hace nada.
     static func command(setting state: ClaudeActivity?) -> String {
@@ -72,13 +81,24 @@ enum ClaudeHookInstaller {
 
     // MARK: - Fusión
 
-    /// ¿Están todos los hooks de Argos presentes?
+    /// ¿Están todos los hooks de Argos presentes y en su versión ACTUAL (mismo comando
+    /// y matcher)? Una versión antigua cuenta como no instalada, para actualizarla.
     static func isInstalled(in settings: [String: Any]) -> Bool {
         let hooks = settings["hooks"] as? [String: Any] ?? [:]
         return entries.allSatisfy { entry in
             groups(hooks[entry.event]).contains { group in
-                handlers(group).contains { isOurs($0) }
+                group["matcher"] as? String == entry.matcher
+                    && handlers(group).contains { $0["command"] as? String == command(setting: entry.state) }
             }
+        }
+    }
+
+    /// ¿Hay ALGÚN hook de Argos (de cualquier versión)? Indica que el usuario ya activó
+    /// el indicador, así que se puede actualizar sin volver a preguntar.
+    static func hasAnyOurs(in settings: [String: Any]) -> Bool {
+        let hooks = settings["hooks"] as? [String: Any] ?? [:]
+        return hooks.values.contains { value in
+            groups(value).contains { handlers($0).contains(where: isOurs) }
         }
     }
 

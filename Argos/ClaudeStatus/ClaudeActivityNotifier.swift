@@ -3,35 +3,43 @@
 //  Argos
 //
 //  Notificaciones de macOS cuando Claude Code termina o espera respuesta en una
-//  sesión. Solo con la app en segundo plano: en primer plano basta el indicador de
-//  la barra lateral (evita ruido mientras el usuario ya está mirando).
+//  ventana. Se avisa siempre, salvo de la sesión que el usuario está mirando con la
+//  app delante (ahí basta el indicador). Antes solo se avisaba con la app en segundo
+//  plano: con Argos delante pero en otro proyecto, el aviso se perdía.
 //
 
 import AppKit
 import UserNotifications
 
 @MainActor
-final class ClaudeActivityNotifier {
+final class ClaudeActivityNotifier: NSObject {
     static let shared = ClaudeActivityNotifier()
 
     private var hasRequestedAuthorization = false
 
-    private init() {}
+    private override init() {
+        super.init()
+        // Sin delegado, macOS NO muestra las notificaciones con la app en primer plano.
+        UNUserNotificationCenter.current().delegate = self
+    }
 
-    func notify(serverName: String, transitions: [ClaudeTransition]) {
-        guard !transitions.isEmpty, !NSApp.isActive else { return }
+    /// `viewing`: sesión abierta en pantalla en ese servidor (si la hay).
+    func notify(serverName: String, transitions: [ClaudeTransition], viewing: String?) {
+        let pending = transitions.filter { !(NSApp.isActive && $0.session == viewing) }
+        guard !pending.isEmpty else { return }
         requestAuthorizationIfNeeded()
-        for transition in transitions {
+        for transition in pending {
             let content = UNMutableNotificationContent()
             content.title = transition.activity.label
-            content.subtitle = "\(transition.session) · \(serverName)"
+            content.subtitle = "\(transition.session) · ventana \(transition.window) · \(serverName)"
             content.body = transition.activity == .waiting
                 ? "Necesita permiso o una respuesta para continuar."
                 : "Terminó de responder."
             content.sound = .default
-            // Mismo identificador por sesión: un aviso nuevo reemplaza al anterior.
+            content.threadIdentifier = "claude-\(serverName)-\(transition.session)"
+            // Mismo identificador por ventana: un aviso nuevo reemplaza al anterior.
             let request = UNNotificationRequest(
-                identifier: "claude-\(serverName)-\(transition.session)",
+                identifier: "claude-\(serverName)-\(transition.session)-\(transition.window)",
                 content: content,
                 trigger: nil
             )
@@ -48,10 +56,22 @@ final class ClaudeActivityNotifier {
     func requestAuthorizationIfNeeded() {
         guard !hasRequestedAuthorization else { return }
         hasRequestedAuthorization = true
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, error in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
             if let error {
                 Log.terminal.error("Permiso de notificaciones: \(error.localizedDescription, privacy: .public)")
+            } else if !granted {
+                Log.terminal.notice("Notificaciones de Claude desactivadas por el usuario en Ajustes del Sistema")
             }
         }
+    }
+}
+
+extension ClaudeActivityNotifier: UNUserNotificationCenterDelegate {
+    /// Con la app delante también se muestra (el filtro de la sesión mirada ya se aplicó).
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound, .list]
     }
 }
