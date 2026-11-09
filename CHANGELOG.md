@@ -6,6 +6,17 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.7.22] - 2026-11-09
+
+### Corregido
+- **Mac: indicadores y avisos de Claude Code fiables.** Al interrumpir con Esc ya no se queda
+  «trabajando» para siempre. Una ventana ya terminada o esperando no tapa los avisos de las
+  demás ventanas de la sesión. Si una herramienta falla o hay un error de la API, el estado ya
+  no se queda colgado. Tras aprobar un permiso pasa a «trabajando» mientras corre. App Nap ya
+  no retrasa el sondeo con la ventana oculta, y se avisa también con Argos delante si no estás
+  mirando esa sesión. Los hooks del servidor se actualizan solos.
+- **Terminal: UTF-8 forzado en `tmux attach`**, para que los acentos y símbolos se vean bien.
+
 ## [1.7.21] - 2026-11-08
 
 ### Añadido
