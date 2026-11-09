@@ -66,7 +66,10 @@ extension SSHService {
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws {
         try await runPTY(
-            launchCommand: "tmux attach -t \(ShellQuoting.singleQuoted(name))",
+            // `-u`: fuerza salida UTF-8. Argos no envía LANG/LC_* por el canal SSH (a
+            // diferencia de `ssh` con SendEnv); en servidores que no fijan el locale
+            // (p. ej. macOS) tmux pintaría acentos y símbolos como `_`.
+            launchCommand: "tmux -u attach -t \(ShellQuoting.singleQuoted(name))",
             initialCols: initialCols,
             initialRows: initialRows,
             control: control,
