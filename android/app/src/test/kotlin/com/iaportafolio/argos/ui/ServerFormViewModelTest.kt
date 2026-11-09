@@ -141,6 +141,39 @@ class ServerFormViewModelTest {
     }
 
     @Test
+    fun `pegar la clave como texto la normaliza y la guarda`() = runTest(main.dispatcher) {
+        val vm = viewModel()
+        vm.fillBasics()
+        vm.onAuthMethodChange(AuthMethod.KEY)
+        vm.onKeyPasted("  ${key.replace("\n", " ")}  ")
+        advanceUntilIdle()
+        assertEquals(KeyState.IMPORTED, vm.state.value.keyState)
+        assertEquals(UiText.res(com.iaportafolio.argos.R.string.form_key_imported), vm.state.value.message)
+        assertFalse(vm.state.value.toString().contains("OPENSSH"))
+
+        vm.save()
+        advanceUntilIdle()
+        val saved = repository.servers.value.single()
+        assertEquals("$key\n", secrets.read(saved.id, SecretKind.PRIVATE_KEY))
+        assertTrue(documents.requested.isEmpty())
+    }
+
+    @Test
+    fun `pegar un texto que no es clave se rechaza y pegar vacío no hace nada`() = runTest(main.dispatcher) {
+        val vm = viewModel()
+        vm.onAuthMethodChange(AuthMethod.KEY)
+        vm.onKeyPasted("   ")
+        advanceUntilIdle()
+        assertNull(vm.state.value.message)
+
+        vm.onKeyPasted("ssh-ed25519 AAAA usuario@mac")
+        advanceUntilIdle()
+        assertEquals(KeyState.MISSING, vm.state.value.keyState)
+        assertEquals(UiText.Plain(ImportedKeyValidation.Reason.PASTED_NOT_OPENSSH_KEY.message), vm.state.value.message)
+        assertFalse(vm.state.value.isImportingKey)
+    }
+
+    @Test
     fun `cancelar el selector no hace nada`() = runTest(main.dispatcher) {
         val vm = viewModel()
         vm.onKeyFilePicked(null)

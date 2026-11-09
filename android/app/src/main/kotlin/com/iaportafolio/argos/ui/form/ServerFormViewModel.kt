@@ -154,11 +154,22 @@ class ServerFormViewModel(
 
     /** Resultado del selector de documentos (`null` = cancelado). */
     override fun onKeyFilePicked(uri: String?) {
-        if (uri == null || state.value.isImportingKey) return
+        if (uri == null) return
+        importKey { ImportedKeyValidation.validate(documents.read(uri, ImportedKeyValidation.MAX_BYTES)) }
+    }
+
+    /** Clave pegada como texto (la UI no la guarda en su estado restaurable). */
+    override fun onKeyPasted(text: String) {
+        if (text.isBlank()) return
+        importKey { ImportedKeyValidation.validatePasted(text) }
+    }
+
+    private fun importKey(load: suspend () -> String) {
+        if (state.value.isImportingKey) return
         mutableState.update { it.copy(isImportingKey = true) }
         viewModelScope.launch {
             logFailures(ArgosLog.TAG_SECRETS, "Clave importada rechazada") {
-                withContext(io) { ImportedKeyValidation.validate(documents.read(uri, ImportedKeyValidation.MAX_BYTES)) }
+                withContext(io) { load() }
             }.onSuccess { key ->
                 importedKey = key
                 mutableState.update { state ->

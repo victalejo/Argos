@@ -73,6 +73,7 @@ interface ServerFormActions {
     fun onRequiresPassphraseChange(value: Boolean)
     fun onPassphraseChange(value: String)
     fun onKeyFilePicked(uri: String?)
+    fun onKeyPasted(text: String)
     fun save()
     fun messageShown()
 }
@@ -199,6 +200,17 @@ private fun KeySection(state: ServerFormState, actions: ServerFormActions) {
             ),
         )
     }
+    var pasting by remember { mutableStateOf(false) }
+    OutlinedButton(
+        onClick = { pasting = true },
+        enabled = !state.isImportingKey,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(painterResource(R.drawable.ic_paste), contentDescription = null)
+        Spacer(Modifier.size(8.dp))
+        Text(stringResource(R.string.form_key_paste))
+    }
+    if (pasting) PasteKeyDialog(onUse = actions::onKeyPasted, onDismiss = { pasting = false })
     errors[FormField.KEY]?.let { ErrorText(it) }
 
     Row(

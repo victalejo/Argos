@@ -37,7 +37,13 @@
     <string name="form_method_key">Clave SSH</string>
     <string name="form_password">Contraseña</string>
     <string name="form_password_keep">Contraseña (vacía = sin cambios)</string>
-    <string name="form_key_import">Importar clave privada…</string>
+    <string name="form_key_import">Importar archivo de clave…</string>
+    <string name="form_key_paste">Pegar clave</string>
+    <string name="form_key_paste_title">Pegar clave privada</string>
+    <string name="form_key_paste_hint">Pega el contenido completo de tu clave (p. ej. ~/.ssh/id_ed25519), desde «-----BEGIN» hasta «-----END». En el Mac: pbcopy &lt; ~/.ssh/id_ed25519</string>
+    <string name="form_key_paste_placeholder">-----BEGIN OPENSSH PRIVATE KEY-----</string>
+    <string name="form_key_paste_from_clipboard">Pegar del portapapeles</string>
+    <string name="form_key_paste_use">Usar clave</string>
     <string name="form_key_change">Clave importada · cambiar</string>
     <string name="form_key_stored">Clave guardada · cambiar</string>
     <string name="form_key_importing">Importando clave…</string>
@@ -46,7 +52,7 @@
     <string name="form_passphrase">Passphrase</string>
     <string name="form_passphrase_keep">Passphrase (vacía = sin cambios)</string>
     <string name="form_footer_password">La contraseña se guarda cifrada con el almacén de claves de Android, solo en este dispositivo.</string>
-    <string name="form_footer_key">Elige tu clave Ed25519 en formato OpenSSH. Argos guarda una copia cifrada con el almacén de claves de Android; la passphrase también.</string>
+    <string name="form_footer_key">Importa o pega tu clave Ed25519 en formato OpenSSH. Argos guarda una copia cifrada con el almacén de claves de Android; la passphrase también.</string>
     <string name="form_show_secret">Mostrar</string>
     <string name="form_hide_secret">Ocultar</string>
     <string name="form_not_found">Este servidor ya no existe.</string>
@@ -60,7 +66,7 @@
     <string name="error_username_required">Escribe el usuario.</string>
     <string name="error_username_invalid">Usuario no válido: sin espacios ni «@» y sin empezar por «-».</string>
     <string name="error_password_required">Escribe la contraseña.</string>
-    <string name="error_key_required">Importa una clave privada.</string>
+    <string name="error_key_required">Importa o pega una clave privada.</string>
     <string name="error_passphrase_required">Escribe la passphrase de la clave.</string>
 
     <!-- Sesiones -->
