@@ -557,7 +557,7 @@
     <string name="ports_subtitle">De %1$s a este teléfono (solo localhost)</string>
     <string name="ports_refresh">Volver a buscar puertos</string>
     <string name="ports_forwarded">Reenviados</string>
-    <string name="ports_forwarded_footer">Los túneles siguen abiertos aunque salgas de esta pantalla. Ciérralos con la ×.</string>
+    <string name="ports_forwarded_footer">Los túneles siguen abiertos aunque salgas de esta pantalla, y cualquier app de este teléfono puede usar un puerto reenviado. Ciérralos con la × al terminar.</string>
     <string name="ports_listening">En escucha en %1$s</string>
     <string name="ports_none">No hay servidores de desarrollo escuchando. Arranca uno (p. ej. «npm run dev») o escribe el puerto abajo.</string>
     <string name="ports_show_system">Mostrar puertos del sistema (%1$d)</string>
