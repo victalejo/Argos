@@ -78,7 +78,11 @@ struct SessionsColumn: View {
         .toolbar { toolbarContent }
         .sheet(item: $projectForm) { request in
             if let vm = vms[request.server.id] {
-                ProjectFormSheet(request: request, vm: vm)
+                if case .worktrees(_, let project) = request {
+                    WorktreesSheet(project: project, vm: vm)
+                } else {
+                    ProjectFormSheet(request: request, vm: vm)
+                }
             }
         }
         .sheet(item: $projectSync) { request in

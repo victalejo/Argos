@@ -13,18 +13,21 @@ enum ProjectFormRequest: Identifiable {
     case new(Server)
     case edit(Server, Project)
     case convert(Server, TmuxSession)
+    /// «Ramas en paralelo…» (worktrees) del repositorio del proyecto.
+    case worktrees(Server, Project)
 
     var id: String {
         switch self {
         case .new(let server): return "new-\(server.id)"
         case .edit(_, let project): return "edit-\(project.id)"
         case .convert(let server, let session): return "convert-\(server.id)-\(session.name)"
+        case .worktrees(_, let project): return "worktrees-\(project.id)"
         }
     }
 
     var server: Server {
         switch self {
-        case .new(let server), .edit(let server, _), .convert(let server, _): return server
+        case .new(let server), .edit(let server, _), .convert(let server, _), .worktrees(let server, _): return server
         }
     }
 }
@@ -98,7 +101,7 @@ struct ProjectFormSheet: View {
             let hasGroup = short != session.name
             _name = State(initialValue: hasGroup ? short : session.name)
             _group = State(initialValue: hasGroup ? sessionGroup : "")
-        case .new:
+        case .new, .worktrees:
             projectID = UUID()
             createdAt = Date()
         }
@@ -109,6 +112,7 @@ struct ProjectFormSheet: View {
         case .new: return "Nuevo proyecto"
         case .edit: return "Editar proyecto"
         case .convert: return "Convertir en proyecto"
+        case .worktrees: return "Ramas en paralelo"
         }
     }
 

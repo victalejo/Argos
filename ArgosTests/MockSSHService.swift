@@ -169,6 +169,22 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         return "Already up to date."
     }
 
+    // MARK: - Worktrees
+    var worktreeListing: GitWorktreeParser.ListResult = .notRepository
+    private(set) var addedWorktrees: [GitWorktreeRequest] = []
+    private(set) var removedWorktrees: [(path: String, force: Bool)] = []
+    var addedWorktreePath: String?
+    func gitWorktrees(at path: String) async throws -> GitWorktreeParser.ListResult { worktreeListing }
+    func gitAddWorktree(_ request: GitWorktreeRequest) async throws -> String {
+        if let gitError { throw gitError }
+        addedWorktrees.append(request)
+        return addedWorktreePath ?? request.path
+    }
+    func gitRemoveWorktree(repository: String, path: String, force: Bool) async throws {
+        if let gitError { throw gitError }
+        removedWorktrees.append((path, force))
+    }
+
     // MARK: - GitHub
     var gitHubStatusResult: GitHubStatusResult = .notGitHub
     private(set) var gitHubStatusRequests: [String] = []

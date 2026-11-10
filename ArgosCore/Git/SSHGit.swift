@@ -61,6 +61,29 @@ extension SSHService {
         try await runGit(GitCommands.pull(root: root))
     }
 
+    func gitWorktrees(at path: String) async throws -> GitWorktreeParser.ListResult {
+        let client = try await connectedClient()
+        let result = try await capture(client, command: GitWorktreeCommands.list(path: path))
+        return GitWorktreeParser.parseList(result.stdout)
+    }
+
+    func gitAddWorktree(_ request: GitWorktreeRequest) async throws -> String {
+        let client = try await connectedClient()
+        let result = try await capture(client, command: GitWorktreeCommands.add(request))
+        if let refusal = GitWorktreeParser.addRefusal(result.stdout) { throw GitCommandError(message: refusal) }
+        guard result.exitCode == 0 else {
+            throw GitCommandError.from(stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode)
+        }
+        guard let path = GitWorktreeParser.addedPath(result.stdout) else {
+            throw GitCommandError(message: "git creó el worktree pero no se encontró su carpeta.")
+        }
+        return path
+    }
+
+    func gitRemoveWorktree(repository: String, path: String, force: Bool) async throws {
+        _ = try await runGit(GitWorktreeCommands.remove(repository: repository, path: path, force: force))
+    }
+
     func gitSummaries(paths: [String]) async throws -> [String: GitRepoSummary] {
         guard !paths.isEmpty else { return [:] }
         let client = try await connectedClient()

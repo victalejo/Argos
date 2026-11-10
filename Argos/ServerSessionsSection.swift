@@ -349,6 +349,8 @@ struct ServerSessionsSection: View {
                 Button("Enviar al Mac…") { projectSync = .toMac(server, project) }
             }
             Divider()
+            Button("Ramas en paralelo…") { projectForm = .worktrees(server, project) }
+                .help("Abre otra rama del repositorio en su propia carpeta (git worktree) con su agente")
             Button("Editar proyecto…") { projectForm = .edit(server, project) }
             Button("Quitar proyecto…", role: .destructive) { projectConfirmation = .remove(server, project) }
         }

@@ -112,6 +112,12 @@ protocol SSHServicing: Sendable {
     func gitPull(root: String) async throws -> String
     /// Resumen git de varias carpetas en un solo comando (las que no son repo no aparecen).
     func gitSummaries(paths: [String]) async throws -> [String: GitRepoSummary]
+    /// Worktrees del repositorio de `path` y sus ramas locales («Ramas en paralelo»).
+    func gitWorktrees(at path: String) async throws -> GitWorktreeParser.ListResult
+    /// Crea el worktree (y la rama, si es nueva); devuelve su ruta real.
+    func gitAddWorktree(_ request: GitWorktreeRequest) async throws -> String
+    /// Quita el worktree (`force`: aunque tenga cambios sin commit). La rama se conserva.
+    func gitRemoveWorktree(repository: String, path: String, force: Bool) async throws
 
     // MARK: - GitHub (con el `gh` del servidor)
 
