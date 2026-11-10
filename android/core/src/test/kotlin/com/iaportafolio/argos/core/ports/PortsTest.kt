@@ -2,6 +2,7 @@ package com.iaportafolio.argos.core.ports
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -80,5 +81,63 @@ class PortsTest {
         val forward = ActivePortForward("id", 3000, "localhost", 3001)
         assertEquals("http://localhost:3001", forward.localUrl)
         assertEquals("localhost:3001", forward.localAddress)
+    }
+
+    private fun golden(name: String): String =
+        assertNotNull(javaClass.getResource("/swift-golden/$name.txt"), "falta $name").readText(Charsets.UTF_8)
+
+    @Test
+    fun `archivos del servidor byte a byte los de Swift`() {
+        val forwards = listOf(
+            ActivePortForward("a", 5173, "localhost", 5173),
+            ActivePortForward("b", 3000, "10.0.0.5", 3001),
+        )
+        assertEquals(golden("ports-publish"), PortForwardServerFiles.publishCommand("a1b2-C3/..;x", "Pixel de O'Brien\t8", forwards))
+        assertEquals(golden("ports-unpublish"), PortForwardServerFiles.unpublishCommand("DEV-1"))
+        assertEquals(golden("ports-install"), PortForwardServerFiles.installCommand)
+        assertTrue(PortForwardServerFiles.skillContent.startsWith("---\nname: argos-puertos\n"))
+    }
+
+    @Test
+    fun `id seguro y lineas ordenadas`() {
+        assertEquals("AB-12", PortForwardServerFiles.safeID("AB-12"))
+        assertEquals("etcpasswd", PortForwardServerFiles.safeID("../../etc/passwd"))
+        assertEquals("rm", PortForwardServerFiles.safeID("ñ;rm"))
+        assertEquals("dispositivo", PortForwardServerFiles.safeID(""))
+        val lines = PortForwardServerFiles.forwardLines(
+            listOf(ActivePortForward("x", 5173, "localhost", 5173), ActivePortForward("y", 3000, "local\thost", 3001)),
+        )
+        assertEquals("3000\t3001\tlocal host\n5173\t5173\tlocalhost\n", lines)
+    }
+
+    @Test
+    fun `cierre por inactividad`() {
+        val start = 1_000_000L
+        val limit = 15 * 60_000L
+        assertTrue(PortForwardIdlePolicy.shouldClose(0, start, start + limit, 15))
+        assertFalse(PortForwardIdlePolicy.shouldClose(0, start, start + limit - 1, 15))
+        assertFalse(PortForwardIdlePolicy.shouldClose(1, start, start + 10 * limit, 15))
+        assertFalse(PortForwardIdlePolicy.shouldClose(0, start, start + 100 * limit, 0))
+        val activity = PortForwardActivity(start)
+        activity.connectionOpened(start + 10)
+        activity.connectionOpened(start + 20)
+        activity.connectionClosed(start + 30)
+        assertEquals(1, activity.snapshot().first)
+        activity.connectionClosed(start + 40)
+        activity.connectionClosed(start + 50)
+        assertEquals(0 to start + 50, activity.snapshot())
+    }
+
+    @Test
+    fun `el limite solo admite opciones validas`() {
+        val previous = PortForwardIdlePolicy.limitMinutes
+        try {
+            PortForwardIdlePolicy.limitMinutes = 30
+            assertEquals(30, PortForwardIdlePolicy.limitMinutes)
+            PortForwardIdlePolicy.limitMinutes = 7
+            assertEquals(PortForwardIdlePolicy.DEFAULT_MINUTES, PortForwardIdlePolicy.limitMinutes)
+        } finally {
+            PortForwardIdlePolicy.limitMinutes = previous
+        }
     }
 }

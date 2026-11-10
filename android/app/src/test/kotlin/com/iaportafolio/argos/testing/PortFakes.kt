@@ -3,7 +3,12 @@ package com.iaportafolio.argos.testing
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.ports.ActivePortForward
 import com.iaportafolio.argos.core.ports.ListeningPort
+import com.iaportafolio.argos.core.ports.PortForwardIdlePolicy
 import com.iaportafolio.argos.core.ports.PortForwardOperations
+import com.iaportafolio.argos.data.PortForwardSettingsStore
+
+/** Preferencia del cierre automático en memoria. */
+class InMemoryPortForwardSettings(override var idleMinutes: Int = PortForwardIdlePolicy.DEFAULT_MINUTES) : PortForwardSettingsStore
 
 /** [SSHServicing] de tmux ([FakeSSHService]) + túneles en memoria (port del `MockSSHService`). */
 class FakePortForwardService(base: FakeSSHService = FakeSSHService()) : SSHServicing by base, PortForwardOperations {

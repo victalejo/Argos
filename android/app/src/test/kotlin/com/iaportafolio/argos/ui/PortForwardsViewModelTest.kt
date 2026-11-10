@@ -7,6 +7,7 @@ import com.iaportafolio.argos.core.ports.ListeningPort
 import com.iaportafolio.argos.core.ports.PortForwardException
 import com.iaportafolio.argos.testing.FakePortForwardService
 import com.iaportafolio.argos.testing.FakeSSHService
+import com.iaportafolio.argos.testing.InMemoryPortForwardSettings
 import com.iaportafolio.argos.testing.InMemoryServerRepository
 import com.iaportafolio.argos.testing.MainDispatcherExtension
 import com.iaportafolio.argos.testing.SingleServiceProvider
@@ -33,12 +34,13 @@ class PortForwardsViewModelTest {
     val main = MainDispatcherExtension()
 
     private val ports = FakePortForwardService()
+    private val settings = InMemoryPortForwardSettings()
     private val repository = InMemoryServerRepository(listOf(server()))
     private val web = ListeningPort(3000, "localhost", "node")
     private val dns = ListeningPort(53, "localhost", null)
 
     private fun TestScope.loaded(): PortForwardsViewModel =
-        PortForwardsViewModel("S1", repository, SingleServiceProvider(ports), main.dispatcher).also { runCurrent() }
+        PortForwardsViewModel("S1", repository, SingleServiceProvider(ports), settings, main.dispatcher).also { runCurrent() }
 
     @Test
     fun `carga los puertos y oculta los de sistema`() = runTest(main.dispatcher) {
@@ -112,9 +114,19 @@ class PortForwardsViewModelTest {
 
     @Test
     fun `un servicio sin reenvio muestra el error`() = runTest(main.dispatcher) {
-        val vm = PortForwardsViewModel("S1", repository, SingleServiceProvider(FakeSSHService()), main.dispatcher)
+        val vm = PortForwardsViewModel("S1", repository, SingleServiceProvider(FakeSSHService()), settings, main.dispatcher)
         runCurrent()
         assertTrue(vm.state.value.hasLoaded)
         assertIs<UiText.Plain>(vm.state.value.listError)
+    }
+
+    @Test
+    fun `el limite de cierre automatico se guarda`() = runTest(main.dispatcher) {
+        settings.idleMinutes = 30
+        val vm = loaded()
+        assertEquals(30, vm.state.value.idleMinutes)
+        vm.setIdleMinutes(0)
+        assertEquals(0, settings.idleMinutes)
+        assertEquals(0, vm.state.value.idleMinutes)
     }
 }

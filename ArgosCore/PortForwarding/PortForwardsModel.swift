@@ -26,6 +26,12 @@ final class PortForwardsModel {
     /// Mostrar también puertos de sistema (DNS local, sshd…).
     var showsSystemPorts = false
 
+    /// Minutos sin conexiones tras los que se cierra un túnel (0 = nunca). Preferencia del
+    /// dispositivo; el vigilante del servicio la lee en cada pasada.
+    var idleMinutes: Int = PortForwardIdlePolicy.limitMinutes {
+        didSet { PortForwardIdlePolicy.limitMinutes = idleMinutes }
+    }
+
     static let pollInterval: Duration = .seconds(5)
 
     init(service: any SSHServicing) {

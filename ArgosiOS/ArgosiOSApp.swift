@@ -16,6 +16,8 @@ struct ArgosiOSApp: App {
         // La tarea de refresco en segundo plano debe registrarse antes de terminar de
         // arrancar.
         AgentNotifier.shared.register(hub: hub)
+        // Nombre con el que este dispositivo aparece en `argos-ports` (skill de Claude).
+        PortForwardDevice.name = UIDevice.current.model
     }
 
     var body: some Scene {

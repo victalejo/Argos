@@ -67,7 +67,9 @@ internal fun projectsViewModel(container: AppContainer, serverId: String): Proje
 internal fun portForwardsViewModel(container: AppContainer, serverId: String): PortForwardsViewModel = viewModel(
     key = "ports:$serverId",
     factory = viewModelFactory {
-        initializer { PortForwardsViewModel(serverId, container.servers, container.services, container.io) }
+        initializer {
+            PortForwardsViewModel(serverId, container.servers, container.services, container.portForwardSettings, container.io)
+        }
     },
 )
 

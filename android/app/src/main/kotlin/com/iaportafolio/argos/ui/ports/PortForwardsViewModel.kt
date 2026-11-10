@@ -9,6 +9,8 @@ import com.iaportafolio.argos.core.ports.ListeningPort
 import com.iaportafolio.argos.core.ports.PortForwardOperations
 import com.iaportafolio.argos.core.ports.parsePort
 import com.iaportafolio.argos.data.ArgosLog
+import com.iaportafolio.argos.core.ports.PortForwardIdlePolicy
+import com.iaportafolio.argos.data.PortForwardSettingsStore
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceProvider
 import com.iaportafolio.argos.ui.common.UiText
@@ -43,10 +45,11 @@ class PortForwardsViewModel(
     private val serverId: String,
     private val repository: ServerRepository,
     private val services: ServiceProvider,
+    private val settings: PortForwardSettingsStore,
     private val io: CoroutineDispatcher,
 ) : ViewModel() {
 
-    private val mutableState = MutableStateFlow(PortForwardsUiState())
+    private val mutableState = MutableStateFlow(PortForwardsUiState(idleMinutes = settings.idleMinutes))
     val state: StateFlow<PortForwardsUiState> = mutableState.asStateFlow()
 
     private val openChannel = Channel<String>(Channel.BUFFERED)
@@ -95,6 +98,12 @@ class PortForwardsViewModel(
     fun setManualPort(text: String) = mutableState.update { it.copy(manualPort = text.filter(Char::isDigit).take(5)) }
 
     fun messageShown() = mutableState.update { it.copy(message = null) }
+
+    /** Cierre automático: minutos sin conexiones (0 = nunca). Lo aplica el vigilante del servicio. */
+    fun setIdleMinutes(minutes: Int) {
+        settings.idleMinutes = minutes
+        mutableState.update { it.copy(idleMinutes = settings.idleMinutes) }
+    }
 
     // MARK: - Operaciones
 
@@ -165,6 +174,8 @@ data class PortForwardsUiState(
     /** Mostrar también puertos de sistema (DNS local, sshd…). */
     val showsSystemPorts: Boolean = false,
     val manualPort: String = "",
+    /** Minutos sin conexiones tras los que se cierra un túnel (0 = nunca). */
+    val idleMinutes: Int = PortForwardIdlePolicy.DEFAULT_MINUTES,
     /** Último fallo de una operación; la UI lo muestra y lo borra. */
     val message: UiText? = null,
 ) {

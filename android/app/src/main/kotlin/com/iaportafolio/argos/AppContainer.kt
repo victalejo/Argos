@@ -22,6 +22,7 @@ import com.iaportafolio.argos.data.EncryptedSecretStore
 import com.iaportafolio.argos.data.FileHostKeyTrustStore
 import com.iaportafolio.argos.data.FileServerRepository
 import com.iaportafolio.argos.data.KeystoreSecretCipher
+import com.iaportafolio.argos.data.PortForwardSettingsStore
 import com.iaportafolio.argos.data.ProjectPreferencesStore
 import com.iaportafolio.argos.data.SecretStore
 import com.iaportafolio.argos.data.SecretStoreClaudeTokens
@@ -30,6 +31,7 @@ import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceHub
 import com.iaportafolio.argos.data.ServiceProvider
 import com.iaportafolio.argos.data.SharedPreferencesAgentPermissions
+import com.iaportafolio.argos.data.SharedPreferencesPortForwardSettings
 import com.iaportafolio.argos.data.SharedPreferencesProjectPreferences
 import com.iaportafolio.argos.data.SharedPreferencesTerminalSettings
 import com.iaportafolio.argos.data.TerminalSettingsStore
@@ -72,6 +74,9 @@ class AppContainer(
     val documentWriter: DocumentWriter by lazy { ContentResolverDocumentWriter(appContext.contentResolver) }
 
     val projectPreferences: ProjectPreferencesStore by lazy { SharedPreferencesProjectPreferences(appContext) }
+
+    /** Límite del cierre automático de túneles e identidad del teléfono para la skill de Claude. */
+    val portForwardSettings: PortForwardSettingsStore by lazy { SharedPreferencesPortForwardSettings(appContext) }
 
     val agentNotifier: AgentNotifier by lazy {
         AgentNotifier(

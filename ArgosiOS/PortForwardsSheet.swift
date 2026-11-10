@@ -28,6 +28,7 @@ struct PortForwardsSheet: View {
                 if !model.forwards.isEmpty { forwardedSection }
                 listeningSection
                 manualSection
+                idleSection
             }
             .navigationTitle("Puertos")
             .navigationBarTitleDisplayMode(.inline)
@@ -143,6 +144,18 @@ struct PortForwardsSheet: View {
                 }
                 .disabled(PortForwardsModel.parsePort(manualPort) == nil)
             }
+        }
+    }
+
+    private var idleSection: some View {
+        Section {
+            Picker("Cerrar sin uso tras", selection: $model.idleMinutes) {
+                ForEach(PortForwardIdlePolicy.options, id: \.self) { minutes in
+                    Text(PortForwardIdlePolicy.label(minutes: minutes)).tag(minutes)
+                }
+            }
+        } footer: {
+            Text("Sin uso = ninguna conexión abierta. Claude ve los túneles con la skill «argos-puertos».")
         }
     }
 

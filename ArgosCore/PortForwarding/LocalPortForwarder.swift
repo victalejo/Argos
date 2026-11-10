@@ -66,6 +66,7 @@ enum LocalPortForwarder {
     /// deja que el sistema elija uno libre.
     static func listen(
         connection: ForwardConnection,
+        activity: PortForwardActivity,
         targetHost: String,
         remotePort: Int,
         preferredLocalPort: Int
@@ -82,7 +83,8 @@ enum LocalPortForwarder {
             // Sin auto-lectura hasta que el canal SSH esté listo (no se pierde nada).
             .childChannelOption(ChannelOptions.autoRead, value: false)
             .childChannelInitializer { child in
-                pipe(child: child, connection: connection, targetHost: targetHost, remotePort: remotePort)
+                pipe(child: child, connection: connection, activity: activity,
+                     targetHost: targetHost, remotePort: remotePort)
             }
 
         var lastError: Error?
@@ -103,9 +105,13 @@ enum LocalPortForwarder {
     private static func pipe(
         child: Channel,
         connection: ForwardConnection,
+        activity: PortForwardActivity,
         targetHost: String,
         remotePort: Int
     ) -> EventLoopFuture<Void> {
+        // Cuenta la conexión mientras siga abierta (para el cierre por inactividad).
+        activity.connectionOpened()
+        child.closeFuture.whenComplete { _ in activity.connectionClosed() }
         let (local, remote) = GlueHandler.matchedPair()
         do {
             try child.pipeline.syncOperations.addHandler(local)

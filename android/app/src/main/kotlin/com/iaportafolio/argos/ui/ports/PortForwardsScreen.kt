@@ -3,6 +3,7 @@ package com.iaportafolio.argos.ui.ports
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,6 +59,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.ports.ActivePortForward
 import com.iaportafolio.argos.core.ports.ListeningPort
+import com.iaportafolio.argos.core.ports.PortForwardIdlePolicy
 import com.iaportafolio.argos.data.ArgosLog
 import com.iaportafolio.argos.ui.common.MessageEffect
 import com.iaportafolio.argos.ui.common.asString
@@ -150,6 +154,8 @@ fun PortForwardsScreen(viewModel: PortForwardsViewModel, state: PortForwardsUiSt
             }
             item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
             item { ManualPort(state, viewModel) }
+            item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+            item { IdleLimit(state, viewModel) }
         }
     }
 }
@@ -238,6 +244,33 @@ private fun ManualPort(state: PortForwardsUiState, viewModel: PortForwardsViewMo
         }
         Text(
             stringResource(R.string.ports_manual_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Cierre automático: minutos sin conexiones tras los que se cierra cada túnel. */
+@Composable
+private fun IdleLimit(state: PortForwardsUiState, viewModel: PortForwardsViewModel) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.ports_idle_title), style = MaterialTheme.typography.titleSmall)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PortForwardIdlePolicy.options.forEach { minutes ->
+                FilterChip(
+                    selected = state.idleMinutes == minutes,
+                    onClick = { viewModel.setIdleMinutes(minutes) },
+                    label = {
+                        Text(
+                            if (minutes == 0) stringResource(R.string.ports_idle_never)
+                            else stringResource(R.string.ports_idle_minutes, minutes),
+                        )
+                    },
+                )
+            }
+        }
+        Text(
+            stringResource(R.string.ports_idle_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

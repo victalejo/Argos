@@ -58,6 +58,7 @@ struct PortForwardsPanel: View {
                     if !model.forwards.isEmpty { forwardedSection }
                     listeningSection
                     manualSection
+                    idleSection
                 }
                 .padding(14)
             }
@@ -191,6 +192,23 @@ struct PortForwardsPanel: View {
             .controlSize(.small)
             Text("Sirve aunque el puerto aún no escuche: el túnel conectará cuando lo haga.")
                 .font(.caption2).foregroundStyle(.tertiary)
+        }
+    }
+
+    // MARK: - Cierre automático
+
+    private var idleSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionTitle("Cierre automático")
+            Picker("Cerrar los túneles sin uso tras", selection: $model.idleMinutes) {
+                ForEach(PortForwardIdlePolicy.options, id: \.self) { minutes in
+                    Text(PortForwardIdlePolicy.label(minutes: minutes)).tag(minutes)
+                }
+            }
+            .controlSize(.small)
+            Text("Sin uso = ninguna conexión abierta. Claude ve los túneles con la skill «argos-puertos».")
+                .font(.caption2).foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

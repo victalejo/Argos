@@ -127,6 +127,12 @@ actor SSHService {
     private var dedicatedClients: [UUID: SSHClient] = [:]
     /// Túneles de reenvío de puertos activos (ver `SSHPortForwarding.swift`).
     var portForwards: [UUID: PortForwardRuntime] = [:]
+    /// Vigilante de los túneles: cierra los inactivos y renueva su archivo en el servidor.
+    var portForwardWatcher: Task<Void, Never>?
+    /// La skill/script `argos-ports` ya se comprobó en esta conexión.
+    var portsToolChecked = false
+    /// Última vez que se publicó el estado de los túneles en el servidor.
+    var portForwardsPublishedAt: Date?
 
     /// Intervalo del heartbeat: más corto que los timeouts típicos de NAT/firewall
     /// (~60-120s) para que la conexión idle no se corte sin que la app lo sepa.
@@ -195,6 +201,19 @@ actor SSHService {
         guard let client else { return }
         try? await client.close()
         self.client = nil
+    }
+
+    /// Ejecuta un comando corto best-effort SOLO si la conexión compartida ya está viva (no
+    /// reconecta: p. ej. al desconectar). Devuelve si salió con código 0.
+    @discardableResult
+    func captureIfConnected(_ command: String) async -> Bool {
+        guard let client, client.isConnected else { return false }
+        do {
+            return try await capture(client, command: command).exitCode == 0
+        } catch {
+            Log.ssh.notice("Comando best-effort falló: \(error.userMessage, privacy: .public)")
+            return false
+        }
     }
 
     /// Prueba la conexión con la configuración actual: conecta (verificando host key,

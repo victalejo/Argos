@@ -110,8 +110,18 @@ internal class SshjConnection(
      * cero NO lanza (lo decide la capa superior, p. ej. tmux sin servidor → lista vacía).
      * Se cierra stdin (EOF) para que ningún comando se quede esperando entrada.
      */
-    suspend fun capture(command: String): CommandResult {
-        val ssh = connectedClient()
+    suspend fun capture(command: String): CommandResult = captureOn(connectedClient(), command)
+
+    /**
+     * Como [capture] pero SOLO si la conexión compartida ya está viva (no reconecta: p. ej. al
+     * desconectar). `null` si no había conexión.
+     */
+    suspend fun captureIfConnected(command: String): CommandResult? {
+        val ssh = mutex.withLock { client?.takeIf { it.isConnected && it.isAuthenticated } } ?: return null
+        return captureOn(ssh, command)
+    }
+
+    private suspend fun captureOn(ssh: SSHClient, command: String): CommandResult {
         return withContext(Dispatchers.IO) {
             val session = runInterruptible { ssh.startSession() }
             try {
