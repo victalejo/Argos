@@ -46,6 +46,11 @@ struct ProjectFormSheet: View {
     @State private var customCommand = ""
 
     @State private var isPickingFolder = false
+    /// Origen de un proyecto nuevo: una carpeta que ya existe o un repo de GitHub a clonar.
+    @State private var source: Source = .folder
+    @State private var clone: GitHubCloneModel
+    /// Carpeta ya clonada: si después falla guardar el proyecto, reintentar no vuelve a clonar.
+    @State private var clonedPath: String?
     @State private var isSubmitting = false
     @State private var errorMessage: String?
 
@@ -53,6 +58,11 @@ struct ProjectFormSheet: View {
     private let createdAt: Date
     /// Se conserva al editar (si no, se perdería la marca de "en el Mac").
     private var macCheckout: MacCheckout?
+
+    enum Source: Hashable {
+        case folder
+        case clone
+    }
 
     /// Comando de arranque elegido en el formulario.
     enum CommandMode: Hashable {
@@ -64,6 +74,7 @@ struct ProjectFormSheet: View {
     init(request: ProjectFormRequest, vm: SessionsViewModel) {
         self.request = request
         self.vm = vm
+        _clone = State(initialValue: GitHubCloneModel(service: vm.service))
         switch request {
         case .edit(_, let project):
             projectID = project.id
@@ -124,13 +135,27 @@ struct ProjectFormSheet: View {
                         .font(.caption)
                 }
 
-                Section {
-                    folderField
-                } header: {
-                    Label("Carpeta del servidor", systemImage: "folder")
-                } footer: {
-                    Text("Elige una carpeta o escribe una ruta completa que empiece por /.")
-                        .font(.caption)
+                if case .new = request {
+                    Section {
+                        Picker("Origen", selection: $source) {
+                            Text("Carpeta existente").tag(Source.folder)
+                            Text("Clonar de GitHub").tag(Source.clone)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                }
+
+                if source == .clone {
+                    GitHubCloneFields(clone: clone, serverName: request.server.name) { isPickingFolder = true }
+                } else {
+                    Section {
+                        folderField
+                    } header: {
+                        Label("Carpeta del servidor", systemImage: "folder")
+                    } footer: {
+                        Text("Elige una carpeta o escribe una ruta completa que empiece por /.")
+                            .font(.caption)
+                    }
                 }
 
                 Section {
@@ -141,8 +166,7 @@ struct ProjectFormSheet: View {
             }
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
-            .frame(minHeight: 280, idealHeight: commandMode == .custom ? 415 : 380,
-                   maxHeight: commandMode == .custom ? 415 : 380)
+            .frame(minHeight: 280, idealHeight: formHeight, maxHeight: formHeight)
             .disabled(isSubmitting)
 
             Divider()
@@ -154,7 +178,8 @@ struct ProjectFormSheet: View {
                 HStack(spacing: 10) {
                     if isSubmitting {
                         ProgressView().controlSize(.small)
-                        Text("Guardando proyecto…").font(.callout).foregroundStyle(.secondary)
+                        Text(clone.isCloning ? "Clonando \(clone.repository)…" : "Guardando proyecto…")
+                            .font(.callout).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Button("Cancelar", role: .cancel) { dismiss() }
@@ -174,15 +199,24 @@ struct ProjectFormSheet: View {
         .frame(width: 560)
         .background(Color(nsColor: .windowBackgroundColor))
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: commandMode)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: source)
+        // El nombre sigue a la carpeta clonada mientras el usuario no lo cambie.
+        .onChange(of: clone.folder) { old, new in
+            if name.isEmpty || name == old { name = new }
+        }
         .onAppear { nameFocused = true }
         .task { await prefillFolderIfNeeded() }
         .sheet(isPresented: $isPickingFolder) {
             RemoteDirectoryPicker(
                 service: vm.service,
-                startPath: path.isEmpty ? "~" : path,
+                startPath: source == .clone ? clone.parent : (path.isEmpty ? "~" : path),
                 onPick: { picked in
-                    path = picked
-                    if name.isEmpty { name = (picked as NSString).lastPathComponent }
+                    if source == .clone {
+                        clone.parent = picked
+                    } else {
+                        path = picked
+                        if name.isEmpty { name = (picked as NSString).lastPathComponent }
+                    }
                     isPickingFolder = false
                 },
                 onCancel: { isPickingFolder = false }
@@ -192,7 +226,17 @@ struct ProjectFormSheet: View {
 
     private var submitLabel: String {
         if case .edit = request { return "Guardar" }
-        return "Crear proyecto"
+        return source == .clone ? "Clonar y crear" : "Crear proyecto"
+    }
+
+    private var formHeight: CGFloat {
+        let base: CGFloat = source == .clone ? 520 : 380
+        return base + (commandMode == .custom ? 35 : 0) + (isNew ? 50 : 0)
+    }
+
+    private var isNew: Bool {
+        if case .new = request { return true }
+        return false
     }
 
     // MARK: - Campos
@@ -279,7 +323,7 @@ struct ProjectFormSheet: View {
     private var canSubmit: Bool {
         !isSubmitting
             && !name.trimmingCharacters(in: .whitespaces).isEmpty
-            && path.trimmingCharacters(in: .whitespaces).hasPrefix("/")
+            && (source == .clone ? clone.canClone : path.trimmingCharacters(in: .whitespaces).hasPrefix("/"))
             && (commandMode != .custom || !customCommand.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 
@@ -295,18 +339,24 @@ struct ProjectFormSheet: View {
         guard canSubmit else { return }
         isSubmitting = true
         errorMessage = nil
-        let project = Project(
-            id: projectID,
-            name: name,
-            group: group,
-            path: path,
-            startupCommand: startupCommand,
-            createdAt: createdAt,
-            macCheckout: macCheckout
-        )
         let adopted: String? = if case .convert(_, let session) = request { session.name } else { nil }
         Task {
             do {
+                // Al clonar, la carpeta del proyecto es la que acaba de crear `gh repo clone`.
+                var folder = path
+                if source == .clone {
+                    if clonedPath == nil { clonedPath = try await clone.clone() }
+                    folder = clonedPath ?? path
+                }
+                let project = Project(
+                    id: projectID,
+                    name: name,
+                    group: group,
+                    path: folder,
+                    startupCommand: startupCommand,
+                    createdAt: createdAt,
+                    macCheckout: macCheckout
+                )
                 try await vm.saveProject(project, adoptingSession: adopted)
                 dismiss()
             } catch {

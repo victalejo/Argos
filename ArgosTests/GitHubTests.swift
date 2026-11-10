@@ -351,3 +351,52 @@ struct SessionsViewModelCITests {
         #expect(vm.ciWatcher.watches["/srv/app"] != nil)
     }
 }
+
+@MainActor
+@Suite("GitHubCloneModel")
+struct GitHubCloneModelTests {
+
+    @Test("La carpeta sigue al repositorio hasta que el usuario la cambia")
+    func folderFollowsRepository() {
+        let model = GitHubCloneModel(service: MockSSHService())
+        model.repository = "victalejo/argos.git"
+        #expect(model.folder == "argos")
+        #expect(model.destination == "~/argos")
+        model.folder = "mio"
+        model.repository = "o/otro"
+        #expect(model.folder == "mio")
+        model.choose(GitHubRepository(nameWithOwner: "o/elegido", description: "", isPrivate: false, updatedAt: nil))
+        #expect(model.folder == "elegido")
+    }
+
+    @Test("Valida antes de clonar y clona con la petición normalizada")
+    func clones() async throws {
+        let mock = MockSSHService()
+        let model = GitHubCloneModel(service: mock)
+        model.repository = "-x/y"
+        #expect(!model.canClone)
+        model.repository = " o/app "
+        model.parent = "/srv"
+        #expect(model.canClone)
+        let path = try await model.clone()
+        #expect(path == "/srv/clonado")
+        #expect(mock.cloneRequests == [GitHubCloneRequest(repository: "o/app", parent: "/srv", folder: "app")])
+        #expect(!model.isCloning)
+    }
+
+    @Test("Repositorios más recientes primero; carga una sola vez")
+    func repositories() async {
+        let mock = MockSSHService()
+        let old = GitHubRepository(nameWithOwner: "o/viejo", description: "", isPrivate: false, updatedAt: Date(timeIntervalSince1970: 1))
+        let new = GitHubRepository(nameWithOwner: "o/nuevo", description: "", isPrivate: true, updatedAt: Date(timeIntervalSince1970: 9))
+        mock.gitHubRepositoriesResult = .loaded([old, new])
+        let model = GitHubCloneModel(service: mock)
+        await model.loadRepositories()
+        #expect(model.repositories == .loaded([new, old]))
+        mock.gitHubRepositoriesResult = .notAuthenticated
+        await model.loadRepositories()
+        #expect(model.repositories == .loaded([new, old]))
+        await model.loadRepositories(force: true)
+        #expect(model.repositories == .notAuthenticated)
+    }
+}
