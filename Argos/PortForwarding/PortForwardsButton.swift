@@ -22,6 +22,7 @@ struct PortForwardsButton: View {
                   systemImage: activeCount > 0 ? "network.badge.shield.half.filled" : "network")
         }
         .controlSize(.large)
+        .fixedSize()   // nunca «Pu…»: si no cabe, la cabecera pasa a dos filas
         .help("Reenviar puertos del servidor a este Mac")
         .accessibilityLabel(activeCount > 0 ? "Puertos, \(activeCount) reenviados" : "Puertos")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
@@ -60,7 +61,8 @@ struct PortForwardsPanel: View {
                 }
                 .padding(14)
             }
-            .frame(maxHeight: 420)
+            // Altura fija: un ScrollView en un popover no tiene altura ideal y se encoge.
+            .frame(height: 400)
         }
         .frame(width: 380)
         .task {
@@ -101,7 +103,7 @@ struct PortForwardsPanel: View {
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(forward.localAddress).font(.callout.monospaced().weight(.medium))
-                        Text("→ puerto \(forward.remotePort) del servidor")
+                        Text(verbatim: "→ puerto \(forward.remotePort) del servidor")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -115,7 +117,7 @@ struct PortForwardsPanel: View {
                         Image(systemName: "stop.fill")
                     }
                     .help("Dejar de reenviar")
-                    .accessibilityLabel("Dejar de reenviar el puerto \(forward.remotePort)")
+                    .accessibilityLabel(Text(verbatim: "Dejar de reenviar el puerto \(forward.remotePort)"))
                     .disabled(model.busyPorts.contains(forward.remotePort))
                 }
                 .controlSize(.small)
@@ -153,7 +155,7 @@ struct PortForwardsPanel: View {
 
     private func listeningRow(_ port: ListeningPort) -> some View {
         HStack(spacing: 8) {
-            Text("\(port.port)")
+            Text(verbatim: String(port.port))
                 .font(.callout.monospacedDigit().weight(.medium))
                 .frame(minWidth: 48, alignment: .leading)
             Text(port.processName ?? (port.targetHost == "localhost" ? "" : port.targetHost))

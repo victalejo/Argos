@@ -59,7 +59,7 @@ struct PortForwardsSheet: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(forward.localAddress).font(.body.monospaced())
-                            Text("→ puerto \(forward.remotePort) de \(serverName)")
+                            Text(verbatim: "→ puerto \(forward.remotePort) de \(serverName)")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -116,7 +116,7 @@ struct PortForwardsSheet: View {
             }
         } label: {
             HStack {
-                Text("\(port.port)").font(.body.monospacedDigit().weight(.medium))
+                Text(verbatim: String(port.port)).font(.body.monospacedDigit().weight(.medium))
                 if let name = port.processName {
                     Text(name).font(.caption).foregroundStyle(.secondary)
                 }
