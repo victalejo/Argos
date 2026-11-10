@@ -125,6 +125,8 @@ actor SSHService {
     /// Conexiones dedicadas abiertas para canales de larga duración (terminales, agente).
     /// Se guardan para cerrarlas todas en `disconnect()`.
     private var dedicatedClients: [UUID: SSHClient] = [:]
+    /// Túneles de reenvío de puertos activos (ver `SSHPortForwarding.swift`).
+    var portForwards: [UUID: PortForwardRuntime] = [:]
 
     /// Intervalo del heartbeat: más corto que los timeouts típicos de NAT/firewall
     /// (~60-120s) para que la conexión idle no se corte sin que la app lo sepa.
@@ -181,6 +183,7 @@ actor SSHService {
     /// Cierra la conexión SSH si está abierta.
     func disconnect() async {
         stopHeartbeat()
+        await stopAllPortForwards()
         let dedicated = dedicatedClients.values
         dedicatedClients.removeAll()
         for dedicatedClient in dedicated {
@@ -400,7 +403,8 @@ actor SSHService {
     }
 
     /// Abre y autentica una conexión nueva (TOFU + clave/Keychain), sin compartirla.
-    private func openClient() async throws -> SSHClient {
+    /// `internal`: los túneles de puertos abren la suya (`SSHPortForwarding.swift`).
+    func openClient() async throws -> SSHClient {
         let authentication = try makeAuthenticationMethod()
 
         // Verificación de host key con Trust-On-First-Use (estilo known_hosts).

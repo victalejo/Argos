@@ -22,6 +22,7 @@ struct ProjectScreen: View {
 
     @Environment(ServerHub.self) private var hub
     @State private var mode: DetailMode = .terminal
+    @State private var showPorts = false
 
     private var service: any SSHServicing { hub.viewModel(for: server).service }
 
@@ -44,6 +45,15 @@ struct ProjectScreen: View {
                         .frame(width: 230)
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showPorts = true } label: {
+                        Image(systemName: "network")
+                    }
+                    .accessibilityLabel("Puertos")
+                }
+            }
+            .sheet(isPresented: $showPorts) {
+                PortForwardsSheet(service: service, serverName: server.name)
             }
     }
 

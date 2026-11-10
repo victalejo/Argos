@@ -393,7 +393,20 @@ struct ContentView: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// Selector de modo + botón «Puertos» (reenvío de puertos del servidor).
     private func modeControl(for handle: SessionHandle) -> some View {
+        HStack(spacing: 10) {
+            modePicker(for: handle)
+            if let vm = vms[handle.serverID] {
+                PortForwardsButton(
+                    service: vm.service,
+                    serverName: store.server(withID: handle.serverID)?.name ?? "el servidor"
+                )
+            }
+        }
+    }
+
+    private func modePicker(for handle: SessionHandle) -> some View {
         Picker("Modo de trabajo", selection: detailModeBinding(for: handle)) {
             Label("Terminal", systemImage: "terminal").tag(DetailMode.terminal)
             Label("Archivos", systemImage: "folder").tag(DetailMode.files)

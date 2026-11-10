@@ -189,6 +189,16 @@ protocol SSHServicing: Sendable {
     /// Ejecuta un comando corto del agente persistente (lanzar, enviar, listar,
     /// parar). Devuelve stdout; lanza si el código de salida no es 0.
     func runAgentScript(_ command: String) async throws -> String
+
+    // MARK: - Reenvío de puertos (servidor → dispositivo)
+
+    /// Puertos TCP en escucha en el servidor.
+    func listeningPorts() async throws -> [ListeningPort]
+    /// Abre `localhost:<local>` en el dispositivo hacia `targetHost:remotePort` del servidor.
+    func startPortForward(remotePort: Int, targetHost: String, preferredLocalPort: Int) async throws -> ActivePortForward
+    func stopPortForward(id: UUID) async
+    /// Túneles activos (reabre los que perdieron la conexión).
+    func activePortForwards() async -> [ActivePortForward]
 }
 
 extension SSHService: SSHServicing {}

@@ -339,4 +339,23 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         agentScripts.append(command)
         return try agentScriptOutput(command)
     }
+
+    // MARK: - Reenvío de puertos
+    var listening: [ListeningPort] = []
+    var forwards: [ActivePortForward] = []
+    /// Si no es `nil`, `startPortForward` lanza este error.
+    var forwardError: Error?
+    /// Puertos locales «ocupados»: el mock asigna el siguiente libre.
+    var busyLocalPorts: Set<Int> = []
+    func listeningPorts() async throws -> [ListeningPort] { listening }
+    func startPortForward(remotePort: Int, targetHost: String, preferredLocalPort: Int) async throws -> ActivePortForward {
+        if let forwardError { throw forwardError }
+        var local = preferredLocalPort
+        while busyLocalPorts.contains(local) { local += 1 }
+        let forward = ActivePortForward(id: UUID(), remotePort: remotePort, targetHost: targetHost, localPort: local)
+        forwards.append(forward)
+        return forward
+    }
+    func stopPortForward(id: UUID) async { forwards.removeAll { $0.id == id } }
+    func activePortForwards() async -> [ActivePortForward] { forwards }
 }
