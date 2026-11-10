@@ -169,7 +169,7 @@ struct GitCommandsTests {
         // El script interior lleva la ruta como UN argumento entrecomillado, y el
         // conjunto va entrecomillado otra vez para `sh -c`.
         let discard = GitCommands.discard(root: "/r", change: tricky)
-        let inner = "git -C '/r' restore --source=HEAD --staged --worktree -- \(quoted)"
+        let inner = "git --literal-pathspecs -C '/r' restore --source=HEAD --staged --worktree -- \(quoted)"
         #expect(discard == ShellQuoting.posixShell(inner))
     }
 
@@ -211,6 +211,25 @@ struct GitCommandsTests {
         let command = GitCommands.commitScript(root: "/r", message: "m", changes: [renamed])
         #expect(command.contains("add -A -- 'b2.swift' &&"))
         #expect(command.contains("commit -m 'm' -- 'b.swift' 'b2.swift'"))
+    }
+
+    @Test("Las rutas son literales: un archivo llamado «*» no descarta ni incluye otros")
+    func literalPathspecs() {
+        let star = GitFileChange(path: "*", originalPath: nil, indexCode: "?", worktreeCode: "?")
+        let tracked = GitFileChange(path: ":(glob)**", originalPath: nil, indexCode: " ", worktreeCode: "M")
+        let commands = [
+            GitCommands.discard(root: "/r", change: star),
+            GitCommands.discard(root: "/r", change: tracked),
+            GitCommands.diff(root: "/r", change: star, hasCommits: true),
+            GitCommands.diff(root: "/r", change: tracked, hasCommits: true),
+            GitCommands.diff(root: "/r", change: tracked, hasCommits: false),
+        ]
+        for command in commands {
+            #expect(command.contains("git --literal-pathspecs -C"), "\(command)")
+        }
+        let script = GitCommands.commitScript(root: "/r", message: "m", changes: [star, tracked])
+        let invocations = script.components(separatedBy: "git ").count - 1
+        #expect(script.components(separatedBy: "git --literal-pathspecs -C").count - 1 == invocations)
     }
 
     @Test("El error de git conserva las últimas líneas")

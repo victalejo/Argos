@@ -26,6 +26,14 @@ enum GitCommands {
 
     private static func q(_ value: String) -> String { ShellQuoting.singleQuoted(value) }
 
+    /// `git` sobre `root` con rutas LITERALES: los nombres de archivo vienen del servidor
+    /// (o de un agente) y git interpretaría `*`, `?`, `[…]` o `:(glob)` como patrones,
+    /// así que descartar el archivo `*` haría `clean -f` de TODOS los no seguidos. El
+    /// entrecomillado del shell no lo evita: quien expande es git.
+    static func git(_ root: String) -> String {
+        "git --literal-pathspecs -C \(q(root))"
+    }
+
     private static func pathspec(_ paths: [String]) -> String {
         paths.map(q).joined(separator: " ")
     }
@@ -45,14 +53,14 @@ enum GitCommands {
     /// Diff de un archivo frente a `HEAD` (o, sin commits, índice + árbol de trabajo).
     /// Un archivo sin seguimiento se compara con `/dev/null` (`--no-index` sale con 1).
     static func diff(root: String, change: GitFileChange, hasCommits: Bool) -> String {
-        let git = "git -C \(q(root)) -c core.quotepath=off diff --no-color --no-ext-diff"
+        let gitDiff = "\(git(root)) -c core.quotepath=off diff --no-color --no-ext-diff"
         let body: String
         if change.isUntracked {
-            body = "\(git) --no-index -- /dev/null \(q(change.path))"
+            body = "\(gitDiff) --no-index -- /dev/null \(q(change.path))"
         } else if hasCommits {
-            body = "\(git) -M HEAD -- \(pathspec(change.affectedPaths))"
+            body = "\(gitDiff) -M HEAD -- \(pathspec(change.affectedPaths))"
         } else {
-            body = "\(git) --cached -- \(q(change.path)); \(git) -- \(q(change.path))"
+            body = "\(gitDiff) --cached -- \(q(change.path)); \(gitDiff) -- \(q(change.path))"
         }
         return ShellQuoting.posixShell("{ \(body); } | head -c \(diffByteLimit + 1)")
     }
@@ -62,10 +70,10 @@ enum GitCommands {
     /// lo elimina. Operación destructiva: la UI pide confirmación.
     static func discard(root: String, change: GitFileChange) -> String {
         if change.isUntracked {
-            return ShellQuoting.posixShell("git -C \(q(root)) clean -f -- \(q(change.path))")
+            return ShellQuoting.posixShell("\(git(root)) clean -f -- \(q(change.path))")
         }
         return ShellQuoting.posixShell(
-            "git -C \(q(root)) restore --source=HEAD --staged --worktree -- \(pathspec(change.affectedPaths))"
+            "\(git(root)) restore --source=HEAD --staged --worktree -- \(pathspec(change.affectedPaths))"
         )
     }
 
@@ -83,7 +91,7 @@ enum GitCommands {
     static func commitScript(root: String, message: String, changes: [GitFileChange]) -> String {
         let stage = pathspec(unique(changes.map(\.path)))
         let spec = pathspec(commitPaths(changes))
-        return "git -C \(q(root)) add -A -- \(stage) && git -C \(q(root)) commit -m \(q(message)) -- \(spec)"
+        return "\(git(root)) add -A -- \(stage) && \(git(root)) commit -m \(q(message)) -- \(spec)"
     }
 
     /// Rutas del commit (incluye el origen de los renombrados), sin duplicados.
