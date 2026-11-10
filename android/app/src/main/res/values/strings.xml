@@ -550,4 +550,23 @@
     <string name="licenses_website">Web</string>
     <string name="licenses_view">Ver licencia</string>
     <string name="licenses_close">Cerrar</string>
+
+    <!-- Reenvío de puertos -->
+    <string name="ports_menu">Puertos</string>
+    <string name="ports_title">Puertos</string>
+    <string name="ports_subtitle">De %1$s a este teléfono (solo localhost)</string>
+    <string name="ports_refresh">Volver a buscar puertos</string>
+    <string name="ports_forwarded">Reenviados</string>
+    <string name="ports_forwarded_footer">Los túneles siguen abiertos aunque salgas de esta pantalla. Ciérralos con la ×.</string>
+    <string name="ports_listening">En escucha en %1$s</string>
+    <string name="ports_none">No hay servidores de desarrollo escuchando. Arranca uno (p. ej. «npm run dev») o escribe el puerto abajo.</string>
+    <string name="ports_show_system">Mostrar puertos del sistema (%1$d)</string>
+    <string name="ports_to_remote">→ puerto %1$s del servidor</string>
+    <string name="ports_open">Abrir</string>
+    <string name="ports_forward">Reenviar</string>
+    <string name="ports_forward_open">Reenviar y abrir</string>
+    <string name="ports_stop">Dejar de reenviar el puerto %1$s</string>
+    <string name="ports_manual">Otro puerto (p. ej. 8080)</string>
+    <string name="ports_manual_hint">Sirve aunque el puerto aún no escuche: el túnel conectará cuando lo haga.</string>
+    <string name="ports_invalid">Escribe un puerto entre 1 y 65535.</string>
 </resources>

@@ -32,6 +32,9 @@ import com.iaportafolio.argos.core.tmux.TmuxSession
 import com.iaportafolio.argos.core.tmux.TmuxWindow
 import com.iaportafolio.argos.core.tmux.WindowColor
 import com.iaportafolio.argos.core.tmux.WindowNameValidator
+import com.iaportafolio.argos.core.ports.ActivePortForward
+import com.iaportafolio.argos.core.ports.ListeningPort
+import com.iaportafolio.argos.core.ports.PortForwardOperations
 import kotlinx.coroutines.flow.Flow
 import java.io.OutputStream
 import kotlin.coroutines.cancellation.CancellationException
@@ -64,11 +67,13 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     RemoteFileBrowsing,
     AgentExecStreaming,
     GitOperations by SshjGit(connection),
-    GitHubOperations by SshjGitHub(connection) {
+    GitHubOperations by SshjGitHub(connection),
+    PortForwardOperations {
 
     private val terminal = SshjTerminal(connection)
     private val files = SshjFileBrowser(connection)
     private val agentExec = SshjAgentExec(connection)
+    private val ports = SshjPortForwarding(connection)
 
     // MARK: Canal exec del agente
 
@@ -122,6 +127,7 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     }
 
     override suspend fun disconnect() {
+        ports.stopAll()
         files.close()
         connection.disconnect()
     }
@@ -344,6 +350,17 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
             // Sin conexión, canal caído o error de autenticación: se ignora a propósito.
         }
     }
+
+    // MARK: Reenvío de puertos (servidor → teléfono)
+
+    override suspend fun listeningPorts(): List<ListeningPort> = ports.listeningPorts()
+
+    override suspend fun startPortForward(remotePort: Int, targetHost: String, preferredLocalPort: Int): ActivePortForward =
+        ports.startPortForward(remotePort, targetHost, preferredLocalPort)
+
+    override suspend fun stopPortForward(id: String) = ports.stopPortForward(id)
+
+    override suspend fun activePortForwards(): List<ActivePortForward> = ports.activePortForwards()
 
     private companion object {
         /** Apple muestra los últimos 600 caracteres del stderr del agente. */

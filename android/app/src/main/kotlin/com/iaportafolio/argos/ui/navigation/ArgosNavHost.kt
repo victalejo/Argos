@@ -45,6 +45,7 @@ import com.iaportafolio.argos.ui.form.ServerFormScreen
 import com.iaportafolio.argos.ui.importer.ImportServerScreen
 import com.iaportafolio.argos.ui.project.ProjectScreen
 import com.iaportafolio.argos.ui.project.WIDE_LAYOUT_MIN_WIDTH
+import com.iaportafolio.argos.ui.ports.PortForwardsScreen
 import com.iaportafolio.argos.ui.projects.FolderPickerDialog
 import com.iaportafolio.argos.ui.projects.ProjectsEvent
 import com.iaportafolio.argos.ui.projects.ProjectsScreen
@@ -67,6 +68,9 @@ data class ProjectsRoute(val serverId: String)
 
 @Serializable
 data class ProjectRoute(val serverId: String, val projectId: String)
+
+@Serializable
+data class PortsRoute(val serverId: String)
 
 @Serializable
 data class TerminalRoute(val serverId: String, val sessionName: String)
@@ -130,6 +134,7 @@ fun ArgosNavHost(
                 onOpenProjects = { id -> navController.navigate(ProjectsRoute(id)) },
                 onOpenProject = openProject,
                 onOpenTerminal = openTerminal,
+                onOpenPorts = { id -> navController.navigate(PortsRoute(id)) },
             )
         }
         composable<ServerFormRoute> { entry ->
@@ -171,7 +176,14 @@ fun ArgosNavHost(
                 onBack = { navController.popBackStack() },
                 onOpenProject = { openProject(route.serverId, it) },
                 onOpenTerminal = { openTerminal(route.serverId, it) },
+                onOpenPorts = { navController.navigate(PortsRoute(route.serverId)) },
             )
+        }
+        composable<PortsRoute> { entry ->
+            val route = entry.toRoute<PortsRoute>()
+            val viewModel = portForwardsViewModel(container, route.serverId)
+            val state by viewModel.state.collectAsStateWithLifecycle()
+            PortForwardsScreen(viewModel = viewModel, state = state, onBack = { navController.popBackStack() })
         }
         composable<ProjectRoute> { entry ->
             val route = entry.toRoute<ProjectRoute>()
@@ -249,6 +261,7 @@ private fun ServersDestination(
     onOpenProjects: (String) -> Unit,
     onOpenProject: (serverId: String, projectId: String) -> Unit,
     onOpenTerminal: (serverId: String, sessionName: String) -> Unit,
+    onOpenPorts: (serverId: String) -> Unit,
 ) {
     val viewModel = serversViewModel(container)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -304,6 +317,7 @@ private fun ServersDestination(
                         onBack = null,
                         onOpenProject = { onOpenProject(selected, it) },
                         onOpenTerminal = { onOpenTerminal(selected, it) },
+                        onOpenPorts = { onOpenPorts(selected) },
                     )
                 }
             }
@@ -318,6 +332,7 @@ private fun ProjectsDestination(
     onBack: (() -> Unit)?,
     onOpenProject: (projectId: String) -> Unit,
     onOpenTerminal: (sessionName: String) -> Unit,
+    onOpenPorts: () -> Unit,
 ) {
     val viewModel = projectsViewModel(container, serverId)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -340,6 +355,7 @@ private fun ProjectsDestination(
         actions = viewModel,
         sessionActions = viewModel,
         onBack = onBack,
+        onOpenPorts = onOpenPorts,
         folderPicker = { startPath, onPick, onDismiss ->
             val pickerState by picker.state.collectAsStateWithLifecycle()
             LaunchedEffect(Unit) { picker.start(startPath) }

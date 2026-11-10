@@ -1,5 +1,14 @@
 package com.iaportafolio.argos.ssh.testing
 
+import java.io.File
+import java.nio.file.FileSystem
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.nio.file.Path
+import java.security.PublicKey
+import java.util.AbstractMap
+import java.util.concurrent.TimeUnit
 import org.apache.sshd.common.config.keys.AuthorizedKeyEntry
 import org.apache.sshd.common.config.keys.KeyUtils
 import org.apache.sshd.common.config.keys.PublicKeyEntry
@@ -9,23 +18,15 @@ import org.apache.sshd.common.file.FileSystemFactory
 import org.apache.sshd.common.session.SessionContext
 import org.apache.sshd.core.CoreModuleProperties
 import org.apache.sshd.server.SshServer
-import org.apache.sshd.server.command.CommandFactory
-import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider
-import org.apache.sshd.server.shell.ShellFactory
 import org.apache.sshd.server.channel.ChannelSession
 import org.apache.sshd.server.command.Command
+import org.apache.sshd.server.command.CommandFactory
+import org.apache.sshd.server.forward.AcceptAllForwardingFilter
+import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider
+import org.apache.sshd.server.shell.ShellFactory
 import org.apache.sshd.sftp.server.SftpSubsystem
 import org.apache.sshd.sftp.server.SftpSubsystemConfigurator
 import org.apache.sshd.sftp.server.SftpSubsystemFactory
-import java.io.File
-import java.nio.file.FileSystem
-import java.nio.file.FileSystems
-import java.nio.file.LinkOption
-import java.nio.file.Files
-import java.nio.file.Path
-import java.security.PublicKey
-import java.util.AbstractMap
-import java.util.concurrent.TimeUnit
 
 /**
  * Servidor SSH embebido (Apache MINA SSHD) para los tests de integración y el `devServer`.
@@ -164,6 +165,7 @@ class EmbeddedSshServer private constructor(
          * @param hostKeyFile clave de host persistente (se genera la primera vez).
          * @param authorizedKeys líneas OpenSSH (`ssh-ed25519 AAAA… comentario`) aceptadas.
          * @param loginShell shell con el que `sshd` ejecuta los comandos (p. ej. `/bin/zsh`).
+         * @param allowTcpForwarding acepta canales `direct-tcpip` (reenvío de puertos, `ssh -L`).
          */
         fun start(
             workDir: Path,
@@ -174,6 +176,7 @@ class EmbeddedSshServer private constructor(
             port: Int = 0,
             hostKeyFile: Path = workDir.resolve("host_key"),
             loginShell: String = "/bin/sh",
+            allowTcpForwarding: Boolean = false,
         ): EmbeddedSshServer {
             val home = Files.createDirectories(workDir.resolve("home"))
             val tmuxDir = tmuxDirectory(workDir)
@@ -195,6 +198,7 @@ class EmbeddedSshServer private constructor(
                 shellFactory = ShellFactory { LocalShellCommand(null, environment, home, loginShell) }
                 fileSystemFactory = HomeFileSystemFactory(home)
                 subsystemFactories = listOf(HomeSftpSubsystemFactory(home))
+                if (allowTcpForwarding) forwardingFilter = AcceptAllForwardingFilter.INSTANCE
             }
             CoreModuleProperties.MAX_CONCURRENT_CHANNELS.set(sshd, MAX_CHANNELS_PER_CONNECTION)
             sshd.start()

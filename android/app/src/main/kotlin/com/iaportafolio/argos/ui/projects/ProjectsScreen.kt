@@ -91,6 +91,7 @@ fun ProjectsScreen(
     actions: ProjectsActions,
     sessionActions: SessionDialogActions,
     onBack: (() -> Unit)?,
+    onOpenPorts: () -> Unit,
     folderPicker: @Composable (startPath: String, onPick: (String) -> Unit, onDismiss: () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -99,7 +100,7 @@ fun ProjectsScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = { ProjectsTopBar(state, actions, onBack) },
+        topBar = { ProjectsTopBar(state, actions, onBack, onOpenPorts) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) { ProjectsContent(state, actions) }
@@ -111,7 +112,7 @@ fun ProjectsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProjectsTopBar(state: ProjectsUiState, actions: ProjectsActions, onBack: (() -> Unit)?) {
+private fun ProjectsTopBar(state: ProjectsUiState, actions: ProjectsActions, onBack: (() -> Unit)?, onOpenPorts: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     val ready = state.load == SessionsLoad.Loaded && !state.isBusy
     TopAppBar(
@@ -145,6 +146,11 @@ private fun ProjectsTopBar(state: ProjectsUiState, actions: ProjectsActions, onB
                         leadingIcon = { Icon(painterResource(R.drawable.ic_folder), contentDescription = null) },
                         enabled = state.listing.looseSessions.isNotEmpty(),
                         onClick = { menuOpen = false; actions.openImport() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.ports_menu)) },
+                        leadingIcon = { Icon(painterResource(R.drawable.ic_server), contentDescription = null) },
+                        onClick = { menuOpen = false; onOpenPorts() },
                     )
                 }
             }

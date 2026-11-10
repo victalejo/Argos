@@ -1,0 +1,5 @@
+sh -c 'if command -v ss >/dev/null 2>&1; then
+  ss -Htlnp 2>/dev/null || ss -tln
+else
+  netstat -tln 2>/dev/null
+fi'

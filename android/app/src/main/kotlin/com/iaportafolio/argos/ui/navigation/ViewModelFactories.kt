@@ -14,6 +14,7 @@ import com.iaportafolio.argos.ui.git.GitChangesViewModel
 import com.iaportafolio.argos.ui.git.GitHubViewModel
 import com.iaportafolio.argos.ui.importer.ImportServerViewModel
 import com.iaportafolio.argos.ui.project.ProjectViewModel
+import com.iaportafolio.argos.ui.ports.PortForwardsViewModel
 import com.iaportafolio.argos.ui.projects.FolderPickerViewModel
 import com.iaportafolio.argos.ui.projects.ProjectsViewModel
 import com.iaportafolio.argos.ui.servers.ServersViewModel
@@ -57,6 +58,15 @@ internal fun projectsViewModel(container: AppContainer, serverId: String): Proje
         initializer {
             ProjectsViewModel(serverId, container.servers, container.services, container.hostKeys, container.projectPreferences, container.io)
         }
+    },
+)
+
+/** Pantalla «Puertos» de un servidor (los túneles viven en el servicio, no aquí). */
+@Composable
+internal fun portForwardsViewModel(container: AppContainer, serverId: String): PortForwardsViewModel = viewModel(
+    key = "ports:$serverId",
+    factory = viewModelFactory {
+        initializer { PortForwardsViewModel(serverId, container.servers, container.services, container.io) }
     },
 )
 
