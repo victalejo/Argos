@@ -14,6 +14,7 @@ import com.iaportafolio.argos.core.agent.RemoteDirectoryListing
 import com.iaportafolio.argos.core.files.RemoteFileBrowsing
 import com.iaportafolio.argos.core.files.RemoteFileContent
 import com.iaportafolio.argos.core.files.RemoteFileEntry
+import com.iaportafolio.argos.core.git.GitOperations
 import com.iaportafolio.argos.core.keys.AuthorizedKeysCommands
 import com.iaportafolio.argos.core.keys.RemoteHomeFileCommands
 import com.iaportafolio.argos.core.projects.Project
@@ -51,12 +52,16 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * Y es [AgentExecStreaming] (resto de `Agent/SSHAgentExec.swift`): canal exec sin PTY para lanzar
  * el agente y seguir su log, cada uno en una conexión dedicada ([SshjAgentExec]).
+ *
+ * Y es [GitOperations] (port de `Git/SSHGit.swift`): el panel «Cambios» con comandos git cortos
+ * por el canal de comandos ([SshjGit]).
  */
 class SshjSSHService internal constructor(private val connection: SshjConnection) :
     SSHServicing,
     TerminalStreaming,
     RemoteFileBrowsing,
-    AgentExecStreaming {
+    AgentExecStreaming,
+    GitOperations by SshjGit(connection) {
 
     private val terminal = SshjTerminal(connection)
     private val files = SshjFileBrowser(connection)

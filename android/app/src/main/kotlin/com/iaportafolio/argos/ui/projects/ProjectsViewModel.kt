@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
+import com.iaportafolio.argos.core.git.GitOperations
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectConfirmation
 import com.iaportafolio.argos.core.projects.ProjectEntry
@@ -152,8 +153,24 @@ class ProjectsViewModel(
     private suspend fun reloadProjects(server: Server) {
         logFailures(ArgosLog.TAG_STORE, "No se pudo leer projects.json de ${server.endpoint}") {
             withContext(io) { services.service(server).loadProjects() }
-        }.onSuccess { projects -> mutableState.update { it.copy(projects = projects, projectsError = null) } }
-            .onFailure { error -> mutableState.update { it.copy(projectsError = error.userMessage) } }
+        }.onSuccess { projects ->
+            mutableState.update { it.copy(projects = projects, projectsError = null) }
+            reloadGitSummaries(server, projects)
+        }.onFailure { error -> mutableState.update { it.copy(projectsError = error.userMessage) } }
+    }
+
+    /**
+     * Resumen git de todos los proyectos en UN comando (port de `refreshGitSummaries` de Apple).
+     * Se relee al cargar, al volver a la pantalla y con pull-to-refresh. Es informativo: un fallo
+     * conserva lo último y no se avisa.
+     */
+    private suspend fun reloadGitSummaries(server: Server, projects: List<Project>) {
+        val paths = projects.map { it.path }.distinct()
+        if (paths.isEmpty()) return mutableState.update { it.copy(gitSummaries = emptyMap()) }
+        logFailures(ArgosLog.TAG_SSH, "No se pudo leer el resumen git de ${server.endpoint}") {
+            val git = services.service(server) as? GitOperations ?: return
+            withContext(io) { git.gitSummaries(paths) }
+        }.onSuccess { summaries -> mutableState.update { it.copy(gitSummaries = summaries) } }
     }
 
     private fun currentServer(): Server? = repository.server(serverId)

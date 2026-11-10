@@ -1,0 +1,1 @@
+sh -c 'git --literal-pathspecs -C '\''/home/u/mi repo'\''\'\'''\''s'\'' restore --source=HEAD --staged --worktree -- '\''viejo*.txt'\'' '\''nuevo.txt'\'''

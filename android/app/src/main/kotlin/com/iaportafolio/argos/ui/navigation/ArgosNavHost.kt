@@ -39,6 +39,7 @@ import com.iaportafolio.argos.ui.agents.AgentLoginScreen
 import com.iaportafolio.argos.ui.agents.RequestAgentNotificationPermission
 import com.iaportafolio.argos.ui.common.StatusMessage
 import com.iaportafolio.argos.ui.files.FilesScreen
+import com.iaportafolio.argos.ui.git.GitChangesScreen
 import com.iaportafolio.argos.ui.form.ServerFormScreen
 import com.iaportafolio.argos.ui.importer.ImportServerScreen
 import com.iaportafolio.argos.ui.project.ProjectScreen
@@ -382,6 +383,9 @@ private fun ProjectDestination(
         },
         files = { project, twoPane ->
             FilesScreen(viewModel = filesViewModel(container, serverId, project.path), twoPane = twoPane, onExit = onBack)
+        },
+        changes = { project, twoPane ->
+            GitChangesScreen(viewModel = gitChangesViewModel(container, serverId, project.path), twoPane = twoPane, onExit = onBack)
         },
         agents = { project, twoPane ->
             AgentsDestination(container, serverId, project, twoPane, onBack, onOpenAgent, onOpenLogin)

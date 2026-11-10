@@ -66,6 +66,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.core.git.GitRepoSummary
+import com.iaportafolio.argos.ui.git.GitSummaryBadge
 import com.iaportafolio.argos.core.projects.ProjectEntry
 import com.iaportafolio.argos.core.projects.ProjectStatusFilter
 import com.iaportafolio.argos.core.tmux.TmuxSession
@@ -237,7 +239,7 @@ private fun LazyListScope.projectSection(section: ProjectSection, state: Project
     }
     if (!section.isCollapsed) {
         items(section.entries, key = { "project:${it.id}" }) { entry ->
-            ProjectRow(entry, isBusy = state.busyProjectId == entry.id, actions = actions)
+            ProjectRow(entry, isBusy = state.busyProjectId == entry.id, git = state.gitSummaries[entry.project.path], actions = actions)
         }
     }
 }
@@ -318,7 +320,7 @@ private fun CollapsibleHeader(section: ProjectSection, onToggle: () -> Unit) {
 private val RUNNING_GREEN = Color(0xFF30B94D)
 
 @Composable
-private fun ProjectRow(entry: ProjectEntry, isBusy: Boolean, actions: ProjectsActions) {
+private fun ProjectRow(entry: ProjectEntry, isBusy: Boolean, git: GitRepoSummary?, actions: ProjectsActions) {
     var menuOpen by remember { mutableStateOf(false) }
     val project = entry.project
     val session = entry.session
@@ -344,6 +346,7 @@ private fun ProjectRow(entry: ProjectEntry, isBusy: Boolean, actions: ProjectsAc
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                GitSummaryBadge(git, Modifier.padding(end = 8.dp))
                 when {
                     isBusy -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     entry.isRunning -> Box(

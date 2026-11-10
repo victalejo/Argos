@@ -1,0 +1,2 @@
+sh -c 'git --literal-pathspecs -C '\''/home/u/mi repo'\''\'\'''\''s'\'' add -A -- '\''src/a b.swift'\'' '\''nuevo.txt'\'' '\''*'\'' && git --literal-pathspecs -C '\''/home/u/mi repo'\''\'\'''\''s'\'' commit -m '\''feat: «hola» '\''\'\'''\''x'\''\'\'''\'' $HOME
+segunda'\'' -- '\''src/a b.swift'\'' '\''viejo*.txt'\'' '\''nuevo.txt'\'' '\''*'\'''

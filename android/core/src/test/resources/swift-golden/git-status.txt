@@ -1,0 +1,4 @@
+sh -c 'command -v git >/dev/null 2>&1 || { echo ARGOS_NO_GIT; exit 0; }
+top=$(git -C '\''~/p/$(x)'\'' rev-parse --show-toplevel 2>/dev/null) || exit 0
+printf '\''%s%s\n'\'' '\''ARGOS_GIT_ROOT:'\'' "$top"
+GIT_OPTIONAL_LOCKS=0 git -C "$top" status --porcelain=v1 -z -b --untracked-files=all | head -c 2000000'

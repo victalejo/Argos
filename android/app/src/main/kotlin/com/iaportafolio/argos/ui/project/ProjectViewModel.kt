@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Pestañas del detalle de un proyecto (como el selector de `ProjectScreen` de iOS). */
-enum class ProjectTab { TERMINAL, FILES, AGENTS }
+enum class ProjectTab { TERMINAL, FILES, CHANGES, AGENTS }
 
 sealed interface ProjectLoad {
     data object Loading : ProjectLoad
@@ -134,6 +134,7 @@ class ProjectViewModel(
         fun titleOf(tab: ProjectTab): Int = when (tab) {
             ProjectTab.TERMINAL -> R.string.project_tab_terminal
             ProjectTab.FILES -> R.string.project_tab_files
+            ProjectTab.CHANGES -> R.string.project_tab_changes
             ProjectTab.AGENTS -> R.string.project_tab_agents
         }
     }

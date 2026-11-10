@@ -1,0 +1,1 @@
+sh -c 'GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes}" git -C '\''/home/u/mi repo'\''\'\'''\''s'\'' push 2>&1'

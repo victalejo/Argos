@@ -49,7 +49,7 @@ import com.iaportafolio.argos.ui.common.asString
 val WIDE_LAYOUT_MIN_WIDTH = 840.dp
 
 /**
- * Detalle de un proyecto (equivale a `ProjectScreen` de iOS): Terminal · Archivos · Agentes.
+ * Detalle de un proyecto (equivale a `ProjectScreen` de iOS): Terminal · Archivos · Cambios · Agentes.
  * En móvil, barra de pestañas inferior (el teclado la tapa al escribir en el terminal); en
  * pantallas anchas, carril lateral. Cada pestaña trae su propia barra superior con «atrás».
  */
@@ -60,6 +60,7 @@ fun ProjectScreen(
     onBack: () -> Unit,
     terminal: @Composable (project: Project) -> Unit,
     files: @Composable (project: Project, twoPane: Boolean) -> Unit,
+    changes: @Composable (project: Project, twoPane: Boolean) -> Unit,
     agents: @Composable (project: Project, twoPane: Boolean) -> Unit,
 ) {
     val snackbar = remember { SnackbarHostState() }
@@ -80,6 +81,7 @@ fun ProjectScreen(
                             StoppedProject(project, state.isStarting, viewModel::start, onBack)
                         }
                         ProjectTab.FILES -> files(project, wide)
+                        ProjectTab.CHANGES -> changes(project, wide)
                         ProjectTab.AGENTS -> agents(project, wide)
                     }
                 }
@@ -133,6 +135,7 @@ fun ProjectScreen(
 private fun tabIcon(tab: ProjectTab): Painter = when (tab) {
     ProjectTab.TERMINAL -> painterResource(R.drawable.ic_terminal)
     ProjectTab.FILES -> painterResource(R.drawable.ic_folder)
+    ProjectTab.CHANGES -> painterResource(R.drawable.ic_commit)
     ProjectTab.AGENTS -> painterResource(R.drawable.ic_sparkles)
 }
 

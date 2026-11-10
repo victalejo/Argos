@@ -10,6 +10,7 @@ import com.iaportafolio.argos.ui.agents.AgentListViewModel
 import com.iaportafolio.argos.ui.agents.AgentLoginViewModel
 import com.iaportafolio.argos.ui.files.RemoteFilesViewModel
 import com.iaportafolio.argos.ui.form.ServerFormViewModel
+import com.iaportafolio.argos.ui.git.GitChangesViewModel
 import com.iaportafolio.argos.ui.importer.ImportServerViewModel
 import com.iaportafolio.argos.ui.project.ProjectViewModel
 import com.iaportafolio.argos.ui.projects.FolderPickerViewModel
@@ -84,6 +85,15 @@ internal fun filesViewModel(container: AppContainer, serverId: String, root: Str
         initializer {
             RemoteFilesViewModel(serverId, root, container.servers, container.services, container.documentWriter, container.io)
         }
+    },
+)
+
+/** Uno por carpeta del proyecto, como el explorador. */
+@Composable
+internal fun gitChangesViewModel(container: AppContainer, serverId: String, root: String): GitChangesViewModel = viewModel(
+    key = "git:$serverId:$root",
+    factory = viewModelFactory {
+        initializer { GitChangesViewModel(serverId, root, container.servers, container.services, container.io) }
     },
 )
 

@@ -1,6 +1,7 @@
 package com.iaportafolio.argos.ui.projects
 
 import com.iaportafolio.argos.core.SessionConnectionState
+import com.iaportafolio.argos.core.git.GitRepoSummary
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectConfirmation
 import com.iaportafolio.argos.core.projects.ProjectEntry
@@ -58,6 +59,8 @@ data class ProjectsUiState(
     val projects: List<Project> = emptyList(),
     /** `projects.json` no se pudo leer: la lista de sesiones sigue visible y se avisa aparte. */
     val projectsError: String? = null,
+    /** Resumen git por carpeta de proyecto (insignia ✎/↑/↓); las que no son repo no aparecen. */
+    val gitSummaries: Map<String, GitRepoSummary> = emptyMap(),
     val preferences: ProjectPreferences = ProjectPreferences(),
     val isRefreshing: Boolean = false,
     /** Proyecto que se está arrancando (spinner en su fila). */

@@ -1,0 +1,1 @@
+sh -c '{ git --literal-pathspecs -C '\''/home/u/mi repo'\''\'\'''\''s'\'' -c core.quotepath=off diff --no-color --no-ext-diff --no-index -- /dev/null '\''*'\''; } | head -c 512001'

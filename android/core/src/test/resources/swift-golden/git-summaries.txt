@@ -1,0 +1,10 @@
+sh -c 'command -v git >/dev/null 2>&1 || exit 0
+t='\'''\''; command -v timeout >/dev/null 2>&1 && t='\''timeout 5'\''
+i=0
+for p in '\''/a'\'' '\''~/b c'\'' '\''/d'\''\'\'''\''e'\''; do
+  out=$(GIT_OPTIONAL_LOCKS=0 $t git -C "$p" status --porcelain=v1 -b --untracked-files=normal 2>/dev/null)     || { printf '\''%s %s -\n'\'' ARGOS_GSUM "$i"; i=$((i+1)); continue; }
+  n=$(printf '\''%s\n'\'' "$out" | sed 1d | grep -c .)
+  h=$(printf '\''%s\n'\'' "$out" | sed -n 1p)
+  printf '\''%s %s %s %s\n'\'' ARGOS_GSUM "$i" "$n" "$h"
+  i=$((i+1))
+done'
