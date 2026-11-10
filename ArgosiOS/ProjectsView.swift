@@ -215,6 +215,7 @@ struct ProjectsView: View {
     private func pollGitSummaries() async {
         while !Task.isCancelled {
             await viewModel.refreshGitSummaries()
+            AgentNotifier.shared.postCI(await viewModel.pollCIWatches(), server: currentServer)
             try? await Task.sleep(for: .seconds(5))
         }
     }

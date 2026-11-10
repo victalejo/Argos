@@ -507,11 +507,11 @@ struct ContentView: View {
             }
         case .changes:
             if let project {
-                GitChangesPanelView(path: project.path, service: vm.service)
+                GitChangesPanelView(path: project.path, viewModel: vm)
                     .id(handle)
             } else {
                 LooseSessionRootView(sessionName: handle.sessionID, service: vm.service) { root in
-                    GitChangesPanelView(path: root, service: vm.service)
+                    GitChangesPanelView(path: root, viewModel: vm)
                 }
                 .id(handle)
             }

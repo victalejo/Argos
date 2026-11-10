@@ -53,7 +53,7 @@ struct ProjectScreen: View {
         case (.files, let path?):
             RemoteFilesView(service: service, root: path, path: path)
         case (.changes, let path?):
-            GitChangesView(service: service, path: path)
+            GitChangesView(viewModel: hub.viewModel(for: server), path: path)
         case (.agent, let path?):
             AgentsView(server: server, workingDirectory: path, title: target.title)
         default:

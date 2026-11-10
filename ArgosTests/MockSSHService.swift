@@ -169,6 +169,39 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         return "Already up to date."
     }
 
+    // MARK: - GitHub
+    var gitHubStatusResult: GitHubStatusResult = .notGitHub
+    private(set) var gitHubStatusRequests: [String] = []
+    var gitHubCreatedURL: URL? = URL(string: "https://github.com/o/r/pull/7")
+    private(set) var createdPullRequests: [(root: String, draft: Bool)] = []
+    private(set) var rerunRequests: [Int] = []
+    var gitHubRepositoriesResult: GitHubParser.RepositoriesResult = .loaded([])
+    private(set) var cloneRequests: [GitHubCloneRequest] = []
+    var clonedPath = "/srv/clonado"
+    func gitHubStatus(root: String) async throws -> GitHubStatusResult {
+        gitHubStatusRequests.append(root)
+        if let gitError { throw gitError }
+        return gitHubStatusResult
+    }
+    func gitHubCreatePullRequest(root: String, draft: Bool) async throws -> URL? {
+        if let gitError { throw gitError }
+        createdPullRequests.append((root, draft))
+        return gitHubCreatedURL
+    }
+    func gitHubRerunFailed(root: String, runID: Int) async throws {
+        if let gitError { throw gitError }
+        rerunRequests.append(runID)
+    }
+    func gitHubRepositories() async throws -> GitHubParser.RepositoriesResult {
+        if let gitError { throw gitError }
+        return gitHubRepositoriesResult
+    }
+    func gitHubClone(_ request: GitHubCloneRequest) async throws -> String {
+        if let gitError { throw gitError }
+        cloneRequests.append(request)
+        return clonedPath
+    }
+
     var remoteTree: [String: [RemoteFileEntry]] = [:]
     var remoteFiles: [String: Data] = [:]
     func listRemoteDirectory(_ path: String, root: String) async throws -> [RemoteFileEntry] {

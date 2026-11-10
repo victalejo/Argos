@@ -587,6 +587,7 @@ struct SessionsColumn: View {
                     serverName: server.name, transitions: transitions, viewing: viewing,
                     gitSummary: { vm.gitSummary(forSession: $0) }
                 )
+                ClaudeActivityNotifier.shared.notifyCI(await vm.pollCIWatches(), serverName: server.name)
             }
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
         }

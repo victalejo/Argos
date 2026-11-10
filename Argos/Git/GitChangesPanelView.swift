@@ -11,9 +11,14 @@ import SwiftUI
 
 struct GitChangesPanelView: View {
     @State private var model: GitChangesModel
+    private let viewModel: SessionsViewModel
 
-    init(path: String, service: any SSHServicing) {
-        _model = State(initialValue: GitChangesModel(path: path, service: service))
+    /// `viewModel`: el del servidor, para vigilar el CI de lo que se sube y avisar al terminar.
+    init(path: String, viewModel: SessionsViewModel) {
+        self.viewModel = viewModel
+        _model = State(initialValue: GitChangesModel(path: path, service: viewModel.service) { [weak viewModel] root in
+            viewModel?.watchCI(root: root)
+        })
     }
 
     var body: some View {
@@ -56,7 +61,7 @@ struct GitChangesPanelView: View {
             }
         case .loaded(let status):
             HSplitView {
-                GitChangesSidebar(model: model, status: status)
+                GitChangesSidebar(model: model, status: status, viewModel: viewModel)
                     .frame(minWidth: 240, idealWidth: 300, maxWidth: 460)
                 GitDiffPane(model: model)
                     .frame(minWidth: 280, maxWidth: .infinity, maxHeight: .infinity)
@@ -75,10 +80,17 @@ struct GitChangesPanelView: View {
 private struct GitChangesSidebar: View {
     let model: GitChangesModel
     let status: GitRepositoryStatus
+    let viewModel: SessionsViewModel
 
     var body: some View {
         VStack(spacing: 0) {
             GitBranchHeader(model: model, status: status)
+            GitHubStatusHost(root: status.root, branch: status.branch, service: viewModel.service) { [weak viewModel] root, sha in
+                viewModel?.watchCI(root: root, sha: sha)
+            }
+            .id(status.root)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
             Divider()
             if status.isClean {
                 ContentUnavailableView("Sin cambios", systemImage: "checkmark.circle",

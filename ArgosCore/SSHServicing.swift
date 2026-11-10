@@ -113,6 +113,19 @@ protocol SSHServicing: Sendable {
     /// Resumen git de varias carpetas en un solo comando (las que no son repo no aparecen).
     func gitSummaries(paths: [String]) async throws -> [String: GitRepoSummary]
 
+    // MARK: - GitHub (con el `gh` del servidor)
+
+    /// PR de la rama actual y ejecuciones de Actions de HEAD.
+    func gitHubStatus(root: String) async throws -> GitHubStatusResult
+    /// Abre un PR de la rama actual (`--fill`); devuelve su URL.
+    func gitHubCreatePullRequest(root: String, draft: Bool) async throws -> URL?
+    /// Relanza los jobs fallidos de una ejecución de Actions.
+    func gitHubRerunFailed(root: String, runID: Int) async throws
+    /// Repositorios del usuario de `gh` (para clonar uno como proyecto).
+    func gitHubRepositories() async throws -> GitHubParser.RepositoriesResult
+    /// Clona y devuelve la ruta absoluta de la carpeta creada.
+    func gitHubClone(_ request: GitHubCloneRequest) async throws -> String
+
     // MARK: - Enviar al Mac / al servidor
 
     func syncFileList(root: String) async throws -> [SyncFile]

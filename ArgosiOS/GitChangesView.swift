@@ -11,9 +11,14 @@ import SwiftUI
 
 struct GitChangesView: View {
     @State private var model: GitChangesModel
+    private let viewModel: SessionsViewModel
 
-    init(service: any SSHServicing, path: String) {
-        _model = State(initialValue: GitChangesModel(path: path, service: service))
+    /// `viewModel`: el del servidor, para vigilar el CI de lo que se sube y avisar al terminar.
+    init(viewModel: SessionsViewModel, path: String) {
+        self.viewModel = viewModel
+        _model = State(initialValue: GitChangesModel(path: path, service: viewModel.service) { [weak viewModel] root in
+            viewModel?.watchCI(root: root)
+        })
     }
 
     var body: some View {
@@ -56,7 +61,7 @@ struct GitChangesView: View {
                 Button("Reintentar") { Task { await model.refresh() } }
             }
         case .loaded(let status):
-            GitChangesList(model: model, status: status)
+            GitChangesList(model: model, status: status, viewModel: viewModel)
         }
     }
 
@@ -84,11 +89,18 @@ struct GitChangesView: View {
 private struct GitChangesList: View {
     @Bindable var model: GitChangesModel
     let status: GitRepositoryStatus
+    let viewModel: SessionsViewModel
     @State private var pendingDiscard: GitFileChange?
 
     var body: some View {
         List {
             branchSection
+            Section("GitHub") {
+                GitHubStatusHost(root: status.root, branch: status.branch, service: viewModel.service) { [weak viewModel] root, sha in
+                    viewModel?.watchCI(root: root, sha: sha)
+                }
+                .id(status.root)
+            }
             if status.isClean {
                 Section {
                     Label("Sin cambios desde el último commit", systemImage: "checkmark.circle")

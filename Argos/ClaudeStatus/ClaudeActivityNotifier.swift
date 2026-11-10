@@ -58,6 +58,30 @@ final class ClaudeActivityNotifier: NSObject {
         }
     }
 
+    /// «El CI de app pasó/falló» de los commits vigilados (`SessionsViewModel+CI`).
+    func notifyCI(_ results: [CIResult], serverName: String) {
+        guard !results.isEmpty else { return }
+        requestAuthorizationIfNeeded()
+        for result in results {
+            let content = UNMutableNotificationContent()
+            content.title = result.title
+            content.subtitle = serverName
+            content.body = result.body
+            content.sound = .default
+            content.threadIdentifier = "ci-\(serverName)-\(result.watch.root)"
+            let request = UNNotificationRequest(
+                identifier: "ci-\(serverName)-\(result.watch.root)-\(result.watch.sha ?? "")",
+                content: content,
+                trigger: nil
+            )
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error {
+                    Log.terminal.error("Notificación de CI: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+    }
+
     /// Pide permiso de notificaciones (una vez). Se llama al detectar actividad de
     /// Claude por primera vez, ANTES de necesitar notificar (la petición es asíncrona).
     func requestAuthorizationIfNeeded() {

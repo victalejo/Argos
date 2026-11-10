@@ -29,6 +29,7 @@ final class AgentNotifier {
 
     func register(hub: ServerHub) {
         self.hub = hub
+        UNUserNotificationCenter.current().delegate = ForegroundNotificationPresenter.shared
         BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.taskIdentifier, using: .main) { task in
             guard let refresh = task as? BGAppRefreshTask else { return }
             MainActor.assumeIsolated { AgentNotifier.shared.handle(refresh) }
@@ -100,6 +101,24 @@ final class AgentNotifier {
         defaults.set(seen, forKey: Self.seenKey)
     }
 
+    /// «El CI de app pasó/falló» de los commits vigilados (con la app delante; en segundo
+    /// plano iOS no deja sondear GitHub con la frecuencia necesaria).
+    func postCI(_ results: [CIResult], server: Server) {
+        guard !results.isEmpty else { return }
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        for result in results {
+            let content = UNMutableNotificationContent()
+            content.title = result.title
+            content.subtitle = server.name
+            content.body = result.body
+            content.sound = .default
+            content.threadIdentifier = "ci-\(result.watch.root)"
+            let id = "ci-\(server.id.uuidString)-\(result.watch.root)-\(result.watch.sha ?? "")"
+            center.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
+        }
+    }
+
     private func post(_ notice: AgentAttentionPlanner.Notice, server: Server) {
         let content = UNMutableNotificationContent()
         content.title = notice.title
@@ -114,5 +133,19 @@ final class AgentNotifier {
 
     private func seenBytes() -> [String: [String: Int]] {
         defaults.dictionary(forKey: Self.seenKey) as? [String: [String: Int]] ?? [:]
+    }
+}
+
+/// Sin delegado, iOS no enseña las notificaciones con la app delante. Solo se muestran
+/// así las de CI (que solo se generan en primer plano); las de los agentes se quedan como
+/// estaban (se avisa en segundo plano y delante ya se ve el chat).
+final class ForegroundNotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = ForegroundNotificationPresenter()
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        notification.request.identifier.hasPrefix("ci-") ? [.banner, .sound, .list] : []
     }
 }

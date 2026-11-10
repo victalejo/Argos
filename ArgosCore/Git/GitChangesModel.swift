@@ -36,6 +36,8 @@ enum GitOperation: Equatable {
 final class GitChangesModel {
     let path: String
     private let service: any SSHServicing
+    /// Tras un push correcto (raíz del repo): para vigilar su CI y avisar al terminar.
+    private let onPushed: (@MainActor (String) -> Void)?
 
     private(set) var state: GitPanelState = .loading
     private(set) var selectedPath: String?
@@ -56,9 +58,10 @@ final class GitChangesModel {
     /// estar editando archivos a la vez.
     static let pollInterval: Duration = .seconds(5)
 
-    init(path: String, service: any SSHServicing) {
+    init(path: String, service: any SSHServicing, onPushed: (@MainActor (String) -> Void)? = nil) {
         self.path = path
         self.service = service
+        self.onPushed = onPushed
     }
 
     // MARK: - Derivados
@@ -213,10 +216,11 @@ final class GitChangesModel {
 
     func push() async {
         guard canPush, let status else { return }
-        await perform(.push) {
+        let pushed = await perform(.push) {
             _ = try await self.service.gitPush(root: status.root, hasUpstream: status.branch.upstream != nil)
             return "Cambios subidos a \(status.branch.upstream ?? "origin")."
         }
+        if pushed { onPushed?(status.root) }
     }
 
     func pull() async {

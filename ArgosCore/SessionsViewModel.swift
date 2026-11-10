@@ -179,6 +179,8 @@ final class SessionsViewModel {
     var gitSummaries: [String: GitRepoSummary] = [:]
     /// Última lectura de `gitSummaries` (para espaciarlas).
     var lastGitSummaryRefresh: Date?
+    /// Commits cuyo CI se espera para avisar al terminar (`SessionsViewModel+CI`).
+    var ciWatcher = CIWatcher()
 
     /// Re-lista las sesiones sin repetir el bootstrap.
     func refresh() async {
