@@ -579,9 +579,13 @@ struct SessionsColumn: View {
                 if vm.claudeActivity != .empty {
                     ClaudeActivityNotifier.shared.requestAuthorizationIfNeeded()
                 }
+                // Si Claude acaba de terminar, el resumen git se relee ya: el aviso dice
+                // cuántos archivos cambió y la fila del proyecto se actualiza al momento.
+                await vm.refreshGitSummaries(force: transitions.contains { $0.activity == .done })
                 let viewing = selection?.serverID == server.id ? selection?.sessionID : nil
                 ClaudeActivityNotifier.shared.notify(
-                    serverName: server.name, transitions: transitions, viewing: viewing
+                    serverName: server.name, transitions: transitions, viewing: viewing,
+                    gitSummary: { vm.gitSummary(forSession: $0) }
                 )
             }
             do { try await Task.sleep(for: .seconds(3)) } catch { return }

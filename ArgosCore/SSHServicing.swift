@@ -99,6 +99,20 @@ protocol SSHServicing: Sendable {
     /// Copia un archivo del proyecto (entero) a `localURL` en el Mac.
     func downloadRemoteFile(_ path: String, root: String, to localURL: URL) async throws
 
+    // MARK: - Cambios (git)
+
+    /// Estado git de la carpeta (`.notRepository` si no está en un repositorio).
+    func gitStatus(at path: String) async throws -> GitStatusResult
+    func gitDiff(root: String, change: GitFileChange, hasCommits: Bool) async throws -> GitFileDiff
+    /// Deja el archivo como en `HEAD` (o lo borra si no tenía seguimiento).
+    func gitDiscard(root: String, change: GitFileChange) async throws
+    /// Commit solo de `changes`. Devuelve el resumen de git (`[main abc123] mensaje`).
+    func gitCommit(root: String, message: String, changes: [GitFileChange]) async throws -> String
+    func gitPush(root: String, hasUpstream: Bool) async throws -> String
+    func gitPull(root: String) async throws -> String
+    /// Resumen git de varias carpetas en un solo comando (las que no son repo no aparecen).
+    func gitSummaries(paths: [String]) async throws -> [String: GitRepoSummary]
+
     // MARK: - Enviar al Mac / al servidor
 
     func syncFileList(root: String) async throws -> [SyncFile]

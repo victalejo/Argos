@@ -173,6 +173,13 @@ final class SessionsViewModel {
     /// Error al leer/guardar proyectos (no impide listar sesiones).
     var projectsError: String?
 
+    // MARK: - Resumen git (ver Git/SessionsViewModel+Git.swift)
+
+    /// Resumen git por carpeta de proyecto.
+    var gitSummaries: [String: GitRepoSummary] = [:]
+    /// Última lectura de `gitSummaries` (para espaciarlas).
+    var lastGitSummaryRefresh: Date?
+
     /// Re-lista las sesiones sin repetir el bootstrap.
     func refresh() async {
         state = .loading

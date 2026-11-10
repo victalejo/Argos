@@ -13,6 +13,8 @@ struct ProjectRow: View {
     /// Estado de conexión del terminal si el proyecto corre; `nil` = detenido.
     let connection: SessionConnectionState?
     var claude: ClaudeActivity?
+    /// Resumen git de la carpeta (`nil` si no es repo o aún no se leyó).
+    var git: GitRepoSummary?
     /// Envío al Mac / al servidor en curso o recién terminado (abre su hoja al pulsar).
     var sync: ProjectSyncJob?
     var onOpenSync: () -> Void = {}
@@ -53,6 +55,9 @@ struct ProjectRow: View {
                     .foregroundStyle(.blue)
                     .help("En el Mac «\(checkout.macName)» desde \(checkout.date.formatted(.relative(presentation: .named)))")
             }
+            if let git {
+                GitSummaryBadge(summary: git)
+            }
             if let claude {
                 ClaudeActivityBadge(activity: claude)
             }
@@ -90,7 +95,8 @@ struct ProjectRow: View {
     private var accessibilityText: String {
         let state = connection?.label ?? "Detenido"
         let claudeText = claude.map { ", \($0.label)" } ?? ""
-        return "Proyecto \(entry.project.name), \(state)\(claudeText), carpeta \(entry.project.path)"
+        let gitText = git.map { ", git: \($0.label)" } ?? ""
+        return "Proyecto \(entry.project.name), \(state)\(claudeText)\(gitText), carpeta \(entry.project.path)"
     }
 
     /// Últimos dos componentes de la ruta ("…/Desarrollo/coro") para que quepa.

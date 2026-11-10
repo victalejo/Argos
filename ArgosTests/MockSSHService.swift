@@ -127,6 +127,48 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         startedProjects.append((sessionName, path, startupCommand))
         sessions.append(TmuxSession(name: sessionName, windowCount: 1, isAttached: false, createdAt: Date()))
     }
+    // MARK: - Git
+    var gitStatusResult: GitStatusResult = .notRepository
+    var gitDiffResult: GitFileDiff = .empty
+    /// Si no es `nil`, las operaciones git que escriben lanzan este error.
+    var gitError: Error?
+    private(set) var discardedChanges: [GitFileChange] = []
+    private(set) var commits: [(message: String, paths: [String])] = []
+    private(set) var pushes: [Bool] = []
+    private(set) var pulls = 0
+    private(set) var diffRequests: [GitFileChange] = []
+    func gitStatus(at path: String) async throws -> GitStatusResult { gitStatusResult }
+    func gitDiff(root: String, change: GitFileChange, hasCommits: Bool) async throws -> GitFileDiff {
+        diffRequests.append(change)
+        return gitDiffResult
+    }
+    func gitDiscard(root: String, change: GitFileChange) async throws {
+        if let gitError { throw gitError }
+        discardedChanges.append(change)
+    }
+    func gitCommit(root: String, message: String, changes: [GitFileChange]) async throws -> String {
+        if let gitError { throw gitError }
+        commits.append((message, GitCommands.commitPaths(changes)))
+        return "[main abc1234] \(message)"
+    }
+    func gitPush(root: String, hasUpstream: Bool) async throws -> String {
+        if let gitError { throw gitError }
+        pushes.append(hasUpstream)
+        return "ok"
+    }
+    var gitSummariesResult: [String: GitRepoSummary] = [:]
+    private(set) var gitSummaryRequests: [[String]] = []
+    func gitSummaries(paths: [String]) async throws -> [String: GitRepoSummary] {
+        if let gitError { throw gitError }
+        gitSummaryRequests.append(paths)
+        return gitSummariesResult.filter { paths.contains($0.key) }
+    }
+    func gitPull(root: String) async throws -> String {
+        if let gitError { throw gitError }
+        pulls += 1
+        return "Already up to date."
+    }
+
     var remoteTree: [String: [RemoteFileEntry]] = [:]
     var remoteFiles: [String: Data] = [:]
     func listRemoteDirectory(_ path: String, root: String) async throws -> [RemoteFileEntry] {

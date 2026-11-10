@@ -312,6 +312,7 @@ struct ServerSessionsSection: View {
             entry: entry,
             connection: connection,
             claude: vm.claudeActivity.activity(forSession: project.sessionName),
+            git: vm.gitSummary(for: project),
             sync: syncCenter.job(forProject: project.id),
             onOpenSync: { reopenSync(for: project) }
         )

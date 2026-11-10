@@ -24,7 +24,14 @@ final class ClaudeActivityNotifier: NSObject {
     }
 
     /// `viewing`: sesión abierta en pantalla en ese servidor (si la hay).
-    func notify(serverName: String, transitions: [ClaudeTransition], viewing: String?) {
+    /// - Parameter gitSummary: resumen git del proyecto de una sesión, para que el aviso
+    ///   de «terminó» diga cuántos archivos hay cambiados.
+    func notify(
+        serverName: String,
+        transitions: [ClaudeTransition],
+        viewing: String?,
+        gitSummary: (String) -> GitRepoSummary? = { _ in nil }
+    ) {
         let pending = transitions.filter { !(NSApp.isActive && $0.session == viewing) }
         guard !pending.isEmpty else { return }
         requestAuthorizationIfNeeded()
@@ -34,7 +41,7 @@ final class ClaudeActivityNotifier: NSObject {
             content.subtitle = "\(transition.session) · ventana \(transition.window) · \(serverName)"
             content.body = transition.activity == .waiting
                 ? "Necesita permiso o una respuesta para continuar."
-                : "Terminó de responder."
+                : ClaudeDoneMessage.body(changedFiles: gitSummary(transition.session)?.changedCount)
             content.sound = .default
             content.threadIdentifier = "claude-\(serverName)-\(transition.session)"
             // Mismo identificador por ventana: un aviso nuevo reemplaza al anterior.

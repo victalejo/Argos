@@ -35,11 +35,13 @@ struct ProjectScreen: View {
                                 .accessibilityLabel("Terminal")
                             Image(systemName: "folder").tag(DetailMode.files)
                                 .accessibilityLabel("Archivos")
+                            Image(systemName: "arrow.triangle.branch").tag(DetailMode.changes)
+                                .accessibilityLabel("Cambios")
                             Image(systemName: "sparkles").tag(DetailMode.agent)
                                 .accessibilityLabel("Agentes")
                         }
                         .pickerStyle(.segmented)
-                        .frame(width: 180)
+                        .frame(width: 230)
                     }
                 }
             }
@@ -50,6 +52,8 @@ struct ProjectScreen: View {
         switch (mode, target.path) {
         case (.files, let path?):
             RemoteFilesView(service: service, root: path, path: path)
+        case (.changes, let path?):
+            GitChangesView(service: service, path: path)
         case (.agent, let path?):
             AgentsView(server: server, workingDirectory: path, title: target.title)
         default:

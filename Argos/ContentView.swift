@@ -397,6 +397,7 @@ struct ContentView: View {
         Picker("Modo de trabajo", selection: detailModeBinding(for: handle)) {
             Label("Terminal", systemImage: "terminal").tag(DetailMode.terminal)
             Label("Archivos", systemImage: "folder").tag(DetailMode.files)
+            Label("Cambios", systemImage: "arrow.triangle.branch").tag(DetailMode.changes)
             Label("Agente", systemImage: "sparkles").tag(DetailMode.agent)
         }
         .pickerStyle(.segmented)
@@ -503,6 +504,16 @@ struct ContentView: View {
             } else {
                 LooseSessionFilesView(sessionName: handle.sessionID, service: vm.service)
                     .id(handle)
+            }
+        case .changes:
+            if let project {
+                GitChangesPanelView(path: project.path, service: vm.service)
+                    .id(handle)
+            } else {
+                LooseSessionRootView(sessionName: handle.sessionID, service: vm.service) { root in
+                    GitChangesPanelView(path: root, service: vm.service)
+                }
+                .id(handle)
             }
         case .agent:
             AgentPanelView(

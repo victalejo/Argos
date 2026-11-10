@@ -19,5 +19,7 @@ struct SessionHandle: Hashable, Sendable {
 enum DetailMode: Hashable, Sendable {
     case terminal
     case files
+    /// Cambios de git (status, diff, commit, push).
+    case changes
     case agent
 }

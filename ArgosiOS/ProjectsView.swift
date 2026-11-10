@@ -61,7 +61,11 @@ struct ProjectsView: View {
                 }
             }
             .task { if !needsKey, case .idle = viewModel.state { await viewModel.load() } }
-            .refreshable { await viewModel.load() }
+            .refreshable {
+                await viewModel.load()
+                await viewModel.refreshGitSummaries(force: true)
+            }
+            .task { await pollGitSummaries() }
             .onChange(of: scenePhase) { _, phase in
                 // Al volver de segundo plano la lista puede estar desfasada (y la conexión
                 // SSH, muerta): se recarga, lo que también reconecta.
@@ -205,6 +209,16 @@ struct ProjectsView: View {
         }
     }
 
+    /// Resumen git de los proyectos (insignia ✎/↑/↓) mientras la lista está visible.
+    /// El modelo espacia las lecturas (`gitSummaryInterval`); este bucle solo comprueba
+    /// a menudo para que la primera llegue en cuanto termina la carga.
+    private func pollGitSummaries() async {
+        while !Task.isCancelled {
+            await viewModel.refreshGitSummaries()
+            try? await Task.sleep(for: .seconds(5))
+        }
+    }
+
     private func projectRow(_ entry: ProjectEntry) -> some View {
         Button {
             open(entry)
@@ -222,6 +236,9 @@ struct ProjectsView: View {
                         .truncationMode(.middle)
                 }
                 Spacer()
+                if let git = viewModel.gitSummary(for: entry.project) {
+                    GitSummaryBadge(summary: git)
+                }
                 if busyProject == entry.id {
                     ProgressView()
                 } else if entry.isRunning {
