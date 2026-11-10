@@ -381,6 +381,11 @@ private fun ProjectMenu(entry: ProjectEntry, expanded: Boolean, onDismiss: () ->
             onClick = { onDismiss(); actions.openProject(entry) },
         )
         DropdownMenuItem(
+            text = { Text(stringResource(R.string.worktrees_menu)) },
+            leadingIcon = { Icon(painterResource(R.drawable.ic_commit), contentDescription = null) },
+            onClick = { onDismiss(); actions.openWorktrees(project) },
+        )
+        DropdownMenuItem(
             text = { Text(stringResource(R.string.action_edit)) },
             leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
             onClick = { onDismiss(); actions.openEditProject(project) },

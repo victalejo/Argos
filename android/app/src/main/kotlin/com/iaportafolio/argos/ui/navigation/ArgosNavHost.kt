@@ -41,6 +41,7 @@ import com.iaportafolio.argos.ui.common.StatusMessage
 import com.iaportafolio.argos.ui.files.FilesScreen
 import com.iaportafolio.argos.ui.git.GitChangesScreen
 import com.iaportafolio.argos.ui.git.GitHubSection
+import com.iaportafolio.argos.ui.projects.WorktreesDialog
 import com.iaportafolio.argos.ui.form.ServerFormScreen
 import com.iaportafolio.argos.ui.importer.ImportServerScreen
 import com.iaportafolio.argos.ui.project.ProjectScreen
@@ -336,11 +337,19 @@ private fun ProjectsDestination(
 ) {
     val viewModel = projectsViewModel(container, serverId)
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var worktreesFor by rememberSaveable { mutableStateOf<String?>(null) }
+    worktreesFor?.let { projectId ->
+        WorktreesDialog(worktreesViewModel(container, serverId, projectId)) {
+            worktreesFor = null
+            viewModel.refresh()
+        }
+    }
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
                 is ProjectsEvent.OpenProject -> onOpenProject(event.projectId)
                 is ProjectsEvent.OpenSession -> onOpenTerminal(event.sessionName)
+                is ProjectsEvent.OpenWorktrees -> worktreesFor = event.projectId
             }
         }
     }

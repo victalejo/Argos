@@ -1,0 +1,6 @@
+sh -c 'git -C '\''/home/u/mi repo'\''\'\'''\''s'\'' check-ref-format --branch '\''feat/login'\'' >/dev/null 2>&1 || { echo ARGOS_WT:badbranch; exit 3; }
+d='\''/home/u/mi repo'\''\'\'''\''s-worktrees/feat-login'\''
+[ -e "$d" ] && { echo ARGOS_WT:exists; exit 3; }
+mkdir -p "$(dirname "$d")" || exit $?
+git -C '\''/home/u/mi repo'\''\'\'''\''s'\'' worktree add -b '\''feat/login'\'' "$d" '\''main'\'' 2>&1 || exit $?
+cd "$d" && printf '\''%spath %s\n'\'' ARGOS_WT: "$(pwd -P)"'

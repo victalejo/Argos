@@ -1,0 +1,6 @@
+sh -c 'git -C '\''/srv/app'\'' check-ref-format --branch '\''fix/x'\'' >/dev/null 2>&1 || { echo ARGOS_WT:badbranch; exit 3; }
+d='\''/srv/app-worktrees/fix-x'\''
+[ -e "$d" ] && { echo ARGOS_WT:exists; exit 3; }
+mkdir -p "$(dirname "$d")" || exit $?
+git -C '\''/srv/app'\'' worktree add "$d" '\''fix/x'\'' 2>&1 || exit $?
+cd "$d" && printf '\''%spath %s\n'\'' ARGOS_WT: "$(pwd -P)"'

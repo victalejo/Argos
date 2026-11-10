@@ -41,6 +41,9 @@ sealed interface ProjectsEvent {
     data class OpenProject(val projectId: String) : ProjectsEvent
 
     data class OpenSession(val sessionName: String) : ProjectsEvent
+
+    /** «Ramas en paralelo» de un proyecto. */
+    data class OpenWorktrees(val projectId: String) : ProjectsEvent
 }
 
 /** Grupo de la lista con sus entradas ya filtradas. */

@@ -17,6 +17,7 @@ import com.iaportafolio.argos.ui.project.ProjectViewModel
 import com.iaportafolio.argos.ui.ports.PortForwardsViewModel
 import com.iaportafolio.argos.ui.projects.FolderPickerViewModel
 import com.iaportafolio.argos.ui.projects.ProjectsViewModel
+import com.iaportafolio.argos.ui.projects.WorktreesViewModel
 import com.iaportafolio.argos.ui.servers.ServersViewModel
 import com.iaportafolio.argos.terminal.RemoteTerminalSession
 import com.iaportafolio.argos.ui.terminal.ReconnectPolicy
@@ -112,6 +113,17 @@ internal fun gitChangesViewModel(container: AppContainer, serverId: String, root
             }
         },
     )
+
+/** «Ramas en paralelo» de un proyecto (uno por proyecto). */
+@Composable
+internal fun worktreesViewModel(container: AppContainer, serverId: String, projectId: String): WorktreesViewModel = viewModel(
+    key = "worktrees:$serverId:$projectId",
+    factory = viewModelFactory {
+        initializer {
+            WorktreesViewModel(serverId, projectId, container.servers, container.services, container.projectPreferences, container.io)
+        }
+    },
+)
 
 /** Sección GitHub de una raíz de repo (con CI en curso, se vigila para avisar al terminar). */
 @Composable

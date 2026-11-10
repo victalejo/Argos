@@ -223,6 +223,8 @@ class ProjectsViewModel(
 
     override fun openSession(session: TmuxSession) = emit(ProjectsEvent.OpenSession(session.name))
 
+    override fun openWorktrees(project: Project) = emit(ProjectsEvent.OpenWorktrees(project.id))
+
     override fun requestStop(project: Project) = confirm(ProjectConfirmation.Stop(serverOrSelf(), project))
 
     override fun requestRemove(project: Project) = confirm(ProjectConfirmation.Remove(serverOrSelf(), project))
@@ -536,6 +538,7 @@ interface ProjectsActions {
     fun toggleGroup(group: String)
     fun openProject(entry: ProjectEntry)
     fun openSession(session: TmuxSession)
+    fun openWorktrees(project: Project)
     fun requestStop(project: Project)
     fun requestRemove(project: Project)
     fun confirmProjectAction()

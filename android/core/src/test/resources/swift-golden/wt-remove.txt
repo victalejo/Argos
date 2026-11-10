@@ -1,0 +1,1 @@
+sh -c 'git -C '\''/srv/app'\'' worktree remove '\''/srv/app-worktrees/a b'\'' 2>&1'

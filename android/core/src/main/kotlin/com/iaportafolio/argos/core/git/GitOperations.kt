@@ -17,6 +17,15 @@ interface GitOperations {
 
     /** Resumen de varias carpetas en un solo comando (las que no son repo no aparecen). */
     suspend fun gitSummaries(paths: List<String>): Map<String, GitRepoSummary>
+
+    /** Worktrees del repositorio de [path] y sus ramas locales («Ramas en paralelo»). */
+    suspend fun gitWorktrees(path: String): GitWorktreeListResult
+
+    /** Crea el worktree (y la rama, si es nueva); devuelve su ruta real. */
+    suspend fun gitAddWorktree(request: GitWorktreeRequest): String
+
+    /** Quita el worktree ([force]: aunque tenga cambios sin confirmar). La rama se conserva. */
+    suspend fun gitRemoveWorktree(repository: String, path: String, force: Boolean)
 }
 
 /** Fallo de una operación git, con el mensaje de git para mostrarlo tal cual. */

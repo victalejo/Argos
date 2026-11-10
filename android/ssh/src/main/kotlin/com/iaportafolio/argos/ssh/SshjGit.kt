@@ -11,6 +11,10 @@ import com.iaportafolio.argos.core.git.GitStatusParser
 import com.iaportafolio.argos.core.git.GitStatusResult
 import com.iaportafolio.argos.core.git.GitSummaryCommands
 import com.iaportafolio.argos.core.git.GitSummaryParser
+import com.iaportafolio.argos.core.git.GitWorktreeCommands
+import com.iaportafolio.argos.core.git.GitWorktreeListResult
+import com.iaportafolio.argos.core.git.GitWorktreeParser
+import com.iaportafolio.argos.core.git.GitWorktreeRequest
 
 /**
  * Operaciones git del panel «Cambios» (port de `ArgosCore/Git/SSHGit.swift`) por el canal de
@@ -45,6 +49,21 @@ internal class SshjGit(private val connection: SshjConnection) : GitOperations {
     override suspend fun gitSummaries(paths: List<String>): Map<String, GitRepoSummary> {
         if (paths.isEmpty()) return emptyMap()
         return GitSummaryParser.parse(connection.capture(GitSummaryCommands.summaries(paths)).stdout, paths)
+    }
+
+    override suspend fun gitWorktrees(path: String): GitWorktreeListResult =
+        GitWorktreeParser.parseList(connection.capture(GitWorktreeCommands.list(path)).stdout)
+
+    override suspend fun gitAddWorktree(request: GitWorktreeRequest): String {
+        val result = connection.capture(GitWorktreeCommands.add(request))
+        GitWorktreeParser.addRefusal(result.stdout)?.let { throw GitCommandException(it) }
+        if (result.exitCode != 0) throw GitCommandException.from(result.stdout, result.stderr, result.exitCode)
+        return GitWorktreeParser.addedPath(result.stdout)
+            ?: throw GitCommandException("git creó el worktree pero no se encontró su carpeta.")
+    }
+
+    override suspend fun gitRemoveWorktree(repository: String, path: String, force: Boolean) {
+        runGit(GitWorktreeCommands.remove(repository, path, force))
     }
 
     /** Ejecuta un comando git y devuelve su salida (recortada); lanza si falla. */

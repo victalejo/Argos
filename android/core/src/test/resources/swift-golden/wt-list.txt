@@ -1,0 +1,10 @@
+sh -c 'command -v git >/dev/null 2>&1 || { echo ARGOS_WT:nogit; exit 0; }
+git -C '\''/home/u/mi repo'\''\'\'''\''s'\'' rev-parse --git-dir >/dev/null 2>&1 || { echo ARGOS_WT:norepo; exit 0; }
+echo ARGOS_WT:list
+git -C '\''/home/u/mi repo'\''\'\'''\''s'\'' worktree list --porcelain
+echo ARGOS_WT:end
+git -C '\''/home/u/mi repo'\''\'\'''\''s'\'' worktree list --porcelain | sed -n '\''s/^worktree //p'\'' | while IFS= read -r w; do
+  n=$(GIT_OPTIONAL_LOCKS=0 git -C "$w" status --porcelain 2>/dev/null | grep -c .)
+  printf '\''%sdirty %s %s\n'\'' ARGOS_WT: "$n" "$w"
+done
+git -C '\''/home/u/mi repo'\''\'\'''\''s'\'' for-each-ref --format='\''ARGOS_WT:branch %(refname:short)'\'' refs/heads'

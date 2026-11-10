@@ -9,6 +9,8 @@ import com.iaportafolio.argos.core.git.GitOperations
 import com.iaportafolio.argos.core.git.GitRepoSummary
 import com.iaportafolio.argos.core.git.GitRepositoryStatus
 import com.iaportafolio.argos.core.git.GitStatusResult
+import com.iaportafolio.argos.core.git.GitWorktreeListResult
+import com.iaportafolio.argos.core.git.GitWorktreeRequest
 import com.iaportafolio.argos.core.github.GitHubCloneRequest
 import com.iaportafolio.argos.core.github.GitHubOperations
 import com.iaportafolio.argos.core.github.GitHubRepositoriesResult
@@ -72,6 +74,25 @@ class FakeGitService(base: FakeSSHService = FakeSSHService()) : SSHServicing by 
         summaryRequests += paths
         error?.let { throw it }
         return summaries
+    }
+
+    // MARK: Worktrees
+    var worktreeListing: GitWorktreeListResult = GitWorktreeListResult.NotRepository
+    val addedWorktrees = mutableListOf<GitWorktreeRequest>()
+    val removedWorktrees = mutableListOf<Pair<String, Boolean>>()
+    var addedWorktreePath: String? = null
+
+    override suspend fun gitWorktrees(path: String): GitWorktreeListResult = worktreeListing
+
+    override suspend fun gitAddWorktree(request: GitWorktreeRequest): String {
+        error?.let { throw it }
+        addedWorktrees += request
+        return addedWorktreePath ?: request.path
+    }
+
+    override suspend fun gitRemoveWorktree(repository: String, path: String, force: Boolean) {
+        error?.let { throw it }
+        removedWorktrees += path to force
     }
 
     // MARK: GitHub
