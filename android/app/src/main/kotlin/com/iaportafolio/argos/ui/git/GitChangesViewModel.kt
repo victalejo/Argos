@@ -44,6 +44,8 @@ class GitChangesViewModel(
     private val repository: ServerRepository,
     private val services: ServiceProvider,
     private val io: CoroutineDispatcher,
+    /** Tras un push correcto (raíz del repo): para vigilar su CI y avisar al terminar. */
+    private val onPushed: (root: String) -> Unit = {},
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(GitChangesUiState(path = path))
@@ -195,7 +197,7 @@ class GitChangesViewModel(
         val state = state.value
         val status = state.status
         if (!state.canPush || status == null) return
-        perform(GitOperation.Push) {
+        perform(GitOperation.Push, onSuccess = { it.also { onPushed(status.root) } }) {
             git().gitPush(status.root, hasUpstream = status.branch.upstream != null)
             UiText.res(R.string.git_push_done, status.branch.upstream ?: "origin")
         }

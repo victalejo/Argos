@@ -59,6 +59,8 @@ data class ProjectFormState(
     val isPrefilling: Boolean = false,
     /** Error al guardar (validación de `core` o fallo remoto). */
     val error: String? = null,
+    /** «Clonar de GitHub» (solo al crear); `null` = carpeta existente. */
+    val clone: CloneFormState? = null,
 ) {
     val nameError: String? get() = liveNameError(name)
 
@@ -72,7 +74,7 @@ data class ProjectFormState(
 
     val canSubmit: Boolean
         get() = !isSubmitting && name.isNotBlank() && nameError == null && groupError == null &&
-            path.trim().startsWith("/") &&
+            (clone?.isValid ?: path.trim().startsWith("/")) &&
             (command != StartupChoice.Custom || customCommand.isNotBlank())
 
     /** `null` = predeterminado; `""` = ninguno; si no, el comando (recortado). */

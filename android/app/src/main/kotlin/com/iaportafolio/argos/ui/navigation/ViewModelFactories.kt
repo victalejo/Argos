@@ -11,6 +11,7 @@ import com.iaportafolio.argos.ui.agents.AgentLoginViewModel
 import com.iaportafolio.argos.ui.files.RemoteFilesViewModel
 import com.iaportafolio.argos.ui.form.ServerFormViewModel
 import com.iaportafolio.argos.ui.git.GitChangesViewModel
+import com.iaportafolio.argos.ui.git.GitHubViewModel
 import com.iaportafolio.argos.ui.importer.ImportServerViewModel
 import com.iaportafolio.argos.ui.project.ProjectViewModel
 import com.iaportafolio.argos.ui.projects.FolderPickerViewModel
@@ -90,10 +91,28 @@ internal fun filesViewModel(container: AppContainer, serverId: String, root: Str
 
 /** Uno por carpeta del proyecto, como el explorador. */
 @Composable
-internal fun gitChangesViewModel(container: AppContainer, serverId: String, root: String): GitChangesViewModel = viewModel(
-    key = "git:$serverId:$root",
+internal fun gitChangesViewModel(container: AppContainer, serverId: String, root: String, projectName: String): GitChangesViewModel =
+    viewModel(
+        key = "git:$serverId:$root",
+        factory = viewModelFactory {
+            initializer {
+                GitChangesViewModel(serverId, root, container.servers, container.services, container.io) { repoRoot ->
+                    container.ciWatches.watch(serverId, repoRoot, projectName, sha = null)
+                }
+            }
+        },
+    )
+
+/** Sección GitHub de una raíz de repo (con CI en curso, se vigila para avisar al terminar). */
+@Composable
+internal fun gitHubViewModel(container: AppContainer, serverId: String, root: String, projectName: String): GitHubViewModel = viewModel(
+    key = "github:$serverId:$root",
     factory = viewModelFactory {
-        initializer { GitChangesViewModel(serverId, root, container.servers, container.services, container.io) }
+        initializer {
+            GitHubViewModel(serverId, root, container.servers, container.services, container.io, onCIPending = { sha ->
+                container.ciWatches.watch(serverId, root, projectName, sha)
+            })
+        }
     },
 )
 

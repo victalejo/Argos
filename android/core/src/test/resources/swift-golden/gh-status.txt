@@ -1,0 +1,13 @@
+sh -c 'command -v gh >/dev/null 2>&1 || { echo ARGOS_GH:missing; exit 0; }
+cd '\''/home/u/mi repo'\''\'\'''\''s'\'' 2>/dev/null || exit 0
+t='\'''\''; command -v timeout >/dev/null 2>&1 && t='\''timeout 20'\''
+sha=$(git rev-parse HEAD 2>/dev/null)
+b=$(git symbolic-ref --quiet --short HEAD 2>/dev/null)
+printf '\''%ssha %s\n'\'' ARGOS_GH: "$sha"
+printf '\''%sbranch %s\n'\'' ARGOS_GH: "$b"
+if [ -n "$b" ]; then
+  printf '\''%spr '\'' ARGOS_GH:; GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 NO_COLOR=1 GIT_TERMINAL_PROMPT=0 $t gh pr view "$b" --json number,title,url,state,isDraft,reviewDecision,statusCheckRollup 2>&1 | tr '\''\n'\'' '\'' '\''; echo
+fi
+if [ -n "$sha" ]; then
+  printf '\''%sruns '\'' ARGOS_GH:; GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 NO_COLOR=1 GIT_TERMINAL_PROMPT=0 $t gh run list --commit "$sha" --limit 30 --json databaseId,status,conclusion,workflowName,displayTitle,url,headSha,event,createdAt 2>&1 | tr '\''\n'\'' '\'' '\''; echo
+fi'

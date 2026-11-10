@@ -1,0 +1,6 @@
+sh -c 'p="$HOME"/'\''proy ectos'\''
+[ -d "$p" ] || { echo ARGOS_GH:noparent; exit 3; }
+d="$p"/'\''a'\''\'\'''\''b'\''
+[ -e "$d" ] && { echo ARGOS_GH:exists; exit 3; }
+GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 NO_COLOR=1 GIT_TERMINAL_PROMPT=0 gh repo clone '\''victalejo/Argos'\'' "$d" -- --quiet 2>&1 || exit $?
+cd "$d" && printf '\''%spath %s\n'\'' ARGOS_GH: "$(pwd -P)"'

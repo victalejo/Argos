@@ -16,6 +16,7 @@ import com.iaportafolio.argos.data.ArgosLog
 internal object ArgosNotificationChannels {
     const val AGENTS = "agent_attention"
     const val KEEP_ALIVE = "terminal_keep_alive"
+    const val CI = "ci_status"
 
     fun ensure(context: Context) {
         NotificationManagerCompat.from(context).createNotificationChannelsCompat(
@@ -23,6 +24,10 @@ internal object ArgosNotificationChannels {
                 NotificationChannelCompat.Builder(AGENTS, NotificationManagerCompat.IMPORTANCE_DEFAULT)
                     .setName(context.getString(R.string.notification_channel_agents))
                     .setDescription(context.getString(R.string.notification_channel_agents_description))
+                    .build(),
+                NotificationChannelCompat.Builder(CI, NotificationManagerCompat.IMPORTANCE_DEFAULT)
+                    .setName(context.getString(R.string.notification_channel_ci))
+                    .setDescription(context.getString(R.string.notification_channel_ci_description))
                     .build(),
                 NotificationChannelCompat.Builder(KEEP_ALIVE, NotificationManagerCompat.IMPORTANCE_LOW)
                     .setName(context.getString(R.string.notification_channel_keep_alive))

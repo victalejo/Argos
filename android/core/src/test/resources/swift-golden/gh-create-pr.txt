@@ -1,0 +1,1 @@
+sh -c 'cd '\''/home/u/mi repo'\''\'\'''\''s'\'' && GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 NO_COLOR=1 GIT_TERMINAL_PROMPT=0 gh pr create --fill 2>&1'

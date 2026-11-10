@@ -30,7 +30,7 @@ La CI (`.github/workflows/android.yml`) corre lo mismo cuando cambia `android/**
 Paquetes de `core`: raíz (`Server`, `SSHServicing`, `ShellQuoting`, `FuzzyMatcher`…),
 `tmux` (sesiones, ventanas, comandos y parsers), `projects` (`projects.json` del servidor),
 `agent` (stream-json, reducer, lanzador persistente), `status` (actividad de claude y
-hooks), `files`, `git` (panel «Cambios» y resumen de la lista: git corre en el servidor), `monitor` y `keys` (Ed25519/OpenSSH con BouncyCastle, QR `ServerTransfer`).
+hooks), `files`, `git` (panel «Cambios» y resumen de la lista: git corre en el servidor), `github` (PR, CI y clonado con el `gh` del servidor), `monitor` y `keys` (Ed25519/OpenSSH con BouncyCastle, QR `ServerTransfer`).
 
 **Paridad byte a byte:** comandos, scripts y JSON se fijan contra salidas generadas por el
 código Swift real (`core/src/test/resources/swift-golden/`, golden de `projects.json`,

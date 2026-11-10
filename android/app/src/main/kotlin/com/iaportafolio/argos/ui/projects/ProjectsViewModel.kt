@@ -5,7 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
+import com.iaportafolio.argos.core.git.GitCommandException
 import com.iaportafolio.argos.core.git.GitOperations
+import com.iaportafolio.argos.core.github.GitHubOperations
+import com.iaportafolio.argos.core.github.GitHubRepositoriesResult
+import com.iaportafolio.argos.core.github.GitHubRepository
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectConfirmation
 import com.iaportafolio.argos.core.projects.ProjectEntry
@@ -37,6 +41,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
 
 /**
  * Proyectos y sesiones tmux de UN servidor (port de `SessionsViewModel` +
@@ -288,6 +293,65 @@ class ProjectsViewModel(
 
     override fun onFormCustomCommand(command: String) = updateForm { it.copy(customCommand = command, error = null) }
 
+    // MARK: - Clonar de GitHub
+
+    /** Cambia el origen del proyecto nuevo; al pasar a clonar, carga tus repositorios (una vez). */
+    override fun onFormClone(enabled: Boolean) {
+        updateForm { form -> form.copy(clone = if (enabled) form.clone ?: CloneFormState() else null, error = null) }
+        if (enabled) loadCloneRepositories(force = false)
+    }
+
+    override fun onCloneRepository(value: String) = updateClone { it.withRepository(value) }
+
+    override fun onCloneChoose(repository: GitHubRepository) = updateClone { it.choosing(repository) }
+
+    override fun onCloneParent(value: String) = updateClone { it.copy(parent = value) }
+
+    override fun onCloneFolder(value: String) = updateClone { it.withFolder(value) }
+
+    override fun retryCloneRepositories() = loadCloneRepositories(force = true)
+
+    /** Aplica un cambio al clonado; el nombre sigue a la carpeta mientras el usuario no lo cambie. */
+    private fun updateClone(change: (CloneFormState) -> CloneFormState) = updateForm { form ->
+        val clone = form.clone ?: return@updateForm form
+        val next = change(clone)
+        val followsFolder = form.name.isBlank() || form.name == clone.folder
+        form.copy(clone = next, name = if (followsFolder) next.folder else form.name, error = null)
+    }
+
+    private fun loadCloneRepositories(force: Boolean) {
+        val current = (state.value.dialog as? ProjectsDialog.Form)?.form?.clone ?: return
+        if (!force && current.repositories != CloneRepositories.Idle) return
+        val server = currentServer() ?: return
+        updateClone { it.copy(repositories = CloneRepositories.Loading) }
+        viewModelScope.launch {
+            val loaded = logFailures(ArgosLog.TAG_SSH, "No se pudo listar los repos de GitHub en ${server.endpoint}") {
+                val gitHub = services.service(server) as? GitHubOperations ?: return@logFailures CloneRepositories.GhMissing
+                when (val result = withContext(io) { gitHub.gitHubRepositories() }) {
+                    GitHubRepositoriesResult.GhMissing -> CloneRepositories.GhMissing
+                    GitHubRepositoriesResult.NotAuthenticated -> CloneRepositories.NotAuthenticated
+                    is GitHubRepositoriesResult.Failed -> CloneRepositories.Failed(result.message)
+                    is GitHubRepositoriesResult.Loaded ->
+                        CloneRepositories.Loaded(result.repositories.sortedByDescending { it.updatedAt ?: Instant.MIN })
+                }
+            }.getOrElse { CloneRepositories.Failed(it.userMessage) }
+            updateClone { it.copy(repositories = loaded) }
+        }
+    }
+
+    /** Clona si hace falta (una sola vez) y devuelve el formulario con la carpeta clonada. */
+    private suspend fun clonedForm(server: Server, form: ProjectFormState): ProjectFormState {
+        val clone = form.clone ?: return form
+        val path = clone.clonedPath ?: run {
+            val gitHub = services.service(server) as? GitHubOperations
+                ?: throw GitCommandException("Esta conexión no admite GitHub.")
+            withContext(io) { gitHub.gitHubClone(clone.request()) }.also { cloned ->
+                updateClone { it.copy(clonedPath = cloned) }
+            }
+        }
+        return form.copy(path = path)
+    }
+
     /** Valida con `ProjectLifecycle.planSave` sobre los datos ACTUALES y guarda. */
     override fun submitForm() {
         val form = (state.value.dialog as? ProjectsDialog.Form)?.form ?: return
@@ -296,10 +360,12 @@ class ProjectsViewModel(
         updateForm { it.copy(isSubmitting = true, error = null) }
         viewModelScope.launch {
             logFailures(ArgosLog.TAG_STORE, "No se pudo guardar el proyecto en ${server.endpoint}") {
+                // Al clonar, la carpeta del proyecto es la que acaba de crear `gh repo clone`.
+                val saved = clonedForm(server, form)
                 val service = services.service(server)
                 val sessions = withContext(io) { service.listSessions() }
                 val fresh = withContext(io) { service.loadProjects() }
-                val plan = ProjectLifecycle.planSave(form.toProject(), fresh, sessions, form.adoptedSession)
+                val plan = ProjectLifecycle.planSave(saved.toProject(), fresh, sessions, saved.adoptedSession)
                 plan.rename?.let { withContext(io) { service.renameSession(it.from, it.to) } }
                 mutateProjects(service) { ProjectLifecycle.upserting(it, plan.project) }
             }.onSuccess {
@@ -474,6 +540,12 @@ interface ProjectsActions {
     fun requestRemove(project: Project)
     fun confirmProjectAction()
     fun openNewProject()
+    fun onFormClone(enabled: Boolean)
+    fun onCloneRepository(value: String)
+    fun onCloneChoose(repository: GitHubRepository)
+    fun onCloneParent(value: String)
+    fun onCloneFolder(value: String)
+    fun retryCloneRepositories()
     fun openEditProject(project: Project)
     fun openConvert(session: TmuxSession)
     fun onFormName(name: String)

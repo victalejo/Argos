@@ -4,8 +4,10 @@ import android.content.Context
 import com.iaportafolio.argos.background.ActiveTerminalRegistry
 import com.iaportafolio.argos.background.AgentNotifier
 import com.iaportafolio.argos.background.AgentWatchStore
+import com.iaportafolio.argos.background.CIWatchService
 import com.iaportafolio.argos.background.SharedPreferencesAgentWatch
 import com.iaportafolio.argos.background.SystemAgentAlerts
+import com.iaportafolio.argos.background.SystemCIAlerts
 import com.iaportafolio.argos.background.TerminalKeepAliveService
 import com.iaportafolio.argos.background.WorkManagerAgentCheckScheduler
 import com.iaportafolio.argos.core.HostKeyTrustStore
@@ -22,8 +24,8 @@ import com.iaportafolio.argos.data.FileServerRepository
 import com.iaportafolio.argos.data.KeystoreSecretCipher
 import com.iaportafolio.argos.data.ProjectPreferencesStore
 import com.iaportafolio.argos.data.SecretStore
-import com.iaportafolio.argos.data.ServerImporter
 import com.iaportafolio.argos.data.SecretStoreClaudeTokens
+import com.iaportafolio.argos.data.ServerImporter
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceHub
 import com.iaportafolio.argos.data.ServiceProvider
@@ -31,9 +33,11 @@ import com.iaportafolio.argos.data.SharedPreferencesAgentPermissions
 import com.iaportafolio.argos.data.SharedPreferencesProjectPreferences
 import com.iaportafolio.argos.data.SharedPreferencesTerminalSettings
 import com.iaportafolio.argos.data.TerminalSettingsStore
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import java.io.File
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Inyección de dependencias manual (por constructor): un único grafo por proceso, creado en
@@ -82,6 +86,11 @@ class AppContainer(
             io = io,
         )
     }
+
+    /** Ámbito de la aplicación (vive lo que el proceso) para los avisos de CI. */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    val ciWatches: CIWatchService by lazy { CIWatchService(servers, services, SystemCIAlerts(appContext), appScope, io) }
 
     val activeTerminals: ActiveTerminalRegistry by lazy {
         ActiveTerminalRegistry(TerminalKeepAliveService.host(appContext)) {

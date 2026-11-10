@@ -126,7 +126,15 @@ private fun ProjectFormDialog(
                     actions = {
                         if (form.isSubmitting) CircularProgressIndicator(Modifier.size(24.dp).padding(end = 4.dp), strokeWidth = 2.dp)
                         TextButton(onClick = actions::submitForm, enabled = form.canSubmit) {
-                            Text(stringResource(if (form.mode is ProjectFormMode.Edit) R.string.action_save else R.string.projects_form_create))
+                            Text(
+                                stringResource(
+                                    when {
+                                        form.mode is ProjectFormMode.Edit -> R.string.action_save
+                                        form.clone != null -> R.string.clone_submit
+                                        else -> R.string.projects_form_create
+                                    },
+                                ),
+                            )
                         }
                     },
                 )
@@ -138,13 +146,24 @@ private fun ProjectFormDialog(
             ) {
                 form.error?.let { FormError(it) }
                 IdentitySection(form, actions)
-                FolderSection(form, actions, onBrowse = { pickingFolder = true })
+                if (form.mode == ProjectFormMode.New) SourceSection(form, actions)
+                val clone = form.clone
+                if (clone != null) {
+                    CloneSection(clone, form.isSubmitting, actions, onBrowse = { pickingFolder = true })
+                } else {
+                    FolderSection(form, actions, onBrowse = { pickingFolder = true })
+                }
                 CommandSection(form, actions)
             }
         }
     }
     if (pickingFolder) {
-        folderPicker(form.path, { picked -> actions.onFolderPicked(picked); pickingFolder = false }, { pickingFolder = false })
+        val clone = form.clone
+        if (clone != null) {
+            folderPicker(clone.parent, { picked -> actions.onCloneParent(picked); pickingFolder = false }, { pickingFolder = false })
+        } else {
+            folderPicker(form.path, { picked -> actions.onFolderPicked(picked); pickingFolder = false }, { pickingFolder = false })
+        }
     }
 }
 

@@ -72,7 +72,12 @@ import com.iaportafolio.argos.ui.common.asString
  * o diff a pantalla completa; con [twoPane], lista | diff.
  */
 @Composable
-fun GitChangesScreen(viewModel: GitChangesViewModel, twoPane: Boolean, onExit: () -> Unit) {
+fun GitChangesScreen(
+    viewModel: GitChangesViewModel,
+    twoPane: Boolean,
+    onExit: () -> Unit,
+    gitHub: @Composable (root: String, branch: GitBranchInfo) -> Unit = { _, _ -> },
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     MessageEffect(state.message, snackbar, viewModel::messageShown)
@@ -88,12 +93,12 @@ fun GitChangesScreen(viewModel: GitChangesViewModel, twoPane: Boolean, onExit: (
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
                 twoPane -> Row(Modifier.fillMaxSize()) {
-                    ChangesPane(state, viewModel, onExit, Modifier.width(LIST_PANE_WIDTH).fillMaxHeight())
+                    ChangesPane(state, viewModel, onExit, gitHub, Modifier.width(LIST_PANE_WIDTH).fillMaxHeight())
                     VerticalDivider()
                     DiffPane(state, onClose = null, Modifier.weight(1f))
                 }
                 showingDiff -> DiffPane(state, onClose = { viewModel.select(null) }, Modifier.fillMaxSize())
-                else -> ChangesPane(state, viewModel, onExit, Modifier.fillMaxSize())
+                else -> ChangesPane(state, viewModel, onExit, gitHub, Modifier.fillMaxSize())
             }
         }
     }
@@ -103,7 +108,13 @@ fun GitChangesScreen(viewModel: GitChangesViewModel, twoPane: Boolean, onExit: (
 private val LIST_PANE_WIDTH = 400.dp
 
 @Composable
-private fun ChangesPane(state: GitChangesUiState, viewModel: GitChangesViewModel, onExit: () -> Unit, modifier: Modifier) {
+private fun ChangesPane(
+    state: GitChangesUiState,
+    viewModel: GitChangesViewModel,
+    onExit: () -> Unit,
+    gitHub: @Composable (root: String, branch: GitBranchInfo) -> Unit,
+    modifier: Modifier,
+) {
     Column(modifier.imePadding()) {
         ChangesTopBar(state, viewModel, onExit)
         HorizontalDivider()
@@ -125,7 +136,7 @@ private fun ChangesPane(state: GitChangesUiState, viewModel: GitChangesViewModel
                     title = stringResource(R.string.git_failed_title),
                     body = load.message.asString(),
                 ) { Button(onClick = { viewModel.refresh() }) { Text(stringResource(R.string.action_retry)) } }
-                is GitPanelLoad.Loaded -> RepositoryContent(load.status, state, viewModel)
+                is GitPanelLoad.Loaded -> RepositoryContent(load.status, state, viewModel, gitHub)
             }
         }
     }
@@ -178,9 +189,15 @@ private fun branchLine(branch: GitBranchInfo): String {
 }
 
 @Composable
-private fun RepositoryContent(status: GitRepositoryStatus, state: GitChangesUiState, viewModel: GitChangesViewModel) {
+private fun RepositoryContent(
+    status: GitRepositoryStatus,
+    state: GitChangesUiState,
+    viewModel: GitChangesViewModel,
+    gitHub: @Composable (root: String, branch: GitBranchInfo) -> Unit,
+) {
     Column(Modifier.fillMaxSize()) {
         SyncRow(status.branch, state, viewModel)
+        gitHub(status.root, status.branch)
         if (state.hasConflicts) Warning(stringResource(R.string.git_conflicts))
         if (status.truncated) Warning(stringResource(R.string.git_truncated))
         if (status.isClean) {
