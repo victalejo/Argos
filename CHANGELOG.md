@@ -6,6 +6,12 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-11-11
+
+### Corregido
+- **Mac: la pestaña «Cambios» ocupa todo el alto del detalle.** Con poco contenido (por
+  ejemplo, «Sin cambios») quedaba centrada con franjas vacías arriba y abajo.
+
 ## [1.8.0] - 2026-11-11
 
 ### Añadido
