@@ -27,6 +27,7 @@ sealed interface GitOperation {
     data object Commit : GitOperation
     data object Push : GitOperation
     data object Pull : GitOperation
+    data object Suggest : GitOperation
     data class Discard(val path: String) : GitOperation
 }
 
@@ -64,6 +65,9 @@ data class GitChangesUiState(
 
     val canCommit: Boolean
         get() = operation == null && !hasConflicts && includedCount > 0 && commitMessage.isNotBlank()
+
+    /** «Sugerir mensaje»: Claude lo propone a partir del diff de lo marcado. */
+    val canSuggestMessage: Boolean get() = operation == null && includedCount > 0
 
     val canPush: Boolean
         get() {

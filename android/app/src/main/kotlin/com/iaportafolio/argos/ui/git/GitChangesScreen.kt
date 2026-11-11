@@ -337,6 +337,13 @@ private fun CommitBox(state: GitChangesUiState, viewModel: GitChangesViewModel) 
             maxLines = 4,
             modifier = Modifier.weight(1f),
         )
+        IconButton(onClick = viewModel::suggestCommitMessage, enabled = state.canSuggestMessage) {
+            if (state.operation == GitOperation.Suggest) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(painterResource(R.drawable.ic_sparkles), contentDescription = stringResource(R.string.git_suggest_message))
+            }
+        }
         Button(onClick = viewModel::commit, enabled = state.canCommit) {
             Icon(painterResource(R.drawable.ic_commit), contentDescription = null, modifier = Modifier.size(18.dp))
             Text(stringResource(R.string.git_commit_action, state.includedCount), modifier = Modifier.padding(start = 6.dp))

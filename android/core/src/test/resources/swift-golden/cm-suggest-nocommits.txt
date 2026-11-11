@@ -1,0 +1,13 @@
+cd '/srv/app' || exit 1
+IFS= read -r ARGOS_OAUTH; [ -n "$ARGOS_OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$ARGOS_OAUTH"; unset ARGOS_OAUTH
+{
+  printf '%s\n\n' 'Escribe el mensaje de commit para los cambios de abajo. Sigue el estilo y el idioma de los mensajes recientes del repositorio (por ejemplo, Conventional Commits si los usan). Primera línea de 72 caracteres como máximo. Si hace falta, deja una línea en blanco y añade un cuerpo breve que explique el porqué. Responde SOLO con el mensaje: sin comillas, sin bloques de código y sin comentarios.'
+  echo '--- Mensajes recientes del repositorio ---'
+  git --literal-pathspecs -C '/srv/app' log -15 --format=%s 2>/dev/null
+  echo
+  echo '--- Cambios ---'
+  git --literal-pathspecs -C '/srv/app' -c core.quotepath=off diff --no-color --no-ext-diff --cached -- 'src/a b.swift'; git --literal-pathspecs -C '/srv/app' -c core.quotepath=off diff --no-color --no-ext-diff -- 'src/a b.swift' 2>/dev/null
+  git --literal-pathspecs -C '/srv/app' -c core.quotepath=off diff --no-color --no-ext-diff --no-index -- /dev/null 'it'\''s new.txt' 2>/dev/null
+} | head -c 120000 | env -u ANTHROPIC_API_KEY '/usr/bin/claude' -p --model haiku --output-format text 2>&1
+rc=$?
+printf '\n%s%s\n' 'ARGOS_CM_EXIT:' "$rc"

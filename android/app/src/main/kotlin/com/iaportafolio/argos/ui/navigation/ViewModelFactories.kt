@@ -119,7 +119,7 @@ internal fun gitChangesViewModel(container: AppContainer, serverId: String, root
         key = "git:$serverId:$root",
         factory = viewModelFactory {
             initializer {
-                GitChangesViewModel(serverId, root, container.servers, container.services, container.io) { repoRoot ->
+                GitChangesViewModel(serverId, root, container.servers, container.services, container.io, container.claudeTokens) { repoRoot ->
                     container.ciWatches.watch(serverId, repoRoot, projectName, sha = null)
                 }
             }

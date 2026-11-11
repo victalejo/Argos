@@ -11,6 +11,8 @@ import com.iaportafolio.argos.core.git.GitRepoSummary
 import com.iaportafolio.argos.core.git.GitStatusResult
 import com.iaportafolio.argos.testing.FakeGitService
 import com.iaportafolio.argos.testing.FakeSSHService
+import com.iaportafolio.argos.core.git.CommitMessageSuggestion
+import com.iaportafolio.argos.testing.InMemoryClaudeTokens
 import com.iaportafolio.argos.testing.InMemoryProjectPreferences
 import com.iaportafolio.argos.testing.InMemoryServerRepository
 import com.iaportafolio.argos.testing.InMemoryTrustStore
@@ -175,6 +177,56 @@ class GitChangesViewModelTest {
     @Test
     fun `rutas incluidas sin las desmarcadas`() {
         assertEquals(listOf(renamed), GitChangesUiState.includedChanges(listOf(renamed, modified), setOf("a.txt")))
+    }
+
+    // MARK: - Mensaje sugerido (paridad con «GitChangesModel: mensaje sugerido» de CommitMessageTests.swift)
+
+    private fun TestScope.suggesting(tokens: InMemoryClaudeTokens = InMemoryClaudeTokens("tok")) =
+        GitChangesViewModel("S1", "/r", repository, SingleServiceProvider(git), main.dispatcher, tokens)
+            .also { advanceUntilIdle() }
+
+    @Test
+    fun `rellena el mensaje con lo que propone Claude, solo con lo marcado y el token por stdin`() = runTest(main.dispatcher) {
+        val other = GitFileChange("b.txt", null, ' ', 'M')
+        git.statusResult = gitStatus(listOf(modified, other))
+        git.agentLines = listOf("```", "feat: amplía a.txt", "```", "ARGOS_CM_EXIT:0")
+        val vm = suggesting()
+        vm.setIncluded(other, included = false)
+        vm.suggestCommitMessage()
+        advanceUntilIdle()
+        assertEquals("feat: amplía a.txt", vm.state.value.commitMessage)
+        assertNull(vm.state.value.operation)
+        val command = git.agentCommand.orEmpty()
+        assertTrue("'a.txt'" in command)
+        assertFalse("'b.txt'" in command)
+        assertEquals("tok", git.agentStdinFirstLine)
+    }
+
+    @Test
+    fun `sin claude o con error avisa, tapa el token y no toca lo escrito`() = runTest(main.dispatcher) {
+        git.statusResult = gitStatus(listOf(modified))
+        val vm = suggesting(InMemoryClaudeTokens("sk-ant-secreto12345"))
+        vm.onCommitMessage("lo mío")
+        git.claudePath = null
+        vm.suggestCommitMessage()
+        advanceUntilIdle()
+        assertEquals(UiText.Plain(CommitMessageSuggestion.CLAUDE_MISSING), vm.state.value.message)
+        assertEquals("lo mío", vm.state.value.commitMessage)
+        git.claudePath = "/c"
+        git.agentLines = listOf("Invalid token sk-ant-secreto12345", "ARGOS_CM_EXIT:1")
+        vm.suggestCommitMessage()
+        advanceUntilIdle()
+        assertEquals(UiText.Plain("Invalid token ••••"), vm.state.value.message)
+        assertEquals("lo mío", vm.state.value.commitMessage)
+    }
+
+    @Test
+    fun `sin archivos marcados no se puede sugerir`() = runTest(main.dispatcher) {
+        git.statusResult = gitStatus(listOf(modified))
+        val vm = suggesting()
+        assertTrue(vm.state.value.canSuggestMessage)
+        vm.setAllIncluded(false)
+        assertFalse(vm.state.value.canSuggestMessage)
     }
 }
 

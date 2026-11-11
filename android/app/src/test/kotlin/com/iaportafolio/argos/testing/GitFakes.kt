@@ -1,6 +1,8 @@
 package com.iaportafolio.argos.testing
 
 import com.iaportafolio.argos.core.SSHServicing
+import com.iaportafolio.argos.core.agent.AgentExecStreaming
+import com.iaportafolio.argos.core.agent.ClaudeAuthStatus
 import com.iaportafolio.argos.core.git.GitBranchInfo
 import com.iaportafolio.argos.core.git.GitCommands
 import com.iaportafolio.argos.core.git.GitFileChange
@@ -15,6 +17,8 @@ import com.iaportafolio.argos.core.github.GitHubCloneRequest
 import com.iaportafolio.argos.core.github.GitHubOperations
 import com.iaportafolio.argos.core.github.GitHubRepositoriesResult
 import com.iaportafolio.argos.core.github.GitHubStatusResult
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 /** Estado git de prueba con raíz `/r` y rama `main` (como el de `GitTests.swift`). */
 fun gitStatus(changes: List<GitFileChange>, upstream: String? = "origin/main", ahead: Int = 0): GitStatusResult =
@@ -28,7 +32,24 @@ fun gitStatus(changes: List<GitFileChange>, upstream: String? = "origin/main", a
     )
 
 /** [SSHServicing] de tmux/proyectos ([FakeSSHService]) + git en memoria (port del `MockSSHService`). */
-class FakeGitService(base: FakeSSHService = FakeSSHService()) : SSHServicing by base, GitOperations, GitHubOperations {
+class FakeGitService(base: FakeSSHService = FakeSSHService()) :
+    SSHServicing by base, GitOperations, GitHubOperations, AgentExecStreaming {
+    // «Sugerir mensaje»: `claude` del servidor y lo que responde (líneas de la salida).
+    var claudePath: String? = "/usr/bin/claude"
+    var agentLines: List<String> = emptyList()
+    var agentCommand: String? = null
+    var agentStdinFirstLine: String? = null
+
+    override suspend fun locateClaude(): String? = claudePath
+
+    override suspend fun runAgentExec(command: String, stdin: Flow<ByteArray>, output: suspend (ByteArray) -> Unit) {
+        agentCommand = command
+        agentStdinFirstLine = stdin.first().decodeToString().trimEnd('\n')
+        agentLines.forEach { output((it + "\n").encodeToByteArray()) }
+    }
+
+    override suspend fun claudeAuthStatus(): ClaudeAuthStatus? = null
+
     var statusResult: GitStatusResult = GitStatusResult.NotRepository
     var diffResult: GitFileDiff = GitFileDiff.EMPTY
     var summaries: Map<String, GitRepoSummary> = emptyMap()

@@ -177,6 +177,7 @@
     <string name="git_pull_behind">Traer (%1$d)</string>
     <string name="git_commit_hint">Mensaje del commit</string>
     <string name="git_commit_action">Commit (%1$d)</string>
+    <string name="git_suggest_message">Sugerir mensaje con Claude</string>
     <string name="git_conflicts">Resuelve los conflictos en el terminal antes de hacer commit.</string>
     <string name="git_truncated">Hay demasiados archivos: solo se muestran los primeros.</string>
     <string name="git_include_all">Incluir todos</string>

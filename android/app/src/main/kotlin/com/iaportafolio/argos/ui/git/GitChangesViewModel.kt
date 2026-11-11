@@ -4,13 +4,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.Server
+import com.iaportafolio.argos.core.git.CommitMessageSuggestion
 import com.iaportafolio.argos.core.git.GitFileChange
 import com.iaportafolio.argos.core.git.GitOperations
 import com.iaportafolio.argos.core.git.GitRepositoryStatus
 import com.iaportafolio.argos.core.git.GitStatusResult
 import com.iaportafolio.argos.data.ArgosLog
+import com.iaportafolio.argos.data.ClaudeTokenStore
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceProvider
+import com.iaportafolio.argos.ui.agents.SecretRedactor
+import com.iaportafolio.argos.ui.agents.agentExec
+import com.iaportafolio.argos.ui.agents.agentFailures
+import com.iaportafolio.argos.ui.agents.toAgentUiText
 import com.iaportafolio.argos.ui.common.UiText
 import com.iaportafolio.argos.ui.common.logFailures
 import com.iaportafolio.argos.ui.common.toUiText
@@ -44,6 +50,8 @@ class GitChangesViewModel(
     private val repository: ServerRepository,
     private val services: ServiceProvider,
     private val io: CoroutineDispatcher,
+    /** Token de Claude para «Sugerir mensaje» (`null`: credencial de `claude login` del servidor). */
+    private val claudeTokens: ClaudeTokenStore? = null,
     /** Tras un push correcto (raíz del repo): para vigilar su CI y avisar al terminar. */
     private val onPushed: (root: String) -> Unit = {},
 ) : ViewModel() {
@@ -209,6 +217,33 @@ class GitChangesViewModel(
         if (!state.canPull || status == null) return
         perform(GitOperation.Pull) {
             firstLine(git().gitPull(status.root))?.let(UiText::Plain) ?: UiText.res(R.string.git_pull_done)
+        }
+    }
+
+    /**
+     * «Sugerir mensaje»: Claude Code, en el servidor, propone el mensaje a partir del diff de los
+     * archivos marcados y los últimos mensajes del repo. Si falla, no toca lo escrito.
+     */
+    fun suggestCommitMessage() {
+        val state = state.value
+        val status = state.status
+        if (!state.canSuggestMessage || status == null) return
+        val included = state.includedChanges
+        mutableState.update { it.copy(operation = GitOperation.Suggest) }
+        viewModelScope.launch {
+            var token: String? = null
+            agentFailures("sugerir mensaje de commit") {
+                withContext(io) {
+                    token = claudeTokens?.read()
+                    val server = repository.server(serverId) ?: throw FileServerMissingException()
+                    val service = services.service(server)
+                    CommitMessageSuggestion.suggest(
+                        service::locateClaude, service.agentExec(), status.root, included, status.branch.hasCommits, token,
+                    )
+                }
+            }.onSuccess { message -> mutableState.update { it.copy(commitMessage = message) } }
+                .onFailure { error -> mutableState.update { it.copy(message = error.toAgentUiText(SecretRedactor(token))) } }
+            mutableState.update { it.copy(operation = null) }
         }
     }
 
