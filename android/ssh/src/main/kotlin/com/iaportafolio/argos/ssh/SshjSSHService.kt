@@ -35,6 +35,7 @@ import com.iaportafolio.argos.core.tmux.WindowNameValidator
 import com.iaportafolio.argos.core.ports.ActivePortForward
 import com.iaportafolio.argos.core.ports.ListeningPort
 import com.iaportafolio.argos.core.ports.PortForwardOperations
+import com.iaportafolio.argos.core.ports.PortForwardRequest
 import kotlinx.coroutines.flow.Flow
 import java.io.OutputStream
 import kotlin.coroutines.cancellation.CancellationException
@@ -361,6 +362,10 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     override suspend fun stopPortForward(id: String) = ports.stopPortForward(id)
 
     override suspend fun activePortForwards(): List<ActivePortForward> = ports.activePortForwards()
+
+    override suspend fun pendingPortForwardRequests(): List<PortForwardRequest> = ports.pendingPortForwardRequests()
+
+    override suspend fun dismissPortForwardRequest(port: Int) = ports.dismissPortForwardRequest(port)
 
     private companion object {
         /** Apple muestra los últimos 600 caracteres del stderr del agente. */

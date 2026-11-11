@@ -88,6 +88,20 @@ extension SSHService {
         return portForwards.values.map(\.info).sorted { $0.remotePort < $1.remotePort }
     }
 
+    // MARK: - Solicitudes de Claude
+
+    /// Solicitudes pendientes (`argos-ports open`). Las caducadas se borran y no se devuelven.
+    func pendingPortForwardRequests() async throws -> [PortForwardRequest] {
+        let client = try await connectedClient()
+        let result = try await capture(client, command: PortForwardServerFiles.listRequestsCommand)
+        return PortForwardRequestParser.parse(result.stdout)
+    }
+
+    /// Retira una solicitud (aceptada o rechazada). Best-effort.
+    func dismissPortForwardRequest(port: Int) async {
+        await captureIfConnected(PortForwardServerFiles.dismissRequestCommand(port: port))
+    }
+
     // MARK: - Vigilante
 
     private func startPortForwardWatcher() {

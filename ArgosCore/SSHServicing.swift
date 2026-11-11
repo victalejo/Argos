@@ -205,6 +205,10 @@ protocol SSHServicing: Sendable {
     func stopPortForward(id: UUID) async
     /// Túneles activos (reabre los que perdieron la conexión).
     func activePortForwards() async -> [ActivePortForward]
+    /// Solicitudes de Claude para abrir un puerto (`argos-ports open`), pendientes de confirmar.
+    func pendingPortForwardRequests() async throws -> [PortForwardRequest]
+    /// Retira una solicitud (aceptada o rechazada).
+    func dismissPortForwardRequest(port: Int) async
 }
 
 extension SSHService: SSHServicing {}

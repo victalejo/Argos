@@ -600,5 +600,10 @@
     <string name="ports_idle_title">Cerrar los túneles sin uso tras</string>
     <string name="ports_idle_never">Nunca</string>
     <string name="ports_idle_minutes">%1$d min</string>
+    <string name="ports_request_title">Claude quiere mostrarte el puerto %1$s</string>
+    <string name="ports_request_message">Se abrirá un túnel desde %1$s y lo verás en tu navegador en localhost. Nada se abre si no aceptas.</string>
+    <string name="ports_request_message_note">«%1$s»\n\nSe abrirá un túnel desde %2$s y lo verás en tu navegador en localhost. Nada se abre si no aceptas.</string>
+    <string name="ports_request_later">Ahora no</string>
+    <string name="ports_request_failed">No se pudo abrir el puerto</string>
     <string name="ports_idle_hint">Sin uso = ninguna conexión abierta. Claude ve los túneles con la skill «argos-puertos» del servidor.</string>
 </resources>

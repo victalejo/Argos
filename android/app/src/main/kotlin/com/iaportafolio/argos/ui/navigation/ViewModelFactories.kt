@@ -14,6 +14,7 @@ import com.iaportafolio.argos.ui.git.GitChangesViewModel
 import com.iaportafolio.argos.ui.git.GitHubViewModel
 import com.iaportafolio.argos.ui.importer.ImportServerViewModel
 import com.iaportafolio.argos.ui.project.ProjectViewModel
+import com.iaportafolio.argos.ui.ports.PortForwardRequestsViewModel
 import com.iaportafolio.argos.ui.ports.PortForwardsViewModel
 import com.iaportafolio.argos.ui.projects.FolderPickerViewModel
 import com.iaportafolio.argos.ui.projects.ProjectsViewModel
@@ -70,6 +71,15 @@ internal fun portForwardsViewModel(container: AppContainer, serverId: String): P
         initializer {
             PortForwardsViewModel(serverId, container.servers, container.services, container.portForwardSettings, container.io)
         }
+    },
+)
+
+/** Solicitudes de Claude (`argos-ports open`) de un servidor, mientras hay un proyecto suyo abierto. */
+@Composable
+internal fun portForwardRequestsViewModel(container: AppContainer, serverId: String): PortForwardRequestsViewModel = viewModel(
+    key = "port-requests:$serverId",
+    factory = viewModelFactory {
+        initializer { PortForwardRequestsViewModel(serverId, container.servers, container.services, container.io) }
     },
 )
 

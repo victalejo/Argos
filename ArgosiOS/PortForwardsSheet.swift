@@ -168,6 +168,57 @@ struct PortForwardsSheet: View {
     }
 }
 
+// MARK: - Solicitudes de Claude
+
+extension View {
+    /// Vigila las solicitudes de Claude (`argos-ports open`) del servidor mientras esta vista
+    /// está en pantalla y pregunta antes de abrir nada.
+    func portForwardRequests(service: any SSHServicing, serverName: String) -> some View {
+        modifier(PortForwardRequestsModifier(service: service, serverName: serverName))
+    }
+}
+
+private struct PortForwardRequestsModifier: ViewModifier {
+    let serverName: String
+    @State private var requests: PortForwardRequestsModel
+    @State private var browsing: BrowsingTarget?
+
+    init(service: any SSHServicing, serverName: String) {
+        self.serverName = serverName
+        _requests = State(initialValue: PortForwardRequestsModel(service: service))
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .task { await requests.pollWhileVisible() }
+            .alert(
+                requests.current.map(PortForwardRequestsModel.title(for:)) ?? "",
+                isPresented: Binding(get: { requests.current != nil && browsing == nil }, set: { _ in }),
+                presenting: requests.current
+            ) { _ in
+                Button("Abrir") {
+                    Task {
+                        if let url = await requests.accept() { browsing = BrowsingTarget(url: url) }
+                    }
+                }
+                Button("Ahora no", role: .cancel) { Task { await requests.decline() } }
+            } message: { request in
+                Text(verbatim: PortForwardRequestPrompt.message(for: request, serverName: serverName))
+            }
+            .alert("No se pudo abrir el puerto", isPresented: Binding(
+                get: { requests.errorMessage != nil },
+                set: { if !$0 { requests.errorMessage = nil } }
+            )) {
+                Button("Aceptar", role: .cancel) {}
+            } message: {
+                Text(requests.errorMessage ?? "")
+            }
+            .fullScreenCover(item: $browsing) { target in
+                SafariView(url: target.url).ignoresSafeArea()
+            }
+    }
+}
+
 private struct BrowsingTarget: Identifiable {
     let url: URL
     var id: String { url.absoluteString }

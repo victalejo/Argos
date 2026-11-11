@@ -140,4 +140,20 @@ class PortsTest {
             PortForwardIdlePolicy.limitMinutes = previous
         }
     }
+    @Test
+    fun `comandos de solicitudes byte a byte los de Swift`() {
+        assertEquals(golden("ports-requests"), PortForwardServerFiles.listRequestsCommand)
+        assertEquals(golden("ports-dismiss"), PortForwardServerFiles.dismissRequestCommand(5173))
+    }
+
+    @Test
+    fun `parser de solicitudes`() {
+        val output = "1000\n5173\t990\tLa web\n3000\t300\tvieja\n8080\t950\t\n99999\t990\tmal\nbasura\n4000\t995\n"
+        val requests = PortForwardRequestParser.parse(output)
+        assertEquals(listOf(8080, 5173, 4000), requests.map { it.port })
+        assertEquals(50, requests[0].ageSeconds)
+        assertEquals("La web", requests[1].note)
+        assertEquals("", requests[2].note)
+        assertTrue(PortForwardRequestParser.parse("").isEmpty())
+    }
 }

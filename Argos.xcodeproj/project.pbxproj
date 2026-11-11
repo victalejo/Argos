@@ -190,6 +190,7 @@
 		56659267131D91EDD9882F3F /* AgentRealStreamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E5BB53BEA33DF560FC220F /* AgentRealStreamTests.swift */; };
 		569DE49E7206D43C7319BE71 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB081348202A1C599D6C7B3 /* ContentView.swift */; };
 		56DC8C3F615CA8EDB673746A /* ErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A3AD4EE0BFF2A80D89EDDF2 /* ErrorMessage.swift */; };
+		56FFB322D0B035C582052DD9 /* PortForwardRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 685547EF5025C96197BDCF3E /* PortForwardRequest.swift */; };
 		575074884AEDF27C35F52B78 /* FuzzyMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD28202533882A5CB63BEE6 /* FuzzyMatcher.swift */; };
 		582C26BDFEFB59DFF513863B /* ServerTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25E5112B5FE6C2392B747A54 /* ServerTransfer.swift */; };
 		5838986F426FA44BB95CA477 /* GitWorktree.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1DC3169876DCEA51C339FC9 /* GitWorktree.swift */; };
@@ -340,6 +341,7 @@
 		9D5AAA2ACDFB3E098F3AFC9F /* RemoteUpload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A99A52CCA22B1F82F64EF0ED /* RemoteUpload.swift */; };
 		9DA10A940EAA628713A2076E /* ArgosTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5A06C15E0E69E0D86623E5 /* ArgosTheme.swift */; };
 		9E78830CA13F3F0AA9E5092C /* SSHPortForwarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F7E7DFF7CC42793FDF7191 /* SSHPortForwarding.swift */; };
+		9EF87501EC78FE842D89BD4C /* PortForwardRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 685547EF5025C96197BDCF3E /* PortForwardRequest.swift */; };
 		9F45FD848383374C4F59D8F8 /* SessionsViewModel+CI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 073437B4E11F69087A8DE0B8 /* SessionsViewModel+CI.swift */; };
 		A03FFB21F42367C90AD32DDF /* HostKeyVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70128DFCBDD1912AAEF6B9D6 /* HostKeyVerifier.swift */; };
 		A0413DD3A628DCBE420D02AD /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = BCA2A0374BCD854744A8EC43 /* Citadel */; };
@@ -441,6 +443,7 @@
 		D01A53C5EDFA76DECB3F4C67 /* AgentPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBEDFA397323EAD761FBBBD /* AgentPanelView.swift */; };
 		D06B69660D7ABA5FACAE51A9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220CBBB363C64472A8DE9188 /* SettingsView.swift */; };
 		D2459EB8281A9AFA847F5908 /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7297321E919769F7065C6F39 /* Project.swift */; };
+		D2B0BD6D80CD6E2E6E4EC91A /* PortForwardRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 685547EF5025C96197BDCF3E /* PortForwardRequest.swift */; };
 		D402358ACD68EAAB91174A5D /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = A8EC88D312BB826E0A26A60F /* SwiftTerm */; };
 		D45D1D82FB0304383D1B5F6C /* SSHAgentExec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A9E35745379524CD9CA086 /* SSHAgentExec.swift */; };
 		D47708E91F68B3689A59639D /* LocalProjectFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CF69BF4BB6CFCB1DD0BAAAD /* LocalProjectFiles.swift */; };
@@ -646,6 +649,7 @@
 		65E7E4E03C8C3F7B52F120FA /* PersistentAgentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentAgentSession.swift; sourceTree = "<group>"; };
 		67485B3C1FC7ECD4983661EC /* AppStoreLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreLinks.swift; sourceTree = "<group>"; };
 		682E87429273B14730B8D65D /* ArgosiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ArgosiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		685547EF5025C96197BDCF3E /* PortForwardRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortForwardRequest.swift; sourceTree = "<group>"; };
 		69365CB03C03D0A97018802E /* GitHubParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubParser.swift; sourceTree = "<group>"; };
 		69ED5D1C5866D4DD966B58FA /* SessionConnectionStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConnectionStateTests.swift; sourceTree = "<group>"; };
 		69EEC0CBCE324EDB6B2A1FEE /* FileDownloadStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDownloadStatus.swift; sourceTree = "<group>"; };
@@ -1266,6 +1270,7 @@
 				87BAF2094ABF62A6CB111324 /* ListeningPort.swift */,
 				576F8C57576093D7BCD43645 /* LocalPortForwarder.swift */,
 				833E2EAE8832A73DB50F0E12 /* PortForwardIdlePolicy.swift */,
+				685547EF5025C96197BDCF3E /* PortForwardRequest.swift */,
 				4857011890A655CCF3F9F119 /* PortForwardServerFiles.swift */,
 				55125151728D546943B90AC3 /* PortForwardsModel.swift */,
 				F4F7E7DFF7CC42793FDF7191 /* SSHPortForwarding.swift */,
@@ -1608,6 +1613,7 @@
 				C4D466BB5BEBAC58C2CFEEAD /* PersistentAgentScript.swift in Sources */,
 				E3B0589279A4EBB673D0FF10 /* PersistentAgentSession.swift in Sources */,
 				035D50751E08320522B5CF3B /* PortForwardIdlePolicy.swift in Sources */,
+				D2B0BD6D80CD6E2E6E4EC91A /* PortForwardRequest.swift in Sources */,
 				F4EA1AFE81676D9E93F3AC49 /* PortForwardServerFiles.swift in Sources */,
 				B5008D5A678CDAB66895FDA2 /* PortForwardsButton.swift in Sources */,
 				8B2E6E2EE002A85680D6FA64 /* PortForwardsModel.swift in Sources */,
@@ -1759,6 +1765,7 @@
 				E80FD7C7FFD050733C3C05E3 /* PersistentAgentScript.swift in Sources */,
 				823BD9EA54F4B81784129A1D /* PersistentAgentSession.swift in Sources */,
 				3D1F68C044A0D6A09A64F25C /* PortForwardIdlePolicy.swift in Sources */,
+				9EF87501EC78FE842D89BD4C /* PortForwardRequest.swift in Sources */,
 				B6EE78EE107891593854C381 /* PortForwardServerFiles.swift in Sources */,
 				018D7C3E4F5263807105D3F1 /* PortForwardsModel.swift in Sources */,
 				94D7DDB51CE9A00890024F1D /* PortForwardsSheet.swift in Sources */,
@@ -1910,6 +1917,7 @@
 				E6D99F0863EF1DC8E0D27D19 /* PersistentAgentScript.swift in Sources */,
 				AEB3F7D1EF2503B0DFE5E804 /* PersistentAgentSession.swift in Sources */,
 				A999346437CE5B937D577F19 /* PortForwardIdlePolicy.swift in Sources */,
+				56FFB322D0B035C582052DD9 /* PortForwardRequest.swift in Sources */,
 				7B3B60EA90E839B91960142F /* PortForwardServerFiles.swift in Sources */,
 				1742756BB45B577CBC843FCF /* PortForwardsButton.swift in Sources */,
 				698BDB8B658C947CCFC4959F /* PortForwardsModel.swift in Sources */,

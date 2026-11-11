@@ -2,6 +2,8 @@
 
 package com.iaportafolio.argos.ui
 
+import com.iaportafolio.argos.ui.ports.PortForwardRequestsViewModel
+import com.iaportafolio.argos.core.ports.PortForwardRequest
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.ports.ListeningPort
 import com.iaportafolio.argos.core.ports.PortForwardException
@@ -128,5 +130,47 @@ class PortForwardsViewModelTest {
         vm.setIdleMinutes(0)
         assertEquals(0, settings.idleMinutes)
         assertEquals(0, vm.state.value.idleMinutes)
+    }
+    @Test
+    fun `solicitud de Claude aceptar abre el tunel y la URL`() = runTest(main.dispatcher) {
+        ports.requests += PortForwardRequest(5173, "web", 5)
+        ports.requests += PortForwardRequest(8080, "", 1)
+        val vm = PortForwardRequestsViewModel("S1", repository, SingleServiceProvider(ports), main.dispatcher)
+        vm.refreshNow()
+        assertEquals(5173, vm.state.value.current?.port)
+        vm.accept()
+        runCurrent()
+        assertEquals("http://localhost:5173", vm.openRequests.first())
+        assertEquals(listOf(5173), ports.dismissed)
+        assertEquals(listOf(5173), ports.forwards.map { it.remotePort })
+        vm.refreshNow()
+        assertEquals(8080, vm.state.value.current?.port)
+    }
+
+    @Test
+    fun `solicitud de Claude rechazar no abre nada ni vuelve a salir`() = runTest(main.dispatcher) {
+        ports.requests += PortForwardRequest(3000, "", 1)
+        val vm = PortForwardRequestsViewModel("S1", repository, SingleServiceProvider(ports), main.dispatcher)
+        vm.refreshNow()
+        vm.decline()
+        runCurrent()
+        assertTrue(ports.forwards.isEmpty())
+        assertEquals(listOf(3000), ports.dismissed)
+        ports.requests += PortForwardRequest(3000, "", 2)   // el borrado aún no se ve
+        vm.refreshNow()
+        assertEquals(null, vm.state.value.current)
+    }
+
+    @Test
+    fun `solicitud de Claude con fallo al abrir lo muestra`() = runTest(main.dispatcher) {
+        ports.forwardError = PortForwardException.bindFailed("ocupado")
+        ports.requests += PortForwardRequest(3000, "", 1)
+        val vm = PortForwardRequestsViewModel("S1", repository, SingleServiceProvider(ports), main.dispatcher)
+        vm.refreshNow()
+        vm.accept()
+        runCurrent()
+        val error = assertIs<UiText.Plain>(vm.state.value.error)
+        assertTrue("ocupado" in error.value)
+        assertEquals(false, vm.state.value.isOpening)
     }
 }

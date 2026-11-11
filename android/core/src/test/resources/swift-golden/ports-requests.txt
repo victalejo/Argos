@@ -1,0 +1,1 @@
+sh -c 'r="$HOME/.config/argos/forward-requests"; find "$r" -name '\''*.req'\'' -mmin +10 -exec rm -f {} + 2>/dev/null; date +%s; for f in "$r"/*.req; do [ -f "$f" ] || continue; p=${f##*/}; printf '\''%s\t'\'' "${p%.req}"; head -n 1 "$f"; done'

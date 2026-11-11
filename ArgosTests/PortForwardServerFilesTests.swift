@@ -117,6 +117,38 @@ struct PortForwardServerFilesTests {
         #expect(try run(script.path, home: home).output.contains("(ninguno: el usuario puede abrir uno desde Argos -> Puertos)"))
     }
 
+    @Test("Claude pide con argos-ports open, Argos lo lista y lo retira (sh real)")
+    func requestsEndToEnd() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("argos-req-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        #expect(try run(PortForwardServerFiles.installCommand, home: home).status == 0)
+        let script = home.appendingPathComponent(".claude/skills/argos-puertos/argos-ports").path
+
+        // Validación del puerto.
+        #expect(try run("\(script) open", home: home).status == 2)
+        #expect(try run("\(script) open 70000", home: home).status == 2)
+        #expect(try run("\(script) open 80a", home: home).status == 2)
+
+        // Pedidos con nota (tabuladores y saltos se aplanan).
+        let asked = try run("\(script) open 5173 'La web\tde\ninventario'", home: home)
+        #expect(asked.status == 0)
+        #expect(asked.output.contains("Claude quiere mostrarte el puerto 5173"))
+        #expect(try run("\(script) open 8080", home: home).status == 0)
+
+        var requests = PortForwardRequestParser.parse(try run(PortForwardServerFiles.listRequestsCommand, home: home).output)
+        #expect(requests.map(\.port).sorted() == [5173, 8080])
+        #expect(requests.first { $0.port == 5173 }?.note == "La web de inventario")
+        #expect(requests.first { $0.port == 8080 }?.note == "")
+        let listing = try run(script, home: home).output
+        #expect(listing.contains("puerto 5173 - La web de inventario"))
+
+        // Retirar uno.
+        #expect(try run(PortForwardServerFiles.dismissRequestCommand(port: 5173), home: home).status == 0)
+        requests = PortForwardRequestParser.parse(try run(PortForwardServerFiles.listRequestsCommand, home: home).output)
+        #expect(requests.map(\.port) == [8080])
+    }
+
     /// Ejecuta `command` como lo haría sshd (`/bin/sh -c`) con `HOME` aislado.
     private func run(_ command: String, home: URL) throws -> (status: Int32, output: String) {
         let process = Process()
@@ -130,5 +162,85 @@ struct PortForwardServerFilesTests {
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         return (process.terminationStatus, String(decoding: data, as: UTF8.self))
+    }
+}
+
+@Suite("PortForwardRequests")
+struct PortForwardRequestTests {
+
+    @Test("Parser: hora del servidor, caducadas fuera, más antiguas primero")
+    func parser() {
+        let output = "1000\n5173\t990\tLa web\n3000\t300\tvieja\n8080\t950\t\n99999\t990\tmal\nbasura\n4000\t995\n"
+        let requests = PortForwardRequestParser.parse(output)
+        #expect(requests.map(\.port) == [8080, 5173, 4000])
+        #expect(requests[0].ageSeconds == 50)
+        #expect(requests[1].note == "La web")
+        #expect(requests[2].note == "")
+        #expect(PortForwardRequestParser.parse("").isEmpty)
+    }
+
+    @Test("Mensaje del aviso con y sin nota")
+    func prompt() {
+        let withNote = PortForwardRequest(port: 5173, note: "La web", ageSeconds: 0)
+        #expect(PortForwardRequestsModel.title(for: withNote) == "Claude quiere mostrarte el puerto 5173")
+        #expect(PortForwardRequestPrompt.message(for: withNote, serverName: "dev").hasPrefix("«La web»"))
+        let plain = PortForwardRequest(port: 80, note: "", ageSeconds: 0)
+        #expect(PortForwardRequestPrompt.message(for: plain, serverName: "dev").hasPrefix("Se abrirá un túnel desde dev"))
+    }
+
+    @MainActor
+    @Test("Aceptar abre el túnel, retira la solicitud y devuelve la URL")
+    func accept() async {
+        let mock = MockSSHService()
+        mock.portRequests = [PortForwardRequest(port: 5173, note: "web", ageSeconds: 5),
+                             PortForwardRequest(port: 8080, note: "", ageSeconds: 1)]
+        let model = PortForwardRequestsModel(service: mock)
+        await model.refresh()
+        #expect(model.current?.port == 5173)
+        let url = await model.accept()
+        #expect(url?.absoluteString == "http://localhost:5173")
+        #expect(mock.dismissedPortRequests == [5173])
+        #expect(mock.forwards.map(\.remotePort) == [5173])
+        await model.refresh()
+        #expect(model.current?.port == 8080)
+    }
+
+    @MainActor
+    @Test("Rechazar no abre nada y no vuelve a mostrarla aunque siga en el servidor")
+    func decline() async {
+        let mock = MockSSHService()
+        mock.portRequests = [PortForwardRequest(port: 3000, note: "", ageSeconds: 1)]
+        let model = PortForwardRequestsModel(service: mock)
+        await model.refresh()
+        await model.decline()
+        #expect(mock.forwards.isEmpty)
+        #expect(mock.dismissedPortRequests == [3000])
+        mock.portRequests = [PortForwardRequest(port: 3000, note: "", ageSeconds: 2)]   // borrado aún no visto
+        await model.refresh()
+        #expect(model.current == nil)
+    }
+
+    @MainActor
+    @Test("Si ya estaba reenviado, aceptar solo abre la URL existente")
+    func alreadyForwarded() async throws {
+        let mock = MockSSHService()
+        let existing = try await mock.startPortForward(remotePort: 3000, targetHost: "localhost", preferredLocalPort: 3001)
+        mock.portRequests = [PortForwardRequest(port: 3000, note: "", ageSeconds: 1)]
+        let model = PortForwardRequestsModel(service: mock)
+        await model.refresh()
+        #expect(await model.accept() == existing.localURL)
+        #expect(mock.forwards.count == 1)
+    }
+
+    @MainActor
+    @Test("Un fallo al abrir se muestra")
+    func failure() async {
+        let mock = MockSSHService()
+        mock.forwardError = PortForwardError.bindFailed("ocupado")
+        mock.portRequests = [PortForwardRequest(port: 3000, note: "", ageSeconds: 1)]
+        let model = PortForwardRequestsModel(service: mock)
+        await model.refresh()
+        #expect(await model.accept() == nil)
+        #expect(model.errorMessage?.contains("ocupado") == true)
     }
 }

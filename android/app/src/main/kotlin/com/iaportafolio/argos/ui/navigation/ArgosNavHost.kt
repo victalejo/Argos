@@ -46,6 +46,7 @@ import com.iaportafolio.argos.ui.form.ServerFormScreen
 import com.iaportafolio.argos.ui.importer.ImportServerScreen
 import com.iaportafolio.argos.ui.project.ProjectScreen
 import com.iaportafolio.argos.ui.project.WIDE_LAYOUT_MIN_WIDTH
+import com.iaportafolio.argos.ui.ports.PortForwardRequestPrompt
 import com.iaportafolio.argos.ui.ports.PortForwardsScreen
 import com.iaportafolio.argos.ui.projects.FolderPickerDialog
 import com.iaportafolio.argos.ui.projects.ProjectsEvent
@@ -396,6 +397,8 @@ private fun ProjectDestination(
         viewModel.reload()
         onPauseOrDispose { }
     }
+    // «Claude quiere mostrarte el puerto N»: solo se abre si el usuario acepta.
+    PortForwardRequestPrompt(portForwardRequestsViewModel(container, serverId))
     ProjectScreen(
         state = state,
         viewModel = viewModel,

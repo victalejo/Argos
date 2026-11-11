@@ -1,0 +1,1 @@
+sh -c 'rm -f "$HOME/.config/argos/forward-requests/5173.req"'

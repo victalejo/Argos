@@ -278,7 +278,7 @@ private fun IdleLimit(state: PortForwardsUiState, viewModel: PortForwardsViewMod
 }
 
 /** Abre la web del túnel en el navegador del sistema. */
-private fun openInBrowser(context: Context, url: String) {
+internal fun openInBrowser(context: Context, url: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
     } catch (e: ActivityNotFoundException) {

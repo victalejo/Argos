@@ -5,6 +5,7 @@ import com.iaportafolio.argos.core.ports.ActivePortForward
 import com.iaportafolio.argos.core.ports.ListeningPort
 import com.iaportafolio.argos.core.ports.PortForwardIdlePolicy
 import com.iaportafolio.argos.core.ports.PortForwardOperations
+import com.iaportafolio.argos.core.ports.PortForwardRequest
 import com.iaportafolio.argos.data.PortForwardSettingsStore
 
 /** Preferencia del cierre automático en memoria. */
@@ -40,4 +41,14 @@ class FakePortForwardService(base: FakeSSHService = FakeSSHService()) : SSHServi
     }
 
     override suspend fun activePortForwards(): List<ActivePortForward> = forwards.toList()
+
+    val requests = mutableListOf<PortForwardRequest>()
+    val dismissed = mutableListOf<Int>()
+
+    override suspend fun pendingPortForwardRequests(): List<PortForwardRequest> = requests.toList()
+
+    override suspend fun dismissPortForwardRequest(port: Int) {
+        dismissed += port
+        requests.removeAll { it.port == port }
+    }
 }

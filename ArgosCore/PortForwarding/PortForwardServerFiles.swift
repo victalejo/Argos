@@ -46,7 +46,7 @@ enum PortForwardDevice {
 enum PortForwardServerFiles {
 
     /// Versión de la skill y el script: se reinstalan si la instalada es otra.
-    static let toolVersion = "argos-ports v2"
+    static let toolVersion = "argos-ports v3"
 
     /// Cada cuánto el dispositivo renueva su archivo mientras tiene túneles (el script los
     /// marca como dudosos pasado el triple).
@@ -102,6 +102,28 @@ enum PortForwardServerFiles {
         )
     }
 
+    // MARK: - Solicitudes de Claude («argos-ports open PUERTO [NOTA]»)
+
+    /// Una solicitud caduca a los 10 minutos (el script y Argos la ignoran).
+    static let requestMaxAge: Int = 600
+
+    private static let requestsDir = "$HOME/.config/argos/forward-requests"
+
+    /// Hora del servidor y una línea por solicitud: `puerto<TAB>creada<TAB>nota`. Borra antes
+    /// las caducadas.
+    static var listRequestsCommand: String {
+        ShellQuoting.posixShell(
+            "r=\"\(requestsDir)\"; find \"$r\" -name '*.req' -mmin +10 -exec rm -f {} + 2>/dev/null; "
+            + "date +%s; for f in \"$r\"/*.req; do [ -f \"$f\" ] || continue; "
+            + "p=${f##*/}; printf '%s\\t' \"${p%.req}\"; head -n 1 \"$f\"; done"
+        )
+    }
+
+    /// Retira una solicitud (aceptada o rechazada).
+    static func dismissRequestCommand(port: Int) -> String {
+        ShellQuoting.posixShell("rm -f \"\(requestsDir)/\(port).req\"")
+    }
+
     private static func sanitized(_ text: String) -> String {
         text.replacingOccurrences(of: "\t", with: " ").replacingOccurrences(of: "\n", with: " ")
     }
@@ -112,11 +134,31 @@ enum PortForwardServerFiles {
     static let scriptContent = """
     #!/bin/sh
     # \(toolVersion) — instalado por la app Argos.
-    # Puertos en escucha en este servidor y túneles que Argos tiene abiertos hacia los
-    # dispositivos del usuario (Mac, iPhone/iPad, Android).
+    # Uso:
+    #   argos-ports                     puertos en escucha y túneles abiertos por Argos
+    #   argos-ports open PUERTO [NOTA]  pide al usuario (en Argos) abrir ese puerto en su dispositivo
     dir="$HOME/.config/argos/forwards"
+    req="$HOME/.config/argos/forward-requests"
     now=$(date +%s)
     tab=$(printf '\\t')
+
+    if [ "$1" = "open" ]; then
+      port=$2
+      case "$port" in
+        ''|*[!0-9]*) echo "Uso: argos-ports open PUERTO [NOTA]" >&2; exit 2 ;;
+      esac
+      if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo "Puerto fuera de rango: $port" >&2; exit 2
+      fi
+      shift 2
+      note=$(printf '%s' "$*" | tr '\\t\\n\\r' '   ' | cut -c1-200)
+      mkdir -p "$req" || exit 1
+      printf '%s\\t%s\\n' "$now" "$note" > "$req/$port.req.tmp" && mv "$req/$port.req.tmp" "$req/$port.req" || exit 1
+      echo "Pedido enviado: Argos mostrará al usuario «Claude quiere mostrarte el puerto ${port}» y debe aceptarlo."
+      echo "Caduca en 10 minutos. Comprueba después con «argos-ports» si ya está reenviado."
+      exit 0
+    fi
+
     echo "Puertos TCP en escucha en $(hostname):"
     if command -v ss >/dev/null 2>&1; then
       ss -Htlnp 2>/dev/null || ss -tln
@@ -143,6 +185,19 @@ enum PortForwardServerFiles {
       } < "$f"
     done
     [ "$found" = 1 ] || echo "  (ninguno: el usuario puede abrir uno desde Argos -> Puertos)"
+    echo
+    echo "Pedidos pendientes de que el usuario los acepte en Argos:"
+    pending=0
+    for f in "$req"/*.req; do
+      [ -f "$f" ] || continue
+      IFS="$tab" read -r created note < "$f"
+      age=$((now - ${created:-0}))
+      [ "$age" -gt 600 ] && continue
+      pending=1
+      p=${f##*/}
+      echo "  puerto ${p%.req}${note:+ - $note} (hace $((age / 60)) min)"
+    done
+    [ "$pending" = 1 ] || echo "  (ninguno)"
 
     """
 
@@ -150,7 +205,7 @@ enum PortForwardServerFiles {
     static let skillContent = """
     ---
     name: argos-puertos
-    description: Puertos de este servidor y túneles que la app Argos tiene abiertos hacia el Mac, iPhone/iPad o Android del usuario. Úsala al arrancar o buscar un servidor de desarrollo (npm run dev, vite, next, rails, python -m http.server…), cuando el usuario quiera ver una web que corre aquí o pregunte qué puertos están en uso o reenviados.
+    description: Puertos de este servidor y túneles que la app Argos tiene abiertos hacia el Mac, iPhone/iPad o Android del usuario; y cómo pedirle que abra uno. Úsala al arrancar o buscar un servidor de desarrollo (npm run dev, vite, next, rails, python -m http.server…), cuando el usuario quiera ver una web que corre aquí o pregunte qué puertos están en uso o reenviados.
     ---
 
     <!-- \(toolVersion) — instalado por la app Argos; se reinstala solo. -->
@@ -162,23 +217,36 @@ enum PortForwardServerFiles {
     escucha aquí en el puerto N lo abre él en `http://localhost:<puerto local>` en su Mac,
     iPhone/iPad o Android.
 
-    Para saber qué hay, ejecuta:
+    ## Ver qué hay
 
     ```sh
     ~/.claude/skills/argos-puertos/argos-ports
     ```
 
-    Muestra los puertos en escucha en este servidor y, por dispositivo, los que Argos tiene
-    reenviados (puerto del servidor → URL local en ese dispositivo).
+    Muestra los puertos en escucha en este servidor, por dispositivo los que Argos tiene
+    reenviados (puerto del servidor → URL local en ese dispositivo) y los pedidos pendientes.
+
+    ## Pedir que lo abra
+
+    Cuando arranques algo que el usuario querrá ver (una web, una API con interfaz…), pídeselo:
+
+    ```sh
+    ~/.claude/skills/argos-puertos/argos-ports open 5173 "La web de inventario"
+    ```
+
+    Argos le muestra «Claude quiere mostrarte el puerto 5173» con tu nota; si acepta, se abre el
+    túnel y su navegador. No se abre nada sin su confirmación. El pedido caduca a los 10 minutos.
+    Pide solo puertos que tengan sentido para el usuario y una vez por servidor arrancado.
 
     ## Cómo usarlo
 
-    - Tras arrancar un servidor de desarrollo, comprueba que escucha y dile al usuario el puerto.
-    - Si ese puerto ya está reenviado, dale la URL local de su dispositivo
+    - Tras arrancar un servidor de desarrollo, comprueba que escucha y pídele abrirlo (o dile el
+      puerto si ya está reenviado).
+    - Si ya está reenviado, dale la URL local de su dispositivo
       (p. ej. «ya lo tienes en http://localhost:3001 en tu Mac»).
-    - Si no lo está, dile que lo abra en Argos con el botón **Puertos** → «Reenviar y abrir»
+    - También puede abrirlo él con el botón **Puertos** de Argos → «Reenviar y abrir»
       (Mac: cabecera del proyecto; iPhone/iPad: icono de red en la barra; Android: menú ⋮ →
-      Puertos). Puede escribir a mano un puerto que aún no escuche.
+      Puertos).
     - Arranca los servidores escuchando en `127.0.0.1` o `0.0.0.0`. No abras puertos a internet
       ni toques el firewall para que el usuario los vea: el túnel de Argos ya va cifrado por SSH.
     - Los túneles se cierran solos tras un rato sin conexiones (el usuario lo configura en Argos).

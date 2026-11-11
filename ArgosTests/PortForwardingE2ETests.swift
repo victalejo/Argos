@@ -98,6 +98,20 @@ struct PortForwardingE2ETests {
         #expect(closed)
     }
 
+    @Test("Claude pide un puerto con argos-ports open y Argos lo ve y lo retira", .timeLimit(.minutes(1)))
+    func claudeRequest() async throws {
+        let service = E2E.service()
+        defer { Task { await service.disconnect() } }
+        _ = try await service.listeningPorts()   // instala/actualiza la skill en el servidor
+        let port = Int.random(in: 40_001...45_000)
+        let out = try await service.runAgentScript("$HOME/.claude/skills/argos-puertos/argos-ports open \(port) 'Prueba E2E de Argos'")
+        #expect(out.contains("Claude quiere mostrarte el puerto \(port)»"))
+        let pending = try await service.pendingPortForwardRequests()
+        #expect(pending.first { $0.port == port }?.note == "Prueba E2E de Argos")
+        await service.dismissPortForwardRequest(port: port)
+        #expect(try await service.pendingPortForwardRequests().allSatisfy { $0.port != port })
+    }
+
     @Test("Un puerto sin nada escuchando cierra la conexión sin colgarse", .timeLimit(.minutes(1)))
     func closedRemotePort() async throws {
         let service = E2E.service()

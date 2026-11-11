@@ -374,4 +374,11 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     }
     func stopPortForward(id: UUID) async { forwards.removeAll { $0.id == id } }
     func activePortForwards() async -> [ActivePortForward] { forwards }
+    var portRequests: [PortForwardRequest] = []
+    private(set) var dismissedPortRequests: [Int] = []
+    func pendingPortForwardRequests() async throws -> [PortForwardRequest] { portRequests }
+    func dismissPortForwardRequest(port: Int) async {
+        dismissedPortRequests.append(port)
+        portRequests.removeAll { $0.port == port }
+    }
 }

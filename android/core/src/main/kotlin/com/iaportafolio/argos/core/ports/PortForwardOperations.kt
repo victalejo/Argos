@@ -33,6 +33,44 @@ interface PortForwardOperations {
 
     /** Túneles activos (reabre los que perdieron la conexión). */
     suspend fun activePortForwards(): List<ActivePortForward>
+
+    /** Solicitudes de Claude para abrir un puerto (`argos-ports open`), pendientes de confirmar. */
+    suspend fun pendingPortForwardRequests(): List<PortForwardRequest>
+
+    /** Retira una solicitud (aceptada o rechazada). */
+    suspend fun dismissPortForwardRequest(port: Int)
+}
+
+/** Una solicitud pendiente de Claude (port de `PortForwardRequest.swift`). */
+data class PortForwardRequest(val port: Int, val note: String, val ageSeconds: Int)
+
+object PortForwardRequestParser {
+    /** Máximo de caracteres de la nota que se muestran. */
+    const val NOTE_LIMIT = 200
+
+    /**
+     * Primera línea numérica = hora del servidor; después `puerto<TAB>creada<TAB>nota`. Ignora
+     * puertos inválidos y solicitudes caducadas; las más antiguas primero.
+     */
+    fun parse(output: String): List<PortForwardRequest> {
+        var now: Long? = null
+        val requests = mutableListOf<Pair<Long, PortForwardRequest>>()
+        for (line in output.lines().filter { it.isNotEmpty() }) {
+            if (now == null) {
+                now = line.trim().toLongOrNull()
+                continue
+            }
+            val fields = line.split('\t', limit = 3)
+            if (fields.size < 2) continue
+            val port = fields[0].toIntOrNull()?.takeIf { it in 1..65535 } ?: continue
+            val created = fields[1].trim().toLongOrNull() ?: continue
+            val age = maxOf(0L, now - created)
+            if (age > PortForwardServerFiles.REQUEST_MAX_AGE_SECONDS) continue
+            val note = fields.getOrNull(2)?.trim()?.take(NOTE_LIMIT).orEmpty()
+            requests += created to PortForwardRequest(port, note, age.toInt())
+        }
+        return requests.sortedBy { it.first }.map { it.second }
+    }
 }
 
 /** Fallo al abrir un túnel, con un mensaje para mostrar tal cual. */

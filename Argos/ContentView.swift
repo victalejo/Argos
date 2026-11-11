@@ -402,6 +402,7 @@ struct ContentView: View {
                     service: vm.service,
                     serverName: store.server(withID: handle.serverID)?.name ?? "el servidor"
                 )
+                .id(handle.serverID)   // estado (solicitudes de Claude) por servidor
             }
         }
     }

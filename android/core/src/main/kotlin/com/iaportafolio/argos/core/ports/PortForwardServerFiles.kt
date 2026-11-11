@@ -60,7 +60,7 @@ class PortForwardActivity(nowMillis: Long = System.currentTimeMillis()) {
  */
 object PortForwardServerFiles {
 
-    const val TOOL_VERSION = "argos-ports v2"
+    const val TOOL_VERSION = "argos-ports v3"
 
     /** Cada cuánto se renueva el archivo mientras hay túneles. */
     const val REFRESH_INTERVAL_MILLIS = 60_000L
@@ -119,6 +119,23 @@ object PortForwardServerFiles {
                 "rm -f \"\$HOME/.config/argos/bin/argos-ports\"\n",
         )
     }
+
+    // MARK: Solicitudes de Claude («argos-ports open PUERTO [NOTA]»)
+
+    /** Una solicitud caduca a los 10 minutos (el script y Argos la ignoran). */
+    const val REQUEST_MAX_AGE_SECONDS = 600
+
+    private const val REQUESTS_DIR = "\$HOME/.config/argos/forward-requests"
+
+    /** Hora del servidor y una línea por solicitud: `puerto<TAB>creada<TAB>nota`. Borra las caducadas. */
+    val listRequestsCommand: String = posixShell(
+        "r=\"$REQUESTS_DIR\"; find \"\$r\" -name '*.req' -mmin +10 -exec rm -f {} + 2>/dev/null; " +
+            "date +%s; for f in \"\$r\"/*.req; do [ -f \"\$f\" ] || continue; " +
+            "p=\${f##*/}; printf '%s\\t' \"\${p%.req}\"; head -n 1 \"\$f\"; done",
+    )
+
+    /** Retira una solicitud (aceptada o rechazada). */
+    fun dismissRequestCommand(port: Int): String = posixShell("rm -f \"$REQUESTS_DIR/$port.req\"")
 
     private fun sanitized(text: String): String = text.replace('\t', ' ').replace('\n', ' ')
 }

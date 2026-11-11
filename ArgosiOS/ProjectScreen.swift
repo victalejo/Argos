@@ -55,6 +55,7 @@ struct ProjectScreen: View {
             .sheet(isPresented: $showPorts) {
                 PortForwardsSheet(service: service, serverName: server.name)
             }
+            .portForwardRequests(service: service, serverName: server.name)
     }
 
     @ViewBuilder

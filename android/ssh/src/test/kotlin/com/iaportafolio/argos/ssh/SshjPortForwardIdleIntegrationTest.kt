@@ -123,8 +123,8 @@ class SshjPortForwardIdleIntegrationTest {
         }
     }
 
-    private fun runScript(script: Path): String {
-        val process = ProcessBuilder("/bin/sh", script.toString())
+    private fun runScript(script: Path, vararg args: String): String {
+        val process = ProcessBuilder("/bin/sh", script.toString(), *args)
             .apply { environment()["HOME"] = server.home.toString() }
             .redirectErrorStream(true)
             .start()
@@ -143,5 +143,19 @@ class SshjPortForwardIdleIntegrationTest {
 
     private companion object {
         const val PASSWORD = "argos-test"
+    }
+    @Test
+    fun `Claude pide con argos-ports open y Argos lo lista y lo retira`(): Unit = runBlocking {
+        val ports = SshjPortForwarding(connection, watchIntervalMillis = 3_600_000L, clock = { now })
+        ports.listeningPorts()   // instala la skill v3
+        val script = server.home.resolve(".claude/skills/argos-puertos/argos-ports")
+        assertTrue("Claude quiere mostrarte el puerto 5173" in runScript(script, "open", "5173", "La web"))
+        runScript(script, "open", "8080")
+        val pending = ports.pendingPortForwardRequests()
+        assertEquals(setOf(5173, 8080), pending.map { it.port }.toSet())
+        assertEquals("La web", pending.first { it.port == 5173 }.note)
+        ports.dismissPortForwardRequest(5173)
+        assertEquals(listOf(8080), ports.pendingPortForwardRequests().map { it.port })
+        ports.dismissPortForwardRequest(8080)
     }
 }

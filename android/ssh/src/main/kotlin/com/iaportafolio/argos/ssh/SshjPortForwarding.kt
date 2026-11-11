@@ -8,6 +8,8 @@ import com.iaportafolio.argos.core.ports.PortForwardDevice
 import com.iaportafolio.argos.core.ports.PortForwardException
 import com.iaportafolio.argos.core.ports.PortForwardIdlePolicy
 import com.iaportafolio.argos.core.ports.PortForwardOperations
+import com.iaportafolio.argos.core.ports.PortForwardRequest
+import com.iaportafolio.argos.core.ports.PortForwardRequestParser
 import com.iaportafolio.argos.core.ports.PortForwardServerFiles
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -107,6 +109,15 @@ internal class SshjPortForwarding(
         all.forEach { close(it) }
         if (all.isNotEmpty()) bestEffort(PortForwardServerFiles.unpublishCommand(PortForwardDevice.id))
         publishedAt = null
+    }
+
+    /** Solicitudes pendientes (`argos-ports open`). Las caducadas se borran y no se devuelven. */
+    override suspend fun pendingPortForwardRequests(): List<PortForwardRequest> =
+        PortForwardRequestParser.parse(connection.capture(PortForwardServerFiles.listRequestsCommand).stdout)
+
+    /** Retira una solicitud (aceptada o rechazada). Best-effort. */
+    override suspend fun dismissPortForwardRequest(port: Int) {
+        bestEffort(PortForwardServerFiles.dismissRequestCommand(port))
     }
 
     /** Conexiones abiertas ahora mismo por un túnel (para los tests). */
@@ -253,8 +264,9 @@ internal class SshjPortForwarding(
     private fun closeQuietly(closeable: java.io.Closeable) {
         try {
             closeable.close()
-        } catch (_: IOException) {
-            // Cerrar es best-effort.
+        } catch (_: Exception) {
+            // Cerrar es best-effort. Además de IOException, sshj puede lanzar
+            // ConcurrentModificationException si otro hilo cierra a la vez un canal (visto en CI).
         }
     }
 
