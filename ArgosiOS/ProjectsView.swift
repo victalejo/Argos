@@ -26,6 +26,9 @@ struct ProjectsView: View {
     @State private var errorMessage: String?
     @State private var editingServer: ServerFormView.Mode?
     @State private var scanningQR = false
+    @State private var projectForm: ProjectFormMode?
+    @State private var worktreesProject: Project?
+    @State private var pendingRemoval: Project?
 
     private enum SessionPrompt: Identifiable {
         case create
@@ -53,11 +56,16 @@ struct ProjectsView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Nueva sesión", systemImage: "plus") {
-                        promptText = ""
-                        sessionPrompt = .create
+                    Menu {
+                        Button("Nuevo proyecto", systemImage: "folder.badge.plus") { projectForm = .new }
+                        Button("Nueva sesión", systemImage: "terminal") {
+                            promptText = ""
+                            sessionPrompt = .create
+                        }
+                    } label: {
+                        Label("Nuevo", systemImage: "plus")
                     }
-                    .disabled(viewModel.state.isBusy)
+                    .disabled(viewModel.state.isBusy || needsKey)
                 }
             }
             .task { if !needsKey, case .idle = viewModel.state { await viewModel.load() } }
@@ -91,6 +99,22 @@ struct ProjectsView: View {
                 }
             } message: {
                 Text("Se terminan los procesos que corren en ella (kill-session).")
+            }
+            .sheet(item: $projectForm) { mode in
+                ProjectFormView(mode: mode, vm: viewModel, serverName: currentServer.name)
+            }
+            .sheet(item: $worktreesProject) { project in
+                WorktreesView(project: project, vm: viewModel)
+            }
+            .confirmationDialog(
+                "¿Quitar «\(pendingRemoval?.name ?? "")» de Argos?",
+                isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
+                titleVisibility: .visible,
+                presenting: pendingRemoval
+            ) { project in
+                Button("Quitar de Argos", role: .destructive) { remove(project) }
+            } message: { _ in
+                Text("Sus archivos del servidor no se tocan. Si su sesión está en marcha, sigue abierta como sesión suelta.")
             }
             .sheet(item: $editingServer, onDismiss: reloadAfterKeyChange) { mode in
                 ServerFormView(mode: mode)
@@ -203,7 +227,7 @@ struct ProjectsView: View {
                 ContentUnavailableView {
                     Label("Sin proyectos ni sesiones", systemImage: "terminal")
                 } description: {
-                    Text("Crea una sesión con «+». Los proyectos que añadas desde Argos en el Mac aparecen aquí.")
+                    Text("Crea un proyecto o una sesión con «+». Los proyectos que añadas desde Argos en el Mac también aparecen aquí.")
                 }
             }
         }
@@ -253,6 +277,16 @@ struct ProjectsView: View {
             if let session = entry.session {
                 Button("Detener", systemImage: "stop.fill", role: .destructive) { pendingKill = session }
             }
+            Button("Editar", systemImage: "pencil") { projectForm = .edit(entry.project) }
+                .tint(.indigo)
+        }
+        .contextMenu {
+            Button("Editar proyecto…", systemImage: "pencil") { projectForm = .edit(entry.project) }
+            Button("Ramas en paralelo…", systemImage: "arrow.triangle.branch") { worktreesProject = entry.project }
+            Divider()
+            Button("Quitar de Argos", systemImage: "folder.badge.minus", role: .destructive) {
+                pendingRemoval = entry.project
+            }
         }
     }
 
@@ -278,6 +312,9 @@ struct ProjectsView: View {
                 sessionPrompt = .rename(session)
             }
             .tint(.indigo)
+        }
+        .contextMenu {
+            Button("Convertir en proyecto…", systemImage: "folder.badge.plus") { projectForm = .convert(session) }
         }
     }
 
@@ -319,6 +356,16 @@ struct ProjectsView: View {
 
     private func open(_ target: ProjectTarget) {
         if let selection { selection.wrappedValue = target } else { pushed = target }
+    }
+
+    private func remove(_ project: Project) {
+        Task {
+            do {
+                try await viewModel.removeProject(project)
+            } catch {
+                errorMessage = error.userMessage
+            }
+        }
     }
 
     private func kill(_ session: TmuxSession) {

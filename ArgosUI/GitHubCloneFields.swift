@@ -1,8 +1,8 @@
 //
 //  GitHubCloneFields.swift
-//  Argos
+//  ArgosUI
 //
-//  Campos «Clonar de GitHub» del formulario de nuevo proyecto: el repositorio (escrito o
+//  Campos «Clonar de GitHub» del formulario de nuevo proyecto (Mac e iPhone/iPad): el repositorio (escrito o
 //  elegido de los tuyos, que lista el `gh` del servidor), dónde clonarlo y la carpeta.
 //
 
@@ -18,6 +18,7 @@ struct GitHubCloneFields: View {
             HStack {
                 TextField("Repositorio", text: $clone.repository, prompt: Text("dueño/nombre o URL"))
                     .font(.body.monospaced())
+                    .plainCodeInput()
                 repositoryMenu
             }
             repositoriesStatus
@@ -33,11 +34,13 @@ struct GitHubCloneFields: View {
             HStack {
                 TextField("Dentro de", text: $clone.parent, prompt: Text("~/proyectos"))
                     .font(.body.monospaced())
+                    .plainCodeInput()
                 Button("Explorar…", action: onPickParent)
                     .help("Explorar las carpetas de \(serverName)")
             }
             TextField("Carpeta", text: $clone.folder, prompt: Text("nombre-del-repo"))
                 .font(.body.monospaced())
+                .plainCodeInput()
         } header: {
             Label("Dónde clonarlo", systemImage: "folder")
         } footer: {
@@ -63,8 +66,10 @@ struct GitHubCloneFields: View {
             } label: {
                 Image(systemName: "chevron.down")
             }
+            #if os(macOS)
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
+            #endif
             .fixedSize()
             .help("Elegir uno de tus repositorios")
             .accessibilityLabel("Elegir uno de tus repositorios")
@@ -95,5 +100,16 @@ struct GitHubCloneFields: View {
                     .font(.caption)
             }
         }
+    }
+}
+
+extension View {
+    /// Rutas, repositorios y comandos: sin mayúscula inicial ni autocorrección en iOS.
+    func plainCodeInput() -> some View {
+        #if os(iOS)
+        textInputAutocapitalization(.never).autocorrectionDisabled()
+        #else
+        self
+        #endif
     }
 }
