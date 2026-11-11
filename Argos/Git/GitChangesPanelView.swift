@@ -23,6 +23,9 @@ struct GitChangesPanelView: View {
 
     var body: some View {
         content
+            // Ocupa todo el detalle: si no, con poco contenido (p. ej. «Sin cambios») el
+            // panel se centra y deja franjas vacías arriba y abajo.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .task {
                 await model.refresh()
                 await model.pollWhileVisible()
@@ -62,10 +65,11 @@ struct GitChangesPanelView: View {
         case .loaded(let status):
             HSplitView {
                 GitChangesSidebar(model: model, status: status, viewModel: viewModel)
-                    .frame(minWidth: 240, idealWidth: 300, maxWidth: 460)
+                    .frame(minWidth: 240, idealWidth: 300, maxWidth: 460, maxHeight: .infinity)
                 GitDiffPane(model: model)
                     .frame(minWidth: 280, maxWidth: .infinity, maxHeight: .infinity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .bottom) { GitNoticeBanner(model: model) }
         }
     }
@@ -95,6 +99,7 @@ private struct GitChangesSidebar: View {
             if status.isClean {
                 ContentUnavailableView("Sin cambios", systemImage: "checkmark.circle",
                                        description: Text("El árbol de trabajo coincide con el último commit."))
+                    .frame(maxHeight: .infinity)
             } else {
                 list
                 Divider()
