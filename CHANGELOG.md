@@ -6,6 +6,32 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-11
+
+### Añadido
+- **Pestaña «Cambios» (git en el servidor).** Estado, diff por archivo y elección de qué
+  archivos entran en el commit. Además: descartar, commit, push y pull (`--ff-only`). En la
+  lista de proyectos, una insignia ✎/↑/↓ muestra los cambios pendientes y los commits por
+  subir o por traer.
+- **Mensaje de commit sugerido por Claude.** Claude Code, en el servidor, lee el diff de lo
+  marcado y los últimos mensajes del repo, y propone un mensaje con el mismo estilo e idioma.
+  Usa tu suscripción, nunca la API.
+- **GitHub con el `gh` del servidor.** Muestra el PR de la rama con su revisión y sus checks,
+  y el CI por workflow. Permite crear un PR (o un borrador), relanzar los jobs fallidos y
+  recibir un aviso cuando termina el CI de lo que subiste. Argos no guarda tus credenciales
+  de GitHub.
+- **Clonar de GitHub como proyecto nuevo**, en el Mac y ahora también en el iPhone/iPad.
+- **Ramas en paralelo (git worktree).** Cada rama en su carpeta, como un proyecto propio con
+  su agente, para que varios agentes trabajen a la vez sin pisarse.
+- **iPhone/iPad: crear, editar y quitar proyectos**, y convertir una sesión suelta en
+  proyecto, sin depender del Mac. Incluye un selector de carpetas del servidor que también
+  crea carpetas nuevas.
+- **Reenvío de puertos** del servidor al Mac y al iPhone/iPad: abre `localhost:<puerto>` hacia
+  un servidor de desarrollo remoto, como `ssh -L`. Los túneles sin uso se cierran solos tras
+  un tiempo configurable.
+- **Skill «argos-puertos» para Claude.** Claude sabe qué puertos tienes reenviados y puede
+  pedirte que abras uno; solo se abre si lo confirmas en Argos.
+
 ## [1.7.22] - 2026-11-09
 
 ### Corregido
