@@ -28,6 +28,8 @@ enum GitDiffState: Equatable {
 /// Operación en curso (deshabilita los botones y muestra progreso).
 enum GitOperation: Equatable {
     case commit, push, pull
+    /// Claude está proponiendo el mensaje del commit.
+    case suggest
     case discard(String)
 }
 
@@ -200,6 +202,27 @@ final class GitChangesModel {
         await perform(.discard(change.path)) {
             try await self.service.gitDiscard(root: status.root, change: change)
             return nil
+        }
+    }
+
+    /// Hay archivos marcados y nada en curso: Claude puede proponer el mensaje.
+    var canSuggestMessage: Bool { operation == nil && includedCount > 0 }
+
+    /// Pide a Claude Code (en el servidor) un mensaje para los archivos marcados, con el
+    /// estilo de los commits recientes del repo. Sustituye lo escrito en el campo.
+    func suggestCommitMessage(oauthToken: String? = KeychainStore.claudeOAuthToken()) async {
+        guard canSuggestMessage, let status else { return }
+        let included = Self.includedChanges(status.changes, excluded: excludedPaths)
+        operation = .suggest
+        defer { operation = nil }
+        do {
+            commitMessage = try await CommitMessageSuggestion.suggest(
+                service: service, root: status.root, changes: included,
+                hasCommits: status.branch.hasCommits, oauthToken: oauthToken
+            )
+        } catch {
+            errorMessage = error.userMessage
+            Log.ssh.error("Sugerir mensaje de commit: \(error.userMessage, privacy: .public)")
         }
     }
 

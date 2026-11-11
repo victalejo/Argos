@@ -188,6 +188,18 @@ private struct GitChangesList: View {
             TextField("Mensaje del commit", text: $model.commitMessage, axis: .vertical)
                 .lineLimit(2...5)
             Button {
+                Task { await model.suggestCommitMessage() }
+            } label: {
+                HStack {
+                    Label("Sugerir mensaje con Claude", systemImage: "sparkles")
+                    if model.operation == .suggest {
+                        Spacer()
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled(!model.canSuggestMessage)
+            Button {
                 Task { await model.commit() }
             } label: {
                 HStack {

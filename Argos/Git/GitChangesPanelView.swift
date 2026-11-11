@@ -289,7 +289,14 @@ private struct GitCommitBox: View {
                         .font(.caption).foregroundStyle(.orange)
                 }
                 Spacer()
-                if model.operation == .commit { ProgressView().controlSize(.small) }
+                if model.operation == .commit || model.operation == .suggest { ProgressView().controlSize(.small) }
+                Button {
+                    Task { await model.suggestCommitMessage() }
+                } label: {
+                    Label("Sugerir", systemImage: "sparkles")
+                }
+                .disabled(!model.canSuggestMessage)
+                .help("Claude Code, en el servidor, propone el mensaje a partir de los cambios marcados y del estilo de los commits recientes")
                 Button {
                     Task { await model.commit() }
                 } label: {
