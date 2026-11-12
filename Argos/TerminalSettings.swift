@@ -81,15 +81,41 @@ final class TerminalSettings {
         didSet { UserDefaults.standard.set(theme.rawValue, forKey: Keys.theme) }
     }
 
+    // MARK: - Terminales vivos a la vez
+
+    /// Cuántos terminales se mantienen conectados a la vez. Al superarlo, el menos usado
+    /// se desengancha y queda "dormido" (su sesión tmux sigue en el servidor). El
+    /// historial largo vive en tmux, así que cada terminal cuesta pocos MB en el Mac.
+    static let minLiveTerminals = 4
+    static let maxLiveTerminals = 64
+    static let defaultLiveTerminals = 24
+
+    var maxLiveTerminals: Int {
+        didSet { UserDefaults.standard.set(maxLiveTerminals, forKey: Keys.maxLiveTerminals) }
+    }
+
+    /// Acota el tope al rango válido (lógica pura, testeable).
+    static func clampLiveTerminalLimit(_ value: Int) -> Int {
+        min(max(value, minLiveTerminals), maxLiveTerminals)
+    }
+
+    /// Interpreta el valor guardado: 0 (sin guardar) es el valor por defecto.
+    static func liveTerminalLimit(fromStored stored: Int) -> Int {
+        stored == 0 ? defaultLiveTerminals : clampLiveTerminalLimit(stored)
+    }
+
     private enum Keys {
         static let fontSize = "terminal.fontSize"
         static let theme = "terminal.theme"
+        static let maxLiveTerminals = "terminal.maxLiveTerminals"
     }
 
     private init() {
-        let stored = UserDefaults.standard.double(forKey: Keys.fontSize)
+        let defaults = UserDefaults.standard
+        let stored = defaults.double(forKey: Keys.fontSize)
         fontSize = stored == 0 ? Self.defaultFontSize : stored
-        theme = TerminalTheme(rawValue: UserDefaults.standard.string(forKey: Keys.theme) ?? "") ?? .system
+        theme = TerminalTheme(rawValue: defaults.string(forKey: Keys.theme) ?? "") ?? .system
+        maxLiveTerminals = Self.liveTerminalLimit(fromStored: defaults.integer(forKey: Keys.maxLiveTerminals))
     }
 }
 
@@ -166,6 +192,21 @@ struct TerminalSettingsView: View {
                 }
                 Button("Restablecer tamaño de fuente") { settings.resetFontSize() }
                     .disabled(settings.fontSize == TerminalSettings.defaultFontSize)
+            }
+            Section {
+                Stepper(
+                    value: $settings.maxLiveTerminals,
+                    in: TerminalSettings.minLiveTerminals...TerminalSettings.maxLiveTerminals,
+                    step: 2
+                ) {
+                    LabeledContent("Terminales abiertos a la vez") {
+                        Text("\(settings.maxLiveTerminals)").monospacedDigit()
+                    }
+                }
+            } header: {
+                Text("Sesiones")
+            } footer: {
+                Text("Al superar el tope, la sesión que llevas más tiempo sin usar se duerme: sigue corriendo en el servidor y se reconecta al abrirla. El cambio se aplica al abrir el próximo terminal.")
             }
         }
         .formStyle(.grouped)

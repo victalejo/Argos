@@ -17,17 +17,17 @@ final class TerminalSessionStore {
     private var controllers: [SessionHandle: LiveTerminalController] = [:]
 
     /// Handles ordenados por uso, de MENOS a MÁS reciente (el último es el actual). Se usa
-    /// para desalojar (LRU) cuando el pool supera `maxLiveControllers`.
+    /// para desalojar (LRU) cuando el pool supera `maxLive`.
     private var lruOrder: [SessionHandle] = []
 
-    /// Tope de terminales vivos a la vez. Cada uno mantiene un PTY abierto; el historial
-    /// largo (50k líneas) vive en tmux en el servidor y SwiftTerm solo guarda la pantalla
-    /// y su scrollback corto, así que cada terminal cuesta pocos MB (8 vivos ≈ 240 MB de
-    /// la app entera). El tope solo evita un crecimiento sin límite: con 8 se dormían
-    /// sesiones en uso al trabajar con varios proyectos a la vez. Al superarlo se
-    /// desengancha (detach) el menos usado, que vuelve a "dormido" y se reconecta al
-    /// reabrirlo.
-    static let maxLiveControllers = 24
+    /// Tope de terminales vivos a la vez (ajustable en Ajustes → Terminal). Se consulta
+    /// en cada apertura; inyectable para tests. Al superarlo se desengancha (detach) el
+    /// menos usado, que vuelve a "dormido" y se reconecta al reabrirlo.
+    private let maxLive: @MainActor () -> Int
+
+    init(maxLive: @escaping @MainActor () -> Int = { TerminalSettings.shared.maxLiveTerminals }) {
+        self.maxLive = maxLive
+    }
 
     /// Devuelve el controlador de `handle`, creándolo (y conectándolo) si no existe.
     /// Reutilizar el existente es lo que hace la conexión persistente.
@@ -69,13 +69,13 @@ final class TerminalSessionStore {
         lruOrder.append(handle)
     }
 
-    /// Desengancha los terminales menos usados hasta respetar `maxLiveControllers`,
+    /// Desengancha los terminales menos usados hasta respetar `maxLive`,
     /// nunca el recién solicitado (`keep`).
     private func evictIfNeeded(keeping keep: SessionHandle) {
         let victims = Self.evictionVictims(
             lruOrder: lruOrder,
             keep: keep,
-            maxLive: Self.maxLiveControllers
+            maxLive: maxLive()
         )
         for victim in victims {
             Log.terminal.notice("Pool de terminales lleno: se desengancha la sesión menos usada.")
