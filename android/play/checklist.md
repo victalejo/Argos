@@ -84,12 +84,15 @@ ls app/build/outputs/bundle/release/app-release.aab
 
 ## 6. Cuenta de servicio para GPP (permisos mínimos)
 
-- [ ] Google Cloud Console (proyecto de la organización) → **habilitar «Google Play Android Developer
+> Hecho el 2026-11-12: `argos-play-publisher@argos-play.iam.gserviceaccount.com` (proyecto de Cloud
+> `argos-play`), secreto `ARGOS_PLAY_SERVICE_ACCOUNT` en GitHub y 1.2.0 subida como borrador interno.
+
+- [x] Google Cloud Console (proyecto de la organización) → **habilitar «Google Play Android Developer
       API»**.
-- [ ] IAM → Cuentas de servicio → Crear (p. ej. `argos-play-publisher`) **sin roles de Cloud**
+- [x] IAM → Cuentas de servicio → Crear (p. ej. `argos-play-publisher`) **sin roles de Cloud**
       (no hacen falta) → Claves → Agregar clave JSON → descargar como
       `play-service-account-argos.json` (ignorado por git; mejor fuera del repo).
-- [ ] Play Console → **Usuarios y permisos** → Invitar al correo de la cuenta de servicio →
+- [x] Play Console → **Usuarios y permisos** → Invitar al correo de la cuenta de servicio →
       permisos **solo de la app Argos** (no de la cuenta): «Ver información de la app», «Publicar en
       pistas de prueba» (*Release to testing tracks*) y, si quieres que GPP suba la ficha,
       «Administrar la presencia en Play Store». **Nada** de producción, finanzas ni administrar
