@@ -76,6 +76,10 @@ final class LiveTerminalController: TerminalViewDelegate {
         self.controlStream = controlStream
         self.controlContinuation = controlContinuation
         self.terminalView = ArgosTerminalView(frame: .zero)
+        // Paleta de 256 colores estándar de xterm. La de SwiftTerm por defecto (`base16Lab`)
+        // la deriva del fondo y el texto del tema: con tema claro invierte los grises y las
+        // TUI que eligen colores absolutos (opencode, vim…) salen con el contraste roto.
+        self.terminalView.getTerminal().ansi256PaletteStrategy = .xterm
         self.terminalView.terminalDelegate = self
         installClipboardHandler()
         self.terminalView.enableFileDrop()

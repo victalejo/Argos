@@ -393,13 +393,19 @@ actor SSHService {
 
     /// Habilita el reenvío de OSC 52 en el servidor tmux **en ejecución**, para que
     /// servidores ya configurados (sin `set-clipboard on` en su `~/.tmux.conf`) también
-    /// puedan copiar al portapapeles del Mac. Best-effort: si no hay servidor tmux o el
-    /// comando falla, se ignora silenciosamente (no debe bloquear la conexión).
+    /// puedan copiar al portapapeles del Mac, y declara que el terminal de Argos admite
+    /// color verdadero (afecta a los clientes que se enganchen después). Best-effort: si no
+    /// hay servidor tmux o el comando falla, se ignora silenciosamente (no debe bloquear la
+    /// conexión).
     func enableClipboardForwarding() async {
         guard let client = try? await connectedClient() else { return }
         let command =
             "tmux set -g set-clipboard on 2>/dev/null; "
-            + "tmux set -ga terminal-overrides ',*:Ms=\\E]52;%p1%s;%p2%s\\007' 2>/dev/null; true"
+            + "tmux set -ga terminal-overrides ',*:Ms=\\E]52;%p1%s;%p2%s\\007' 2>/dev/null; "
+            // Color verdadero: sin `Tc`, tmux rebaja los colores RGB de las apps a la paleta
+            // de 256. Solo se añade una vez (`-ga` acumularía una copia por conexión).
+            + "tmux show -g terminal-overrides 2>/dev/null | grep -q 'xterm-256color:Tc' "
+            + "|| tmux set -ga terminal-overrides ',xterm-256color:Tc' 2>/dev/null; true"
         _ = try? await capture(client, command: command)
     }
 

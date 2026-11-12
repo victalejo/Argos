@@ -42,6 +42,9 @@ final class TouchTerminalController: TerminalViewDelegate {
         self.sessionName = sessionName
         (controlStream, controlContinuation) = AsyncStream<TerminalControlEvent>.makeStream()
         terminalView = ScrollingTerminalView(frame: .zero, font: TerminalAppearance.font(size: fontSize))
+        // Paleta xterm estándar (ver `LiveTerminalController` del Mac): la generada por
+        // SwiftTerm a partir del tema rompe el contraste de las TUI con colores absolutos.
+        terminalView.getTerminal().ansi256PaletteStrategy = .xterm
         TerminalAppearance.apply(to: terminalView)
         terminalView.terminalDelegate = self
         start()
