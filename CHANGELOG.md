@@ -6,6 +6,17 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-11-12
+
+### Corregido
+- **Mac: las sesiones ya no se duermen solas al trabajar con varios proyectos.** Solo se
+  mantenían 8 terminales conectados; al abrir el 9.º se dormía el menos usado. Ahora son 24.
+
+### Añadido
+- **Mac: tope de terminales abiertos a la vez ajustable** en Ajustes → Terminal → Sesiones
+  (de 4 a 64). Al superarlo, la sesión que llevas más tiempo sin usar se duerme; sigue
+  corriendo en el servidor y se reconecta al abrirla.
+
 ## [1.8.1] - 2026-11-11
 
 ### Corregido
