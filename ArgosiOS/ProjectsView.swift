@@ -74,6 +74,8 @@ struct ProjectsView: View {
                 await viewModel.refreshGitSummaries(force: true)
             }
             .task { await pollGitSummaries() }
+            .onChange(of: hub.pendingRoute, initial: true) { _, _ in followPendingRoute() }
+            .onChange(of: viewModel.sessions) { _, _ in followPendingRoute() }
             .onChange(of: scenePhase) { _, phase in
                 // Al volver de segundo plano la lista puede estar desfasada (y la conexión
                 // SSH, muerta): se recarga, lo que también reconecta.
@@ -263,6 +265,9 @@ struct ProjectsView: View {
                         .truncationMode(.middle)
                 }
                 Spacer()
+                if let claude = viewModel.claudeActivity.activity(forSession: entry.project.sessionName) {
+                    ClaudeActivityBadge(activity: claude, size: 15)
+                }
                 if let git = viewModel.gitSummary(for: entry.project) {
                     GitSummaryBadge(summary: git)
                 }
@@ -303,6 +308,10 @@ struct ProjectsView: View {
                     Text(session.windowCount == 1 ? "1 ventana" : "\(session.windowCount) ventanas")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if let claude = viewModel.claudeActivity.activity(forSession: session.name) {
+                    ClaudeActivityBadge(activity: claude, size: 15)
                 }
             }
         }
@@ -358,6 +367,34 @@ struct ProjectsView: View {
 
     private func open(_ target: ProjectTarget) {
         if let selection { selection.wrappedValue = target } else { pushed = target }
+    }
+
+    /// Notificación tocada: abre su sesión (y su ventana) en cuanto la lista está cargada.
+    private func followPendingRoute() {
+        guard let route = hub.pendingRoute, route.serverID == server.id else { return }
+        guard let session = route.session else {
+            hub.pendingRoute = nil   // el aviso solo señalaba el servidor
+            return
+        }
+        guard case .loaded = viewModel.state else { return }   // se reintenta al cargar
+        hub.pendingRoute = nil
+        if let entry = viewModel.projectListing.entries.first(where: { $0.project.sessionName == session }) {
+            show(entry.project)
+        } else if viewModel.session(withID: session) != nil {
+            show(session: session)
+        } else {
+            return   // la sesión ya no existe: se queda en la lista
+        }
+        if let window = route.window {
+            let service = viewModel.service
+            Task {
+                do {
+                    try await service.selectWindow(session: session, index: window)
+                } catch {
+                    Log.terminal.notice("No se pudo ir a la ventana del aviso: \(error.userMessage, privacy: .public)")
+                }
+            }
+        }
     }
 
     private func remove(_ project: Project) {

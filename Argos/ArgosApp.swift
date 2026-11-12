@@ -33,6 +33,12 @@ struct ArgosApp: App {
     )
     #endif
 
+    init() {
+        // Antes de que exista ninguna ventana: si un toque en un aviso lanzó la app, el
+        // sistema lo entrega enseguida y sin delegado se pierde.
+        ClaudeActivityNotifier.shared.activate()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

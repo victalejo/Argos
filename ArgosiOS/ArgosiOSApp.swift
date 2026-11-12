@@ -29,10 +29,14 @@ struct ArgosiOSApp: App {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background:
+                hub.stopActivityPolling()
                 AgentNotifier.shared.prepareForBackground()
                 hub.suspendTerminals()
                 hub.suspendAgents()
             case .active:
+                hub.migrateSecretAccessibilityIfNeeded()
+                AgentNotifier.shared.didReturnToForeground()
+                hub.startActivityPolling()
                 hub.cloudSync?.sync()
                 hub.reconnectTerminals()
                 hub.resumeAgents()

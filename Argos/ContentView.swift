@@ -87,6 +87,10 @@ struct ContentView: View {
             loadSelectedIfNeeded()
         }
         .onChange(of: store.servers) { _, _ in syncVMs() }
+        .openingNotificationRoutes(
+            serverID: $selectedServerID, session: $selectedSession, modes: $detailModes,
+            serverExists: { store.server(withID: $0) != nil }, service: { vms[$0]?.service }
+        )
         .onChange(of: sleepMonitor.isAsleep) { _, asleep in
             heartbeatSleep.apply(asleep: asleep, to: vms.values.map(\.service))
         }

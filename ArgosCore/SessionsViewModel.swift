@@ -157,6 +157,14 @@ final class SessionsViewModel {
 
     private var hasPolledClaude = false
 
+    /// Toma `snapshot` como lo último conocido SIN avisar: lo que ya se notificó por otra
+    /// vía (la comprobación en segundo plano del iPhone) no debe avisarse otra vez al volver.
+    func adoptClaudeActivityBaseline(_ snapshot: ClaudeActivitySnapshot) {
+        // Sin sondeo previo no hace falta: el primero nunca avisa (y además actualiza los hooks).
+        guard hasPolledClaude else { return }
+        claudeActivity = snapshot
+    }
+
     /// Una vez por arranque: si el indicador se activó con hooks de una versión
     /// anterior, se actualizan (los de ahora cubren más casos). Fallar no es grave.
     private func upgradeClaudeHooks() async {

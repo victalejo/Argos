@@ -74,6 +74,9 @@ actor SSHService {
         case installFailed(String)
         case configFailed(String)
         case uploadFailed(String)
+        /// No hay contraseña con la que autenticar (no guardada, o el Llavero aún no se
+        /// puede leer porque el dispositivo no se ha desbloqueado desde que arrancó).
+        case credentialUnavailable
 
         var errorDescription: String? {
             switch self {
@@ -97,6 +100,8 @@ actor SSHService {
                 return "No se pudo crear ~/.tmux.conf. \(message)"
             case .uploadFailed(let message):
                 return "No se pudo subir el archivo al servidor. \(message)"
+            case .credentialUnavailable:
+                return "No hay contraseña guardada para este servidor. Edítalo y vuelve a escribirla."
             }
         }
     }
@@ -565,10 +570,12 @@ actor SSHService {
             let privateKey = try loadPrivateKey()
             return .ed25519(username: configuration.username, privateKey: privateKey)
         case .password:
-            return .passwordBased(
-                username: configuration.username,
-                password: configuration.password ?? ""
-            )
+            // Sin contraseña no se toca la red: probar con una vacía solo suma intentos
+            // fallidos en el servidor (fail2ban) cada vez que se sondea en segundo plano.
+            guard let password = configuration.password, !password.isEmpty else {
+                throw SSHServiceError.credentialUnavailable
+            }
+            return .passwordBased(username: configuration.username, password: password)
         }
     }
 

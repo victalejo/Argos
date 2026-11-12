@@ -18,7 +18,7 @@
 import Foundation
 
 /// Qué está haciendo Claude Code en un panel.
-enum ClaudeActivity: String, Sendable, CaseIterable {
+enum ClaudeActivity: String, Sendable, CaseIterable, Codable {
     /// Procesando (tras un prompt o una herramienta).
     case working
     /// Necesita al usuario: permiso, pregunta o diálogo.
@@ -64,7 +64,7 @@ struct ClaudeTransition: Equatable, Sendable {
 }
 
 /// Estado de Claude en un panel, ya corregido con la pantalla.
-struct ClaudePaneActivity: Equatable, Sendable {
+struct ClaudePaneActivity: Equatable, Sendable, Codable {
     let paneID: String
     let session: String
     let window: Int
@@ -85,7 +85,7 @@ struct ClaudePaneActivity: Equatable, Sendable {
 }
 
 /// Estado de Claude en todas las sesiones de un servidor.
-struct ClaudeActivitySnapshot: Equatable, Sendable {
+struct ClaudeActivitySnapshot: Equatable, Sendable, Codable {
     /// Un elemento por panel con estado, en el orden de `list-panes`.
     let panes: [ClaudePaneActivity]
 

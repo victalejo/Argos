@@ -25,6 +25,18 @@ final class ServerHub {
     /// Agentes que estaban enganchados al pasar a segundo plano (se reenganchan al volver).
     @ObservationIgnored private var suspendedAgents: [PersistentAgentSession] = []
 
+    /// Destino pedido al tocar una notificación. Lo consume la vista que lo resuelve.
+    var pendingRoute: NotificationRoute?
+    @ObservationIgnored private var routeExpiry: Task<Void, Never>?
+    /// Si en este tiempo no se pudo abrir (servidor inalcanzable, sin clave…), se olvida:
+    /// que la app saltara a esa sesión minutos después, al reconectar, sería desconcertante.
+    private static let routeLifetime: Duration = .seconds(30)
+    /// Sesión que hay en pantalla: de esa no se avisa con la app delante.
+    @ObservationIgnored var viewing: SessionHandle?
+    @ObservationIgnored private var activityPoll: Task<Void, Never>?
+    /// Cambia al arrancar y al parar el sondeo: una respuesta que llega tarde no avisa.
+    @ObservationIgnored private var pollGeneration = 0
+
     /// Sincronización de servidores y huellas con el Mac y otros iPhone/iPad (iCloud).
     @ObservationIgnored private(set) var cloudSync: CloudServerSync?
 
@@ -111,6 +123,81 @@ final class ServerHub {
         let viewModel = SessionsViewModel(service: server.makeService())
         viewModels[server.id] = viewModel
         return viewModel
+    }
+
+    /// Aviso tocado: pide abrir su destino, si su servidor sigue existiendo.
+    func follow(_ route: NotificationRoute) {
+        routeExpiry?.cancel()
+        guard store.server(withID: route.serverID) != nil else {
+            pendingRoute = nil
+            return
+        }
+        pendingRoute = route
+        routeExpiry = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.routeLifetime)
+            guard !Task.isCancelled, let self, self.pendingRoute == route else { return }
+            self.pendingRoute = nil
+        }
+    }
+
+    /// View models ya creados, con su servidor tal como está guardado ahora.
+    func loadedViewModels() -> [(server: Server, viewModel: SessionsViewModel)] {
+        viewModels.compactMap { id, viewModel in
+            store.server(withID: id).map { ($0, viewModel) }
+        }
+    }
+
+    // MARK: - Estado de Claude en tmux
+
+    /// Cada cuánto se lee el estado de Claude Code de los servidores conectados.
+    private static let activityPollInterval: Duration = .seconds(5)
+
+    /// Con la app delante: sondea el estado de Claude Code en las ventanas tmux de los
+    /// servidores conectados (insignia en la lista y aviso al terminar o pedir permiso).
+    /// Vive aquí y no en una vista porque en iPhone la lista de proyectos desaparece al
+    /// entrar en el terminal, que es justo cuando hace falta.
+    func startActivityPolling() {
+        guard activityPoll == nil else { return }
+        pollGeneration += 1
+        let generation = pollGeneration
+        activityPoll = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                // Una tarea por servidor: uno con la conexión colgada no retrasa a los demás.
+                let polls = self.loadedViewModels().map { server, viewModel in
+                    Task { @MainActor [weak self] in
+                        let transitions = await viewModel.refreshClaudeActivity()
+                        // Parado mientras respondía (paso a segundo plano): no se avisa.
+                        guard let self, self.pollGeneration == generation else { return }
+                        if viewModel.claudeActivity != .empty { AgentNotifier.shared.didSeeClaude(on: server) }
+                        let viewing = self.viewing?.serverID == server.id ? self.viewing?.sessionID : nil
+                        AgentNotifier.shared.postClaude(transitions, server: server, viewing: viewing)
+                    }
+                }
+                for poll in polls { await poll.value }
+                do { try await Task.sleep(for: Self.activityPollInterval) } catch { return }
+            }
+        }
+    }
+
+    func stopActivityPolling() {
+        pollGeneration += 1
+        activityPoll?.cancel()
+        activityPoll = nil
+    }
+
+    // MARK: - Secretos
+
+    private static let secretsMigratedKey = "keychain.sshSecrets.afterFirstUnlock"
+
+    /// Una vez: pasa los secretos SSH ya guardados a la política que permite leerlos en
+    /// segundo plano (ver `KeychainStore`). Si falla (dispositivo bloqueado), se
+    /// reintenta la próxima vez que la app pase a primer plano.
+    func migrateSecretAccessibilityIfNeeded(defaults: UserDefaults = .standard) {
+        guard !defaults.bool(forKey: Self.secretsMigratedKey) else { return }
+        if KeychainStore.applyCurrentAccessibility(toSSHSecretsOf: store.servers.map(\.id)) {
+            defaults.set(true, forKey: Self.secretsMigratedKey)
+        }
     }
 
     /// Olvida la huella del servidor y reconecta (tras una reinstalación legítima).

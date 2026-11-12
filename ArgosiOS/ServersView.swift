@@ -20,12 +20,20 @@ struct RootView: View {
 
 /// iPhone (o iPad estrecho).
 struct ServersView: View {
+    @Environment(ServerHub.self) private var hub
+    @State private var path: [Server] = []
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ServerList(selection: nil)
                 .navigationDestination(for: Server.self) { server in
                     ProjectsView(server: server)
                 }
+        }
+        // Tocar una notificación: abre su servidor; `ProjectsView` abre la sesión.
+        .onChange(of: hub.pendingRoute, initial: true) { _, route in
+            guard let route, let server = hub.store.server(withID: route.serverID) else { return }
+            if path.last?.id != server.id { path = [server] }
         }
     }
 }
@@ -59,6 +67,11 @@ struct SplitRootView: View {
             }
         }
         .onChange(of: serverID) { _, _ in target = nil }
+        // Tocar una notificación: elige su servidor; `ProjectsView` abre la sesión.
+        .onChange(of: hub.pendingRoute, initial: true) { _, route in
+            guard let route, hub.store.server(withID: route.serverID) != nil else { return }
+            if serverID != route.serverID { serverID = route.serverID }
+        }
     }
 }
 

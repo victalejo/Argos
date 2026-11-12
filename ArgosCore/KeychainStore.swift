@@ -109,24 +109,65 @@ enum KeychainStore {
             kSecAttrSynchronizable as String: false,
         ]
         // Incluye `kSecAttrAccessible` también en el update para MIGRAR los secretos
-        // guardados con la política antigua (AfterFirstUnlock) a WhenUnlocked al reescribir.
+        // guardados con otra política a la vigente al reescribir.
         let attributes: [String: Any] = [
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
+            kSecAttrAccessible as String: accessibility(for: service),
         ]
 
         let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if updateStatus == errSecItemNotFound {
             var addQuery = query
             addQuery[kSecValueData as String] = data
-            // WhenUnlocked: el secreto NO es legible con la pantalla bloqueada
-            // (AfterFirstUnlock lo dejaría accesible tras el primer desbloqueo del día).
-            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
+            addQuery[kSecAttrAccessible as String] = accessibility(for: service)
             let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
             guard addStatus == errSecSuccess else { throw KeychainError.unexpectedStatus(addStatus) }
         } else if updateStatus != errSecSuccess {
             throw KeychainError.unexpectedStatus(updateStatus)
         }
+    }
+
+    /// Cuándo se puede leer cada secreto.
+    ///
+    /// Por defecto `WhenUnlocked`: no es legible con la pantalla bloqueada. La excepción
+    /// son los secretos SSH en iPhone/iPad: los avisos de «Claude terminó / espera tu
+    /// permiso» se comprueban en segundo plano, casi siempre con el teléfono bloqueado, y
+    /// con `WhenUnlocked` esa comprobación fallaba en silencio para los servidores con
+    /// contraseña o passphrase. `AfterFirstUnlockThisDeviceOnly` los deja legibles tras
+    /// el primer desbloqueo desde el arranque (lo habitual en apps con trabajo en segundo
+    /// plano) y nunca salen del dispositivo. El token de Claude sigue en `WhenUnlocked`.
+    private static func accessibility(for service: String) -> CFString {
+        #if os(iOS)
+        if service == passphraseService || service == passwordService {
+            return kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        }
+        #endif
+        return kSecAttrAccessibleWhenUnlocked
+    }
+
+    /// Pasa los secretos SSH ya guardados de esos servidores a la política vigente (sin
+    /// leerlos). Devuelve `false` si alguno no se pudo cambiar (p. ej. dispositivo
+    /// bloqueado), para reintentarlo más tarde.
+    @discardableResult
+    static func applyCurrentAccessibility(toSSHSecretsOf serverIDs: [UUID]) -> Bool {
+        var allApplied = true
+        for service in [passphraseService, passwordService] {
+            for id in serverIDs {
+                let query: [String: Any] = [
+                    kSecClass as String: kSecClassGenericPassword,
+                    kSecAttrService as String: service,
+                    kSecAttrAccount as String: id.uuidString,
+                    kSecAttrSynchronizable as String: false,
+                ]
+                let attributes: [String: Any] = [kSecAttrAccessible as String: accessibility(for: service)]
+                let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+                if status != errSecSuccess && status != errSecItemNotFound {
+                    Log.store.error("No se pudo actualizar la política de un secreto SSH: \(status)")
+                    allApplied = false
+                }
+            }
+        }
+        return allApplied
     }
 
     private static func secret(service: String, account: String) -> String? {

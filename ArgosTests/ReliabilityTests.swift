@@ -359,3 +359,76 @@ struct DeadlineTests {
         #expect(clock.now - start < .seconds(2))
     }
 }
+
+@Suite("Destino de una notificación")
+struct NotificationRouteTests {
+
+    @Test("Viaja en el userInfo y vuelve igual")
+    func roundTrip() {
+        let route = NotificationRoute(serverID: UUID(), session: "api|v2", window: 3)
+        #expect(NotificationRoute(userInfo: route.userInfo) == route)
+        let serverOnly = NotificationRoute(serverID: UUID())
+        #expect(NotificationRoute(userInfo: serverOnly.userInfo) == serverOnly)
+    }
+
+    @Test("Un userInfo ajeno o con un id inválido no produce destino")
+    func rejectsForeignPayloads() {
+        #expect(NotificationRoute(userInfo: [:]) == nil)
+        #expect(NotificationRoute(userInfo: ["argos.serverID": "no-es-uuid"]) == nil)
+        #expect(NotificationRoute(userInfo: ["argos.serverID": 42]) == nil)
+        // Sesión vacía o ventana con tipo equivocado: se ignoran, el servidor vale.
+        let id = UUID()
+        let loose = NotificationRoute(userInfo: ["argos.serverID": id.uuidString, "argos.session": "", "argos.window": "3"])
+        #expect(loose == NotificationRoute(serverID: id))
+    }
+}
+
+@MainActor
+@Suite("Estado de Claude: referencia y persistencia")
+struct ClaudeActivityBaselineTests {
+
+    private func pane(_ activity: ClaudeActivity, window: Int = 1) -> ClaudePaneActivity {
+        ClaudePaneActivity(paneID: "%\(window)", session: "api", window: window, activity: activity, isQuiet: false)
+    }
+
+    @Test("El snapshot se guarda y se recupera igual (se persiste entre refrescos en segundo plano)")
+    func snapshotIsCodable() throws {
+        let snapshot = ClaudeActivitySnapshot(panes: [pane(.working), pane(.waiting, window: 2)])
+        let data = try JSONEncoder().encode(["srv": snapshot])
+        #expect(try JSONDecoder().decode([String: ClaudeActivitySnapshot].self, from: data) == ["srv": snapshot])
+    }
+
+    @Test("Lo ya avisado en segundo plano no se avisa otra vez al volver")
+    func adoptedBaselineIsNotAnnouncedAgain() async {
+        let mock = MockSSHService()
+        mock.sessions = [TmuxSession(name: "api", windowCount: 1, isAttached: false, createdAt: Date(timeIntervalSince1970: 0))]
+        let vm = SessionsViewModel(service: mock)
+        await vm.load()
+        mock.claudeSnapshot = ClaudeActivitySnapshot(panes: [pane(.working)])
+        _ = await vm.refreshClaudeActivity()   // primer sondeo: referencia
+
+        // En segundo plano terminó y ya se avisó: esa es la nueva referencia.
+        let done = ClaudeActivitySnapshot(panes: [pane(.done)])
+        vm.adoptClaudeActivityBaseline(done)
+        mock.claudeSnapshot = done
+        #expect(await vm.refreshClaudeActivity().isEmpty)
+
+        // Un cambio posterior sí se avisa.
+        mock.claudeSnapshot = ClaudeActivitySnapshot(panes: [pane(.waiting)])
+        #expect(await vm.refreshClaudeActivity() == [ClaudeTransition(session: "api", window: 1, activity: .waiting)])
+    }
+}
+
+@Suite("Autenticación sin contraseña")
+struct MissingPasswordTests {
+
+    @Test("Sin contraseña guardada no se intenta el login (ni se toca la red)")
+    func missingPasswordFailsBeforeConnecting() async {
+        // Host inválido a propósito: si llegara a conectar, el error sería de red.
+        let server = Server(name: "x", host: "host.invalid", port: 22, username: "u", authMethod: .password, privateKeyPath: "")
+        for password in [nil, ""] as [String?] {
+            let service = SSHService(configuration: SSHService.Configuration(server: server, password: password))
+            await #expect(throws: SSHService.SSHServiceError.self) { _ = try await service.listSessions() }
+        }
+    }
+}

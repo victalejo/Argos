@@ -56,7 +56,11 @@ struct ProjectScreen: View {
                 PortForwardsSheet(service: service, serverName: server.name)
             }
             .portForwardRequests(service: service, serverName: server.name)
+            .onAppear { hub.viewing = handle }
+            .onDisappear { if hub.viewing == handle { hub.viewing = nil } }
     }
+
+    private var handle: SessionHandle { SessionHandle(serverID: server.id, sessionID: target.sessionName) }
 
     @ViewBuilder
     private var content: some View {

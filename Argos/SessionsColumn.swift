@@ -593,10 +593,10 @@ struct SessionsColumn: View {
                 await vm.refreshGitSummaries(force: transitions.contains { $0.activity == .done })
                 let viewing = selection?.serverID == server.id ? selection?.sessionID : nil
                 ClaudeActivityNotifier.shared.notify(
-                    serverName: server.name, transitions: transitions, viewing: viewing,
+                    serverID: server.id, serverName: server.name, transitions: transitions, viewing: viewing,
                     gitSummary: { vm.gitSummary(forSession: $0) }
                 )
-                ClaudeActivityNotifier.shared.notifyCI(await vm.pollCIWatches(), serverName: server.name)
+                ClaudeActivityNotifier.shared.notifyCI(await vm.pollCIWatches(), serverID: server.id, serverName: server.name)
             }
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
         }
