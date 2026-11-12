@@ -16,9 +16,10 @@ on:
     tags:
       - "v*"
 
+# Sin cancelar a medias: cortar la subida dejaría un Release con assets incompletos.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write # necesario para crear el Release en push de tag
@@ -26,9 +27,13 @@ permissions:
 jobs:
   build-dmg:
     runs-on: macos-15
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      # Acciones fijadas por SHA (Dependabot las mantiene al día): un tag se puede mover.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+          # El Release se publica con GH_TOKEN en su paso; git no necesita credenciales.
+          persist-credentials: false
           # Historia + tags completos: las notas del release usan `git log` entre
           # el tag anterior y el actual, y `git describe` para hallar el anterior.
           fetch-depth: 0
@@ -134,7 +139,7 @@ jobs:
 
       # El DMG queda disponible como artifact en TODA corrida (incluida la manual).
       - name: Subir DMG como artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.DMG_NAME }}
           path: ${{ env.DMG_NAME }}
@@ -223,6 +228,9 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/2.9.3/Sparkle-2.9.3.tar.xz" -o /tmp/sparkle.tar.xz
+          # La herramienta que recibe la clave privada se comprueba antes de ejecutarla.
+          # Al subir de versión, actualiza también este hash (el `digest` del asset en GitHub).
+          echo "74a07da821f92b79310009954c0e15f350173374a3abe39095b4fc5096916be6  /tmp/sparkle.tar.xz" | shasum -a 256 -c -
           mkdir -p /tmp/sparkle && tar -xf /tmp/sparkle.tar.xz -C /tmp/sparkle
           SIGN="/tmp/sparkle/bin/sign_update"
 
@@ -258,7 +266,10 @@ jobs:
           echo "----- appcast.xml -----"; cat appcast.xml
 
       # Publica el GitHub Release con el DMG (instalación inicial), el ZIP y el appcast
-      # (actualizaciones OTA vía Sparkle). Solo en push de tag.
+      # (actualizaciones OTA vía Sparkle). Solo en push de tag. Nace en BORRADOR y solo se
+      # publica tras comprobar que los tres assets subieron enteros: Sparkle lee
+      # `releases/latest`, y un Release a medias dejaría a los usuarios con «error al buscar
+      # actualizaciones» o sin el ZIP que anuncia el appcast.
       - name: Publicar GitHub Release
         if: github.ref_type == 'tag'
         env:
@@ -274,6 +285,18 @@ jobs:
             gh release upload "${GITHUB_REF_NAME}" "${DMG_NAME}" "${ZIP_NAME}" appcast.xml --clobber
           else
             gh release create "${GITHUB_REF_NAME}" "${DMG_NAME}" "${ZIP_NAME}" appcast.xml \
+              --draft \
               --title "Argos ${GITHUB_REF_NAME}" \
               --notes-file notes.md
           fi
+
+          for asset in "${DMG_NAME}" "${ZIP_NAME}" appcast.xml; do
+            local_size="$(stat -f%z "$asset")"
+            remote_size="$(gh release view "${GITHUB_REF_NAME}" --json assets \
+              --jq ".assets[] | select(.name == \"$asset\") | .size")"
+            if [ "$local_size" != "$remote_size" ]; then
+              echo "::error::$asset no subió entero (local $local_size, remoto ${remote_size:-ausente}). El Release queda en borrador."
+              exit 1
+            fi
+          done
+          gh release edit "${GITHUB_REF_NAME}" --draft=false --latest

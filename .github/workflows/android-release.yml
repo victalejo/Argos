@@ -61,6 +61,14 @@ jobs:
         with:
           cache-read-only: true
 
+      # Los tests de integración de ssh ejecutan tmux real (igual que android.yml).
+      - name: Instalar tmux
+        timeout-minutes: 5
+        run: |
+          sudo apt-get install -y -qq tmux \
+            || (sudo apt-get update -qq && sudo apt-get install -y -qq tmux)
+          tmux -V
+
       - name: Comprobar que el tag coincide con ARGOS_VERSION_NAME
         if: startsWith(github.ref, 'refs/tags/android-v')
         run: |
@@ -70,6 +78,13 @@ jobs:
             echo "::error::El tag $GITHUB_REF_NAME no coincide con ARGOS_VERSION_NAME=$version (android/gradle.properties)"
             exit 1
           fi
+
+      # Gate completo ANTES de tocar la clave de firma: lo mismo que exige android.yml en main.
+      # (Sin ARGOS_REQUIRE_SIGNING: aquí todavía no hay clave y no se construye el release.)
+      - name: Tests y lint (gate de la publicación)
+        env:
+          ARGOS_REQUIRE_SIGNING: "false"
+        run: ./gradlew :core:test :ssh:test :app:testDebugUnitTest :app:lintDebug
 
       - name: Decodificar la clave de subida
         env:
@@ -88,7 +103,7 @@ jobs:
           ARGOS_UPLOAD_STORE_PASSWORD: ${{ secrets.ARGOS_UPLOAD_STORE_PASSWORD }}
           ARGOS_UPLOAD_KEY_ALIAS: ${{ secrets.ARGOS_UPLOAD_KEY_ALIAS }}
           ARGOS_UPLOAD_KEY_PASSWORD: ${{ secrets.ARGOS_UPLOAD_KEY_PASSWORD }}
-        run: ./gradlew :app:testDebugUnitTest :app:bundleRelease
+        run: ./gradlew :app:bundleRelease
 
       - name: Verificar la firma del AAB
         run: |

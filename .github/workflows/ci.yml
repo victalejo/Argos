@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Mínimo: leer el código.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -12,8 +16,13 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: macos-15
+    # Un xcodebuild colgado no debe gastar las 6 h por defecto.
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
+      # Acciones fijadas por SHA (Dependabot las mantiene al día): un tag se puede mover.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Seleccionar Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.4.app

@@ -1,0 +1,27 @@
+# Mantiene al día lo que está fijado: las acciones (por SHA) y las dependencias de Android.
+# Un solo PR agrupado por ecosistema y mes, para que no haya goteo.
+# Las dependencias Swift viven en project.yml (XcodeGen), que Dependabot no entiende:
+# se revisan a mano (Citadel, SwiftTerm, Sparkle, MarkdownUI).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
+    groups:
+      acciones:
+        patterns: ["*"]
+
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: build
+    open-pull-requests-limit: 3
+    groups:
+      android:
+        patterns: ["*"]
+        update-types: [minor, patch]
