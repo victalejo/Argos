@@ -227,8 +227,8 @@ private struct BrowsingTarget: Identifiable {
     var id: String { url.absoluteString }
 }
 
-/// Navegador dentro de la app.
-private struct SafariView: UIViewControllerRepresentable {
+/// Navegador dentro de la app (también lo usa `ClaudeLoginSheet`).
+struct SafariView: UIViewControllerRepresentable {
     let url: URL
 
     func makeUIViewController(context: Context) -> SFSafariViewController {

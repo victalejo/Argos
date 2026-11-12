@@ -19,6 +19,11 @@ struct AgentsView: View {
     @State private var errorMessage: String?
     @State private var isLaunching = false
     @State private var opened: AgentRoute?
+    @State private var isShowingLogin = false
+    /// Al terminar el login se retoma la creación del agente que lo pidió.
+    @State private var launchAfterLogin = false
+    /// Sesión de Claude ya confirmada en este servidor: no se vuelve a preguntar.
+    @State private var isClaudeConnected = false
 
     private var service: any SSHServicing { hub.viewModel(for: server).service }
 
@@ -77,6 +82,25 @@ struct AgentsView: View {
         .navigationDestination(item: $opened) { route in
             AgentChatView(session: hub.agentSession(for: route.info, server: server))
         }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu("Opciones de agentes", systemImage: "ellipsis.circle") {
+                    Button("Conectar Claude…", systemImage: "person.badge.key") {
+                        launchAfterLogin = false
+                        isShowingLogin = true
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingLogin) {
+            ClaudeLoginSheet(service: service, serverName: server.name, allowsSkip: launchAfterLogin) { connected in
+                isShowingLogin = false
+                let resume = connected && launchAfterLogin
+                launchAfterLogin = false
+                if connected { isClaudeConnected = true }
+                if resume { launch() }
+            }
+        }
         .alert("No se pudo crear el agente", isPresented: Binding(get: { errorMessage != nil && agents != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -102,6 +126,11 @@ struct AgentsView: View {
         Task {
             defer { isLaunching = false }
             do {
+                guard try await isClaudeReady() else {
+                    launchAfterLogin = true
+                    isShowingLogin = true
+                    return
+                }
                 let session = try await PersistentAgentSession.launch(
                     service: service,
                     workingDirectory: workingDirectory,
@@ -119,6 +148,15 @@ struct AgentsView: View {
                 errorMessage = error.userMessage
             }
         }
+    }
+
+    /// `false` si el servidor tiene Claude Code pero sin sesión (y no hay token guardado):
+    /// toca el login guiado. Sin Claude instalado sigue adelante y el lanzamiento lo dice.
+    private func isClaudeReady() async throws -> Bool {
+        if isClaudeConnected || KeychainStore.hasClaudeOAuthToken() { return true }
+        guard let status = try await service.claudeAuthStatus() else { return true }
+        isClaudeConnected = status.loggedIn
+        return status.loggedIn
     }
 }
 

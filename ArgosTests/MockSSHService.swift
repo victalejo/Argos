@@ -324,6 +324,16 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     )
     func claudeAuthStatus() async throws -> ClaudeAuthStatus? { authStatus }
 
+    /// Salida que emite el comando del PTY (p. ej. `claude auth login`).
+    var commandOutput: [String] = []
+    /// Si es `true`, el comando sigue vivo hasta que se cierre su entrada.
+    var commandStaysOpen = false
+    var commandError: Error?
+    /// Se llama con cada texto tecleado en el PTY del comando.
+    var onCommandInput: (String) -> Void = { _ in }
+    private(set) var attachedCommands: [String] = []
+    private(set) var commandInput: [String] = []
+
     func attachCommand(
         command: String,
         initialCols: Int,
@@ -331,7 +341,18 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         control: AsyncStream<TerminalControlEvent>,
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws {
-        output.finish()
+        defer { output.finish() }
+        attachedCommands.append(command)
+        if let commandError { throw commandError }
+        for chunk in commandOutput { output.yield(Array(chunk.utf8)) }
+        guard commandStaysOpen else { return }
+        for await event in control {
+            if case .input(let bytes) = event {
+                let text = String(decoding: bytes, as: UTF8.self)
+                commandInput.append(text)
+                onCommandInput(text)
+            }
+        }
     }
 
     func runAgentExec(
