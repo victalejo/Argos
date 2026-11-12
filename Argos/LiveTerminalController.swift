@@ -80,6 +80,9 @@ final class LiveTerminalController: TerminalViewDelegate {
         // la deriva del fondo y el texto del tema: con tema claro invierte los grises y las
         // TUI que eligen colores absolutos (opencode, vim…) salen con el contraste roto.
         self.terminalView.getTerminal().ansi256PaletteStrategy = .xterm
+        // Colores del tema ANTES de enganchar: tmux pregunta el color de fondo nada más
+        // conectarse y se lo cuenta a las apps; sin esto vería el negro por defecto.
+        self.terminalView.applyTheme(TerminalSettings.shared.theme)
         self.terminalView.terminalDelegate = self
         installClipboardHandler()
         self.terminalView.enableFileDrop()
@@ -342,6 +345,29 @@ final class ArgosTerminalView: TerminalView {
     var onPasteImage: ((Data, String) -> Void)?
     /// Invocado al soltar archivos desde Finder sobre el terminal: lista de URLs.
     var onDropFiles: (([URL]) -> Void)?
+    /// Tema aplicado; se vuelve a resolver cuando cambia la apariencia (claro/oscuro).
+    private var appliedTheme: TerminalTheme?
+
+    /// Aplica los colores del tema ya RESUELTOS para la apariencia de la vista. SwiftTerm
+    /// guarda una copia RGB para responder a las apps que preguntan el color de fondo
+    /// (OSC 10/11; así deciden tema claro u oscuro): un color dinámico del sistema se
+    /// quedaría con el valor del momento en que se asignó.
+    func applyTheme(_ theme: TerminalTheme) {
+        appliedTheme = theme
+        var foreground = theme.foreground
+        var background = theme.background
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            foreground = theme.foreground.usingColorSpace(.sRGB) ?? foreground
+            background = theme.background.usingColorSpace(.sRGB) ?? background
+        }
+        if nativeForegroundColor != foreground { nativeForegroundColor = foreground }
+        if nativeBackgroundColor != background { nativeBackgroundColor = background }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        if let appliedTheme { applyTheme(appliedTheme) }
+    }
 
     override func paste(_ sender: Any?) {
         if let (data, ext) = Self.imageFromPasteboard() {

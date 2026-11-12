@@ -36,12 +36,7 @@ struct TerminalViewRepresentable: NSViewRepresentable {
     private func apply(to view: ArgosTerminalView) {
         let newFont = NSFont.monospacedSystemFont(ofSize: CGFloat(fontSize), weight: .regular)
         if view.font != newFont { view.font = newFont }
-        if view.nativeForegroundColor != theme.foreground {
-            view.nativeForegroundColor = theme.foreground
-        }
-        if view.nativeBackgroundColor != theme.background {
-            view.nativeBackgroundColor = theme.background
-        }
+        view.applyTheme(theme)
     }
 }
 

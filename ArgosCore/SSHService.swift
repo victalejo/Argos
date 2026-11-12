@@ -401,7 +401,9 @@ actor SSHService {
         guard let client = try? await connectedClient() else { return }
         let command =
             "tmux set -g set-clipboard on 2>/dev/null; "
-            + "tmux set -ga terminal-overrides ',*:Ms=\\E]52;%p1%s;%p2%s\\007' 2>/dev/null; "
+            // Solo una vez: `-ga` acumularía una copia del override en cada conexión.
+            + "tmux show -g terminal-overrides 2>/dev/null | grep -q ':Ms=' "
+            + "|| tmux set -ga terminal-overrides ',*:Ms=\\E]52;%p1%s;%p2%s\\007' 2>/dev/null; "
             // Color verdadero: sin `Tc`, tmux rebaja los colores RGB de las apps a la paleta
             // de 256. Solo se añade una vez (`-ga` acumularía una copia por conexión).
             + "tmux show -g terminal-overrides 2>/dev/null | grep -q 'xterm-256color:Tc' "
