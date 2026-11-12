@@ -90,11 +90,26 @@ struct ServerStoreTests {
 
         let store = ServerStore(storeURL: url)
         #expect(store.servers.isEmpty)
-        // El corrupto se movió a un backup (ya no está en su ruta original).
-        #expect(!FileManager.default.fileExists(atPath: url.path))
+        #expect(store.loadOutcome == .unreadable)
+        // Mientras no se escriba, el original sigue en su sitio (el fallo pudo ser pasajero).
+        #expect(FileManager.default.fileExists(atPath: url.path))
+
+        // La primera escritura lo aparta a un backup en vez de pisarlo.
+        store.add(Server(name: "x", host: "h", port: 22, username: "u", privateKeyPath: "/k"))
+        #expect(ServerStore(storeURL: url).servers.map(\.name) == ["x"])
 
         let backups = (try? FileManager.default.contentsOfDirectory(atPath: dir.path))?
             .filter { $0.hasPrefix(backupPrefix) } ?? []
         #expect(!backups.isEmpty)
+    }
+
+    @Test("loadOutcome distingue primer arranque de lista cargada")
+    func loadOutcome() {
+        let url = tempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let first = ServerStore(storeURL: url)
+        #expect(first.loadOutcome == .missing)
+        first.add(Server(name: "x", host: "h", port: 22, username: "u", privateKeyPath: "/k"))
+        #expect(ServerStore(storeURL: url).loadOutcome == .loaded)
     }
 }

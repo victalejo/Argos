@@ -59,6 +59,9 @@ struct SessionTerminalView: View {
     var projectPath: String?
     /// Nombre del servidor para la barra inferior.
     var serverName: String = ""
+    /// El terminal se desenganchó limpiamente (`exit` en la última shell, sesión matada
+    /// desde otro cliente…): quien lista las sesiones comprueba si sigue existiendo.
+    var onEnded: () -> Void = {}
 
     @State private var settings = TerminalSettings.shared
     /// Agentes instalados en el servidor (`nil` mientras no se sabe).
@@ -541,8 +544,16 @@ struct SessionTerminalView: View {
         case .failed:
             // Con el Mac dormido no se abren conexiones; al despertar se reintenta.
             guard !sleepMonitor.isAsleep else { return }
-            guard autoReconnectCount < Self.maxAutoReconnects, reconnectTask == nil else { return }
+            guard reconnectTask == nil else { return }
+            guard autoReconnectCount < Self.maxAutoReconnects else {
+                // Reintentos agotados: se deja de anunciar «Reconectando…» para que el
+                // banner ofrezca el botón manual (antes se quedaba en «intento 6 de 5»).
+                isAutoReconnecting = false
+                return
+            }
             scheduleAutoReconnect()
+        case .ended:
+            onEnded()
         default:
             break
         }
@@ -652,7 +663,7 @@ struct SessionTerminalView: View {
                 icon: "bolt.horizontal.circle",
                 tint: .secondary,
                 title: "Sesión desconectada",
-                message: "La sesión sigue abierta en el servidor. Reconecta para continuar."
+                message: "Se cerró la conexión con la sesión. Si sigue abierta en el servidor, reconecta para continuar."
             )
 
         case .failed(let message):

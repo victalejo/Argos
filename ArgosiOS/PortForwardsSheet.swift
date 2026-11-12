@@ -60,13 +60,16 @@ struct PortForwardsSheet: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(forward.localAddress).font(.body.monospaced())
-                            Text(verbatim: "→ puerto \(forward.remotePort) de \(serverName)")
+                            Text(verbatim: forward.isReconnecting
+                                 ? "Reconectando con el puerto \(forward.remotePort)…"
+                                 : "→ puerto \(forward.remotePort) de \(serverName)")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Image(systemName: "safari")
+                        Image(systemName: forward.isReconnecting ? "arrow.triangle.2.circlepath" : "safari")
                     }
                 }
+                .disabled(forward.isReconnecting)
                 .swipeActions {
                     Button(role: .destructive) { Task { await model.stop(forward) } } label: {
                         Label("Cerrar", systemImage: "stop.fill")

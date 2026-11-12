@@ -43,7 +43,11 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func enableClipboardForwarding() async { clipboardForwardingCalled = true }
 
     // MARK: - Listado / CRUD de sesiones
+    /// Se invoca al listar (para observar el estado del llamador en mitad de la operación).
+    var onListSessions: () -> Void = {}
+
     func listSessions() async throws -> [TmuxSession] {
+        onListSessions()
         if let listError { throw listError }
         return sessions
     }

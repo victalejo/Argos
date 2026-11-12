@@ -14,10 +14,27 @@ import Foundation
 extension SSHService {
 
     /// Contenido de `~/<relativePath>`, o `""` si no existe.
+    ///
+    /// Un fallo de lectura con el archivo presente (permisos, servidor sin memoria) LANZA:
+    /// si se devolviera `""`, quien lee-modifica-escribe guardaría encima solo lo nuevo.
     func readHomeFile(_ relativePath: String) async throws -> String {
         let client = try await connectedClient()
-        let result = try await capture(client, command: "cat \"$HOME/\(relativePath)\" 2>/dev/null")
-        return result.exitCode == 0 ? result.stdout : ""
+        let result = try await capture(client, command: Self.readHomeFileCommand(relativePath))
+        guard result.exitCode == 0 else {
+            let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            throw SSHServiceError.commandFailed(
+                exitCode: result.exitCode,
+                message: detail.isEmpty ? "No se pudo leer ~/\(relativePath)." : detail
+            )
+        }
+        return result.stdout
+    }
+
+    /// Sale con 0 y sin salida si el archivo no existe; con el código de `cat` si existe
+    /// y no se puede leer (incluido un enlace simbólico roto: el nombre está ocupado).
+    static func readHomeFileCommand(_ relativePath: String) -> String {
+        let path = "\"$HOME/\(relativePath)\""
+        return "[ -e \(path) ] || [ -L \(path) ] || exit 0; cat \(path)"
     }
 
     /// Escribe `data` en `~/<relativePath>` de forma privada y atómica. Con `backup`,

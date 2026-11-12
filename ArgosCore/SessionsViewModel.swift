@@ -65,6 +65,9 @@ final class SessionsViewModel {
             // La huella del servidor cambió: NO es un error de red genérico, es un caso
             // de seguridad con una acción concreta ("Olvidar host key y reintentar").
             state = .hostKeyChanged(mismatch.userMessage)
+        } catch let unreadable as HostKeyStoreUnreadableError {
+            // Misma salida: «Olvidar host key y reintentar» empieza un registro nuevo.
+            state = .hostKeyChanged(unreadable.userMessage)
         } catch {
             state = .failed(error.userMessage)
         }
@@ -182,9 +185,20 @@ final class SessionsViewModel {
     /// Commits cuyo CI se espera para avisar al terminar (`SessionsViewModel+CI`).
     var ciWatcher = CIWatcher()
 
+    /// Hay un refresco en curso que conserva la lista visible.
+    private(set) var isRefreshing = false
+
+    /// Operación de red en curso, se vea o no la lista (para deshabilitar controles).
+    var isWorking: Bool { state.isBusy || isRefreshing }
+
     /// Re-lista las sesiones sin repetir el bootstrap.
+    ///
+    /// Con la lista ya cargada NO pasa por `.loading`: vaciarla un instante hacía
+    /// parpadear la columna y desmontaba el terminal abierto (que perdía sus ventanas y
+    /// contadores) cada vez que se creaba, renombraba o mataba cualquier sesión.
     func refresh() async {
-        state = .loading
+        if case .loaded = state { isRefreshing = true } else { state = .loading }
+        defer { isRefreshing = false }
         do {
             let sessions = try await service.listSessions()
             await reloadProjects()
@@ -192,5 +206,18 @@ final class SessionsViewModel {
         } catch {
             state = .failed(error.userMessage)
         }
+    }
+
+    /// Sondeo: recoge lo que cambió fuera de esta app (una sesión creada o cerrada desde
+    /// otro dispositivo, `exit` en la última shell). Solo con la lista cargada; un fallo de
+    /// red conserva lo último, que ya lo detecta la operación que lo necesite.
+    func refreshSessionsQuietly() async {
+        guard case .loaded(let current) = state, !isRefreshing,
+              let fresh = try? await service.listSessions(),
+              // Entretanto pudo cambiarla un refresco explícito: manda ese.
+              case .loaded(let now) = state, now == current, !isRefreshing,
+              fresh != current
+        else { return }
+        state = .loaded(fresh)
     }
 }

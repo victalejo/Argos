@@ -33,6 +33,18 @@ struct HostKeyMismatchError: LocalizedError {
     }
 }
 
+/// El registro de huellas existe pero no se puede leer. NO se trata como vacío: eso
+/// volvería a confiar a ciegas en cualquier clave para todos los servidores.
+struct HostKeyStoreUnreadableError: LocalizedError {
+    let endpoint: String
+
+    var errorDescription: String? {
+        "El registro de huellas de servidores de Argos está dañado, así que no se puede "
+        + "comprobar la identidad de \(endpoint). Conexión abortada. Usa «Olvidar host key» "
+        + "en este servidor para empezar un registro nuevo y volver a confiar en tus servidores."
+    }
+}
+
 /// Validador de host key TOFU persistido en `~/Library/Application Support/Argos/known_hosts.json`.
 ///
 /// `@unchecked Sendable`: el estado mutable (el fichero) se protege con un `NSLock`,
@@ -57,7 +69,10 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         Self.fileLock.lock()
         defer { Self.fileLock.unlock() }
 
-        var known = Self.load(from: storeURL)
+        guard var known = Self.load(from: storeURL) else {
+            validationCompletePromise.fail(HostKeyStoreUnreadableError(endpoint: endpoint))
+            return
+        }
 
         if let stored = known[endpoint] {
             if stored == presented {
@@ -83,7 +98,15 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
     static func allTrusted(storeURL: URL = defaultStoreURL()) -> [String: String] {
         fileLock.lock()
         defer { fileLock.unlock() }
-        return load(from: storeURL)
+        return load(from: storeURL) ?? [:]
+    }
+
+    /// `false` si el registro existe pero está dañado. Quien deduce cambios comparando
+    /// con él (la sincronización) no debe tomar ese caso por «no hay huellas».
+    static func isReadable(storeURL: URL = defaultStoreURL()) -> Bool {
+        fileLock.lock()
+        defer { fileLock.unlock() }
+        return load(from: storeURL) != nil
     }
 
     /// Añade huellas que llegan de otro dispositivo. NUNCA reemplaza una existente.
@@ -91,7 +114,7 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         guard !entries.isEmpty else { return }
         fileLock.lock()
         defer { fileLock.unlock() }
-        var known = load(from: storeURL)
+        guard var known = load(from: storeURL) else { return }
         let before = known.count
         known.merge(entries) { existing, _ in existing }
         if known.count != before { save(known, to: storeURL) }
@@ -102,7 +125,7 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         guard !endpoints.isEmpty else { return }
         fileLock.lock()
         defer { fileLock.unlock() }
-        var known = load(from: storeURL)
+        guard var known = load(from: storeURL) else { return }
         let before = known.count
         endpoints.forEach { known.removeValue(forKey: $0) }
         if known.count != before { save(known, to: storeURL) }
@@ -113,14 +136,14 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
     static func isTrusted(host: String, port: Int, storeURL: URL = defaultStoreURL()) -> Bool {
         fileLock.lock()
         defer { fileLock.unlock() }
-        return load(from: storeURL)["\(host):\(port)"] != nil
+        return load(from: storeURL)?["\(host):\(port)"] != nil
     }
 
     /// Huella confiada para el endpoint, si la hay (se pasa al iPhone en el QR).
     static func trustedFingerprint(host: String, port: Int, storeURL: URL = defaultStoreURL()) -> String? {
         fileLock.lock()
         defer { fileLock.unlock() }
-        return load(from: storeURL)["\(host):\(port)"]
+        return load(from: storeURL)?["\(host):\(port)"]
     }
 
     /// Fija la huella confiada de un endpoint (la que verificó el Mac, recibida por QR),
@@ -133,7 +156,10 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         let endpoint = "\(host):\(port)"
         fileLock.lock()
         defer { fileLock.unlock() }
-        var known = load(from: storeURL)
+        guard var known = load(from: storeURL) else {
+            Log.hostKey.error("Registro de huellas dañado: no se guarda la huella recibida para \(endpoint, privacy: .public).")
+            return false
+        }
         if let previous = known[endpoint] {
             guard previous == fingerprint else {
                 Log.hostKey.error("Huella recibida por QR para \(endpoint, privacy: .public) distinta de la confiada: se conserva la existente.")
@@ -149,14 +175,28 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
     /// Olvida la huella confiada de un endpoint, permitiendo re-confiar en la
     /// próxima conexión. Lo usa la UI para resolver un `HostKeyMismatchError` tras
     /// una reinstalación legítima del servidor, sin editar el JSON a mano.
+    ///
+    /// Con el registro dañado no hace nada: lo llaman también limpiezas automáticas
+    /// (deshacer una prueba de conexión), que no deben reiniciar la confianza.
     static func forget(host: String, port: Int, storeURL: URL = defaultStoreURL()) {
         let endpoint = "\(host):\(port)"
         fileLock.lock()
         defer { fileLock.unlock() }
-        var known = load(from: storeURL)
+        guard var known = load(from: storeURL) else { return }
         guard known.removeValue(forKey: endpoint) != nil else { return }
         save(known, to: storeURL)
         Log.hostKey.notice("Huella olvidada para \(endpoint, privacy: .public); se re-confiará en la próxima conexión.")
+    }
+
+    /// «Olvidar host key» pulsado por el usuario. Además de olvidar la huella, si el
+    /// registro está dañado lo aparta (`known_hosts.json.corrupt-<epoch>`) y empieza uno
+    /// nuevo: es la única vía para ello, y siempre es una decisión explícita.
+    static func forgetExplicitly(host: String, port: Int, storeURL: URL = defaultStoreURL()) {
+        fileLock.lock()
+        let readable = load(from: storeURL) != nil
+        if !readable { quarantine(storeURL) }
+        fileLock.unlock()
+        if readable { forget(host: host, port: port, storeURL: storeURL) }
     }
 
     // MARK: - Fingerprint
@@ -189,22 +229,28 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         return directory.appendingPathComponent("known_hosts.json")
     }
 
-    private static func load(from url: URL) -> [String: String] {
-        let data: Data
+    /// `[:]` si el archivo no existe (primer uso); `nil` si existe y no se puede leer o
+    /// parsear. Ese caso es relevante para seguridad: devolver `[:]` re-confiaría en
+    /// todos los hosts, así que quien llama debe fallar cerrado.
+    private static func load(from url: URL) -> [String: String]? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
         do {
-            data = try Data(contentsOf: url)
-        } catch {
-            // Archivo inexistente en el primer uso: caso normal (no es error).
-            return [:]
-        }
-        do {
+            let data = try Data(contentsOf: url)
             return try JSONDecoder().decode([String: String].self, from: data)
         } catch {
-            // El archivo EXISTE pero no parsea => corrupción. Es relevante para
-            // seguridad: devolver [:] re-confiaría en todos los hosts (TOFU). Lo
-            // dejamos registrado en vez de tragarlo en silencio.
-            Log.hostKey.error("known_hosts corrupto en \(url.path, privacy: .public); se ignora y se re-confiará en hosts: \(String(describing: error), privacy: .public)")
-            return [:]
+            Log.hostKey.error("known_hosts ilegible en \(url.path, privacy: .public): \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+
+    /// Aparta el registro dañado para empezar uno nuevo sin perder el original.
+    private static func quarantine(_ url: URL) {
+        let backup = url.appendingPathExtension("corrupt-\(Int(Date().timeIntervalSince1970))")
+        do {
+            try FileManager.default.moveItem(at: url, to: backup)
+            Log.hostKey.notice("Registro de huellas dañado apartado en \(backup.path, privacy: .public)")
+        } catch {
+            Log.hostKey.error("No se pudo apartar el registro de huellas dañado: \(String(describing: error), privacy: .public)")
         }
     }
 

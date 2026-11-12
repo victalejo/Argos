@@ -164,13 +164,20 @@ final class PersistentAgentSession {
     func send(_ rawText: String) async {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        await write(AgentProtocol.encodeUserMessage(text: text), answering: nil)
-        if lastError == nil, state.status != .working { state.status = .working }
+        let sent = await write(AgentProtocol.encodeUserMessage(text: text), answering: nil)
+        if sent, state.status != .working { state.status = .working }
     }
 
+    /// El permiso pendiente solo se retira si la respuesta LLEGÓ al agente: si el envío
+    /// falla (mala cobertura), el aviso sigue ahí para reintentar en vez de dejar al
+    /// agente bloqueado sin que se vea por qué.
     func respond(to request: AgentPermissionRequest, decision: AgentPermissionDecision) async {
-        await write(AgentProtocol.encodePermissionResponse(requestID: request.id, decision: decision), answering: request.id)
-        if state.pendingPermission?.id == request.id { state.pendingPermission = nil }
+        let sent = await write(
+            AgentProtocol.encodePermissionResponse(requestID: request.id, decision: decision),
+            answering: request.id
+        )
+        // Con el agente parado ya no hay a quién responder: tampoco se deja la tarjeta.
+        if sent || !isAlive, state.pendingPermission?.id == request.id { state.pendingPermission = nil }
     }
 
     func allowPendingPermission() async {
@@ -195,18 +202,22 @@ final class PersistentAgentSession {
         }
     }
 
-    private func write(_ line: String, answering requestID: String?) async {
+    /// Devuelve si la línea llegó al agente.
+    @discardableResult
+    private func write(_ line: String, answering requestID: String?) async -> Bool {
         do {
             _ = try await service.runAgentScript(
                 PersistentAgentScript.send(id: id, line: line, answeredRequestID: requestID)
             )
             lastError = nil
+            return true
         } catch PersistentAgentError.notRunning {
             isAlive = false
             lastError = PersistentAgentError.notRunning.userMessage
         } catch {
             lastError = error.userMessage
         }
+        return false
     }
 
     // MARK: - Listado

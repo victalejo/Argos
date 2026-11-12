@@ -23,6 +23,15 @@ struct ActivePortForward: Identifiable, Hashable, Sendable {
     let remotePort: Int
     let targetHost: String
     let localPort: Int
+    /// Su conexión se cayó y aún no se ha podido reabrir (se reintenta sola).
+    var isReconnecting = false
+
+    /// Copia marcada como caída a la espera de reabrirse.
+    func reconnecting() -> ActivePortForward {
+        var copy = self
+        copy.isReconnecting = true
+        return copy
+    }
 
     var localURL: URL? { URL(string: "http://localhost:\(localPort)") }
     var localAddress: String { "localhost:\(localPort)" }

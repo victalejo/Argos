@@ -264,7 +264,7 @@ struct ContentView: View {
             .disabled(vms[server.id] == nil)
         Divider()
         Button("Olvidar host key") {
-            TOFUHostKeyValidator.forget(host: server.host, port: server.port)
+            TOFUHostKeyValidator.forgetExplicitly(host: server.host, port: server.port)
         }
         Divider()
         Button("Eliminar servidor…", role: .destructive) { serverToDelete = server }
@@ -503,7 +503,8 @@ struct ContentView: View {
                     store: terminalStore,
                     claudeByWindow: vm.claudeActivity.windows(forSession: session.name),
                     projectPath: project?.path,
-                    serverName: store.server(withID: handle.serverID)?.name ?? ""
+                    serverName: store.server(withID: handle.serverID)?.name ?? "",
+                    onEnded: { Task { await vm.refreshSessionsQuietly() } }
                 )
                 .id(handle)
             } else if let project {

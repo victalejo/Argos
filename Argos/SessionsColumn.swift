@@ -207,7 +207,7 @@ struct SessionsColumn: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.roundedRectangle(radius: 9))
-                .disabled(activeVM?.state.isBusy ?? true)
+                .disabled(activeVM?.isWorking ?? true)
                 .help("Nuevo proyecto (⌘N)")
                 .accessibilityLabel("Nuevo proyecto")
             }
@@ -392,7 +392,7 @@ struct SessionsColumn: View {
             .help(activeServerID != nil
                   ? "Crear un proyecto en \(activeServer?.name ?? "el servidor seleccionado") (⌘N)"
                   : "Selecciona un servidor en la barra lateral")
-            .disabled(activeVM?.state.isBusy ?? true)
+            .disabled(activeVM?.isWorking ?? true)
         }
         ToolbarItem(placement: .primaryAction) {
             Button { presentBroadcast(preselecting: selection.map { [$0] } ?? []) } label: {
@@ -490,7 +490,7 @@ struct SessionsColumn: View {
                 .font(.system(size: 12, weight: .semibold))
                 .textCase(nil)
                 .foregroundStyle(.primary)
-            if let vm = vms[server.id], vm.state.isBusy {
+            if let vm = vms[server.id], vm.isWorking {
                 ProgressView().controlSize(.mini)
             }
             Spacer()
@@ -576,9 +576,14 @@ struct SessionsColumn: View {
             reason: "Avisos de Claude Code en las sesiones remotas"
         )
         defer { ProcessInfo.processInfo.endActivity(activity) }
+        var cycle = 0
         while !Task.isCancelled {
+            cycle += 1
             for server in servers {
                 guard let vm = vms[server.id] else { continue }
+                // Cada pocas vueltas, la lista de sesiones: sin esto no se enteraba de lo
+                // creado o cerrado desde el iPhone u otro cliente hasta pulsar ⌘R.
+                if cycle.isMultiple(of: Self.sessionListPollCycles) { await vm.refreshSessionsQuietly() }
                 let transitions = await vm.refreshClaudeActivity()
                 if vm.claudeActivity != .empty {
                     ClaudeActivityNotifier.shared.requestAuthorizationIfNeeded()
@@ -596,6 +601,9 @@ struct SessionsColumn: View {
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
         }
     }
+
+    /// Vueltas del sondeo (3 s cada una) entre lecturas de la lista de sesiones.
+    private static let sessionListPollCycles = 3
 
     private var killDialogBinding: Binding<Bool> {
         Binding(get: { killTarget != nil }, set: { if !$0 { killTarget = nil } })

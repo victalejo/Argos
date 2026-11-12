@@ -133,10 +133,26 @@ actor SSHService {
     var portsToolChecked = false
     /// Última vez que se publicó el estado de los túneles en el servidor.
     var portForwardsPublishedAt: Date?
+    /// Túneles caídos que aún no se han podido reabrir (se reintenta en cada pasada).
+    var brokenPortForwards: [UUID: ActivePortForward] = [:]
+    /// Hay una reapertura de túneles en curso (el actor es reentrante en cada `await`).
+    var isReopeningPortForwards = false
+    /// Apertura en curso de la conexión compartida: quien llegue mientras tanto la espera
+    /// en vez de abrir otra (que quedaría huérfana).
+    private var connecting: Task<SSHClient, Error>?
+    /// Sube en cada `disconnect()`: una apertura que termina después de desconectar no
+    /// debe instalarse (dejaría una conexión y un heartbeat sin dueño).
+    private var connectionEpoch = 0
 
     /// Intervalo del heartbeat: más corto que los timeouts típicos de NAT/firewall
     /// (~60-120s) para que la conexión idle no se corte sin que la app lo sepa.
     private static let heartbeatInterval: Duration = .seconds(30)
+    /// Tope de un latido. Una conexión medio abierta (cambio de red, NAT que la olvidó)
+    /// no falla: se queda esperando hasta el timeout de TCP, que son minutos. Es holgado
+    /// a propósito: por la conexión compartida también van subidas y el agente, y con la
+    /// línea cargada la respuesta a un comando trivial puede tardar; cerrarla por un
+    /// retraso corto abortaría trabajo sano.
+    private static let heartbeatTimeout: Duration = .seconds(30)
 
     /// Formato exacto requerido para `tmux list-sessions -F`.
     private static let sessionFormat =
@@ -188,6 +204,9 @@ actor SSHService {
 
     /// Cierra la conexión SSH si está abierta.
     func disconnect() async {
+        connectionEpoch += 1
+        connecting?.cancel()
+        connecting = nil
         stopHeartbeat()
         await stopAllPortForwards()
         let dedicated = dedicatedClients.values
@@ -387,12 +406,36 @@ actor SSHService {
         if let client, client.isConnected {
             return client
         }
+        // El actor es reentrante: sin esto, dos llamadas simultáneas (sondeos, panel
+        // git…) abrirían una conexión cada una y la primera quedaría sin dueño.
+        if let connecting {
+            return try await connecting.value
+        }
 
-        let client = try await openClient()
-        self.client = client
+        let epoch = connectionEpoch
+        let attempt = Task { try await self.openClient() }
+        connecting = attempt
+        defer { if connecting == attempt { connecting = nil } }
+        let fresh = try await attempt.value
+        // Desconectaron mientras se abría: esta conexión ya no la quiere nadie.
+        guard epoch == connectionEpoch else {
+            Task { try? await fresh.close() }
+            throw CancellationError()
+        }
+        replaceSharedClient(with: fresh)
         Log.ssh.notice("Conexión SSH establecida con \(self.configuration.host, privacy: .public):\(self.configuration.port)")
         startHeartbeat()
-        return client
+        return fresh
+    }
+
+    /// Cambia la conexión compartida cerrando la anterior (el `SSHClient` de Citadel no se
+    /// cierra solo al soltarlo). Cerrarla hace fallar los comandos que siguieran colgados
+    /// en ella.
+    private func replaceSharedClient(with fresh: SSHClient?) {
+        let stale = client
+        client = fresh
+        guard let stale, stale !== fresh else { return }
+        Task { try? await stale.close() }
     }
 
     /// Ejecuta `body` sobre una conexión SSH PROPIA que se cierra al terminar.
@@ -474,15 +517,23 @@ actor SSHService {
     private func beat() async -> Bool {
         // Si el reposo llegó con un latido ya en marcha, no tocar la red.
         if heartbeatSuspended { return true }
-        guard let client, client.isConnected else { return false }
-        do {
-            _ = try await capture(client, command: "true")
-            return true
-        } catch {
-            Log.ssh.notice("Heartbeat falló en \(self.configuration.host, privacy: .public); se marca la conexión como caída.")
-            self.client = nil
-            return false
+        guard let probed = client, probed.isConnected else { return false }
+        let alive = await Deadline.succeeds(within: Self.heartbeatTimeout) { [weak self] in
+            await self?.probe() ?? false
         }
+        if alive { return true }
+        // Cancelado (reposo, desconexión) no es «caída»: no se toca la conexión.
+        if Task.isCancelled || heartbeatSuspended { return true }
+        Log.ssh.notice("Heartbeat falló en \(self.configuration.host, privacy: .public); se marca la conexión como caída.")
+        // Solo si sigue siendo la misma: entretanto pudo reconectarse otra operación.
+        if client === probed { replaceSharedClient(with: nil) }
+        return false
+    }
+
+    /// Comando trivial sobre la conexión compartida actual.
+    private func probe() async -> Bool {
+        guard let client, client.isConnected else { return false }
+        return (try? await capture(client, command: "true")) != nil
     }
 
     private func stopHeartbeat() {

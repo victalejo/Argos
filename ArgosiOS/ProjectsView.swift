@@ -65,7 +65,7 @@ struct ProjectsView: View {
                     } label: {
                         Label("Nuevo", systemImage: "plus")
                     }
-                    .disabled(viewModel.state.isBusy || needsKey)
+                    .disabled(viewModel.isWorking || needsKey)
                 }
             }
             .task { if !needsKey, case .idle = viewModel.state { await viewModel.load() } }
@@ -238,6 +238,8 @@ struct ProjectsView: View {
     /// a menudo para que la primera llegue en cuanto termina la carga.
     private func pollGitSummaries() async {
         while !Task.isCancelled {
+            // También la lista: recoge lo creado o cerrado desde el Mac u otro cliente.
+            await viewModel.refreshSessionsQuietly()
             await viewModel.refreshGitSummaries()
             AgentNotifier.shared.postCI(await viewModel.pollCIWatches(), server: currentServer)
             try? await Task.sleep(for: .seconds(5))

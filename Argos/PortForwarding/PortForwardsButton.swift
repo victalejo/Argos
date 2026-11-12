@@ -136,15 +136,18 @@ struct PortForwardsPanel: View {
             sectionTitle("Reenviados")
             ForEach(model.forwards) { forward in
                 HStack(spacing: 8) {
-                    Image(systemName: "circle.fill").font(.system(size: 7)).foregroundStyle(.green)
+                    Image(systemName: "circle.fill").font(.system(size: 7))
+                        .foregroundStyle(forward.isReconnecting ? .orange : .green)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(forward.localAddress).font(.callout.monospaced().weight(.medium))
-                        Text(verbatim: "→ puerto \(forward.remotePort) del servidor")
+                        Text(verbatim: forward.isReconnecting
+                             ? "Reconectando con el puerto \(forward.remotePort)…"
+                             : "→ puerto \(forward.remotePort) del servidor")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button("Abrir") { open(forward) }
+                    Button("Abrir") { open(forward) }.disabled(forward.isReconnecting)
                     Button { copy(forward.localURL?.absoluteString ?? forward.localAddress) } label: {
                         Image(systemName: "doc.on.doc")
                     }

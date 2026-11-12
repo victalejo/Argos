@@ -115,7 +115,7 @@ final class ServerHub {
 
     /// Olvida la huella del servidor y reconecta (tras una reinstalación legítima).
     func forgetHostKey(of server: Server) {
-        TOFUHostKeyValidator.forget(host: server.host, port: server.port)
+        TOFUHostKeyValidator.forgetExplicitly(host: server.host, port: server.port)
         disconnect(server.id)
     }
 

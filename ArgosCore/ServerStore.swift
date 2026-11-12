@@ -17,7 +17,22 @@ final class ServerStore {
     /// Servidores configurados, en orden de visualización.
     private(set) var servers: [Server]
 
+    /// Cómo arrancó el almacén. Quien deduce borrados comparando con un estado anterior
+    /// (iCloud) solo puede fiarse de la lista si es `.loaded`.
+    enum LoadOutcome: Equatable {
+        /// No había archivo (primer arranque, o alguien lo borró).
+        case missing
+        case loaded
+        /// Había archivo pero no se pudo leer o decodificar: la lista vacía NO significa
+        /// que el usuario borrase sus servidores.
+        case unreadable
+    }
+
+    @ObservationIgnored let loadOutcome: LoadOutcome
+
     private let storeURL: URL
+    /// El archivo ilegible sigue en disco: hay que apartarlo antes de escribir encima.
+    @ObservationIgnored private var mustQuarantineBeforeWrite = false
 
     /// Se invoca tras cada cambio LOCAL (alta, edición, borrado). Lo usa la
     /// sincronización con iCloud; `replaceAll` (cambios que llegan de iCloud) no lo llama.
@@ -28,7 +43,19 @@ final class ServerStore {
         // Primer arranque: lista vacía (la UI muestra el estado "Sin servidores" con
         // un botón para añadir). No se siembra ningún servidor: hacerlo filtraría la
         // infraestructura del autor en cada copia distribuida.
-        self.servers = ServerStore.load(from: storeURL) ?? []
+        switch ServerStore.load(from: storeURL) {
+        case .success(let servers?):
+            self.servers = servers
+            self.loadOutcome = .loaded
+        case .success(nil):
+            self.servers = []
+            self.loadOutcome = .missing
+        case .failure(let error):
+            Log.store.error("servers.json ilegible en \(storeURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
+            self.servers = []
+            self.loadOutcome = .unreadable
+            self.mustQuarantineBeforeWrite = true
+        }
     }
 
     // MARK: - CRUD
@@ -69,6 +96,13 @@ final class ServerStore {
     // MARK: - Persistencia
 
     private func persist() {
+        // Aparta el archivo ilegible ANTES de sobrescribirlo: así el usuario puede
+        // recuperar a mano servidores/bookmarks si la corrupción fue parcial o el fallo
+        // de lectura era pasajero.
+        if mustQuarantineBeforeWrite {
+            Self.backupCorruptFile(at: storeURL)
+            mustQuarantineBeforeWrite = false
+        }
         do {
             let data = try JSONEncoder().encode(servers)
             try data.write(to: storeURL, options: .atomic)
@@ -77,20 +111,11 @@ final class ServerStore {
         }
     }
 
-    /// `nil` si el archivo no existe (primer arranque); `[]` si existe pero corrupto
-    /// (tras moverlo a un backup para no perder los bookmarks de clave que contuviera).
-    private static func load(from url: URL) -> [Server]? {
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        do {
-            let data = try Data(contentsOf: url)
-            return try JSONDecoder().decode([Server].self, from: data)
-        } catch {
-            Log.store.error("servers.json corrupto en \(url.path, privacy: .public): \(String(describing: error), privacy: .public)")
-            // Mueve el archivo corrupto a un backup ANTES de que el primer `add`
-            // sobrescriba (irreversiblemente) la config. Así el usuario puede
-            // recuperar a mano servidores/bookmarks si la corrupción fue parcial.
-            backupCorruptFile(at: url)
-            return []
+    /// `nil` si el archivo no existe; fallo si existe pero no se puede leer o decodificar.
+    private static func load(from url: URL) -> Result<[Server]?, Error> {
+        guard FileManager.default.fileExists(atPath: url.path) else { return .success(nil) }
+        return Result {
+            try JSONDecoder().decode([Server].self, from: try Data(contentsOf: url))
         }
     }
 

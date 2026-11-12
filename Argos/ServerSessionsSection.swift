@@ -113,7 +113,7 @@ struct ServerSessionsSection: View {
                     // huella ANCLADA y reintenta, re-confiando en la nueva. La acción vive
                     // aquí (junto al error) en vez de en el menú contextual de otra columna.
                     Button("Olvidar host key y reintentar") {
-                        TOFUHostKeyValidator.forget(host: server.host, port: server.port)
+                        TOFUHostKeyValidator.forgetExplicitly(host: server.host, port: server.port)
                         Task { await vm.load() }
                     }
                     .font(.caption)

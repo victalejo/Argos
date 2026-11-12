@@ -65,6 +65,7 @@ final class CloudServerSync {
 
     /// Empieza a escuchar cambios locales y remotos y hace una primera sincronización.
     func start() {
+        discardStateIfLocalListIsUntrustworthy()
         store.onLocalChange = { [weak self] in self?.scheduleSync() }
         observer = NotificationCenter.default.addObserver(
             forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
@@ -89,6 +90,12 @@ final class CloudServerSync {
 
     func sync(now: Date = Date()) {
         guard isEnabled else { return }
+        // Con el registro de huellas dañado no se puede saber qué se olvidó aquí: se
+        // espera a que el usuario lo resuelva en vez de propagar «olvidadas todas».
+        guard TOFUHostKeyValidator.isReadable(storeURL: knownHostsURL) else {
+            Log.store.error("Registro de huellas ilegible: no se sincroniza con iCloud.")
+            return
+        }
         let previous = loadState()
         let localHosts = TOFUHostKeyValidator.allTrusted(storeURL: knownHostsURL)
         let local = ServerSync.localDocument(
@@ -133,6 +140,22 @@ final class CloudServerSync {
             try data.write(to: stateURL, options: .atomic)
         } catch {
             Log.store.error("Sincronización con iCloud: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Los borrados se deducen comparando la lista local con lo último sincronizado. Si
+    /// `servers.json` no se pudo leer (o desapareció), la lista vacía no es una decisión
+    /// del usuario: sin esto se publicarían lápidas de TODOS los servidores y los demás
+    /// dispositivos los borrarían junto con sus secretos. Olvidando lo último sincronizado
+    /// este dispositivo pasa a comportarse como uno nuevo y adopta lo que haya en iCloud.
+    private func discardStateIfLocalListIsUntrustworthy() {
+        guard store.loadOutcome != .loaded, store.servers.isEmpty,
+              FileManager.default.fileExists(atPath: stateURL.path) else { return }
+        do {
+            try FileManager.default.removeItem(at: stateURL)
+            Log.store.notice("Lista local de servidores no fiable: se adopta la de iCloud sin publicar borrados.")
+        } catch {
+            Log.store.error("No se pudo descartar el estado de iCloud: \(error.localizedDescription, privacy: .public)")
         }
     }
 

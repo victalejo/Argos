@@ -41,15 +41,18 @@ struct TmuxSession: Identifiable, Hashable, Sendable {
         let raw = line.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else { return nil }
 
+        // Los tres últimos campos son numéricos; el nombre es todo lo anterior, porque
+        // tmux admite '|' en un nombre de sesión (creada fuera de Argos).
         let fields = raw.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-        guard fields.count == 4 else { return nil }
+        guard fields.count >= 4 else { return nil }
 
-        let name = fields[0]
+        let name = fields.dropLast(3).joined(separator: "|")
+        let numeric = Array(fields.suffix(3))
         guard
             !name.isEmpty,
-            let windowCount = Int(fields[1]),
-            let attachedFlag = Int(fields[2]),
-            let epoch = TimeInterval(fields[3])
+            let windowCount = Int(numeric[0]),
+            let attachedFlag = Int(numeric[1]),
+            let epoch = TimeInterval(numeric[2])
         else {
             return nil
         }

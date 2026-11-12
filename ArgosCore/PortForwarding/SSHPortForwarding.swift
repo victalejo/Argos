@@ -44,7 +44,8 @@ extension SSHService {
         preferredLocalPort: Int
     ) async throws -> ActivePortForward {
         guard (1...65535).contains(remotePort) else { throw PortForwardError.invalidPort(remotePort) }
-        if portForwards.values.contains(where: { $0.info.remotePort == remotePort }) {
+        if portForwards.values.contains(where: { $0.info.remotePort == remotePort })
+            || brokenPortForwards.values.contains(where: { $0.remotePort == remotePort }) {
             throw PortForwardError.alreadyForwarded(remotePort)
         }
         let info = try await openForward(
@@ -57,6 +58,7 @@ extension SSHService {
     }
 
     func stopPortForward(id: UUID) async {
+        if brokenPortForwards.removeValue(forKey: id) != nil { return }
         guard let runtime = portForwards.removeValue(forKey: id) else { return }
         await close(runtime)
         Log.ssh.notice("Túnel cerrado: puerto \(runtime.info.remotePort)")
@@ -69,6 +71,7 @@ extension SSHService {
         portForwardWatcher = nil
         let runtimes = Array(portForwards.values)
         portForwards.removeAll()
+        brokenPortForwards.removeAll()
         for runtime in runtimes { await close(runtime) }
         if !runtimes.isEmpty {
             await captureIfConnected(PortForwardServerFiles.unpublishCommand(deviceID: PortForwardDevice.id))
@@ -77,15 +80,49 @@ extension SSHService {
     }
 
     /// Túneles activos. Si la conexión SSH de alguno se cayó (red, reposo), lo reabre en el
-    /// MISMO puerto local para que las pestañas del navegador sigan funcionando.
+    /// MISMO puerto local para que las pestañas del navegador sigan funcionando. El que no
+    /// se puede reabrir todavía sigue en la lista (`isReconnecting`) y se reintenta en la
+    /// siguiente pasada: al despertar el Mac la red tarda unos segundos en volver.
     func activePortForwards() async -> [ActivePortForward] {
-        var changed = false
+        await reopenBrokenPortForwards()
+        let live = portForwards.values.map(\.info)
+        let broken = brokenPortForwards.values.map { $0.reconnecting() }
+        return (live + broken).sorted { $0.remotePort < $1.remotePort }
+    }
+
+    /// Una sola reapertura a la vez: la piden el vigilante, el botón y el panel, y dos a
+    /// la vez abrirían dos túneles para el mismo puerto.
+    private func reopenBrokenPortForwards() async {
+        guard !isReopeningPortForwards else { return }
+        isReopeningPortForwards = true
+        defer { isReopeningPortForwards = false }
+
         for runtime in portForwards.values where !runtime.connection.client.isConnected {
-            await reopen(runtime)
-            changed = true
+            portForwards.removeValue(forKey: runtime.info.id)
+            brokenPortForwards[runtime.info.id] = runtime.info
+            await close(runtime)
         }
-        if changed { await publishPortForwards() }
-        return portForwards.values.map(\.info).sorted { $0.remotePort < $1.remotePort }
+        guard !brokenPortForwards.isEmpty else { return }
+
+        var reopened = false
+        for info in brokenPortForwards.values {
+            do {
+                _ = try await openForward(
+                    id: info.id, remotePort: info.remotePort,
+                    targetHost: info.targetHost, preferredLocalPort: info.localPort
+                )
+            } catch {
+                Log.ssh.error("No se pudo reabrir el túnel del puerto \(info.remotePort): \(error.userMessage, privacy: .public)")
+                continue
+            }
+            // Lo pararon mientras se reabría: no debe resucitar.
+            if brokenPortForwards.removeValue(forKey: info.id) == nil {
+                if let runtime = portForwards.removeValue(forKey: info.id) { await close(runtime) }
+                continue
+            }
+            reopened = true
+        }
+        if reopened { await publishPortForwards() }
     }
 
     // MARK: - Solicitudes de Claude
@@ -134,7 +171,7 @@ extension SSHService {
         _ = await activePortForwards()   // reabre caídos (y publica si cambió)
         let stale = portForwardsPublishedAt.map { now.timeIntervalSince($0) >= PortForwardServerFiles.refreshInterval } ?? true
         if changed || stale { await publishPortForwards() }
-        if portForwards.isEmpty {
+        if portForwards.isEmpty && brokenPortForwards.isEmpty {
             portForwardWatcher = nil
             return false
         }
@@ -188,20 +225,6 @@ extension SSHService {
         } catch {
             try? await client.close()
             throw error
-        }
-    }
-
-    private func reopen(_ runtime: PortForwardRuntime) async {
-        let info = runtime.info
-        portForwards.removeValue(forKey: info.id)
-        await close(runtime)
-        do {
-            _ = try await openForward(
-                id: info.id, remotePort: info.remotePort,
-                targetHost: info.targetHost, preferredLocalPort: info.localPort
-            )
-        } catch {
-            Log.ssh.error("No se pudo reabrir el túnel del puerto \(info.remotePort): \(error.userMessage, privacy: .public)")
         }
     }
 
