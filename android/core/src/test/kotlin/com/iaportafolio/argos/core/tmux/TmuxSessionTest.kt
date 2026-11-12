@@ -27,6 +27,14 @@ class TmuxSessionTest {
         assertFalse(assertNotNull(TmuxSession.parse("logs|1|0|1700000000")).isAttached)
     }
 
+    @Test
+    fun `un nombre con barra vertical no hace desaparecer la sesion`() {
+        val session = assertNotNull(TmuxSession.parse("api|v2|3|1|1700000000"))
+        assertEquals("api|v2", session.name)
+        assertEquals(3, session.windowCount)
+        assertTrue(session.isAttached)
+    }
+
     @ParameterizedTest
     @ValueSource(
         strings = [

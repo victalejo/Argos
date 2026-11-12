@@ -1,6 +1,7 @@
 package com.iaportafolio.argos.ui.terminal
 
 import com.iaportafolio.argos.core.HostKeyMismatchException
+import com.iaportafolio.argos.core.HostKeyStoreUnreadableException
 import com.iaportafolio.argos.core.SSHServiceError
 import com.iaportafolio.argos.data.MissingCredentialsException
 import com.iaportafolio.argos.ssh.SshConnectionException
@@ -36,6 +37,7 @@ data class ReconnectPolicy(
     /** ¿Tiene sentido reintentar solo? No si el fallo exige que el usuario haga algo. */
     fun isRetryable(error: Throwable): Boolean = causeChain(error).none { cause ->
         cause is HostKeyMismatchException ||
+            cause is HostKeyStoreUnreadableException ||
             cause is MissingCredentialsException ||
             cause is SshConnectionException.AuthenticationFailed ||
             cause is SSHServiceError ||

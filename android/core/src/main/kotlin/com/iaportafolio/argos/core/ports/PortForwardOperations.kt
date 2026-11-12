@@ -9,6 +9,8 @@ data class ActivePortForward(
     val remotePort: Int,
     val targetHost: String,
     val localPort: Int,
+    /** Su conexión se cayó y aún no se ha podido reabrir (se reintenta sola). */
+    val isReconnecting: Boolean = false,
 ) {
     val localUrl: String get() = "http://localhost:$localPort"
     val localAddress: String get() = "localhost:$localPort"

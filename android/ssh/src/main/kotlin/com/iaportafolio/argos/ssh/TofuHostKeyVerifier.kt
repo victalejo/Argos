@@ -1,6 +1,7 @@
 package com.iaportafolio.argos.ssh
 
 import com.iaportafolio.argos.core.HostKeyMismatchException
+import com.iaportafolio.argos.core.HostKeyStoreUnreadableException
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import net.schmizz.sshj.transport.verification.HostKeyVerifier
 import java.security.PublicKey
@@ -11,8 +12,8 @@ import java.util.concurrent.atomic.AtomicReference
  * [endpoint] confía y guarda la huella; después DEBE coincidir o se aborta (posible MitM).
  *
  * sshj solo admite `true`/`false` y, al rechazar, lanza un `TransportException` genérico; por
- * eso el rechazo se recuerda en [mismatch] para que el conector lance
- * [HostKeyMismatchException] con las dos huellas.
+ * eso el rechazo se recuerda en [rejection] para que el conector lance
+ * [HostKeyMismatchException] con las dos huellas (o el aviso de registro dañado).
  *
  * sshj la invoca desde su hilo de transporte: la comprobación y el guardado van bajo el
  * monitor de [trust] para que dos conexiones simultáneas no se pisen.
@@ -22,14 +23,21 @@ internal class TofuHostKeyVerifier(
     private val trust: HostKeyTrustStore,
 ) : HostKeyVerifier {
 
-    private val rejected = AtomicReference<HostKeyMismatchException?>(null)
+    private val rejected = AtomicReference<Exception?>(null)
+
+    /** Rechazo de la última verificación: huella distinta o registro de huellas dañado. */
+    val rejection: Exception? get() = rejected.get()
 
     /** Rechazo de la última verificación, si la huella no coincidía. */
-    val mismatch: HostKeyMismatchException? get() = rejected.get()
+    val mismatch: HostKeyMismatchException? get() = rejected.get() as? HostKeyMismatchException
 
     override fun verify(hostname: String, port: Int, key: PublicKey): Boolean {
         val presented = HostKeyFingerprint.of(key)
         synchronized(trust) {
+            if (!trust.isReadable()) {
+                rejected.set(HostKeyStoreUnreadableException(endpoint))
+                return false
+            }
             val stored = trust.trustedFingerprint(endpoint)
             return when (stored) {
                 null -> {

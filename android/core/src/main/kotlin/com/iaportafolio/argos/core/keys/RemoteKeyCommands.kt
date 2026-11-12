@@ -46,8 +46,15 @@ object RemoteHomeFileCommands {
     const val TEMP_SUFFIX = ".argos-tmp"
     const val BACKUP_SUFFIX = ".argos-backup"
 
-    /** Contenido de `~/<relativePath>`; si no existe, sale con error y se trata como `""`. */
-    fun read(relativePath: String): String = "cat \"\$HOME/$relativePath\" 2>/dev/null"
+    /**
+     * Contenido de `~/<relativePath>`. Sale con 0 y sin salida si no existe, y con el código de
+     * `cat` si existe y no se puede leer (incluido un enlace simbólico roto): ese fallo NO debe
+     * tomarse por «no existe», o quien lee-modifica-escribe guardaría encima solo lo nuevo.
+     */
+    fun read(relativePath: String): String {
+        val path = "\"\$HOME/$relativePath\""
+        return "[ -e $path ] || [ -L $path ] || exit 0; cat $path"
+    }
 
     /**
      * Paso 1: prepara el temporal (600), opcionalmente copia de seguridad, y escribe

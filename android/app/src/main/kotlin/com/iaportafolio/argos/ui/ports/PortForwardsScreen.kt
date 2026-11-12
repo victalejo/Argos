@@ -184,10 +184,15 @@ private fun Hint(text: String) {
 private fun ForwardRow(forward: ActivePortForward, busy: Boolean, viewModel: PortForwardsViewModel) {
     ListItem(
         headlineContent = { Text(forward.localAddress, fontFamily = FontFamily.Monospace) },
-        supportingContent = { Text(stringResource(R.string.ports_to_remote, forward.remotePort.toString())) },
+        supportingContent = {
+            val label = if (forward.isReconnecting) R.string.ports_reconnecting else R.string.ports_to_remote
+            Text(stringResource(label, forward.remotePort.toString()))
+        },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { viewModel.open(forward) }) { Text(stringResource(R.string.ports_open)) }
+                TextButton(onClick = { viewModel.open(forward) }, enabled = !forward.isReconnecting) {
+                    Text(stringResource(R.string.ports_open))
+                }
                 if (busy) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 } else {

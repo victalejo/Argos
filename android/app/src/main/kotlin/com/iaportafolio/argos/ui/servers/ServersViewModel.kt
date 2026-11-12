@@ -103,7 +103,7 @@ class ServersViewModel(
     fun forgetHostKey(server: Server) {
         viewModelScope.launch {
             logFailures(ArgosLog.TAG_HOST_KEY, "No se pudo olvidar la huella de ${server.endpoint}") {
-                withContext(io) { hostKeys.forget(server.endpoint) }
+                withContext(io) { hostKeys.forgetExplicitly(server.endpoint) }
                 services.invalidate(server.id)
             }.onSuccess {
                 mutableState.update { it.copy(message = UiText.res(R.string.host_key_forgotten, server.name)) }

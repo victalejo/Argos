@@ -112,6 +112,23 @@ class HostKeyStoreAndPathsTest {
         assertTrue(Files.exists(dir.resolve("k.json")))
     }
 
+    @Test
+    fun `con el registro dañado el verificador aborta en vez de volver a confiar`() {
+        val unreadable = object : com.iaportafolio.argos.core.HostKeyTrustStore {
+            var trusted = 0
+            override fun trustedFingerprint(endpoint: String): String? = null
+            override fun trust(endpoint: String, fingerprint: String) { trusted++ }
+            override fun forget(endpoint: String) = Unit
+            override fun isReadable(): Boolean = false
+        }
+        val key = java.security.KeyPairGenerator.getInstance("EC").apply { initialize(256) }.generateKeyPair().public
+        val verifier = TofuHostKeyVerifier("h:22", unreadable)
+
+        assertFalse(verifier.verify("h", 22, key))
+        assertTrue(verifier.rejection is com.iaportafolio.argos.core.HostKeyStoreUnreadableException)
+        assertEquals(0, unreadable.trusted)
+    }
+
     // MARK: Rutas de subida
 
     @Test

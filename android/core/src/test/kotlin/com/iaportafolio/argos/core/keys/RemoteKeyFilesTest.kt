@@ -41,9 +41,10 @@ class RemoteKeyFilesTest {
     }
 
     @Test
-    fun `leer un fichero del home silencia el error si no existe`() {
+    fun `leer un fichero del home solo sale sin error si no existe`() {
         assertEquals(
-            "cat \"\$HOME/.claude/settings.json\" 2>/dev/null",
+            "[ -e \"\$HOME/.claude/settings.json\" ] || [ -L \"\$HOME/.claude/settings.json\" ] || exit 0; " +
+                "cat \"\$HOME/.claude/settings.json\"",
             RemoteHomeFileCommands.read(".claude/settings.json"),
         )
     }

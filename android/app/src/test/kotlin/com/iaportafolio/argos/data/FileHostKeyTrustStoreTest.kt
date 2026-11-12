@@ -51,9 +51,41 @@ class FileHostKeyTrustStoreTest {
     }
 
     @Test
-    fun `un archivo inválido se trata como vacío`() {
+    fun `un archivo inválido no se lee como vacío ni admite cambios`() {
         file.writeText("[1,2")
-        assertNull(FileHostKeyTrustStore(file).trustedFingerprint("a:22"))
+        val store = FileHostKeyTrustStore(file)
+        assertTrue(!store.isReadable())
+        assertNull(store.trustedFingerprint("a:22"))
+
+        // Ni confiar ni una limpieza automática lo reinician.
+        store.trust("a:22", "SHA256:x")
+        store.forget("a:22")
+        assertEquals("[1,2", file.readText())
+        assertTrue(!FileHostKeyTrustStore(file).isReadable())
+    }
+
+    @Test
+    fun `olvidar host key a mano aparta el archivo dañado y empieza uno nuevo`() {
+        file.writeText("[1,2")
+        val store = FileHostKeyTrustStore(file)
+
+        store.forgetExplicitly("a:22")
+
+        assertTrue(store.isReadable())
+        assertTrue(!file.exists())
+        assertEquals(1, dir.listFiles { f -> f.name.startsWith("known_hosts.json.corrupt-") }!!.size)
+        store.trust("a:22", "SHA256:x")
+        assertEquals("SHA256:x", FileHostKeyTrustStore(file).trustedFingerprint("a:22"))
+    }
+
+    @Test
+    fun `con el archivo sano, olvidar a mano solo quita ese servidor`() {
+        val store = FileHostKeyTrustStore(file)
+        store.trust("a:22", "SHA256:a")
+        store.trust("b:22", "SHA256:b")
+        store.forgetExplicitly("a:22")
+        assertNull(store.trustedFingerprint("a:22"))
+        assertEquals("SHA256:b", store.trustedFingerprint("b:22"))
     }
 
     @Test

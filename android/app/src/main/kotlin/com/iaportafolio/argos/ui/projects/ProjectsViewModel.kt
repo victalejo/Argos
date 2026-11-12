@@ -126,7 +126,7 @@ class ProjectsViewModel(
         val server = repository.server(serverId) ?: return load()
         viewModelScope.launch {
             logFailures(ArgosLog.TAG_HOST_KEY, "No se pudo olvidar la huella de ${server.endpoint}") {
-                withContext(io) { hostKeys.forget(server.endpoint) }
+                withContext(io) { hostKeys.forgetExplicitly(server.endpoint) }
                 services.invalidate(server.id)
             }.onSuccess { load() }
                 .onFailure { error -> mutableState.update { it.copy(message = error.toUiText()) } }

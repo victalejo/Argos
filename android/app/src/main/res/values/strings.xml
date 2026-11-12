@@ -591,6 +591,7 @@
     <string name="ports_none">No hay servidores de desarrollo escuchando. Arranca uno (p. ej. «npm run dev») o escribe el puerto abajo.</string>
     <string name="ports_show_system">Mostrar puertos del sistema (%1$d)</string>
     <string name="ports_to_remote">→ puerto %1$s del servidor</string>
+    <string name="ports_reconnecting">Reconectando con el puerto %1$s…</string>
     <string name="ports_open">Abrir</string>
     <string name="ports_forward">Reenviar</string>
     <string name="ports_forward_open">Reenviar y abrir</string>

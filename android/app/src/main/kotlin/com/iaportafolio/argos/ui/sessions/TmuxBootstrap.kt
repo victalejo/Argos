@@ -1,6 +1,7 @@
 package com.iaportafolio.argos.ui.sessions
 
 import com.iaportafolio.argos.core.HostKeyMismatchException
+import com.iaportafolio.argos.core.HostKeyStoreUnreadableException
 import com.iaportafolio.argos.core.SSHServiceError
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.userMessage
@@ -38,10 +39,10 @@ private const val MAX_CAUSE_DEPTH = 8
 
 /** Clasifica un fallo de conexión: huella cambiada y tmux ausente tienen pantalla propia. */
 internal fun loadFailure(error: Throwable): SessionsLoad {
+    // Registro de huellas dañado: misma pantalla, porque «Olvidar host key» también lo resuelve.
     val mismatch = generateSequence(error) { current -> current.cause?.takeIf { it !== current } }
         .take(MAX_CAUSE_DEPTH)
-        .filterIsInstance<HostKeyMismatchException>()
-        .firstOrNull()
+        .firstOrNull { it is HostKeyMismatchException || it is HostKeyStoreUnreadableException }
     return when {
         mismatch != null -> SessionsLoad.HostKeyChanged(mismatch.userMessage)
         error is TmuxMissingStop || error is SSHServiceError.TmuxNotInstalled -> SessionsLoad.TmuxMissing

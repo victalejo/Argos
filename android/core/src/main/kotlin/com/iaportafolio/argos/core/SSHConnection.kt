@@ -38,7 +38,27 @@ interface HostKeyTrustStore {
     fun trustedFingerprint(endpoint: String): String?
     fun trust(endpoint: String, fingerprint: String)
     fun forget(endpoint: String)
+
+    /**
+     * `false` si el registro existe pero está dañado. NO equivale a «sin huellas»: tratarlo así
+     * volvería a confiar a ciegas en cualquier clave, así que la verificación debe abortar.
+     */
+    fun isReadable(): Boolean = true
+
+    /**
+     * «Olvidar host key» pulsado por el usuario. Además de olvidar la huella, si el registro
+     * está dañado lo aparta y empieza uno nuevo: es la única vía para ello y siempre es una
+     * decisión explícita ([forget] también lo llaman limpiezas automáticas).
+     */
+    fun forgetExplicitly(endpoint: String) = forget(endpoint)
 }
+
+/** El registro de huellas está dañado: no se puede comprobar la identidad del servidor. */
+class HostKeyStoreUnreadableException(val endpoint: String) : Exception(
+    "El registro de huellas de servidores de Argos está dañado, así que no se puede comprobar " +
+        "la identidad de $endpoint. Conexión abortada. Usa «Olvidar host key» en este servidor " +
+        "para empezar un registro nuevo y volver a confiar en tus servidores.",
+)
 
 /**
  * La host key presentada no coincide con la confiada: posible MitM o servidor reinstalado.

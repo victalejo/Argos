@@ -303,10 +303,14 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
 
     // MARK: Ficheros privados en $HOME (port de RemotePrivateFile.swift)
 
-    /** Contenido de `~/<relativePath>`, o `""` si no existe. */
+    /** Contenido de `~/<relativePath>`, o `""` si no existe. Un fallo de lectura LANZA. */
     private suspend fun readHomeFile(relativePath: String): String {
         val result = connection.capture(RemoteHomeFileCommands.read(relativePath))
-        return if (result.exitCode == 0) result.stdout else ""
+        if (result.exitCode != 0) {
+            val detail = result.stderr.trim().ifEmpty { "No se pudo leer ~/$relativePath." }
+            throw SSHServiceError.CommandFailed(result.exitCode, detail)
+        }
+        return result.stdout
     }
 
     /**

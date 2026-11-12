@@ -218,6 +218,17 @@ class SshjTmuxIntegrationTest {
     }
 
     @Test
+    fun `si projects json existe y no se puede leer, falla en vez de parecer vacío`() = runBlocking<Unit> {
+        // Un directorio en su lugar: `cat` falla con el archivo presente.
+        Files.createDirectories(server.home.resolve(".config/argos/projects.json"))
+        try {
+            assertFailsWith<SSHServiceError.CommandFailed> { service.loadProjects() }
+        } finally {
+            server.home.resolve(".config/argos/projects.json").deleteIfExists()
+        }
+    }
+
+    @Test
     fun `proyectos inválidos lanzan InvalidFile`() = runBlocking<Unit> {
         val file = Files.createDirectories(server.home.resolve(".config/argos")).resolve("projects.json")
         Files.writeString(file, "{roto")

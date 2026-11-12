@@ -234,7 +234,7 @@ internal class SshjConnection(
     }
 
     private fun translate(error: IOException, verifier: TofuHostKeyVerifier): Exception {
-        verifier.mismatch?.let { return it }
+        verifier.rejection?.let { return it }
         val endpoint = server.endpoint
         return when (error) {
             is UserAuthException -> SshConnectionException.AuthenticationFailed(server.username, error)

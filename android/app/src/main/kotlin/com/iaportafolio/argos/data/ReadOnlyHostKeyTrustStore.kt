@@ -20,4 +20,8 @@ class ReadOnlyHostKeyTrustStore(private val delegate: HostKeyTrustStore) : HostK
     override fun trust(endpoint: String, fingerprint: String): Unit = throw UntrustedHostException(endpoint)
 
     override fun forget(endpoint: String) = Unit
+
+    override fun isReadable(): Boolean = delegate.isReadable()
+
+    override fun forgetExplicitly(endpoint: String) = Unit
 }

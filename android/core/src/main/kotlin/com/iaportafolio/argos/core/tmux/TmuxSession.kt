@@ -32,12 +32,15 @@ data class TmuxSession(
         fun parse(line: String): TmuxSession? {
             val raw = line.trim()
             if (raw.isEmpty()) return null
+            // Los tres últimos campos son numéricos; el nombre es todo lo anterior, porque tmux
+            // admite '|' en un nombre de sesión (creada fuera de Argos).
             val fields = raw.split("|")
-            if (fields.size != FIELD_COUNT) return null
-            val name = fields[0].takeIf { it.isNotEmpty() } ?: return null
-            val windowCount = fields[1].toIntOrNull() ?: return null
-            val attachedFlag = fields[2].toIntOrNull() ?: return null
-            val epoch = fields[3].toDoubleOrNull()?.takeIf { it.isFinite() } ?: return null
+            if (fields.size < FIELD_COUNT) return null
+            val numeric = fields.takeLast(FIELD_COUNT - 1)
+            val name = fields.dropLast(FIELD_COUNT - 1).joinToString("|").takeIf { it.isNotEmpty() } ?: return null
+            val windowCount = numeric[0].toIntOrNull() ?: return null
+            val attachedFlag = numeric[1].toIntOrNull() ?: return null
+            val epoch = numeric[2].toDoubleOrNull()?.takeIf { it.isFinite() } ?: return null
             return TmuxSession(
                 name = name,
                 windowCount = windowCount,

@@ -16,6 +16,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -64,6 +65,12 @@ internal class SshjPortForwarding(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
     private val forwards = LinkedHashMap<String, Runtime>()
+
+    /** Túneles caídos que aún no se han podido reabrir: se reintentan en cada pasada. */
+    private val broken = LinkedHashMap<String, ActivePortForward>()
+
+    /** Hay una reapertura en curso. Se lee y escribe con [mutex] tomado. */
+    private var reopening = false
     private var watcher: Job? = null
     private var toolChecked = false
     private var publishedAt: Long? = null
@@ -77,7 +84,7 @@ internal class SshjPortForwarding(
     override suspend fun startPortForward(remotePort: Int, targetHost: String, preferredLocalPort: Int): ActivePortForward {
         if (remotePort !in 1..65535) throw PortForwardException.invalidPort(remotePort)
         val info = mutex.withLock {
-            if (forwards.values.any { it.info.remotePort == remotePort }) {
+            if (forwards.values.any { it.info.remotePort == remotePort } || broken.values.any { it.remotePort == remotePort }) {
                 throw PortForwardException.alreadyForwarded(remotePort)
             }
             open(UUID.randomUUID().toString(), remotePort, targetHost, preferredLocalPort).info
@@ -89,23 +96,36 @@ internal class SshjPortForwarding(
     }
 
     override suspend fun stopPortForward(id: String) {
-        val runtime = mutex.withLock { forwards.remove(id) } ?: return
+        val runtime = mutex.withLock {
+            broken.remove(id)
+            forwards.remove(id)
+        } ?: return
         close(runtime)
         publish()
     }
 
-    /** Túneles activos. Si la conexión de alguno se cayó, lo reabre en el MISMO puerto local. */
+    /**
+     * Túneles activos. Si la conexión de alguno se cayó, lo reabre en el MISMO puerto local. El
+     * que no se puede reabrir todavía sigue en la lista ([ActivePortForward.isReconnecting]) y se
+     * reintenta en la siguiente pasada.
+     */
     override suspend fun activePortForwards(): List<ActivePortForward> {
-        val changed = mutex.withLock { reopenUnhealthy() }
+        val changed = reopenUnhealthy()
         if (changed) publish()
-        return mutex.withLock { forwards.values.map { it.info }.sortedBy { it.remotePort } }
+        return mutex.withLock {
+            (forwards.values.map { it.info } + broken.values.map { it.copy(isReconnecting = true) })
+                .sortedBy { it.remotePort }
+        }
     }
 
     /** Cierra todos (al desconectar) y borra el archivo del servidor si la conexión sigue viva. */
     suspend fun stopAll() {
         watcher?.cancel()
         watcher = null
-        val all = mutex.withLock { forwards.values.toList().also { forwards.clear() } }
+        val all = mutex.withLock {
+            broken.clear()
+            forwards.values.toList().also { forwards.clear() }
+        }
         all.forEach { close(it) }
         if (all.isNotEmpty()) bestEffort(PortForwardServerFiles.unpublishCommand(PortForwardDevice.id))
         publishedAt = null
@@ -146,10 +166,10 @@ internal class SshjPortForwarding(
             }.onEach { forwards.remove(it.info.id) }
         }
         idle.forEach { close(it) }
-        val reopened = mutex.withLock { reopenUnhealthy() }
+        val reopened = reopenUnhealthy()
         val stale = publishedAt?.let { now - it >= PortForwardServerFiles.REFRESH_INTERVAL_MILLIS } ?: true
         if (idle.isNotEmpty() || reopened || stale) publish()
-        return mutex.withLock { forwards.isNotEmpty() }
+        return mutex.withLock { forwards.isNotEmpty() || broken.isNotEmpty() }
     }
 
     // MARK: - Archivos del servidor (skill de Claude)
@@ -179,26 +199,57 @@ internal class SshjPortForwarding(
         false
     }
 
-    // MARK: - Túneles (con [mutex] tomado)
+    // MARK: - Túneles
 
-    /** Reabre en su mismo puerto los túneles cuya conexión se cayó. Devuelve si cambió algo. */
+    /**
+     * Reabre en su mismo puerto los túneles cuya conexión se cayó. Los que no se pueden reabrir
+     * (sin red todavía) quedan en [broken] para la siguiente pasada. Devuelve si cambió algo.
+     *
+     * Conectar va FUERA del [mutex]: sin red cada intento dura hasta el timeout de conexión, y
+     * con el mutex tomado no se podría ni parar un túnel ni pintar la lista entretanto.
+     */
     private suspend fun reopenUnhealthy(): Boolean {
-        val broken = forwards.values.toList().filterNot { it.isHealthy }
-        for (runtime in broken) {
-            forwards.remove(runtime.info.id)
-            close(runtime)
-            try {
-                open(runtime.info.id, runtime.info.remotePort, runtime.info.targetHost, runtime.info.localPort)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                // Sin red: se reintenta en la siguiente pasada; el túnel desaparece de la lista.
+        val (fallen, pending) = mutex.withLock {
+            val fallen = forwards.values.toList().filterNot { it.isHealthy }
+            for (runtime in fallen) {
+                forwards.remove(runtime.info.id)
+                broken[runtime.info.id] = runtime.info
             }
+            // Una sola reapertura a la vez (la piden el vigilante y la pantalla).
+            val pending = if (reopening) emptyList() else broken.values.toList().also { reopening = it.isNotEmpty() }
+            fallen to pending
         }
-        return broken.isNotEmpty()
+        fallen.forEach { close(it) }
+        if (pending.isEmpty()) return fallen.isNotEmpty()
+
+        var reopened = false
+        try {
+            for (info in pending) {
+                val runtime = try {
+                    connect(info.id, info.remotePort, info.targetHost, info.localPort)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    continue // Sin red: sigue en `broken` y se reintenta en la siguiente pasada.
+                }
+                // Si lo pararon mientras se reabría, no debe resucitar.
+                val adopted = mutex.withLock {
+                    (broken.remove(info.id) != null).also { stillWanted -> if (stillWanted) forwards[info.id] = runtime }
+                }
+                if (adopted) reopened = true else close(runtime)
+            }
+        } finally {
+            // Aunque cancelen a mitad: si no, nunca más se reabriría nada.
+            withContext(NonCancellable) { mutex.withLock { reopening = false } }
+        }
+        return fallen.isNotEmpty() || reopened
     }
 
-    private suspend fun open(id: String, remotePort: Int, targetHost: String, preferredLocalPort: Int): Runtime {
+    /** Abre un túnel y lo registra. Llamar con [mutex] tomado. */
+    private suspend fun open(id: String, remotePort: Int, targetHost: String, preferredLocalPort: Int): Runtime =
+        connect(id, remotePort, targetHost, preferredLocalPort).also { forwards[id] = it }
+
+    private suspend fun connect(id: String, remotePort: Int, targetHost: String, preferredLocalPort: Int): Runtime {
         val activity = PortForwardActivity(clock())
         val socket = bind(preferredLocalPort, activity)
         val localPort = socket.localPort
@@ -229,9 +280,7 @@ internal class SshjPortForwarding(
             closeQuietly(socket)
             throw e
         }
-        val runtime = Runtime(ActivePortForward(id, remotePort, targetHost, localPort), socket, job, client, activity)
-        forwards[id] = runtime
-        return runtime
+        return Runtime(ActivePortForward(id, remotePort, targetHost, localPort), socket, job, client, activity)
     }
 
     /** Abre el listener en 127.0.0.1: el puerto pedido o, si está ocupado, uno libre. */

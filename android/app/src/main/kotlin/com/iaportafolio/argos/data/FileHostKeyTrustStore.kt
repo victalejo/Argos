@@ -16,6 +16,10 @@ import java.io.IOException
  * «Olvidar host key» desde la UI. Todo pasa por un único monitor; el mapa en memoria es
  * inmutable y se reemplaza entero tras escribir el disco (si la escritura falla, la memoria
  * no cambia y se registra el error).
+ *
+ * Un archivo dañado NO se lee como vacío (eso volvería a confiar en cualquier clave): el
+ * almacén queda ilegible ([isReadable]) y no admite cambios hasta que el usuario pulse
+ * «Olvidar host key» ([forgetExplicitly]), que lo aparta y empieza uno nuevo.
  */
 class FileHostKeyTrustStore(private val file: File) : HostKeyTrustStore {
 
@@ -26,11 +30,13 @@ class FileHostKeyTrustStore(private val file: File) : HostKeyTrustStore {
     @Volatile
     private var cache: Map<String, String>? = null
 
-    override fun trustedFingerprint(endpoint: String): String? = synchronized(lock) { current()[endpoint] }
+    override fun trustedFingerprint(endpoint: String): String? = synchronized(lock) { current()?.get(endpoint) }
+
+    override fun isReadable(): Boolean = synchronized(lock) { current() != null }
 
     override fun trust(endpoint: String, fingerprint: String) {
         synchronized(lock) {
-            val known = current()
+            val known = current() ?: return unreadable("no se guarda la huella de $endpoint")
             if (known[endpoint] == fingerprint) return
             persist(known + (endpoint to fingerprint))
         }
@@ -39,15 +45,31 @@ class FileHostKeyTrustStore(private val file: File) : HostKeyTrustStore {
 
     override fun forget(endpoint: String) {
         synchronized(lock) {
-            val known = current()
+            val known = current() ?: return unreadable("no se olvida la huella de $endpoint")
             if (endpoint !in known) return
             persist(known - endpoint)
         }
         ArgosLog.info(ArgosLog.TAG_HOST_KEY, "Huella olvidada para $endpoint")
     }
 
-    /** Llamar con [lock] tomado. */
-    private fun current(): Map<String, String> = cache ?: load().also { cache = it }
+    override fun forgetExplicitly(endpoint: String) {
+        val quarantined = synchronized(lock) {
+            if (current() != null) return@synchronized false
+            val backup = File(file.parentFile, "${file.name}.corrupt-${System.currentTimeMillis() / MILLIS_PER_SECOND}")
+            if (!file.renameTo(backup)) throw IOException("No se pudo apartar ${file.name}")
+            cache = emptyMap()
+            ArgosLog.info(ArgosLog.TAG_HOST_KEY, "${file.name} dañado apartado en ${backup.name}")
+            true
+        }
+        if (!quarantined) forget(endpoint)
+    }
+
+    private fun unreadable(action: String) {
+        ArgosLog.error(ArgosLog.TAG_HOST_KEY, "${file.name} está dañado: $action", null)
+    }
+
+    /** `null` si el archivo está dañado. Llamar con [lock] tomado. */
+    private fun current(): Map<String, String>? = cache ?: load().also { cache = it }
 
     /** Llamar con [lock] tomado. */
     private fun persist(updated: Map<String, String>) {
@@ -60,16 +82,21 @@ class FileHostKeyTrustStore(private val file: File) : HostKeyTrustStore {
         }
     }
 
-    private fun load(): Map<String, String> {
+    /** Vacío si no existe (primer uso); `null` si existe y no se puede leer o no es válido. */
+    private fun load(): Map<String, String>? {
         if (!file.exists()) return emptyMap()
         return try {
             json.decodeFromString(serializer, file.readText())
         } catch (error: SerializationException) {
-            ArgosLog.error(ArgosLog.TAG_HOST_KEY, "${file.name} no es válido; se ignora", error)
-            emptyMap()
+            ArgosLog.error(ArgosLog.TAG_HOST_KEY, "${file.name} no es válido", error)
+            null
         } catch (error: IOException) {
             ArgosLog.error(ArgosLog.TAG_HOST_KEY, "No se pudo leer ${file.name}", error)
-            emptyMap()
+            null
         }
+    }
+
+    private companion object {
+        const val MILLIS_PER_SECOND = 1000
     }
 }
