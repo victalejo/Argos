@@ -208,8 +208,9 @@ ARGOS_PLAY_SERVICE_ACCOUNT=… ./gradlew :app:publishListing                    
 
 ### CI de publicación (`.github/workflows/android-release.yml`)
 
-Se lanza con un tag `android-v*` (debe coincidir con `ARGOS_VERSION_NAME`) o a mano. Decodifica la
-clave, ejecuta los tests de `app` y `bundleRelease` firmado, verifica la firma, sube el AAB y el
+Se lanza con un tag `android-v*` (debe coincidir con `ARGOS_VERSION_NAME`) o a mano. Antes de tocar
+la clave pasa el mismo gate que `android.yml` (tests de `core`, `ssh` y `app`, y lint). Después decodifica
+la clave, construye el `bundleRelease` firmado, verifica la firma, sube el AAB y el
 `mapping.txt` como artefacto `argos-android-aab` y, **solo si existe** `ARGOS_PLAY_SERVICE_ACCOUNT`,
 ejecuta `publishReleaseBundle` (borrador en la pista interna). Token con `contents: read`.
 

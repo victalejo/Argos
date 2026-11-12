@@ -7,6 +7,7 @@ PROJECTS, NOT JUST SESSIONS
 
 LIVE TERMINAL
 • Full terminal emulator over SSH, with an extra keys row (esc, ctrl, alt, tab, arrows and the tmux prefix) and hardware keyboard support.
+• Tabs for your tmux windows: open a terminal or start an agent with "+".
 • Automatic reconnection when you return to the app.
 • The terminal stays connected when you switch apps, always with a visible notification and a "Disconnect all" button (can be turned off in settings).
 
@@ -15,9 +16,11 @@ CLAUDE CODE AGENTS THAT KEEP GOING
 • When you come back you see everything it did; approve or deny its permissions from your phone.
 • Alerts when it finishes or needs you (Argos checks your servers periodically; no push notifications, no middleman servers).
 
-FILES
+FILES, GIT AND PORTS
 • Browse and search the project and preview code with syntax highlighting, Markdown and images.
 • Download any file to your phone.
+• Changes tab: diff, commit with a message suggested by Claude, and GitHub PR and CI status.
+• Port forwarding: open on your phone the website running on the server.
 
 TABLET
 • Servers and projects side by side, and the agent list next to the conversation.

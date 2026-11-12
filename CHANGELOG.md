@@ -6,6 +6,19 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **iPhone/iPad: «Conectar Claude» en el servidor.** Inicio de sesión guiado (abrir la
+  página, pegar el código, comprobación) sin salir de Argos. Se ofrece al crear un agente si
+  el servidor no tiene sesión.
+- **Android: pestañas de las ventanas de tmux** en el terminal, con «+» para abrir un
+  terminal o lanzar un agente y pulsación larga para cerrar.
+
+### Cambiado
+- **Publicación más segura.** El Release de GitHub nace en borrador y solo se publica con el
+  DMG, el ZIP y el appcast subidos enteros; la publicación de Android pasa antes todos los
+  tests y el lint; las acciones de CI van fijadas por SHA (Dependabot las actualiza) y la
+  herramienta que firma las actualizaciones se comprueba por hash.
+
 ## [1.8.3] - 2026-11-12
 
 ### Corregido

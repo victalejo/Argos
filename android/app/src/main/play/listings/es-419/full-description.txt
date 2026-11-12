@@ -7,6 +7,7 @@ PROYECTOS, NO SOLO SESIONES
 
 TERMINAL EN VIVO
 • Emulador completo sobre SSH, con fila de teclas (esc, ctrl, alt, tab, flechas y prefijo de tmux) y soporte de teclado físico.
+• Pestañas con las ventanas de tmux: abre un terminal o lanza un agente con «+».
 • Reconexión automática al volver a la app.
 • El terminal sigue conectado al cambiar de app, siempre con una notificación visible y un botón «Desconectar todo» (se puede desactivar en los ajustes).
 
@@ -15,9 +16,11 @@ AGENTES DE CLAUDE CODE QUE NO SE DETIENEN
 • Al volver ves todo lo que hizo; aprueba o deniega sus permisos desde el teléfono.
 • Avisos cuando termina o te necesita (Argos revisa tus servidores cada cierto tiempo; sin notificaciones push ni servidores intermedios).
 
-ARCHIVOS
+ARCHIVOS, GIT Y PUERTOS
 • Explora y busca en el proyecto y previsualiza código con resaltado, Markdown e imágenes.
 • Descarga cualquier archivo al teléfono.
+• Pestaña Cambios: diff, commit con mensaje sugerido por Claude y estado del PR y la CI de GitHub.
+• Reenvío de puertos: abre en el teléfono la web que corre en el servidor.
 
 TABLET
 • Servidores y proyectos lado a lado, y la lista de agentes junto a la conversación.

@@ -2,7 +2,7 @@
 
 **Gestor de proyectos y sesiones [tmux](https://github.com/tmux/tmux) remotas vía SSH**, con
 terminal en vivo y agente de Claude Code integrado. Nativo de **macOS** e **iPhone/iPad**
-(SwiftUI), con una app de **Android** en camino.
+(SwiftUI) y de **Android** (Kotlin + Jetpack Compose).
 
 [![CI](https://github.com/victalejo/Argos/actions/workflows/ci.yml/badge.svg)](https://github.com/victalejo/Argos/actions/workflows/ci.yml)
 [![Android](https://github.com/victalejo/Argos/actions/workflows/android.yml/badge.svg)](https://github.com/victalejo/Argos/actions/workflows/android.yml)
@@ -15,12 +15,13 @@ terminal en vivo y agente de Claude Code integrado. Nativo de **macOS** e **iPho
 Argos se conecta a **varios servidores** por SSH, convierte cada sesión tmux en un
 **proyecto** anclado a una carpeta del servidor y te deja abrirlo, detenerlo para liberar
 memoria y retomarlo después. Cada proyecto tiene **Terminal** (PTY + `tmux attach`),
-**Archivos** (explorador SFTP con visor) y **Agente** (Claude Code en la carpeta del
-proyecto). Cerrar la app nunca mata nada: tmux sigue corriendo en el servidor.
+**Archivos** (explorador SFTP con visor), **Cambios** (git y GitHub en el servidor) y
+**Agente** (Claude Code en la carpeta del proyecto). Cerrar la app nunca mata nada: tmux
+sigue corriendo en el servidor.
 
 ```
 ┌────────────────────┬─────────────────────────────────────────────────────────┐
-│ Proyectos   🔍  [+]│  tienda-online   Terminal · Archivos · Agente           │
+│ Proyectos   🔍  [+]│  tienda-online   Terminal · Archivos · Cambios · Agente │
 │ ────────────────── │ ─────────────────────────────────────────────────────── │
 │ ● dev              │  >_ 1   >_ 2   ✳ Claude Code   [+]                      │
 │   ▾ web            │ ─────────────────────────────────────────────────────── │
@@ -42,7 +43,7 @@ proyecto). Cerrar la app nunca mata nada: tmux sigue corriendo en el servidor.
 | **macOS** (canal GitHub) | Estable | DMG en [Releases](https://github.com/victalejo/Argos/releases/latest) + actualizaciones automáticas (Sparkle) |
 | **macOS** (Mac App Store) | En revisión | Variante `ArgosAppStore`: mismas funciones, sin Sparkle, con iCloud |
 | **iPhone / iPad** | En revisión | App universal (mismo bundle id que el Mac) |
-| **Android** | En desarrollo (fase 0) | Kotlin + Jetpack Compose en [`android/`](android/README.md) |
+| **Android** | En revisión | Google Play; Kotlin + Jetpack Compose en [`android/`](android/README.md) |
 
 ## Descarga e instalación (macOS)
 
@@ -100,6 +101,8 @@ o clic derecho sobre la app → **Abrir** (solo la primera vez).
 - **Subir archivos e imágenes**: pega una imagen (⌘V) o arrastra archivos al terminal; se
   suben por SFTP a `/tmp` y la ruta se inserta en la línea de comandos.
 - **Detach, no kill**: cerrar el terminal o cambiar de proyecto hace *detach*.
+- En **iPhone/iPad y Android**, las mismas pestañas de ventanas con el menú **«+»**, una fila
+  de teclas (esc, ctrl, tab, flechas…) y reconexión al volver a la app.
 
 ### Archivos
 - Árbol de la carpeta del proyecto con **iconos por tipo de carpeta** (src, docs, tests,
@@ -107,21 +110,38 @@ o clic derecho sobre la app → **Abrir** (solo la primera vez).
 - **⌘P** para buscar por nombre y **descargar al Mac** cualquier archivo. Solo lectura, sin
   salir nunca de la carpeta del proyecto.
 
+### Cambios (git y GitHub)
+- Pestaña **Cambios**: estado del repositorio, diff por archivo, elegir qué entra en el commit
+  y **mensaje sugerido por Claude**. git corre en el servidor; la app solo lo muestra.
+- **GitHub con el `gh` del servidor**: PR de la rama con su revisión y sus checks, crear el PR,
+  relanzar la CI y **clonar un repositorio como proyecto nuevo**. Aviso cuando la CI termina.
+- **Ramas en paralelo** (`git worktree`): cada rama en su carpeta, como un proyecto propio.
+
+### Puertos
+- **Reenvío de puertos** del servidor a tu dispositivo: abre en `localhost` la web que corre
+  en el servidor (`npm run dev`, etc.). Detecta lo que está escuchando y cierra los túneles
+  sin uso tras el tiempo que elijas. Si la conexión se cae, el túnel se reabre solo.
+- **Claude puede pedirlo**: con la skill «argos-puertos», Claude ve los túneles abiertos y
+  te propone abrir uno; nada se abre sin que aceptes.
+
 ### Agente de Claude Code
 - Panel **Agente** que trabaja en la carpeta del proyecto, con **varias conversaciones en
   pestañas**, respuestas en Markdown, herramientas plegables y tarjeta de permisos.
-- **Login guiado** (y si `claude` no está instalado en el servidor, Argos lo instala).
+- **Login guiado** en Mac, iPhone/iPad y Android (en el Mac, si `claude` no está instalado
+  en el servidor, Argos lo instala).
 - **Indicador de Claude Code** por sesión y por pestaña (esperando tu respuesta / terminó /
-  trabajando) con notificación del sistema.
-- En iPhone/iPad los agentes son **persistentes**: `claude` sigue corriendo en el servidor
-  aunque iOS corte el SSH, y la app avisa con notificaciones locales cuando termina o espera
-  tu permiso.
+  trabajando) con notificación del sistema, en el Mac y en iPhone/iPad. Tocar el aviso abre
+  el proyecto y la ventana que lo originó.
+- En iPhone/iPad y Android los agentes son **persistentes**: `claude` sigue corriendo en el
+  servidor aunque el sistema corte el SSH, y la app avisa con notificaciones locales cuando
+  termina o espera tu permiso (sin push: no hay servidores intermedios).
 
 ### Enviar al Mac
 - **Enviar al Mac** copia la carpeta del proyecto a este Mac (con `.git` y `.env`, sin
   `node_modules` ni builds) para trabajar en local; **Enviar al servidor** devuelve los
   cambios detectando conflictos. En segundo plano, con progreso en la fila del proyecto.
-- **Abrir en Terminal con Claude Code** retoma la última conversación de esa carpeta.
+- **Abrir en Terminal con Claude Code** retoma la conversación: viaja con el proyecto al Mac
+  y de vuelta al servidor.
 - La sincronización trata al servidor como no confiable (rutas y symlinks validados, sin
   hooks de git, `.git/config` reconstruido con lista blanca).
 
@@ -137,7 +157,7 @@ o clic derecho sobre la app → **Abrir** (solo la primera vez).
 ## Requisitos
 
 - **macOS 15.0+** (el terminal usa `Citadel.withPTY` / `TTYOutput`, `@available(macOS 15.0, *)`)
-  o **iOS/iPadOS 18.0+**.
+  o **iOS/iPadOS 18.0+**. Android: ver [`android/README.md`](android/README.md).
 - Para compilar: **Xcode 16+** y **[XcodeGen](https://github.com/yonaskolb/XcodeGen)**
   (`brew install xcodegen`; la CI usa la 2.46.0 — usa la misma para evitar *drift*).
 - Un **servidor accesible por SSH** (el bootstrap de tmux y el monitor asumen Linux; la
@@ -161,7 +181,7 @@ o clic derecho sobre la app → **Abrir** (solo la primera vez).
      variante App Store concedes la carpeta `~/.ssh` una vez. Para otra ruta, "Elegir…"
      guarda un *security-scoped bookmark*. Si tiene passphrase, escríbela.
    - **Contraseña**: la de login.
-4. En iPhone/iPad: contraseña, clave importada o **escanea el QR** que genera el Mac.
+4. En iPhone/iPad y Android: contraseña, clave importada o **escanea el QR** que genera el Mac.
 
 ## Compilar y ejecutar
 
@@ -183,9 +203,12 @@ Android: ver [`android/README.md`](android/README.md) (`./gradlew :core:test :ap
 
 **CI** (GitHub Actions): `ci.yml` compila el Mac, corre los tests con cobertura, compila
 `ArgosiOS` (guardián de portabilidad de `ArgosCore/`) y verifica que `xcodegen generate` no
-produzca *drift*; `android.yml` corre cuando cambia `android/**`; `release.yml` publica el
-DMG y el feed de Sparkle. La subida a las tiendas está en
-[`scripts/appstore/`](scripts/appstore/README.md).
+produzca *drift*; `android.yml` corre cuando cambia `android/**`; `release.yml` (tag `v*`)
+publica el DMG y el feed de Sparkle, y `android-release.yml` (tag `android-v*`) firma el AAB
+y lo deja en borrador en Google Play. Ambos pasan antes la suite completa de tests; el
+Release de GitHub nace en borrador y solo se publica con sus tres archivos subidos enteros.
+Las acciones van fijadas por SHA y Dependabot las mantiene al día. La subida a las tiendas de
+Apple está en [`scripts/appstore/`](scripts/appstore/README.md).
 
 ## Estructura del repositorio
 
@@ -196,7 +219,7 @@ DMG y el feed de Sparkle. La subida a las tiendas está en
 | `Argos/` | App de macOS (dos variantes: `Argos` GitHub+Sparkle y `ArgosAppStore`). |
 | `ArgosiOS/` | App de iPhone/iPad (tres columnas en iPad, agentes persistentes, avisos). |
 | `ArgosTests/`, `ArgosiOSUITests/` | Tests (Swift Testing, host-less) y E2E de iOS. |
-| `android/` | App de Android (Gradle; `core` Kotlin/JVM puro porta `ArgosCore`). |
+| `android/` | App de Android (Gradle; `core` Kotlin/JVM puro porta `ArgosCore`, `ssh` con sshj, `app` en Compose). |
 | `scripts/` | Notas de release y scripts de App Store Connect. |
 
 ## Arquitectura
@@ -233,10 +256,14 @@ Detalle de arquitectura y convenciones en [CLAUDE.md](CLAUDE.md).
 
 - **App Sandbox + Hardened Runtime** activados; entitlements generados desde `project.yml`.
   La variante App Store no usa ninguna excepción temporal.
-- **Secretos** (passphrase / contraseña / claves importadas) en **Keychain**, nunca en código,
-  en el modelo persistido ni en iCloud.
+- **Secretos** (passphrase / contraseña / claves importadas) en **Keychain** (en Android,
+  cifrados con el Android Keystore), nunca en código, en el modelo persistido ni en iCloud.
+  En iPhone/iPad la contraseña y la passphrase SSH se pueden leer con el dispositivo bloqueado
+  tras el primer desbloqueo, para que los avisos en segundo plano funcionen; no salen del
+  dispositivo.
 - **Host key TOFU** en `~/Library/Application Support/Argos/known_hosts.json`. Ni iCloud ni un
-  QR pueden cambiar la huella de un servidor ya conocido.
+  QR pueden cambiar la huella de un servidor ya conocido, y un archivo de huellas dañado
+  bloquea la conexión en vez de volver a confiar a ciegas.
 - **Anti-inyección**: nombres de sesión validados y entrecomillados (POSIX, `ShellQuoting`);
   objetivos tmux exactos (`=nombre`).
 - **`sudo` no interactivo** (`sudo -n`): la app nunca pide ni guarda la contraseña de `sudo`.
