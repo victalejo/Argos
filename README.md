@@ -41,8 +41,8 @@ sigue corriendo en el servidor.
 | Plataforma | Estado | Distribución |
 |---|---|---|
 | **macOS** (canal GitHub) | Estable | DMG en [Releases](https://github.com/victalejo/Argos/releases/latest) + actualizaciones automáticas (Sparkle) |
-| **macOS** (Mac App Store) | En revisión | Variante `ArgosAppStore`: mismas funciones, sin Sparkle, con iCloud |
-| **iPhone / iPad** | En revisión | App universal (mismo bundle id que el Mac) |
+| **macOS** (Mac App Store) | Publicada | Variante `ArgosAppStore`: mismas funciones, sin Sparkle, con iCloud |
+| **iPhone / iPad** | Publicada | App Store; app universal (mismo bundle id que el Mac) |
 | **Android** | En revisión | Google Play; Kotlin + Jetpack Compose en [`android/`](android/README.md) |
 
 ## Descarga e instalación (macOS)

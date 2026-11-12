@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.4] - 2026-11-12
+
 ### Añadido
 - **iPhone/iPad: «Conectar Claude» en el servidor.** Inicio de sesión guiado (abrir la
   página, pegar el código, comprobación) sin salir de Argos. Se ofrece al crear un agente si
