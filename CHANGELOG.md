@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.6] - 2026-11-12
+
+### Corregido
+- **Mac: el terminal informa bien de su color de fondo.** Las apps que preguntan si el
+  terminal es claro u oscuro (opencode, entre otras) podían recibir el negro por defecto o un
+  color anterior al cambio de apariencia. Ahora los colores del tema se aplican antes de
+  conectar y se recalculan al pasar de claro a oscuro.
+- El ajuste del portapapeles de tmux ya no se acumula en cada conexión.
+
 ## [1.8.5] - 2026-11-12
 
 ### Corregido
