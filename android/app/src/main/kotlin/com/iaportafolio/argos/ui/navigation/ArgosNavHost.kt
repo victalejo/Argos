@@ -223,6 +223,7 @@ fun ArgosNavHost(
             TerminalScreen(
                 viewModel = terminalViewModel(container, route.serverId, route.sessionName),
                 onBack = { navController.popBackStack() },
+                windows = terminalWindowsViewModel(container, route.serverId, route.sessionName, projectPath = null),
             )
         }
     }
@@ -410,6 +411,7 @@ private fun ProjectDestination(
                 viewModel = terminalViewModel(container, serverId, project.sessionName),
                 onBack = onBack,
                 autoShowKeyboard = false,
+                windows = terminalWindowsViewModel(container, serverId, project.sessionName, project.path),
             )
         },
         files = { project, twoPane ->

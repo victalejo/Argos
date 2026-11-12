@@ -250,15 +250,51 @@ class FakeSSHService : SSHServicing {
 
     private fun unused(): Nothing = throw IOException("No usado todavía")
 
-    override suspend fun listWindows(session: String): List<TmuxWindow> = unused()
-    override suspend fun selectWindow(session: String, index: Int) = unused()
-    override suspend fun newWindow(session: String) = unused()
-    override suspend fun newAgentWindow(session: String, agent: CodingAgent, directory: String?) = unused()
-    override suspend fun installedCodingAgents(): Set<CodingAgent> = unused()
+    /** Ventanas de la sesión (las operaciones las modifican como haría tmux). */
+    var windows: List<TmuxWindow> = emptyList()
+    var windowsError: Exception? = null
+    var windowActionError: Exception? = null
+    var installedAgents: Set<CodingAgent> = CodingAgent.entries.toSet()
+    var listWindowsRequests = 0
+
+    override suspend fun listWindows(session: String): List<TmuxWindow> {
+        listWindowsRequests++
+        windowsError?.let { throw it }
+        return windows
+    }
+
+    override suspend fun selectWindow(session: String, index: Int) {
+        calls += "selectWindow:$session:$index"
+        windowActionError?.let { throw it }
+        windows = windows.map { it.copy(isActive = it.index == index) }
+    }
+
+    override suspend fun newWindow(session: String) {
+        calls += "newWindow:$session"
+        windowActionError?.let { throw it }
+        addWindow("zsh", "zsh")
+    }
+
+    override suspend fun newAgentWindow(session: String, agent: CodingAgent, directory: String?) {
+        calls += "newAgentWindow:$session:${agent.rawValue}:$directory"
+        windowActionError?.let { throw it }
+        addWindow(agent.displayName, agent.binary)
+    }
+
+    private fun addWindow(name: String, command: String) {
+        val index = (windows.maxOfOrNull { it.index } ?: 0) + 1
+        windows = windows.map { it.copy(isActive = false) } + TmuxWindow(index, name, isActive = true, paneCount = 1, currentCommand = command)
+    }
+
+    override suspend fun installedCodingAgents(): Set<CodingAgent> = installedAgents
     override suspend fun gitBranch(path: String): String? = unused()
     override suspend fun renameWindow(session: String, index: Int, name: String) = unused()
     override suspend fun setWindowColor(session: String, index: Int, color: WindowColor?) = unused()
-    override suspend fun killWindow(session: String, index: Int) = unused()
+    override suspend fun killWindow(session: String, index: Int) {
+        calls += "killWindow:$session:$index"
+        windowActionError?.let { throw it }
+        windows = windows.filterNot { it.index == index }
+    }
     override suspend fun authorizeKey(line: String) = unused()
     override suspend fun revokeKey(comment: String) = unused()
     override suspend fun splitPane(session: String, vertical: Boolean) = unused()

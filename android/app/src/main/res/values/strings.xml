@@ -452,6 +452,15 @@
     <string name="terminal_ended_title">Sesión cerrada</string>
     <string name="terminal_ended">tmux cerró la conexión: hiciste detach o la sesión terminó. Si solo fue un detach, la sesión sigue en el servidor.</string>
     <string name="terminal_back_to_sessions">Volver a las sesiones</string>
+    <string name="terminal_window_new">Nueva ventana</string>
+    <string name="terminal_window_terminal">Terminal</string>
+    <string name="terminal_window_start_agent">Iniciar %1$s</string>
+    <string name="terminal_window_agent_missing">%1$s (no instalado)</string>
+    <string name="terminal_window_close">Cerrar ventana</string>
+    <string name="terminal_window_close_title">¿Cerrar la ventana %1$d?</string>
+    <string name="terminal_window_close_body">Se cerrarán sus paneles y se perderá lo que corra en ellos.</string>
+    <string name="terminal_window_description">Ventana %1$d: %2$s</string>
+    <string name="terminal_window_last">No se puede cerrar la última ventana: cerraría la sesión.</string>
     <string name="terminal_server_missing">Este servidor ya no existe.</string>
     <string name="terminal_unsupported">Esta conexión no admite terminales en vivo. Actualiza Argos e inténtalo de nuevo.</string>
 

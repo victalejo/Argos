@@ -24,6 +24,7 @@ import com.iaportafolio.argos.terminal.RemoteTerminalSession
 import com.iaportafolio.argos.ui.terminal.ReconnectPolicy
 import com.iaportafolio.argos.ui.terminal.TerminalTarget
 import com.iaportafolio.argos.ui.terminal.TerminalViewModel
+import com.iaportafolio.argos.ui.terminal.TerminalWindowsViewModel
 
 /** ViewModels creados con las dependencias del [AppContainer] (DI manual, sin Hilt/Koin). */
 @Composable
@@ -170,6 +171,22 @@ internal fun terminalViewModel(
                 io = container.io,
                 keepAlive = container.activeTerminals,
             )
+        }
+    },
+)
+
+/** Pestañas de las ventanas tmux de una sesión ([projectPath]: carpeta donde arrancan los agentes). */
+@Composable
+internal fun terminalWindowsViewModel(
+    container: AppContainer,
+    serverId: String,
+    sessionName: String,
+    projectPath: String?,
+): TerminalWindowsViewModel = viewModel(
+    key = "terminal-windows:$serverId:$sessionName:${projectPath.orEmpty()}",
+    factory = viewModelFactory {
+        initializer {
+            TerminalWindowsViewModel(serverId, sessionName, projectPath, container.servers, container.services, container.io)
         }
     },
 )

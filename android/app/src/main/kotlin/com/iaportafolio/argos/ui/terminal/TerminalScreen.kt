@@ -28,10 +28,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,17 +54,20 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.data.TerminalSettings
 import com.iaportafolio.argos.terminal.RemoteTerminalSession
 import com.iaportafolio.argos.terminal.RemoteTerminalView
+import com.iaportafolio.argos.ui.common.MessageEffect
 import com.iaportafolio.argos.ui.common.asString
 
 /**
- * Terminal en vivo de una sesión tmux (equivale a `TerminalScreen` de iOS, sin las pestañas
- * de ventanas todavía): barra con el nombre de la sesión, el emulador y la fila de teclas
- * extra pegada al teclado.
+ * Terminal en vivo de una sesión tmux (equivale a `TerminalScreen` de iOS): barra con el nombre
+ * de la sesión, las ventanas de tmux como pestañas ([TerminalWindowBar]), el emulador y la fila
+ * de teclas extra pegada al teclado.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,8 +79,23 @@ fun TerminalScreen(
      * las pestañas (Terminal · Archivos · Agentes); se abre al tocar el terminal.
      */
     autoShowKeyboard: Boolean = true,
+    /** Pestañas de las ventanas tmux; `null` = sin barra de ventanas. */
+    windows: TerminalWindowsViewModel? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val windowsState = windows?.state?.collectAsStateWithLifecycle()?.value
+    val snackbar = remember { SnackbarHostState() }
+    if (windows != null) {
+        // Solo se sondea con la pantalla visible; al volver se relee al instante.
+        val lifecycle = LocalLifecycleOwner.current.lifecycle
+        LaunchedEffect(windows, lifecycle) {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { windows.pollWhileVisible() }
+        }
+        MessageEffect(windowsState?.message, snackbar, windows::messageShown)
+        windowsState?.closing?.let { closing ->
+            CloseWindowDialog(closing, onConfirm = windows::confirmClose, onDismiss = windows::dismissClose)
+        }
+    }
     var terminalView by remember { mutableStateOf<RemoteTerminalView?>(null) }
 
     // Esta pantalla también se detiene al navegar o cambiar de pestaña dentro de la app: solo es
@@ -94,6 +115,8 @@ fun TerminalScreen(
     Scaffold(
         containerColor = TerminalColors.Background,
         contentWindowInsets = WindowInsets(0),
+        // Sobre el teclado: en un terminal casi siempre está abierto.
+        snackbarHost = { SnackbarHost(snackbar, Modifier.windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) },
         topBar = {
             TerminalTopBar(
                 state = state,
@@ -113,6 +136,16 @@ fun TerminalScreen(
                 .consumeWindowInsets(padding)
                 .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
         ) {
+            // Con la sesión terminada ya no hay ventanas que mostrar.
+            if (windows != null && windowsState != null && windowsState.windows.isNotEmpty() && state.status != TerminalStatus.SessionEnded) {
+                TerminalWindowBar(
+                    state = windowsState,
+                    onSelect = windows::select,
+                    onNew = windows::newWindow,
+                    onNewAgent = windows::newAgentWindow,
+                    onClose = { windows.requestClose(it.index) },
+                )
+            }
             Box(Modifier.weight(1f)) {
                 TerminalHost(viewModel, state, onViewCreated = { terminalView = it }, autoShowKeyboard = autoShowKeyboard)
                 StatusOverlay(state.status, onReconnect = viewModel::reconnect, onBack = onBack)
