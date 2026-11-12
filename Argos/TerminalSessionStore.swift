@@ -20,11 +20,14 @@ final class TerminalSessionStore {
     /// para desalojar (LRU) cuando el pool supera `maxLiveControllers`.
     private var lruOrder: [SessionHandle] = []
 
-    /// Tope de terminales vivos a la vez. Cada uno mantiene un PTY abierto y ~50k líneas
-    /// de scrollback; sin tope, abrir muchas sesiones crece la memoria sin límite. Al
-    /// superarlo se desengancha (detach) el menos usado, que vuelve a "dormido" y se
-    /// reconecta instantáneamente al reabrirlo.
-    static let maxLiveControllers = 8
+    /// Tope de terminales vivos a la vez. Cada uno mantiene un PTY abierto; el historial
+    /// largo (50k líneas) vive en tmux en el servidor y SwiftTerm solo guarda la pantalla
+    /// y su scrollback corto, así que cada terminal cuesta pocos MB (8 vivos ≈ 240 MB de
+    /// la app entera). El tope solo evita un crecimiento sin límite: con 8 se dormían
+    /// sesiones en uso al trabajar con varios proyectos a la vez. Al superarlo se
+    /// desengancha (detach) el menos usado, que vuelve a "dormido" y se reconecta al
+    /// reabrirlo.
+    static let maxLiveControllers = 24
 
     /// Devuelve el controlador de `handle`, creándolo (y conectándolo) si no existe.
     /// Reutilizar el existente es lo que hace la conexión persistente.
