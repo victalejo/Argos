@@ -219,6 +219,7 @@ fun ArgosNavHost(
         }
         composable<TerminalRoute> { entry ->
             val route = entry.toRoute<TerminalRoute>()
+            RequestAgentNotificationPermission(container.agentNotifier, forTerminal = true)
             TerminalScreen(
                 viewModel = terminalViewModel(container, route.serverId, route.sessionName),
                 onBack = { navController.popBackStack() },
@@ -404,6 +405,7 @@ private fun ProjectDestination(
         viewModel = viewModel,
         onBack = onBack,
         terminal = { project ->
+            RequestAgentNotificationPermission(container.agentNotifier, forTerminal = true)
             TerminalScreen(
                 viewModel = terminalViewModel(container, serverId, project.sessionName),
                 onBack = onBack,

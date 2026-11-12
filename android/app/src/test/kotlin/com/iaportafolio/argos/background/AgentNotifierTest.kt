@@ -468,6 +468,50 @@ class AgentNotifierTest {
         assertTrue(connector.opened.isEmpty())
     }
 
+    @Test
+    fun `sin agentes en marcha deja de revisar el servidor, sin olvidar lo visto`() = runScoped {
+        val notifier = notifier().apply { watchBoth() }
+        devService.output = snapshotLine(title = "api", logBytes = 100).replaceFirst("|1|", "|0|")
+
+        notifier.check()
+
+        // El último resultado sí se avisa; después ya no se abre conexión con ese servidor.
+        assertEquals(listOf("A", "B"), alerts.posted.map { it.serverId })
+        assertEquals(setOf("B"), store.watchedServers())
+        assertEquals(mapOf(AGENT_1 to 100L), store.seenBytes("A"))
+        notifier.check()
+        assertEquals(1, devService.scripts.size)
+        assertEquals(2, prodService.scripts.size)
+        assertEquals(0, scheduler.cancelled)
+
+        // Al reanudarlo se vuelve a revisar, y lo ya avisado no se repite.
+        notifier.agentOpened("A")
+        devService.output = snapshotLine(title = "api", logBytes = 100)
+        notifier.check()
+        assertEquals(2, devService.scripts.size)
+        assertEquals(2, alerts.posted.size)
+    }
+
+    @Test
+    fun `si ningún servidor tiene agentes en marcha se cancela el trabajo periódico`() = runScoped {
+        val notifier = notifier().apply { agentOpened("A") }
+        devService.output = ""
+
+        notifier.check()
+
+        assertTrue(store.watchedServers().isEmpty())
+        assertEquals(1, scheduler.cancelled)
+    }
+
+    @Test
+    fun `el terminal pide el permiso aunque los avisos de agentes estén desactivados`() {
+        val notifier = notifier()
+        notifier.setNotificationsEnabled(false)
+        assertFalse(notifier.claimPermissionRequest(alreadyGranted = true, forTerminal = true))
+        assertTrue(notifier.claimPermissionRequest(alreadyGranted = false, forTerminal = true))
+        assertFalse(notifier.claimPermissionRequest(alreadyGranted = false, forTerminal = true))
+    }
+
     // MARK: - Permiso de notificaciones
 
     @Test

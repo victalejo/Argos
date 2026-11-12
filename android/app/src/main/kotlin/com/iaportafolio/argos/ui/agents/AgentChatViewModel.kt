@@ -390,6 +390,8 @@ class AgentChatViewModel(
                     current.resume(token)
                     val failure = current.state.value.lastError
                     if (failure == null) {
+                        // Pudo dejar de revisarse mientras estaba parado.
+                        attention.agentOpened(serverId)
                         mutableState.update { it.copy(isAlive = true, error = null) }
                     } else {
                         ArgosLog.warn(ArgosLog.TAG_AGENT, "No se pudo reanudar el agente $agentId")

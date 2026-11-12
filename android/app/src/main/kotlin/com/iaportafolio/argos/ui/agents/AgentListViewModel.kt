@@ -1,5 +1,6 @@
 package com.iaportafolio.argos.ui.agents
 
+import com.iaportafolio.argos.background.AgentAttentionTracker
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
@@ -44,6 +45,7 @@ class AgentListViewModel(
     private val tokens: ClaudeTokenStore,
     private val permissions: AgentPermissionStore,
     private val io: CoroutineDispatcher,
+    private val attention: AgentAttentionTracker = AgentAttentionTracker.None,
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(
@@ -112,6 +114,9 @@ class AgentListViewModel(
 
     private fun applyList(listed: List<PersistentAgentInfo>, hasToken: Boolean) {
         infos = listed.filter { it.meta.workingDirectory == workingDirectory }.sortedByDescending { it.meta.createdAt }
+        // Un servidor sin agentes en marcha deja de revisarse en segundo plano; al arrancar o
+        // reanudar uno desde esta lista (sin abrir su chat) hay que volver a apuntarlo.
+        if (listed.any { it.isAlive }) attention.agentOpened(serverId)
         mutableState.update { state ->
             val busy = state.agents.filter { it.isBusy }.map { it.id }.toSet()
             state.copy(

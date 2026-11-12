@@ -88,6 +88,9 @@ class AgentNotifier(
         if (targets.isEmpty()) return AgentCheckOutcome.CHECKED
         val redactor = SecretRedactor(readToken())
         targets.forEach { checkServer(it, redactor) }
+        // Si ya no queda ninguno que revisar, se cancela el trabajo periódico. Al final: hacerlo
+        // a mitad cortaría los servidores que faltan.
+        if (store.watchedServers().isEmpty()) scheduler.cancel()
         return AgentCheckOutcome.CHECKED
     }
 
@@ -123,13 +126,15 @@ class AgentNotifier(
     }
 
     private suspend fun readAndNotify(server: Server, service: SSHServicing, redactor: SecretRedactor) {
+        val mark = store.watchMark()
         val output = withTimeoutOrNull(serverTimeoutMillis) { service.runAgentScript(PersistentAgentScript.snapshots()) }
         if (output == null) {
             log("El servidor ${server.id} no respondió a tiempo")
             return
         }
         val before = store.seenBytes(server.id)
-        val plan = AgentAttentionPlanner.notices(PersistentAgentScript.parseSnapshots(output), before, clock())
+        val snapshots = PersistentAgentScript.parseSnapshots(output)
+        val plan = AgentAttentionPlanner.notices(snapshots, before, clock())
         plan.notices.filterNot { isShown(server.id, it.agentID) }.forEach { notice ->
             alerts.post(
                 AgentAlert(
@@ -142,6 +147,12 @@ class AgentNotifier(
             )
         }
         store.applyCheck(server.id, before, plan.seen)
+        // Sin ningún agente en marcha ya no puede haber nada nuevo que avisar: se deja de abrir
+        // una conexión SSH periódica a este servidor hasta que se arranque o reanude un agente.
+        // Solo si la salida se entendió ENTERA: una línea ilegible o truncada podría ser un agente
+        // vivo, y pausar lo dejaría sin avisos.
+        val listed = output.lineSequence().count { it.isNotBlank() }
+        if (listed == snapshots.size && snapshots.none { it.isAlive }) store.pause(server.id, mark)
     }
 
     /** También si la comprobación se canceló: un socket abierto en segundo plano gasta batería. */
@@ -180,9 +191,13 @@ class AgentNotifier(
         syncSchedule()
     }
 
-    /** ¿Se debe pedir el permiso de notificaciones ahora? Una sola vez y con los avisos activados. */
-    fun claimPermissionRequest(alreadyGranted: Boolean): Boolean =
-        !alreadyGranted && store.notificationsEnabled.value && store.claimPermissionRequest()
+    /**
+     * ¿Se debe pedir el permiso de notificaciones ahora? Una sola vez. Para los avisos de agentes
+     * solo si están activados; el terminal ([forTerminal]) lo necesita igualmente para su
+     * notificación fija («Desconectar todo») y para los avisos de CI.
+     */
+    fun claimPermissionRequest(alreadyGranted: Boolean, forTerminal: Boolean = false): Boolean =
+        !alreadyGranted && (forTerminal || store.notificationsEnabled.value) && store.claimPermissionRequest()
 
     private fun isShown(serverId: String, agentId: String): Boolean =
         synchronized(shownChats) { (serverId to agentId) in shownChats }

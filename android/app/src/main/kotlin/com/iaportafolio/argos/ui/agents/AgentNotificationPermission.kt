@@ -13,11 +13,14 @@ import com.iaportafolio.argos.background.AgentNotifier
 import com.iaportafolio.argos.data.ArgosLog
 
 /**
- * Al abrir un agente pide `POST_NOTIFICATIONS` (Android 13+) una sola vez. Si se rechaza no se
- * insiste: los ajustes de Argos muestran el bloqueo y enlazan con los del sistema.
+ * Al abrir un agente o un terminal pide `POST_NOTIFICATIONS` (Android 13+) una sola vez. Si se
+ * rechaza no se insiste: los ajustes de Argos muestran el bloqueo y enlazan con los del sistema.
+ *
+ * Con [forTerminal] se pide aunque los avisos de agentes estén desactivados: sin el permiso, la
+ * notificación fija del terminal en segundo plano no se ve y los avisos de CI se descartan.
  */
 @Composable
-internal fun RequestAgentNotificationPermission(notifier: AgentNotifier) {
+internal fun RequestAgentNotificationPermission(notifier: AgentNotifier, forTerminal: Boolean = false) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
     val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -25,6 +28,6 @@ internal fun RequestAgentNotificationPermission(notifier: AgentNotifier) {
     }
     LaunchedEffect(Unit) {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        if (notifier.claimPermissionRequest(granted)) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (notifier.claimPermissionRequest(granted, forTerminal)) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }

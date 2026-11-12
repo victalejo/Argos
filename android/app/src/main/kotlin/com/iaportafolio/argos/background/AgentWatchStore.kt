@@ -29,6 +29,9 @@ class AgentWatchStore(private val backend: AgentWatchBackend) {
 
     private val lock = Any()
     private var servers: Set<String> = decode(KEY_SERVERS, SERVERS_SERIALIZER).orEmpty()
+
+    /** Sube con cada [watch]: una pausa calculada antes de que alguien volviera a apuntar no vale. */
+    private var watchGeneration = 0L
     private var seen: Map<String, Map<String, Long>> = decode(KEY_SEEN, SEEN_SERIALIZER).orEmpty()
     private val enabledState = MutableStateFlow(backend.read(KEY_ENABLED) != FALSE)
 
@@ -50,7 +53,20 @@ class AgentWatchStore(private val backend: AgentWatchBackend) {
     fun watchedServers(): Set<String> = synchronized(lock) { servers }
 
     fun watch(serverId: String) = synchronized(lock) {
+        watchGeneration++
         if (serverId !in servers) saveServers(servers + serverId)
+    }
+
+    /** Marca para [pause]: cámbiala por una nueva antes de decidir si se pausa. */
+    fun watchMark(): Long = synchronized(lock) { watchGeneration }
+
+    /**
+     * Deja de revisar el servidor pero CONSERVA lo visto: si vuelve a usarse, sus agentes de
+     * antes no se toman por nuevos (y no se avisa otra vez de lo que ya se avisó).
+     */
+    fun pause(serverId: String, mark: Long) = synchronized(lock) {
+        // Alguien arrancó o reanudó un agente mientras se comprobaba: se sigue revisando.
+        if (mark == watchGeneration && serverId in servers) saveServers(servers - serverId)
     }
 
     /** Deja de revisar el servidor y olvida lo visto. Devuelve los agentes que se conocían. */
@@ -65,7 +81,7 @@ class AgentWatchStore(private val backend: AgentWatchBackend) {
 
     /** El usuario leyó hasta [bytes]. Nunca retrocede. Sin servidor apuntado no se guarda nada. */
     fun markSeen(serverId: String, agentId: String, bytes: Long) = synchronized(lock) {
-        if (serverId !in servers || bytes <= 0) return@synchronized
+        if ((serverId !in servers && serverId !in seen) || bytes <= 0) return@synchronized
         val current = seen[serverId].orEmpty()
         if (bytes > (current[agentId] ?: 0)) saveSeen(seen + (serverId to current + (agentId to bytes)))
     }

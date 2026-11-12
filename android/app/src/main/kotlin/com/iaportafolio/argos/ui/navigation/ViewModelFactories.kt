@@ -194,6 +194,7 @@ internal fun agentListViewModel(
                 container.claudeTokens,
                 container.agentPermissions,
                 container.io,
+                container.agentNotifier,
             )
         }
     },
