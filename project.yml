@@ -43,8 +43,8 @@ packages:
 # App Store comparan CURRENT_PROJECT_VERSION: debe crecer en cada release.
 settings:
   base:
-    MARKETING_VERSION: "1.8.4"
-    CURRENT_PROJECT_VERSION: "57"
+    MARKETING_VERSION: "1.8.5"
+    CURRENT_PROJECT_VERSION: "58"
 
 # Lo común a las dos variantes de Mac. Cada target añade sus entitlements, su
 # Info.plist y sus dependencias (las listas no se fusionan con la plantilla).

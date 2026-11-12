@@ -6,6 +6,14 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.5] - 2026-11-12
+
+### Corregido
+- **Terminal: opencode y otras apps de pantalla completa se ven bien con el tema claro.** La
+  paleta de 256 colores se generaba a partir del fondo y el texto del tema, lo que invertía
+  los grises: fondos casi negros salían gris claro y el texto atenuado apenas se leía. Ahora
+  es la paleta estándar de xterm, y Argos le indica a tmux que admite color verdadero.
+
 ## [1.8.4] - 2026-11-12
 
 ### Añadido
