@@ -116,6 +116,31 @@ final class ProjectSyncEngine {
         return Dictionary((regular + links).map { ($0.path, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
+    /// Trae la conversación más reciente de Claude Code del proyecto a la carpeta de paso
+    /// de la copia local (Terminal la coloca en `~/.claude` al abrir). Devuelve si había
+    /// alguna que traer.
+    func downloadClaudeSession(remoteRoot: String, to localRoot: URL, service: any SSHServicing) async throws -> Bool {
+        let output = try await service.runAgentScript(ClaudeSessionTransfer.directoryCommand(root: remoteRoot))
+        guard let directory = ClaudeSessionTransfer.parseDirectory(output) else { return false }
+        let files = ClaudeSessionTransfer.latestSessionFiles(in: try await service.syncFileList(root: directory))
+        guard !files.isEmpty else { return false }
+
+        let staging = localRoot.appendingPathComponent(ClaudeSessionTransfer.stagingDirectory, isDirectory: true)
+        let manager = FileManager.default
+        try? manager.removeItem(at: staging)
+        try manager.createDirectory(at: staging, withIntermediateDirectories: true)
+
+        reset(files: files)
+        try await forEachConcurrently(files) { file in
+            guard let url = LocalProjectFiles.url(for: file.path, in: staging),
+                  LocalProjectFiles.parentIsInside(url, root: staging) else { return }
+            try manager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try await service.downloadSyncFile(root: directory, file: file, to: url)
+            try LocalProjectFiles.applyMetadata(of: file, at: url)
+        }
+        return true
+    }
+
     // MARK: - Mac → servidor
 
     /// Plan de subida: escanea el Mac y relee el servidor.
@@ -142,6 +167,30 @@ final class ProjectSyncEngine {
             doneFiles += 1
             currentPath = path
         }
+    }
+
+    /// Sube la conversación de Claude Code que Terminal dejó en la carpeta de paso de
+    /// vuelta (al salir de Claude) a la carpeta de conversaciones del proyecto en el
+    /// servidor, para que allí `--continue` siga donde se quedó el Mac. Devuelve si había
+    /// alguna; al terminar borra la carpeta de paso.
+    func uploadClaudeSession(remoteRoot: String, from localRoot: URL, service: any SSHServicing) async throws -> Bool {
+        let export = localRoot.appendingPathComponent(ClaudeSessionTransfer.exportDirectory, isDirectory: true)
+        guard FileManager.default.fileExists(atPath: export.path) else { return false }
+        let files = ClaudeSessionTransfer.latestSessionFiles(in: try LocalProjectFiles.scan(root: export))
+        guard !files.isEmpty else { return false }
+
+        let output = try await service.runAgentScript(ClaudeSessionTransfer.ensureDirectoryCommand(root: remoteRoot))
+        guard let directory = ClaudeSessionTransfer.parseDirectory(output) else { return false }
+        let directories = Set(files.map { ($0.path as NSString).deletingLastPathComponent }.filter { !$0.isEmpty })
+        try await service.makeRemoteDirectories(root: directory, relativeDirectories: directories.sorted())
+
+        reset(files: files)
+        try await forEachConcurrently(files) { file in
+            guard let url = LocalProjectFiles.url(for: file.path, in: export) else { return }
+            try await service.uploadSyncFile(root: directory, file: file, from: url)
+        }
+        try? FileManager.default.removeItem(at: export)
+        return true
     }
 
     // MARK: - Concurrencia

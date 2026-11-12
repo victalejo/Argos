@@ -27,6 +27,11 @@ enum LocalTerminalLauncher {
     /// las de la carpeta actual; se sobrescribe la copia, porque la elegida es la más
     /// reciente). Se reanuda por ID y no con el selector, porque el selector
     /// solo lista las conversaciones de la cuenta logueada.
+    /// Antes de buscar, coloca en la carpeta local lo que «Enviar al Mac» dejó en la carpeta
+    /// de paso (`ClaudeSessionTransfer`): la app, en sandbox, no puede escribir en `~/.claude`.
+    /// Se conservan las fechas (`cp -p`) para que «la más reciente» siga siendo verdad.
+    /// Al SALIR de Claude deja la conversación más reciente de la carpeta local en la
+    /// carpeta de paso de vuelta, para que «Enviar al servidor» la suba.
     /// Sin globs de shell (`*.jsonl`): en zsh, sin coincidencias, abortan la línea.
     static func claudeCommand(remoteRoot: String? = nil) -> String {
         let remote = remoteRoot.map { ShellQuoting.singleQuoted($0) } ?? "\"$PWD\""
@@ -34,12 +39,18 @@ enum LocalTerminalLauncher {
             P="$HOME/.claude/projects"; \
             L="$P/$(pwd | sed 's/[^A-Za-z0-9]/-/g')"; \
             R="$P/$(printf '%s' \(remote) | sed 's/[^A-Za-z0-9]/-/g')"; \
+            S="$PWD/\(ClaudeSessionTransfer.stagingDirectory)"; \
+            if [ -d "$S" ]; then mkdir -p "$L" && cp -Rp "$S"/. "$L"/ && rm -rf "$S"; fi; \
             s=$(find "$L" "$R" -maxdepth 1 -name '*.jsonl' -exec ls -t {} + 2>/dev/null | head -n 1); \
             if [ -n "$s" ] && [ "$(dirname "$s")" != "$L" ]; then \
             mkdir -p "$L" && cp "$s" "$L/"; \
             [ -d "${s%.jsonl}" ] && cp -R "${s%.jsonl}" "$L/"; fi; \
             if [ -n "$s" ]; then \(claudeBinary) --resume "$(basename "$s" .jsonl)"; \
-            else \(claudeBinary); fi
+            else \(claudeBinary); fi; \
+            E="$PWD/\(ClaudeSessionTransfer.exportDirectory)"; \
+            n=$(find "$L" -maxdepth 1 -name '*.jsonl' -exec ls -t {} + 2>/dev/null | head -n 1); \
+            if [ -n "$n" ]; then rm -rf "$E"; mkdir -p "$E" && cp -p "$n" "$E"/; \
+            [ -d "${n%.jsonl}" ] && cp -Rp "${n%.jsonl}" "$E"/; fi
             """
     }
 

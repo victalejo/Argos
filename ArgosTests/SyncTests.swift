@@ -305,10 +305,116 @@ struct SyncTests {
         #expect(command.contains(#"P="$HOME/.claude/projects""#))
         #expect(command.contains(#"printf '%s' '/Users/a/Desarrollo/revib'"#))
         #expect(command.contains(#"claude --dangerously-skip-permissions --resume "$(basename "$s" .jsonl)""#))
-        #expect(command.hasSuffix("else claude --dangerously-skip-permissions; fi"))
+        #expect(command.contains("else claude --dangerously-skip-permissions; fi; "))
         // La elegida es la más reciente: su copia local se sobrescribe (no `cp -n`).
         #expect(command.contains(#"cp "$s" "$L/""#))
         #expect(!command.contains("cp -n"))
+    }
+
+    @Test("Terminal local: coloca la conversación traída por Enviar al Mac antes de reanudar")
+    func terminalCommandInstallsStagedSession() throws {
+        let command = LocalTerminalLauncher.claudeCommand(remoteRoot: "/home/victor/app")
+        #expect(command.contains(#"S="$PWD/.argos-claude-sessions""#))
+        #expect(command.contains(#"cp -Rp "$S"/. "$L"/ && rm -rf "$S""#))
+        let staged = try #require(command.range(of: "cp -Rp"))
+        let search = try #require(command.range(of: "s=$(find"))
+        #expect(staged.lowerBound < search.lowerBound)
+    }
+
+    @Test("Conversación de Claude: se trae el .jsonl más reciente y su carpeta hermana")
+    func latestClaudeSessionFiles() {
+        func file(_ path: String, _ mtime: Int, link: String? = nil) -> SyncFile {
+            SyncFile(path: path, size: 1, mtime: mtime, mode: 0o600, linkTarget: link)
+        }
+        let files = [
+            file("old.jsonl", 10), file("old/subagents/a.jsonl", 99),
+            file("new-1.jsonl", 20), file("new-1/tool-results/x.txt", 5), file("new-1/subagents/b.jsonl", 6),
+            file("memory/MEMORY.md", 500), file("newest.jsonl", 900, link: "/etc/passwd"),
+            file("raro id.jsonl", 800), file("new-10/otro.txt", 700),
+        ]
+        let picked = ClaudeSessionTransfer.latestSessionFiles(in: files).map(\.path)
+        #expect(picked == ["new-1.jsonl", "new-1/subagents/b.jsonl", "new-1/tool-results/x.txt"])
+        #expect(ClaudeSessionTransfer.latestSessionFiles(in: [file("memory/MEMORY.md", 1)]).isEmpty)
+    }
+
+    @Test("Conversación de Claude: ID seguro, carpeta del servidor y exclusión de la carpeta de paso")
+    func claudeSessionTransferParsing() {
+        #expect(ClaudeSessionTransfer.sessionID(ofTranscript: "1498a891-48a3.jsonl") == "1498a891-48a3")
+        #expect(ClaudeSessionTransfer.sessionID(ofTranscript: "-rf.jsonl") == nil)
+        #expect(ClaudeSessionTransfer.sessionID(ofTranscript: "a;b.jsonl") == nil)
+        #expect(ClaudeSessionTransfer.sessionID(ofTranscript: "notas.txt") == nil)
+        #expect(ClaudeSessionTransfer.parseDirectory("/home/v/.claude/projects/-home-v-app\n") == "/home/v/.claude/projects/-home-v-app")
+        #expect(ClaudeSessionTransfer.parseDirectory("") == nil)
+        #expect(ClaudeSessionTransfer.parseDirectory("relativa/ruta") == nil)
+        let command = ClaudeSessionTransfer.directoryCommand(root: "/home/v/it's")
+        #expect(command.contains(#"cd '/home/v/it'\''s'"#))
+        #expect(command.contains("sed 's/[^A-Za-z0-9]/-/g'"))
+        // La carpeta de paso nunca vuelve al servidor.
+        #expect(SyncExclusions.isExcluded(".argos-claude-sessions/abc.jsonl"))
+    }
+
+    @Test("Enviar al Mac: la conversación de Claude queda en la carpeta de paso")
+    @MainActor
+    func downloadsClaudeSessionToStaging() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let service = MockSSHService()
+        service.agentScriptOutput = { _ in "/home/v/.claude/projects/-home-v-app" }
+        service.syncServerFiles = [
+            SyncFile(path: "abc.jsonl", size: 4, mtime: 1_700_000_000, mode: 0o600, linkTarget: nil),
+            SyncFile(path: "abc/subagents/s.jsonl", size: 3, mtime: 1_700_000_000, mode: 0o600, linkTarget: nil),
+            SyncFile(path: "viejo.jsonl", size: 1, mtime: 1_600_000_000, mode: 0o600, linkTarget: nil),
+        ]
+        service.syncServerData = ["abc.jsonl": Data("hola".utf8), "abc/subagents/s.jsonl": Data("sub".utf8)]
+
+        let found = try await ProjectSyncEngine().downloadClaudeSession(remoteRoot: "/home/v/app", to: root, service: service)
+        #expect(found)
+        let staging = root.appendingPathComponent(".argos-claude-sessions")
+        #expect(try Data(contentsOf: staging.appendingPathComponent("abc.jsonl")) == Data("hola".utf8))
+        #expect(FileManager.default.fileExists(atPath: staging.appendingPathComponent("abc/subagents/s.jsonl").path))
+        #expect(!FileManager.default.fileExists(atPath: staging.appendingPathComponent("viejo.jsonl").path))
+
+        service.agentScriptOutput = { _ in "" }
+        let none = try await ProjectSyncEngine().downloadClaudeSession(remoteRoot: "/home/v/app", to: root, service: service)
+        #expect(!none)
+    }
+
+    @Test("Terminal local: al salir de Claude deja la conversación para Enviar al servidor")
+    func terminalCommandExportsSessionOnExit() throws {
+        let command = LocalTerminalLauncher.claudeCommand(remoteRoot: "/home/victor/app")
+        let launch = try #require(command.range(of: "else claude --dangerously-skip-permissions; fi"))
+        let export = try #require(command.range(of: #"E="$PWD/.argos-claude-export""#))
+        #expect(launch.upperBound <= export.lowerBound)
+        #expect(command.contains(#"cp -p "$n" "$E"/"#))
+        #expect(SyncExclusions.isExcluded(".argos-claude-export/abc.jsonl"))
+        #expect(ClaudeSessionTransfer.ensureDirectoryCommand(root: "/home/v/app").contains(#"mkdir -p "$f""#))
+    }
+
+    @Test("Enviar al servidor: sube la conversación del Mac y vacía la carpeta de paso")
+    @MainActor
+    func uploadsClaudeSessionFromExport() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let export = root.appendingPathComponent(".argos-claude-export")
+        try FileManager.default.createDirectory(at: export.appendingPathComponent("abc/subagents"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("hola".utf8).write(to: export.appendingPathComponent("abc.jsonl"))
+        try Data("sub".utf8).write(to: export.appendingPathComponent("abc/subagents/s.jsonl"))
+        let service = MockSSHService()
+
+        // Sin carpeta de conversaciones en el servidor no se sube nada (ni se borra).
+        let none = try await ProjectSyncEngine().uploadClaudeSession(remoteRoot: "/home/v/app", from: root, service: service)
+        #expect(!none)
+
+        service.agentScriptOutput = { _ in "/home/v/.claude/projects/-home-v-app" }
+        let found = try await ProjectSyncEngine().uploadClaudeSession(remoteRoot: "/home/v/app", from: root, service: service)
+        #expect(found)
+        #expect(service.syncServerData["abc.jsonl"] == Data("hola".utf8))
+        #expect(service.syncServerData["abc/subagents/s.jsonl"] == Data("sub".utf8))
+        #expect(!FileManager.default.fileExists(atPath: export.path))
+
+        let again = try await ProjectSyncEngine().uploadClaudeSession(remoteRoot: "/home/v/app", from: root, service: service)
+        #expect(!again)
     }
 
     @Test("Terminal local: sin ruta del servidor usa solo la carpeta actual")

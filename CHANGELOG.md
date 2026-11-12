@@ -6,6 +6,19 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.3] - 2026-11-12
+
+### Corregido
+- **Mac: «Enviar al Mac» ya trae la conversación de Claude Code.** Antes solo viajaban los
+  archivos: al abrir el proyecto en Terminal, Claude empezaba de cero salvo que `~/.claude`
+  llegara al Mac por otra vía. Ahora se trae la conversación más reciente y se reanuda.
+- **Mac: «Enviar al servidor» lleva de vuelta la conversación del Mac.** Sal de Claude Code
+  con `/exit` antes de enviar; en el servidor, `--continue` sigue donde lo dejaste.
+- Fiabilidad de conexión, datos y túneles (lote 1 de la auditoría).
+
+### Añadido
+- **Avisos de Claude en iPhone/iPad**, y avisos que abren su proyecto al tocarlos.
+
 ## [1.8.2] - 2026-11-12
 
 ### Corregido

@@ -122,6 +122,10 @@ final class ProjectSyncJob {
         let state = try await MacSyncStore.withAccess(to: destination) {
             try await engine.download(files: files, from: project.path, to: localRoot, service: vm.service)
         }
+        let conversation = await MacSyncStore.withAccess(to: destination) {
+            await downloadClaudeSession(to: localRoot)
+        }
+        try Task.checkCancellation()
         var manifest = SyncManifest(
             projectID: project.id,
             serverID: request.server.id,
@@ -143,7 +147,21 @@ final class ProjectSyncJob {
             try? await vm.stopProject(project)
         }
         await vm.refresh()
-        return ("\(files.count) archivos copiados. Trabaja en el Mac y, al terminar, usa «Enviar al servidor».", localRoot)
+        return ("\(files.count) archivos copiados\(conversation). Trabaja en el Mac y, al terminar, usa «Enviar al servidor».", localRoot)
+    }
+
+    /// Trae la conversación de Claude Code. Si falla NO se pierde el envío: los archivos
+    /// ya están en el Mac; se avisa en el resumen.
+    private func downloadClaudeSession(to localRoot: URL) async -> String {
+        do {
+            let found = try await engine.downloadClaudeSession(remoteRoot: project.path, to: localRoot, service: vm.service)
+            return found ? " y la conversación de Claude Code" : ""
+        } catch is CancellationError {
+            return ""
+        } catch {
+            Log.store.error("No se pudo traer la conversación de Claude de \(self.project.name, privacy: .public): \(String(describing: error), privacy: .public)")
+            return " (la conversación de Claude Code no se pudo traer: \(error.userMessage))"
+        }
     }
 
     // MARK: - Mac → servidor
@@ -153,10 +171,10 @@ final class ProjectSyncJob {
         phase = .running
         task = Task {
             do {
-                try await runToServer(resolved, manifest: manifest, localRoot: localRoot)
+                let conversation = try await runToServer(resolved, manifest: manifest, localRoot: localRoot)
                 finish(.done(
                     "Listo: \(resolved.uploads.count) archivos subidos y \(resolved.deletions.count) borrados en \(request.server.name). "
-                    + "El proyecto vuelve a estar en el servidor.",
+                    + "El proyecto vuelve a estar en el servidor. \(conversation)",
                     localRoot: nil
                 ))
             } catch is CancellationError {
@@ -167,10 +185,14 @@ final class ProjectSyncJob {
         }
     }
 
-    private func runToServer(_ plan: SyncPlan, manifest: SyncManifest, localRoot: URL) async throws {
+    private func runToServer(_ plan: SyncPlan, manifest: SyncManifest, localRoot: URL) async throws -> String {
         try await MacSyncStore.withAccess(to: localRoot) {
             try await engine.upload(plan: plan, remoteRoot: manifest.remoteRoot, localRoot: localRoot, service: vm.service)
         }
+        let conversation = await MacSyncStore.withAccess(to: localRoot) {
+            await uploadClaudeSession(remoteRoot: manifest.remoteRoot, from: localRoot)
+        }
+        try Task.checkCancellation()
         try await vm.setMacCheckout(nil, for: project)
         MacSyncStore.deleteManifest(for: project.id)
         if trashLocalCopy {
@@ -179,6 +201,23 @@ final class ProjectSyncJob {
             }
         }
         await vm.refresh()
+        return conversation
+    }
+
+    /// Sube la conversación del Mac. Si falla NO se pierde el envío (los archivos ya
+    /// están en el servidor); se avisa en el resumen.
+    private func uploadClaudeSession(remoteRoot: String, from localRoot: URL) async -> String {
+        do {
+            let found = try await engine.uploadClaudeSession(remoteRoot: remoteRoot, from: localRoot, service: vm.service)
+            return found
+                ? "La conversación de Claude Code también viajó."
+                : "No había conversación del Mac que llevar (para que viaje, sal de Claude Code con /exit antes de enviar)."
+        } catch is CancellationError {
+            return ""
+        } catch {
+            Log.store.error("No se pudo subir la conversación de Claude de \(self.project.name, privacy: .public): \(String(describing: error), privacy: .public)")
+            return "La conversación de Claude Code no se pudo subir: \(error.userMessage)"
+        }
     }
 
     // MARK: - Fin

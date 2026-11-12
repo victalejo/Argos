@@ -37,6 +37,7 @@ struct SyncFile: Codable, Hashable, Sendable {
 /// viaja (para poder hacer commits en el Mac).
 enum SyncExclusions {
     static let directories: Set<String> = RemoteFileEntry.noisyDirectories.subtracting([".git"])
+        .union([ClaudeSessionTransfer.stagingDirectory, ClaudeSessionTransfer.exportDirectory])
     static let files: Set<String> = [".DS_Store"]
 
     static func isExcluded(_ relativePath: String) -> Bool {
