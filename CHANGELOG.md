@@ -6,6 +6,17 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.7] - 2026-11-14
+
+### Añadido
+- **Archivos: los HTML se ven renderizados** (Mac e iPhone/iPad), con alternativa Vista/Fuente.
+  La página se muestra aislada: sin JavaScript ni conexiones a internet, y sin navegar por su
+  cuenta; los enlaces se abren en el navegador tras confirmar. Un botón permite JavaScript y
+  recursos externos solo para esa página.
+
+### Corregido
+- Los archivos de texto en Windows-1252/Latin-1 o UTF-16 ya no se tratan como binarios.
+
 ## [1.8.6] - 2026-11-12
 
 ### Corregido
