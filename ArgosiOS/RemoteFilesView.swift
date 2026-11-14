@@ -4,11 +4,12 @@
 //
 //  Explorador de archivos del proyecto (SFTP, solo lectura): una carpeta por pantalla,
 //  como Archivos de iOS. Tocar un archivo lo previsualiza (código con resaltado,
-//  Markdown, imágenes y PDF) y se puede compartir/guardar con la hoja de iOS.
+//  Markdown, HTML, imágenes y PDF) y se puede compartir/guardar con la hoja de iOS.
 //
 
 import PDFKit
 import SwiftUI
+import WebKit
 
 struct RemoteFilesView: View {
     let service: any SSHServicing
@@ -142,12 +143,19 @@ struct FilePreviewScreen: View {
 
     @State private var state: LoadState = .loading
     @State private var shareURL: URL?
+    /// Visor HTML: fuente en vez de la página, y JavaScript/recursos externos permitidos.
+    @State private var showHTMLSource = false
+    @State private var allowsRemoteHTML = false
+    @State private var pendingLink: URL?
 
     var body: some View {
         content
             .navigationTitle(entry.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if case .loaded(_, .html) = state {
+                    ToolbarItem(placement: .primaryAction) { htmlMenu }
+                }
                 if let shareURL {
                     ToolbarItem(placement: .primaryAction) {
                         ShareLink(item: shareURL) { Label("Compartir", systemImage: "square.and.arrow.up") }
@@ -155,7 +163,23 @@ struct FilePreviewScreen: View {
                 }
             }
             .task { await load() }
+            .alert("¿Abrir este enlace?", isPresented: Binding(get: { pendingLink != nil }, set: { if !$0 { pendingLink = nil } })) {
+                Button("Abrir") { if let pendingLink { UIApplication.shared.open(pendingLink) } }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text(pendingLink?.absoluteString ?? "")
+            }
             .onDisappear { if let shareURL { try? FileManager.default.removeItem(at: shareURL.deletingLastPathComponent()) } }
+    }
+
+    private var htmlMenu: some View {
+        Menu {
+            Toggle(isOn: $showHTMLSource) { Label("Ver fuente", systemImage: "chevron.left.forwardslash.chevron.right") }
+            Toggle(isOn: $allowsRemoteHTML) { Label("Permitir JavaScript y recursos externos", systemImage: "network") }
+                .disabled(showHTMLSource)
+        } label: {
+            Label("Opciones de la página", systemImage: allowsRemoteHTML ? "network" : "network.slash")
+        }
     }
 
     @ViewBuilder
@@ -184,12 +208,18 @@ struct FilePreviewScreen: View {
         switch kind {
         case .markdown:
             ScrollView {
-                MarkdownText(text: String(decoding: file.data, as: UTF8.self), style: .document)
+                MarkdownText(text: FilePreview.text(file.data), style: .document)
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
+        case .html where showHTMLSource:
+            CodeView(text: FilePreview.text(file.data), language: "html")
+        case .html:
+            HTMLPreviewView(html: FilePreview.text(file.data), allowsRemoteContent: allowsRemoteHTML) { url in
+                pendingLink = url
+            }
         case .code(let language):
-            CodeView(text: String(decoding: file.data, as: UTF8.self), language: language)
+            CodeView(text: FilePreview.text(file.data), language: language)
         case .image:
             if let image = UIImage(data: file.data) {
                 ScrollView([.horizontal, .vertical]) {
@@ -269,6 +299,27 @@ enum CodeHighlight {
         case .number: return .systemIndigo
         case .keyword: return .systemPurple
         }
+    }
+}
+
+/// Visor HTML (seguridad en `HTMLPreviewController`); los enlaces se confirman con una
+/// alerta en `FilePreviewScreen`.
+private struct HTMLPreviewView: UIViewRepresentable {
+    let html: String
+    let allowsRemoteContent: Bool
+    let onOpenLink: (URL) -> Void
+
+    func makeCoordinator() -> HTMLPreviewController {
+        HTMLPreviewController(openExternally: onOpenLink)
+    }
+
+    func makeUIView(context: Context) -> WKWebView {
+        context.coordinator.webView
+    }
+
+    func updateUIView(_ webView: WKWebView, context: Context) {
+        context.coordinator.openExternally = onOpenLink
+        context.coordinator.show(html: html, allowsRemoteContent: allowsRemoteContent)
     }
 }
 

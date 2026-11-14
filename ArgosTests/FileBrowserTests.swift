@@ -89,17 +89,44 @@ struct FileBrowserTests {
         #expect(FilePreview.kind(forName: "page.tsx") == .code(language: "typescript"))
         #expect(FilePreview.kind(forName: "Dockerfile") == .code(language: "shell"))
         #expect(FilePreview.kind(forName: "datos.xyz") == .code(language: nil))
+        #expect(FilePreview.kind(forName: "informe.HTML") == .html)
+        #expect(FilePreview.kind(forName: "viejo.htm") == .html)
     }
 
     @Test("Binario: NUL o UTF-8 inválido; texto con multibyte cortado no lo es")
     func binaryDetection() {
         #expect(FilePreview.looksBinary(Data([0x48, 0x00, 0x49])))
-        #expect(FilePreview.looksBinary(Data([0xFF, 0xFE, 0xFD, 0xFC, 0x80, 0x81])))
+        #expect(FilePreview.looksBinary(Data([0x80, 0x81, 0x8D, 0x8F, 0x90, 0x9D, 0x01, 0x02])))
         #expect(!FilePreview.looksBinary(Data("hola mundo ñ".utf8)))
         // "acci" + primer byte de "ó": multibyte cortado al final del bloque leído.
         #expect(!FilePreview.looksBinary(Data("acci".utf8) + Data([0xC3])))
         #expect(FilePreview.kind(forName: "a.txt", data: Data([0, 1, 2])) == .binary)
         #expect(FilePreview.kind(forName: "foto.png", data: Data([0, 1, 2])) == .image)
+    }
+
+    @Test("Texto Windows-1252/Latin-1 (HTML antiguo) se decodifica en vez de tratarse como binario")
+    func legacyEncodingText() throws {
+        let html = try #require("<html><body>Página de acción €</body></html>".data(using: .windowsCP1252))
+        #expect(!FilePreview.looksBinary(html))
+        #expect(FilePreview.kind(forName: "host.html", data: html) == .html)
+        #expect(FilePreview.text(html).contains("Página de acción €"))
+    }
+
+    @Test("UTF-16 con BOM es texto (aunque tenga NUL); sin BOM, binario")
+    func utf16Text() throws {
+        let withBOM = try #require("<p>hola ñ</p>".data(using: .utf16))
+        #expect(FilePreview.kind(forName: "a.html", data: withBOM) == .html)
+        #expect(FilePreview.text(withBOM) == "<p>hola ñ</p>")
+        // Bloque truncado a mitad de una unidad de 16 bits.
+        #expect(FilePreview.text(withBOM.dropLast()).hasPrefix("<p>hola"))
+        let withoutBOM = try #require("<p>hola</p>".data(using: .utf16LittleEndian))
+        #expect(FilePreview.looksBinary(withoutBOM))
+    }
+
+    @Test("UTF-8 válido se decodifica tal cual")
+    func utf8Text() {
+        #expect(FilePreview.text(Data("<h1>Título</h1>".utf8)) == "<h1>Título</h1>")
+        #expect(FilePreview.decodeText(Data([0x00, 0x41])) == nil)
     }
 
     // MARK: - Resaltado

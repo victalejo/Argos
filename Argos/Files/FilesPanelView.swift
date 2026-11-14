@@ -3,8 +3,8 @@
 //  Argos
 //
 //  Pestaña "Archivos" de un proyecto: árbol de carpetas (con iconos por tipo) a la
-//  izquierda y visor a la derecha (Markdown renderizado, código resaltado, imágenes,
-//  PDF). Solo lectura; cualquier archivo se puede descargar al Mac. ⌘P abre la
+//  izquierda y visor a la derecha (Markdown y HTML renderizados, código resaltado,
+//  imágenes, PDF). Solo lectura; cualquier archivo se puede descargar al Mac. ⌘P abre la
 //  búsqueda rápida de archivos.
 //
 
@@ -201,9 +201,24 @@ private struct FileTreeRowView: View {
 private struct FileViewer: View {
     let model: FileBrowserModel
     @State private var showSource = false
+    /// Visor HTML: JavaScript y recursos externos (se vuelve a bloquear al cambiar de archivo).
+    @State private var allowsRemoteHTML = false
     @State private var settings = TerminalSettings.shared
 
     var body: some View {
+        content
+            .onChange(of: selectedPath) { _, _ in allowsRemoteHTML = false }
+    }
+
+    private var selectedPath: String? {
+        switch model.preview {
+        case .empty: return nil
+        case .loading(let entry), .loaded(let entry, _, _), .failed(let entry, _): return entry.path
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         switch model.preview {
         case .empty:
             VStack(spacing: 15) {
@@ -250,7 +265,8 @@ private struct FileViewer: View {
                     entry: entry,
                     root: model.root,
                     content: content,
-                    showSource: kind == .markdown ? $showSource : nil,
+                    showSource: kind == .markdown || kind == .html ? $showSource : nil,
+                    allowsRemoteContent: kind == .html && !showSource ? $allowsRemoteHTML : nil,
                     onDownload: { FileDownloads.start(entry, model: model) }
                 )
                 Divider()
@@ -272,16 +288,20 @@ private struct FileViewer: View {
         switch kind {
         case .markdown where !showSource:
             ScrollView {
-                SafeMarkdownView(text: String(decoding: content.data, as: UTF8.self))
+                SafeMarkdownView(text: FilePreview.text(content.data))
                     .textSelection(.enabled)
                     .padding(24)
                     .frame(maxWidth: 860, alignment: .leading)
                     .frame(maxWidth: .infinity)
             }
         case .markdown:
-            CodeTextView(text: String(decoding: content.data, as: UTF8.self), language: nil, fontSize: codeFontSize)
+            CodeTextView(text: FilePreview.text(content.data), language: nil, fontSize: codeFontSize)
+        case .html where !showSource:
+            HTMLDocumentView(html: FilePreview.text(content.data), allowsRemoteContent: allowsRemoteHTML)
+        case .html:
+            CodeTextView(text: FilePreview.text(content.data), language: "html", fontSize: codeFontSize)
         case .code(let language):
-            CodeTextView(text: String(decoding: content.data, as: UTF8.self), language: language, fontSize: codeFontSize)
+            CodeTextView(text: FilePreview.text(content.data), language: language, fontSize: codeFontSize)
         case .image:
             if let image = NSImage(data: content.data) {
                 ScrollView([.horizontal, .vertical]) {
@@ -329,6 +349,7 @@ private struct FileViewerHeader: View {
     let root: String
     let content: RemoteFileContent?
     let showSource: Binding<Bool>?
+    var allowsRemoteContent: Binding<Bool>?
     var onDownload: (() -> Void)?
 
     var body: some View {
@@ -360,6 +381,17 @@ private struct FileViewerHeader: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .fixedSize()
+            }
+            if let allowsRemoteContent {
+                Toggle(isOn: allowsRemoteContent) {
+                    Image(systemName: allowsRemoteContent.wrappedValue ? "network" : "network.slash")
+                }
+                .toggleStyle(.button)
+                .buttonStyle(.borderless)
+                .help(allowsRemoteContent.wrappedValue
+                      ? "JavaScript y recursos externos permitidos en esta página. Pulsa para bloquearlos."
+                      : "Página aislada: sin JavaScript ni conexiones a internet. Pulsa para permitirlos (solo si confías en ella).")
+                .accessibilityLabel("Permitir JavaScript y recursos externos")
             }
             if let onDownload {
                 Button(action: onDownload) {
