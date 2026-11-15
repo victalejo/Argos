@@ -488,7 +488,8 @@ struct ContentView: View {
         )
     }
 
-    /// Contenido de la 3ª columna. `session` es `nil` si el proyecto está detenido;
+    /// Contenido de la 3ª columna (los paneles abiertos se conservan al cambiar de modo,
+    /// ver `DetailPanelStack`). `session` es `nil` si el proyecto está detenido;
     /// `project` es `nil` si es una sesión suelta.
     @ViewBuilder
     private func detailContent(
@@ -497,7 +498,21 @@ struct ContentView: View {
         project: Project?,
         vm: SessionsViewModel
     ) -> some View {
-        switch detailModes[handle] ?? .terminal {
+        DetailPanelStack(mode: detailModes[handle] ?? .terminal) { mode in
+            detailPanel(mode, handle: handle, session: session, project: project, vm: vm)
+        }
+        .id(handle)
+    }
+
+    @ViewBuilder
+    private func detailPanel(
+        _ mode: DetailMode,
+        handle: SessionHandle,
+        session: TmuxSession?,
+        project: Project?,
+        vm: SessionsViewModel
+    ) -> some View {
+        switch mode {
         case .terminal:
             if let session {
                 SessionTerminalView(

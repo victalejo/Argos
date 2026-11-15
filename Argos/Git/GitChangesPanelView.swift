@@ -12,6 +12,7 @@ import SwiftUI
 struct GitChangesPanelView: View {
     @State private var model: GitChangesModel
     private let viewModel: SessionsViewModel
+    @Environment(\.isDetailPanelActive) private var isActive
 
     /// `viewModel`: el del servidor, para vigilar el CI de lo que se sube y avisar al terminar.
     init(path: String, viewModel: SessionsViewModel) {
@@ -26,7 +27,10 @@ struct GitChangesPanelView: View {
             // Ocupa todo el detalle: si no, con poco contenido (p. ej. «Sin cambios») el
             // panel se centra y deja franjas vacías arriba y abajo.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .task {
+            // Solo mientras se ve: oculto tras otro panel no sondea, y al volver se
+            // refresca (el agente o el terminal pudieron cambiar archivos).
+            .task(id: isActive) {
+                guard isActive else { return }
                 await model.refresh()
                 await model.pollWhileVisible()
             }
