@@ -6,6 +6,14 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.8] - 2026-11-15
+
+### Mejorado
+- **Mac: Archivos, Cambios y Agente ya no se reinician al cambiar de pestaña.** Si vas al
+  terminal y vuelves, siguen donde los dejaste: carpetas desplegadas, archivo abierto,
+  scroll, diff y conversación. Cambios se actualiza al volver y no consulta git mientras
+  está oculto.
+
 ## [1.8.7] - 2026-11-14
 
 ### Añadido
