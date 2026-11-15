@@ -95,6 +95,16 @@ struct WindowTabsTests {
         #expect(WindowTabs.title(for: window(1, name: "zsh"), agent: nil) == nil)
     }
 
+    @Test("El nombre puesto por el usuario gana al del agente")
+    func customNameWinsOverAgent() {
+        let renamed = window(2, name: "H10", command: "claude")
+        #expect(WindowTabs.title(for: renamed, agent: .claude) == "H10")
+        // Nombres automáticos: el del proceso (tmux) o el que pone Argos al lanzar.
+        #expect(WindowTabs.title(for: window(2, name: "claude", command: "claude"), agent: .claude) == "Claude Code")
+        #expect(WindowTabs.title(for: window(2, name: "Claude Code", command: "node"), agent: .claude) == "Claude Code")
+        #expect(WindowTabs.title(for: window(2, name: "2.1.34", command: "2.1.34"), agent: .claude) == "Claude Code")
+    }
+
     @Test("Solo los agentes repetidos llevan número")
     func repeatedAgents() {
         let windows = [

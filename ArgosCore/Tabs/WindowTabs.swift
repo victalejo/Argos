@@ -73,9 +73,26 @@ enum WindowTabs {
             ?? (claudeReported ? .claude : nil)
     }
 
-    /// Título de la pestaña: el nombre del agente, el nombre de la ventana o `nil`
-    /// cuando el nombre es solo el del shell (la pestaña muestra entonces `>_ 1`).
+    /// ¿El nombre de la ventana lo puso el usuario? No lo es si es el de un shell, el del
+    /// proceso en primer plano (renombrado automático de tmux) o el de un agente (el que
+    /// Argos le pone al lanzarlo).
+    static func hasCustomName(_ window: TmuxWindow) -> Bool {
+        let name = window.name.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, !isIdleShell(name) else { return false }
+        if let command = window.currentCommand,
+           name.caseInsensitiveCompare(command.trimmingCharacters(in: .whitespaces)) == .orderedSame {
+            return false
+        }
+        return !CodingAgent.allCases.contains {
+            $0.displayName == name || $0.binary == name.lowercased()
+        }
+    }
+
+    /// Título de la pestaña: el nombre que le dio el usuario, el del agente, el de la
+    /// ventana o `nil` cuando el nombre es solo el del shell (la pestaña muestra entonces
+    /// `>_ 1`).
     static func title(for window: TmuxWindow, agent: CodingAgent?) -> String? {
+        if hasCustomName(window) { return window.name }
         if let agent { return agent.displayName }
         return isIdleShell(window.name) ? nil : window.name
     }

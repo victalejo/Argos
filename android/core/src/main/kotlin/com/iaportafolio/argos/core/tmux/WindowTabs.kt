@@ -70,10 +70,23 @@ object WindowTabs {
         CodingAgent.detect(window.currentCommand, window.name) ?: if (claudeReported) CodingAgent.CLAUDE else null
 
     /**
-     * Título de la pestaña: el nombre del agente, el nombre de la ventana o `null` cuando el
+     * ¿El nombre de la ventana lo puso el usuario? No lo es si es el de un shell, el del
+     * proceso en primer plano (renombrado automático de tmux) o el de un agente.
+     */
+    fun hasCustomName(window: TmuxWindow): Boolean {
+        val name = window.name.trim()
+        if (name.isEmpty() || isIdleShell(name)) return false
+        val command = window.currentCommand?.trim()
+        if (command != null && name.equals(command, ignoreCase = true)) return false
+        return CodingAgent.entries.none { it.displayName == name || it.binary == name.lowercase() }
+    }
+
+    /**
+     * Título de la pestaña: el nombre que le dio el usuario, el del agente, el nombre de la ventana o `null` cuando el
      * nombre es solo el del shell (la pestaña muestra entonces `>_ 1`).
      */
     fun title(window: TmuxWindow, agent: CodingAgent?): String? = when {
+        hasCustomName(window) -> window.name
         agent != null -> agent.displayName
         isIdleShell(window.name) -> null
         else -> window.name

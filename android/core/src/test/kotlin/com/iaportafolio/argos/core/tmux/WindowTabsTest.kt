@@ -88,6 +88,14 @@ class WindowTabsTest {
     }
 
     @Test
+    fun `el nombre puesto por el usuario gana al del agente`() {
+        assertEquals("H10", WindowTabs.title(window(2, name = "H10", command = "claude"), CodingAgent.CLAUDE))
+        assertEquals("Claude Code", WindowTabs.title(window(2, name = "claude", command = "claude"), CodingAgent.CLAUDE))
+        assertEquals("Claude Code", WindowTabs.title(window(2, name = "Claude Code", command = "node"), CodingAgent.CLAUDE))
+        assertEquals("Claude Code", WindowTabs.title(window(2, name = "2.1.34", command = "2.1.34"), CodingAgent.CLAUDE))
+    }
+
+    @Test
     fun `solo los agentes repetidos llevan numero`() {
         val windows = listOf(
             window(0, command = "claude"), window(1, command = "claude"),
