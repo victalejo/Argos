@@ -66,6 +66,10 @@ struct ContentView: View {
             }
             model.loadSelectedIfNeeded()
         }
+        .onChange(of: model.selectedSession) { _, handle in model.didSelect(handle) }
+        .toolbar {
+            ToolbarItem(placement: .navigation) { AttentionToolbarButton(model: model) }
+        }
         .onChange(of: model.selectedServerID) { _, newValue in
             persistedServerID = newValue?.uuidString ?? ""
             model.loadSelectedIfNeeded()

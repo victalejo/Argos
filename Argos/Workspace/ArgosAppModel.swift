@@ -63,6 +63,14 @@ final class ArgosAppModel {
     var detailModes: [SessionHandle: DetailMode] = [:]
     /// Hoja del Doctor pedida desde un menú (contextual o Ayuda).
     var doctorTarget: ServerSheetTarget?
+    /// Hoja de un envío pedida desde la bandeja de atención (la abre la columna central).
+    var requestedSync: ProjectSyncRequest?
+
+    // MARK: Bandeja de atención (ver `ArgosAppModel+Attention.swift`)
+    /// «Terminó» sin mirar y CI fallidos (lo demás se lee en vivo de su fuente).
+    var attentionInbox = AttentionInbox()
+    /// Último elemento abierto, para «Ir al siguiente que me necesita».
+    @ObservationIgnored var lastAttentionID: String?
 
     @ObservationIgnored let secrets: any ServerSecretStoring
     @ObservationIgnored private let makeService: @MainActor (Server) -> any SSHServicing
@@ -112,6 +120,12 @@ final class ArgosAppModel {
         observeActivation()
         startPolling()
         connectNotificationRoutes()
+        observeDockBadge()
+        observers.append(NotificationCenter.default.addObserver(
+            forName: AttentionSettings.didChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateDockBadge() }
+        })
     }
 
     private func startPolling() {
@@ -247,6 +261,7 @@ final class ArgosAppModel {
         connectionEpochs[id, default: 0] += 1
         portRequests[id] = nil
         pendingRemoteChanges.remove(id)
+        attentionInbox.forget(serverID: id)
     }
 
     /// Carga el servidor seleccionado si aún no se cargó (`.idle`).
@@ -277,6 +292,11 @@ final class ArgosAppModel {
             serverID: server.id, serverName: server.name, transitions: round.result.transitions,
             viewing: viewing, gitSummary: { vm.gitSummary(forSession: $0) }
         )
+        attentionInbox.absorb(
+            serverID: server.id, transitions: round.result.transitions,
+            snapshot: vm.claudeActivity, ciResults: isCurrent ? round.result.ciResults : []
+        )
+        if let viewing { attentionInbox.markSeen(serverID: server.id, session: viewing) }
         guard isCurrent else { return }
         notifier.notifyCI(round.result.ciResults, serverID: server.id, serverName: server.name)
         if let pending = round.result.portRequests {

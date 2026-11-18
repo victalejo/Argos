@@ -30,6 +30,9 @@ struct SettingsView: View {
             AgentSettingsView()
                 .tabItem { Label("Agente", systemImage: "sparkles") }
 
+            AttentionSettingsView()
+                .tabItem { Label("Avisos", systemImage: "bell.badge") }
+
             DiagnosticSettingsView()
                 .tabItem { Label("Diagnóstico", systemImage: "stethoscope") }
 

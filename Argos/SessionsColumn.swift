@@ -80,6 +80,12 @@ struct SessionsColumn: View {
         }
         .onChange(of: model.selectedSession) { _, handle in revealSelection(handle) }
         .onChange(of: model.connectionEpochs) { old, new in closeStaleSheets(old: old, new: new) }
+        // Envío elegido en la bandeja de atención.
+        .onChange(of: model.requestedSync?.id) { _, id in
+            guard id != nil, let request = model.requestedSync else { return }
+            projectSync = request
+            model.requestedSync = nil
+        }
         .navigationTitle("Proyectos")
         .navigationSplitViewColumnWidth(min: 280, ideal: 330)
         .toolbar { toolbarContent }

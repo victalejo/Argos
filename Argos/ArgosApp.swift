@@ -16,6 +16,8 @@ struct ArgosApp: App {
     /// Dueño del modelo único de la app (ver `ArgosAppDelegate`).
     @NSApplicationDelegateAdaptor(ArgosAppDelegate.self) private var appDelegate
     @AppStorage("appearance") private var appearance = "system"
+    /// Extra de la barra de menús con la bandeja de atención (activado por defecto).
+    @AppStorage(AttentionSettings.showsMenuBarExtraKey) private var showsMenuBarExtra = true
 
     private var colorScheme: ColorScheme? {
         switch appearance {
@@ -91,6 +93,8 @@ struct ArgosApp: App {
             CommandGroup(after: .sidebar) {
                 Button("Cambiar de sesión…") { appDelegate.model.presentQuickSwitcher() }
                     .keyboardShortcut("k", modifiers: .command)
+                Button("Ir al siguiente que me necesita") { appDelegate.model.openNextAttention() }
+                    .keyboardShortcut("j", modifiers: .command)
                 Divider()
                 Button("Aumentar tamaño de fuente") { TerminalSettings.shared.increaseFontSize() }
                     .keyboardShortcut("+", modifiers: .command)
@@ -127,6 +131,14 @@ struct ArgosApp: App {
             }
         }
 
+        // Bandeja de atención en la barra de menús: funciona con la ventana cerrada.
+        MenuBarExtra(isInserted: menuBarExtraInserted) {
+            AttentionMenuContent(model: appDelegate.model)
+        } label: {
+            AttentionMenuBarLabel(model: appDelegate.model)
+        }
+        .menuBarExtraStyle(.menu)
+
         Settings {
             #if APPSTORE
             SettingsView()
@@ -136,6 +148,15 @@ struct ArgosApp: App {
                 .preferredColorScheme(colorScheme)
             #endif
         }
+    }
+
+    /// Solo escribe el ajuste si cambia: el sistema reafirma `isInserted` y escribir el
+    /// mismo valor en UserDefaults reevaluaría la escena sin fin.
+    private var menuBarExtraInserted: Binding<Bool> {
+        Binding(
+            get: { showsMenuBarExtra },
+            set: { newValue in if newValue != showsMenuBarExtra { showsMenuBarExtra = newValue } }
+        )
     }
 
     /// Abre una URL en el navegador por defecto (para los ítems del menú Ayuda).

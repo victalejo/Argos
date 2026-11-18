@@ -69,5 +69,6 @@ extension ArgosAppModel {
         selectedServerID = handle.serverID
         detailModes[handle] = mode
         selectedSession = handle
+        didSelect(handle)
     }
 }
