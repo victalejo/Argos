@@ -101,7 +101,7 @@ enum SSHErrorMessage {
         case .commandOutputTooLarge:
             return String(localized: "La salida del comando remoto es demasiado grande.")
         default:
-            return String(localized: "Fallo de cifrado o de protocolo en la conexión SSH (\(error)). Reintenta; si persiste, revisa la configuración del servidor.")
+            return String(localized: "Fallo de cifrado o de protocolo en la conexión SSH (\(String(describing: error))). Reintenta; si persiste, revisa la configuración del servidor.")
         }
     }
 
@@ -125,7 +125,7 @@ enum SSHErrorMessage {
         case .writeHostUnreachable:
             return String(localized: "No hay ruta hasta el servidor. Comprueba tu conexión a internet.")
         default:
-            return String(localized: "Error de conexión con el servidor (\(error)). Reintenta.")
+            return String(localized: "Error de conexión con el servidor (\(String(describing: error))). Reintenta.")
         }
     }
 
@@ -151,7 +151,7 @@ enum SSHErrorMessage {
         case .errorStatus(let status):
             return sftpStatus(status.errorCode, message: status.message)
         default:
-            return String(localized: "El servidor respondió de forma inesperada a una operación de archivos (\(error)). Reintenta.")
+            return String(localized: "El servidor respondió de forma inesperada a una operación de archivos (\(String(describing: error))). Reintenta.")
         }
     }
 

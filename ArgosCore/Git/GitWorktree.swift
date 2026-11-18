@@ -26,7 +26,7 @@ struct GitWorktree: Hashable, Sendable, Identifiable {
     var changedCount: Int?
 
     var id: String { path }
-    var displayBranch: String { branch ?? String(localized: "HEAD desacoplado (\(head.prefix(7)))") }
+    var displayBranch: String { branch ?? String(localized: "HEAD desacoplado (\(String(head.prefix(7))))") }
 }
 
 /// Worktrees del repositorio y sus ramas locales (para elegir una existente).
