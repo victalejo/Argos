@@ -19,10 +19,12 @@ import com.iaportafolio.argos.core.files.RemoteFileEntry
 import com.iaportafolio.argos.core.git.GitOperations
 import com.iaportafolio.argos.core.github.GitHubOperations
 import com.iaportafolio.argos.core.keys.AuthorizedKeysCommands
-import com.iaportafolio.argos.core.keys.RemoteHomeFileCommands
+import com.iaportafolio.argos.core.homefile.HomeFileExpectation
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectCommands
 import com.iaportafolio.argos.core.projects.ProjectListing
+import com.iaportafolio.argos.core.status.ClaudeActivityReading
+import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.status.ClaudeHookInstaller
 import com.iaportafolio.argos.core.status.ClaudeHookMaintenance
 import com.iaportafolio.argos.core.status.ClaudeStatusCommands
@@ -74,13 +76,15 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     GitHubOperations by SshjGitHub(connection),
     PortForwardOperations,
     ConnectionHealthProbing,
-    ClaudeHookMaintenance {
+    ClaudeHookMaintenance,
+    ClaudeActivityReading {
 
     private val terminal = SshjTerminal(connection)
     private val files = SshjFileBrowser(connection)
     private val agentExec = SshjAgentExec(connection)
     private val ports = SshjPortForwarding(connection)
-    private val projectsStore = SshjProjectsStore(connection)
+    private val homeFiles = SshjHomeFiles(connection)
+    private val projectsStore = SshjProjectsStore(connection, homeFiles)
 
     // MARK: Canal exec del agente
 
@@ -245,6 +249,11 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
 
     // MARK: Hooks de Claude
 
+    override suspend fun claudeActivity(): ClaudeActivitySnapshot {
+        val result = connection.capture(ClaudeStatusCommands.CLAUDE_ACTIVITY_COMMAND)
+        return ClaudeStatusCommands.parseActivity(result.exitCode, result.stdout)
+    }
+
     override suspend fun claudeHooksInstalled(): Boolean = ClaudeHookInstaller.isInstalled(readClaudeSettings())
 
     /** settings.json puede contener secretos: se escribe privado (600), atómico y con copia. */
@@ -328,26 +337,15 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     // MARK: Ficheros privados en $HOME (port de RemotePrivateFile.swift)
 
     /** Contenido de `~/<relativePath>`, o `""` si no existe. Un fallo de lectura LANZA. */
-    private suspend fun readHomeFile(relativePath: String): String {
-        val result = connection.capture(RemoteHomeFileCommands.read(relativePath))
-        if (result.exitCode != 0) {
-            val detail = result.stderr.trim().ifEmpty { "No se pudo leer ~/$relativePath." }
-            throw SSHServiceError.CommandFailed(result.exitCode, detail)
-        }
-        return result.stdout
-    }
+    private suspend fun readHomeFile(relativePath: String): String = homeFiles.read(relativePath)
 
     /**
-     * Escribe [data] en `~/<relativePath>` de forma privada (umask 077) y atómica (temporal +
-     * `mv`). El contenido viaja por SFTP, nunca en la línea de comandos.
+     * Escribe [data] en `~/<relativePath>` de forma privada (umask 077) y atómica, bajo el cerrojo
+     * compartido con el Mac y el iPhone/iPad. El contenido viaja por SFTP, nunca en la línea de
+     * comandos.
      */
     private suspend fun writeHomeFilePrivately(data: ByteArray, relativePath: String, backup: Boolean) {
-        val failure = "No se pudo escribir ~/$relativePath."
-        val home = runChecked(RemoteHomeFileCommands.prepareWrite(relativePath, backup), failure)
-        val tempPath = RemoteHomeFileCommands.tempUploadPath(home, relativePath)
-            ?: throw SSHServiceError.CommandFailed(0, "No se pudo resolver \$HOME en el servidor.")
-        connection.upload(data, tempPath, exclusive = false)
-        runChecked(RemoteHomeFileCommands.commitWrite(relativePath), failure)
+        homeFiles.write(data, relativePath, HomeFileExpectation.Any, if (backup) SshjHomeFiles.BACKUP_SUFFIX else null)
     }
 
     // MARK: Ejecución

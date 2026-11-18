@@ -1,0 +1,15 @@
+umask 077
+f="$HOME/.config/argos/projects.json"; t="$f.argos-tmp-0123456789abcdef0123456789abcdef"; l="$f.argos-lock"
+n=0
+until mkdir "$l" 2>/dev/null; do
+  if [ -n "$(find "$l" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then rmdir "$l" 2>/dev/null; continue; fi
+  n=$((n + 1)); if [ "$n" -ge 10 ]; then rm -f -- "$t"; exit 76; fi
+  sleep 1
+done
+trap 'rmdir "$l" 2>/dev/null' EXIT
+if [ -L "$f" ]; then rm -f -- "$t"; exit 77; fi
+set -- $(cksum < "$f" 2>/dev/null)
+[ "$1 $2" = 'it'\''s' ] || { rm -f -- "$t"; exit 75; }
+mv -f -- "$t" "$f" || { rm -f -- "$t"; exit 1; }
+find "${f%/*}" -maxdepth 1 -name 'projects.json.argos-tmp-*' -mmin +60 -exec rm -f -- {} + 2>/dev/null
+exit 0

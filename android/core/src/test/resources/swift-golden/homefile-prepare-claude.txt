@@ -1,0 +1,1 @@
+umask 077 && mkdir -p "$HOME/.claude" && rm -f -- "$HOME/.claude/settings.json.argos-tmp-0123456789abcdef0123456789abcdef" && ( set -C; : > "$HOME/.claude/settings.json.argos-tmp-0123456789abcdef0123456789abcdef" ) && printf '%s' "$HOME"

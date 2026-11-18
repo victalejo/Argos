@@ -82,7 +82,6 @@ sealed class ProjectError(message: String) : Exception(message, null, false, fal
 
     /** Otro dispositivo cambió `projects.json` una y otra vez mientras se guardaba. */
     data object ConcurrentModification : ProjectError(
-        "Los proyectos de este servidor cambiaron desde otro dispositivo mientras se guardaban. " +
-            "Vuelve a intentarlo.",
+        "Otro dispositivo está cambiando los proyectos de este servidor a la vez. Vuelve a intentarlo en unos segundos.",
     )
 }

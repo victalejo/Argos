@@ -16,7 +16,11 @@ import kotlinx.serialization.json.intOrNull
  *
  * - [extras]: claves desconocidas del nivel de archivo, que se conservan al reescribir.
  * - [entries]: cada proyecto, decodificado por separado. Uno inválido ([ProjectRecord.Unreadable])
- *   no invalida el resto y se reescribe tal cual, en su sitio.
+ *   no invalida el resto y se reescribe tal cual, AL FINAL (como `replacingProjects` de Apple).
+ *
+ * Mismos bytes que `ProjectsDocument.swift` para los mismos datos: legibles en el orden de la app,
+ * ilegibles detrás en su orden original, claves desconocidas conservadas (también las de
+ * `macCheckout`) y la `version` del archivo.
  */
 data class ProjectsDocument(
     val version: Int,
@@ -49,20 +53,21 @@ data class ProjectsDocument(
      */
     fun applying(base: List<Project>, updated: List<Project>): ProjectsDocument {
         val baseById = base.associateBy { it.id }
-        val currentById = entries.filterIsInstance<ProjectRecord.Readable>().associateBy { it.project.id }
+        // Como `rawByID` de Apple: con ids repetidos manda la PRIMERA entrada.
+        val currentById = entries.filterIsInstance<ProjectRecord.Readable>().reversed().associateBy { it.project.id }
         val kept = updated.mapNotNull { project ->
             val current = currentById[project.id]
             when {
                 baseById[project.id] == project -> current
-                else -> ProjectRecord.Readable(project, current?.extras ?: EMPTY_OBJECT)
+                else -> ProjectRecord.Readable(project, current?.raw ?: EMPTY_OBJECT)
             }
         }
         val known = updated.map { it.id }.toSet() + baseById.keys
-        val addedElsewhere = currentById.values.filter { it.project.id !in known }
-        return copy(
-            version = ProjectsFile.CURRENT_VERSION,
-            entries = withUnreadableInPlace(kept.distinctBy { it.project.id } + addedElsewhere),
-        )
+        val addedElsewhere = entries.filterIsInstance<ProjectRecord.Readable>()
+            .filter { it.project.id !in known }
+            .distinctBy { it.project.id }
+        val unreadable = entries.filterIsInstance<ProjectRecord.Unreadable>()
+        return copy(entries = (kept + addedElsewhere).distinctBy { it.project.id } + unreadable)
     }
 
     /** JSON tal como lo escribe Apple (claves ordenadas, sangría de 2, sin salto final). */
@@ -75,20 +80,11 @@ data class ProjectsDocument(
     /** [encodedText] en UTF-8, listo para subirlo al servidor. */
     fun encoded(): ByteArray = encodedText().toByteArray(Charsets.UTF_8)
 
-    /** Vuelve a colocar los ilegibles en su índice original (o al final si la lista encogió). */
-    private fun withUnreadableInPlace(readable: List<ProjectRecord.Readable>): List<ProjectRecord> {
-        val result = readable.toMutableList<ProjectRecord>()
-        entries.forEachIndexed { index, entry ->
-            if (entry is ProjectRecord.Unreadable) result.add(index.coerceAtMost(result.size), entry)
-        }
-        return result
-    }
-
     companion object {
         private val EMPTY_OBJECT = JsonObject(emptyMap())
 
         /** Claves de un proyecto que entiende esta versión (el resto se conserva tal cual). */
-        private val PROJECT_KEYS = setOf("id", "name", "group", "path", "startupCommand", "createdAt", "macCheckout")
+        internal val PROJECT_KEYS = setOf("id", "name", "group", "path", "startupCommand", "createdAt", "macCheckout")
         private val FILE_KEYS = setOf("version", "projects")
 
         val EMPTY = ProjectsDocument(ProjectsFile.CURRENT_VERSION, EMPTY_OBJECT, emptyList())
@@ -126,11 +122,32 @@ data class ProjectsDocument(
             } catch (_: IllegalArgumentException) {
                 null
             } ?: return ProjectRecord.Unreadable(element)
-            return ProjectRecord.Readable(project, JsonObject(raw - PROJECT_KEYS))
+            return ProjectRecord.Readable(project, raw)
         }
+
+        /** Claves conocidas de los objetos anidados (`macCheckout`). */
+        private val NESTED_KEYS = mapOf("macCheckout" to setOf("macName", "macID", "date"))
 
         internal fun encodeProject(project: Project): JsonObject =
             ProjectsFile.JSON.encodeToJsonElement(Project.serializer(), project) as JsonObject
+
+        /**
+         * `merge` de Apple: [old] con los valores de [fresh]. Las claves conocidas mandan (ausente en
+         * [fresh] = se quitó); las desconocidas de [old] se quedan, también un nivel más abajo.
+         */
+        internal fun merge(old: JsonObject, fresh: JsonObject): JsonObject {
+            val result = (old - PROJECT_KEYS).toMutableMap()
+            for ((key, value) in fresh) {
+                val nested = NESTED_KEYS[key]
+                val oldObject = old[key] as? JsonObject
+                result[key] = if (nested != null && value is JsonObject && oldObject != null) {
+                    JsonObject(oldObject - nested + value)
+                } else {
+                    value
+                }
+            }
+            return JsonObject(result)
+        }
     }
 }
 
@@ -138,9 +155,15 @@ data class ProjectsDocument(
 sealed interface ProjectRecord {
     fun toJson(): JsonElement
 
-    /** Entendido por esta versión; [extras] son sus claves desconocidas (se conservan). */
-    data class Readable(val project: Project, val extras: JsonObject) : ProjectRecord {
-        override fun toJson(): JsonElement = JsonObject(extras + ProjectsDocument.encodeProject(project))
+    /**
+     * Entendido por esta versión. [raw] es su objeto en disco (vacío si es nuevo), del que se
+     * conservan las claves desconocidas al reescribirlo.
+     */
+    data class Readable(val project: Project, val raw: JsonObject) : ProjectRecord {
+        /** Claves desconocidas del proyecto. */
+        val extras: JsonObject get() = JsonObject(raw - ProjectsDocument.PROJECT_KEYS)
+
+        override fun toJson(): JsonElement = ProjectsDocument.merge(raw, ProjectsDocument.encodeProject(project))
     }
 
     /** No se pudo decodificar (otra versión, editado a mano…): se reescribe tal cual. */

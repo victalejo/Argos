@@ -8,6 +8,9 @@ import com.iaportafolio.argos.core.ShellQuoting
 import com.iaportafolio.argos.core.agent.PersistentAgentError
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectError
+import com.iaportafolio.argos.core.homefile.HomeFileException
+import com.iaportafolio.argos.core.status.ClaudeActivity
+import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.tmux.WindowNameValidator
 import com.iaportafolio.argos.ssh.testing.EmbeddedSshServer
 import kotlinx.coroutines.delay
@@ -240,6 +243,48 @@ class SshjTmuxIntegrationTest {
         } finally {
             file.deleteIfExists()
         }
+    }
+
+    @Test
+    fun `projects json con el cerrojo de otro dispositivo da Locked sin escribir`() = runBlocking<Unit> {
+        val dir = Files.createDirectories(server.home.resolve(".config/argos"))
+        val lock = Files.createDirectories(dir.resolve("projects.json.argos-lock"))
+        try {
+            assertFailsWith<HomeFileException.Locked> { service.saveProjects(listOf(Project(name = "web", path = "/w"))) }
+            assertFalse(dir.resolve("projects.json").exists())
+            assertTrue(Files.list(dir).use { files -> files.noneMatch { it.fileName.toString().contains(".argos-tmp-") } })
+        } finally {
+            Files.deleteIfExists(lock)
+        }
+    }
+
+    @Test
+    fun `projects json que es un enlace simbolico no se reemplaza`() = runBlocking<Unit> {
+        val dir = Files.createDirectories(server.home.resolve(".config/argos"))
+        val outside = Files.createTempFile(workDir, "fuera", ".json").also { it.writeText("""{"version":1,"projects":[]}""") }
+        val link = Files.createSymbolicLink(dir.resolve("projects.json"), outside)
+        try {
+            service.loadProjects()
+            assertFailsWith<HomeFileException.Symlink> { service.saveProjects(listOf(Project(name = "web", path = "/w"))) }
+            assertEquals("""{"version":1,"projects":[]}""", outside.readText())
+        } finally {
+            link.deleteIfExists()
+        }
+    }
+
+    @Test
+    fun `lee el estado de Claude de los paneles con la marca de los hooks`() = runBlocking<Unit> {
+        service.createSession(ODD_NAME)
+        assertEquals(ClaudeActivitySnapshot.EMPTY, service.claudeActivity())
+        service.runAgentScript("tmux set-option -p -t ${ShellQuoting.singleQuoted("=$ODD_NAME:")} @argos_claude done")
+        val snapshot = service.claudeActivity()
+        assertEquals(ClaudeActivity.DONE, snapshot.activity(ODD_NAME))
+        assertEquals(1, snapshot.windows(ODD_NAME).size)
+        // «working» sin spinner ni «esc to interrupt» en la pantalla: interrumpido, terminado en silencio.
+        service.runAgentScript("tmux set-option -p -t ${ShellQuoting.singleQuoted("=$ODD_NAME:")} @argos_claude working")
+        val quiet = service.claudeActivity()
+        assertEquals(ClaudeActivity.DONE, quiet.activity(ODD_NAME))
+        assertTrue(quiet.panes.single().isQuiet)
     }
 
     @Test

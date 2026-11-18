@@ -1,21 +1,14 @@
 package com.iaportafolio.argos.core.projects
 
-import com.iaportafolio.argos.core.keys.RemoteHomeFileCommands
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
-import org.junit.jupiter.api.io.TempDir
-import java.nio.file.Path
 import java.time.Instant
-import kotlin.io.path.createDirectories
-import kotlin.io.path.exists
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Reglas de `projects.json` compartido: nada se pierde al reescribir y nunca se pisa a otro. */
@@ -70,7 +63,7 @@ class ProjectsDocumentTest {
     }
 
     @Test
-    fun `un proyecto invalido no invalida el resto y se conserva en su sitio`() {
+    fun `un proyecto invalido no invalida el resto y se conserva al final`() {
         val broken = """{"id":"no-es-uuid","name":"roto"}"""
         val document = ProjectsDocument.decode(fileWith(json(project(1)), broken, "42", json(project(2))))
         assertEquals(listOf("p1", "p2"), document.projects.map { it.name })
@@ -80,7 +73,9 @@ class ProjectsDocumentTest {
         assertEquals(listOf("p2", "p3"), rewritten.projects.map { it.name })
         val raw = rewritten.entries.filterIsInstance<ProjectRecord.Unreadable>().map { it.raw.toString() }
         assertEquals(listOf(broken, "42"), raw)
-        assertIs<ProjectRecord.Unreadable>(rewritten.entries[1])
+        // Como Apple: los ilegibles van detrás de los legibles, en su orden original.
+        assertIs<ProjectRecord.Unreadable>(rewritten.entries[2])
+        assertIs<ProjectRecord.Unreadable>(rewritten.entries[3])
     }
 
     @Test
@@ -113,51 +108,38 @@ class ProjectsDocumentTest {
     }
 
     @Test
-    fun `lectura con huella separa la huella del contenido`() {
-        val snapshot = assertNotNull(ProjectsFileCommands.parseSnapshot("123 45\n{\"a\":1}\n"))
-        assertEquals("123 45", snapshot.fingerprint)
-        assertEquals("{\"a\":1}\n", snapshot.text)
-        assertEquals(ProjectsFileCommands.Snapshot("absent", ""), ProjectsFileCommands.parseSnapshot("absent\n"))
-        assertEquals(null, ProjectsFileCommands.parseSnapshot(""))
+    fun `las claves desconocidas de macCheckout sobreviven y quitarlo lo quita entero`() {
+        val checkout = ""","macCheckout":{"date":"2025-11-07T10:00:00Z","macID":"x","macName":"M","rama":"main"}"""
+        val document = ProjectsDocument.decode(fileWith(json(project(1), extra = ""","color":"verde"""" + checkout)))
+        val renamed = document.projects.map { it.copy(name = "uno") }
+        val entry = assertIs<ProjectRecord.Readable>(ProjectsDocument.decode(document.applying(document.projects, renamed).encodedText()).entries.single())
+        assertEquals(JsonPrimitive("main"), entry.raw["macCheckout"]?.jsonObject?.get("rama"))
+        assertEquals(JsonPrimitive("verde"), entry.raw["color"])
+
+        val cleared = document.applying(document.projects, document.projects.map { it.copy(macCheckout = null) })
+        val clearedEntry = assertIs<ProjectRecord.Readable>(ProjectsDocument.decode(cleared.encodedText()).entries.single())
+        assertNull(clearedEntry.raw["macCheckout"])
+        assertEquals(JsonPrimitive("verde"), clearedEntry.raw["color"])
     }
 
-    /** Los comandos se ejecutan de verdad con `/bin/sh` en un `HOME` temporal. */
+    /**
+     * Bytes idénticos a los de `ProjectsDocument.swift` (generados con el código Swift real, ver
+     * `swift-golden/projects-document-*.txt`) para los mismos datos de entrada.
+     */
     @Test
-    fun `solo se reemplaza el archivo si no cambio desde que se leyo`(@TempDir home: Path) {
-        val file = home.resolve(ProjectCommands.PROJECTS_RELATIVE_PATH)
-        val temp = home.resolve(ProjectCommands.PROJECTS_RELATIVE_PATH + RemoteHomeFileCommands.TEMP_SUFFIX)
-        file.parent.createDirectories()
-
-        // No existe: huella «absent» y se crea.
-        val absent = assertNotNull(ProjectsFileCommands.parseSnapshot(sh(home, ProjectsFileCommands.READ_WITH_FINGERPRINT).second))
-        assertEquals(ProjectsFileCommands.ABSENT, absent.fingerprint)
-        temp.writeText("uno")
-        assertEquals(0, sh(home, ProjectsFileCommands.commitIfUnchanged(absent.fingerprint)).first)
-        assertEquals("uno", file.readText())
-
-        // Existe y nadie lo tocó: se reemplaza.
-        val first = assertNotNull(ProjectsFileCommands.parseSnapshot(sh(home, ProjectsFileCommands.READ_WITH_FINGERPRINT).second))
-        assertEquals("uno", first.text)
-        temp.writeText("dos")
-        assertEquals(0, sh(home, ProjectsFileCommands.commitIfUnchanged(first.fingerprint)).first)
-        assertEquals("dos", file.readText())
-
-        // Otro lo cambió entretanto: no se toca y se borra el temporal.
-        file.writeText("de otro dispositivo")
-        temp.writeText("tres")
-        assertEquals(ProjectsFileCommands.CHANGED_EXIT_CODE, sh(home, ProjectsFileCommands.commitIfUnchanged(first.fingerprint)).first)
-        assertEquals("de otro dispositivo", file.readText())
-        assertFalse(temp.exists())
-        // Con la huella vieja de «no existe» tampoco se pisa un archivo creado por otro.
-        temp.writeText("cuatro")
-        assertEquals(ProjectsFileCommands.CHANGED_EXIT_CODE, sh(home, ProjectsFileCommands.commitIfUnchanged(ProjectsFileCommands.ABSENT)).first)
+    fun `mismos bytes que Swift al reescribir con desconocidos e ilegibles`() {
+        val input = golden("projects-document-input")
+        val document = ProjectsDocument.decode(input)
+        val updated = document.projects.map { if (it.name == "uno") it.copy(name = "uno-renombrado", group = null) else it }
+            .filterNot { it.name == "tres" } + Project(
+            id = "55555555-5555-5555-5555-555555555555",
+            name = "nuevo",
+            path = "/srv/nuevo",
+            createdAt = Instant.ofEpochSecond(1_762_509_600),
+        )
+        assertEquals(golden("projects-document-output"), document.applying(document.projects, updated).encodedText())
     }
 
-    private fun sh(home: Path, command: String): Pair<Int, String> {
-        val process = ProcessBuilder("/bin/sh", "-c", command)
-            .apply { environment()["HOME"] = home.toString() }
-            .start()
-        val output = process.inputStream.bufferedReader().readText()
-        return process.waitFor() to output
-    }
+    private fun golden(name: String): String =
+        assertNotNull(javaClass.getResource("/swift-golden/$name.txt"), "falta $name").readText(Charsets.UTF_8)
 }
