@@ -9,7 +9,7 @@
 import SwiftUI
 
 /// Qué se abre en el detalle: la sesión tmux y, si es un proyecto, su carpeta.
-struct ProjectTarget: Hashable, Identifiable {
+struct ProjectTarget: Hashable, Identifiable, Codable {
     let sessionName: String
     let title: String
     let path: String?
@@ -20,8 +20,9 @@ struct ProjectScreen: View {
     let server: Server
     let target: ProjectTarget
 
+    /// Pestaña del detalle; vive en `AppNavigation` para sobrevivir a giros y arranques.
+    @Binding var mode: DetailMode
     @Environment(ServerHub.self) private var hub
-    @State private var mode: DetailMode = .terminal
     @State private var showPorts = false
 
     private var service: any SSHServicing { hub.viewModel(for: server).service }
@@ -56,8 +57,8 @@ struct ProjectScreen: View {
                 PortForwardsSheet(service: service, serverName: server.name)
             }
             .portForwardRequests(service: service, serverName: server.name)
-            .onAppear { hub.viewing = handle }
-            .onDisappear { if hub.viewing == handle { hub.viewing = nil } }
+            .onAppear { hub.startViewing(handle) }
+            .onDisappear { hub.stopViewing(handle) }
     }
 
     private var handle: SessionHandle { SessionHandle(serverID: server.id, sessionID: target.sessionName) }

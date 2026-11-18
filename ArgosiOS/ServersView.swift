@@ -2,81 +2,72 @@
 //  ServersView.swift
 //  ArgosiOS
 //
-//  Pantalla inicial. En iPhone, una pila: servidores → proyectos → detalle. En iPad
-//  (ancho regular), tres columnas: servidores | proyectos | terminal/archivos/agentes.
+//  Pantalla inicial: servidores | proyectos | terminal/archivos/agentes. Un único
+//  `NavigationSplitView` para iPhone e iPad: en ancho compacto se colapsa en una pila
+//  (servidores → proyectos → detalle), así que girar o redimensionar no reconstruye la
+//  navegación. La selección vive en `AppNavigation` y se restaura con `@SceneStorage`.
 //  Deslizar un servidor permite editarlo o borrarlo.
 //
 
 import SwiftUI
 
-/// Raíz adaptable según el ancho disponible (un iPad en Split View puede ser compacto).
 struct RootView: View {
-    @Environment(\.horizontalSizeClass) private var sizeClass
-
-    var body: some View {
-        if sizeClass == .regular { SplitRootView() } else { ServersView() }
-    }
-}
-
-/// iPhone (o iPad estrecho).
-struct ServersView: View {
     @Environment(ServerHub.self) private var hub
-    @State private var path: [Server] = []
+    @SceneStorage("argos.navigation") private var savedNavigation = ""
+    @State private var navigation = AppNavigation()
+    @State private var restored = false
+
+    private var server: Server? { navigation.serverID.flatMap { hub.store.server(withID: $0) } }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            ServerList(selection: nil)
-                .navigationDestination(for: Server.self) { server in
-                    ProjectsView(server: server)
-                }
-        }
-        // Tocar una notificación: abre su servidor; `ProjectsView` abre la sesión.
-        .onChange(of: hub.pendingRoute, initial: true) { _, route in
-            guard let route, let server = hub.store.server(withID: route.serverID) else { return }
-            if path.last?.id != server.id { path = [server] }
-        }
-    }
-}
-
-/// iPad: tres columnas.
-struct SplitRootView: View {
-    @Environment(ServerHub.self) private var hub
-    @State private var serverID: Server.ID?
-    @State private var target: ProjectTarget?
-
-    private var server: Server? { hub.store.server(withID: serverID) }
-
-    var body: some View {
-        NavigationSplitView {
-            ServerList(selection: $serverID)
+        NavigationSplitView(preferredCompactColumn: $navigation.compactColumn) {
+            ServerList(selection: Binding(
+                get: { navigation.serverID },
+                set: { navigation.selectServer($0) }
+            ))
         } content: {
             if let server {
-                ProjectsView(server: server, selection: $target)
-                    .id(server.id)
+                ProjectsView(server: server, selection: Binding(
+                    get: { navigation.target },
+                    set: { navigation.open($0) }
+                ))
+                .id(server.id)
             } else {
                 ContentUnavailableView("Elige un servidor", systemImage: "server.rack")
             }
         } detail: {
             NavigationStack {
-                if let server, let target {
-                    ProjectScreen(server: server, target: target)
+                if let server, let target = navigation.target {
+                    ProjectScreen(server: server, target: target, mode: $navigation.mode)
                         .id("\(server.id)/\(target.id)")
                 } else {
                     ContentUnavailableView("Elige un proyecto", systemImage: "folder")
                 }
             }
         }
-        .onChange(of: serverID) { _, _ in target = nil }
+        .onAppear(perform: restoreOnce)
+        .onChange(of: navigation.encoded) { _, encoded in savedNavigation = encoded }
+        .onChange(of: hub.store.servers) { _, _ in
+            navigation.dropMissingServer { hub.store.server(withID: $0) != nil }
+        }
         // Tocar una notificación: elige su servidor; `ProjectsView` abre la sesión.
         .onChange(of: hub.pendingRoute, initial: true) { _, route in
             guard let route, hub.store.server(withID: route.serverID) != nil else { return }
-            if serverID != route.serverID { serverID = route.serverID }
+            if navigation.serverID != route.serverID { navigation.selectServer(route.serverID) }
         }
+    }
+
+    /// Arranque en frío o escena nueva: vuelve a donde se estaba.
+    private func restoreOnce() {
+        guard !restored else { return }
+        restored = true
+        navigation.restore(from: savedNavigation)
+        navigation.dropMissingServer { hub.store.server(withID: $0) != nil }
     }
 }
 
 /// Lista de servidores con alta (manual o por QR del Mac), edición y borrado. Con
-/// `selection` (iPad) marca el servidor elegido; sin ella (iPhone) cada fila navega.
+/// `selection` marca el servidor elegido (y en compacto lo abre); sin ella cada fila navega.
 struct ServerList: View {
     var selection: Binding<Server.ID?>?
     @Environment(ServerHub.self) private var hub

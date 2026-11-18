@@ -11,14 +11,11 @@ import SwiftUI
 
 struct ProjectsView: View {
     let server: Server
-    /// En iPad el detalle va en otra columna: la selección la gestiona el padre. En
-    /// iPhone (`nil`) se navega dentro de la pila.
-    var selection: Binding<ProjectTarget?>?
+    /// Proyecto/sesión abierto en el detalle (lo gestiona `AppNavigation`; en iPhone la
+    /// vista dividida colapsada lo muestra encima de la lista).
+    @Binding var selection: ProjectTarget?
     @Environment(ServerHub.self) private var hub
-    @Environment(\.scenePhase) private var scenePhase
 
-    /// Proyecto/sesión abierto (navegación en iPhone).
-    @State private var pushed: ProjectTarget?
     @State private var busyProject: Project.ID?
     @State private var sessionPrompt: SessionPrompt?
     @State private var promptText = ""
@@ -51,9 +48,6 @@ struct ProjectsView: View {
     var body: some View {
         content
             .navigationTitle(server.name)
-            .navigationDestination(item: $pushed) { target in
-                ProjectScreen(server: currentServer, target: target)
-            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -76,11 +70,9 @@ struct ProjectsView: View {
             .task { await pollGitSummaries() }
             .onChange(of: hub.pendingRoute, initial: true) { _, _ in followPendingRoute() }
             .onChange(of: viewModel.sessions) { _, _ in followPendingRoute() }
-            .onChange(of: scenePhase) { _, phase in
-                // Al volver de segundo plano la lista puede estar desfasada (y la conexión
-                // SSH, muerta): se recarga, lo que también reconecta.
-                if phase == .active, !needsKey, !viewModel.state.isBusy { Task { await viewModel.load() } }
-            }
+            // La vuelta de segundo plano la gestiona `ServerHub.didBecomeActive`: sondea la
+            // conexión y refresca sin vaciar la lista (antes cualquier paso de inactivo a
+            // activo, como abrir el Centro de control, la cambiaba por «Conectando…»).
             .alert(promptTitle, isPresented: promptBinding) {
                 TextField("Nombre", text: $promptText)
                     .textInputAutocapitalization(.never)
@@ -366,7 +358,7 @@ struct ProjectsView: View {
     }
 
     private func open(_ target: ProjectTarget) {
-        if let selection { selection.wrappedValue = target } else { pushed = target }
+        selection = target
     }
 
     /// Notificación tocada: abre su sesión (y su ventana) en cuanto la lista está cargada.

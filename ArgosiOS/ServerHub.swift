@@ -5,7 +5,9 @@
 //  Estado compartido de la app de iPhone/iPad: los servidores (`ServerStore`), un
 //  `SessionsViewModel` por servidor (lista de proyectos y sesiones) y los terminales
 //  vivos. Reutilizar el view model mantiene UNA conexión SSH por servidor; reutilizar
-//  el controlador hace que volver a un terminal sea instantáneo.
+//  el controlador hace que volver a un terminal sea instantáneo: al cambiar a Archivos,
+//  Cambios o Agentes (o al girar) el terminal se aparca unos minutos en vez de cerrarse
+//  (`TerminalKeepAlivePool`).
 //
 
 import Foundation
@@ -20,19 +22,27 @@ final class ServerHub {
     /// estado observado durante `body` provoca invalidaciones en bucle.
     @ObservationIgnored private var viewModels: [Server.ID: SessionsViewModel] = [:]
     @ObservationIgnored private var terminals: [SessionHandle: TouchTerminalController] = [:]
+    /// Cuáles están en pantalla y cuáles aparcados (y desde cuándo).
+    @ObservationIgnored private var keepAlive = TerminalKeepAlivePool<SessionHandle>()
+    @ObservationIgnored private var keepAliveSweep: Task<Void, Never>?
+    /// Vistas que muestran cada terminal. Al girar o redimensionar, la vista nueva puede
+    /// aparecer antes de que desaparezca la vieja: solo se aparca cuando no queda ninguna.
+    @ObservationIgnored private var terminalViewers: [SessionHandle: Int] = [:]
+    @ObservationIgnored private let reachability = NetworkReachability()
+    /// Paso real por segundo plano (no por `.inactive`).
+    @ObservationIgnored private var lifecycle = BackgroundTransitionTracker()
     @ObservationIgnored private var detachTask: UIBackgroundTaskIdentifier = .invalid
     @ObservationIgnored private var agents: [String: (server: Server.ID, session: PersistentAgentSession)] = [:]
     /// Agentes que estaban enganchados al pasar a segundo plano (se reenganchan al volver).
-    @ObservationIgnored private var suspendedAgents: [PersistentAgentSession] = []
+    @ObservationIgnored private var suspendedAgents: [(server: Server.ID, session: PersistentAgentSession)] = []
 
     /// Destino pedido al tocar una notificación. Lo consume la vista que lo resuelve.
     var pendingRoute: NotificationRoute?
     @ObservationIgnored private var routeExpiry: Task<Void, Never>?
-    /// Si en este tiempo no se pudo abrir (servidor inalcanzable, sin clave…), se olvida:
-    /// que la app saltara a esa sesión minutos después, al reconectar, sería desconcertante.
-    private static let routeLifetime: Duration = .seconds(30)
     /// Sesión que hay en pantalla: de esa no se avisa con la app delante.
-    @ObservationIgnored var viewing: SessionHandle?
+    @ObservationIgnored private(set) var viewing: SessionHandle?
+    /// Vistas que la muestran: al girar, la nueva aparece antes de que se vaya la vieja.
+    @ObservationIgnored private var viewingCount = 0
     @ObservationIgnored private var activityPoll: Task<Void, Never>?
     /// Cambia al arrancar y al parar el sondeo: una respuesta que llega tarde no avisa.
     @ObservationIgnored private var pollGeneration = 0
@@ -48,6 +58,14 @@ final class ServerHub {
         sync.onRemoteRemoval = { [weak self] server in self?.forgetLocally(server) }
         sync.start()
         cloudSync = sync
+    }
+
+    /// Vigila la red para reintentar en el acto los terminales caídos.
+    func startNetworkMonitoring() {
+        reachability.onRestored = { [weak self] in
+            self?.terminals.values.forEach { $0.networkDidReturn() }
+        }
+        reachability.start()
     }
 
     // MARK: - Servidores
@@ -133,10 +151,34 @@ final class ServerHub {
             return
         }
         pendingRoute = route
-        routeExpiry = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: Self.routeLifetime)
-            guard !Task.isCancelled, let self, self.pendingRoute == route else { return }
-            self.pendingRoute = nil
+        routeExpiry = Task { @MainActor [weak self] in await self?.expire(route) }
+    }
+
+    /// Olvida el destino si no se pudo abrir: el plazo corre desde que la conexión con su
+    /// servidor se resolvió (no desde el toque; conectar tras volver de segundo plano
+    /// puede tardar), con un tope. Que la app saltara a esa sesión minutos después, al
+    /// reconectar, sería desconcertante.
+    private func expire(_ route: NotificationRoute) async {
+        let clock = ContinuousClock()
+        let tapped = clock.now
+        var settledAt: ContinuousClock.Instant?
+        while pendingRoute == route {
+            let now = clock.now
+            if settledAt == nil, isSettled(route.serverID) { settledAt = now }
+            if NotificationRouteExpiry.shouldExpire(elapsed: now - tapped, sinceSettled: settledAt.map { now - $0 }) {
+                pendingRoute = nil
+                return
+            }
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
+        }
+    }
+
+    /// La conexión con el servidor ya se resolvió (cargada o con un error a la vista).
+    private func isSettled(_ serverID: Server.ID) -> Bool {
+        guard let state = viewModels[serverID]?.state else { return false }
+        switch state {
+        case .idle, .verifying, .installing, .configuring, .loading: return false
+        case .loaded, .tmuxMissing, .hostKeyChanged, .failed: return true
         }
     }
 
@@ -206,10 +248,28 @@ final class ServerHub {
         disconnect(server.id)
     }
 
+    // MARK: - Sesión en pantalla
+
+    func startViewing(_ handle: SessionHandle) {
+        viewingCount = viewing == handle ? viewingCount + 1 : 1
+        viewing = handle
+    }
+
+    func stopViewing(_ handle: SessionHandle) {
+        guard viewing == handle else { return }
+        viewingCount -= 1
+        if viewingCount <= 0 {
+            viewingCount = 0
+            viewing = nil
+        }
+    }
+
     // MARK: - Terminales
 
     func terminal(for server: Server, sessionName: String) -> TouchTerminalController {
         let handle = SessionHandle(serverID: server.id, sessionID: sessionName)
+        keepAlive = keepAlive.showing(handle)
+        terminalViewers[handle, default: 0] += 1
         if let existing = terminals[handle] { return existing }
         let size = UserDefaults.standard.object(forKey: TerminalAppearance.fontSizeKey) as? Double
         let controller = TouchTerminalController(
@@ -218,31 +278,64 @@ final class ServerHub {
             fontSize: size.map { CGFloat($0) } ?? TerminalAppearance.defaultFontSize
         )
         terminals[handle] = controller
+        sweepKeepAlive()   // con el nuevo puede sobrar un aparcado
         return controller
+    }
+
+    /// El terminal sale de la pantalla (otra pestaña, girar, volver a la lista): sigue
+    /// vivo unos minutos por si se vuelve a él.
+    func parkTerminal(server: Server.ID, sessionName: String) {
+        let handle = SessionHandle(serverID: server, sessionID: sessionName)
+        let viewers = max(0, (terminalViewers[handle] ?? 0) - 1)
+        terminalViewers[handle] = viewers == 0 ? nil : viewers
+        guard viewers == 0 else { return }
+        keepAlive = keepAlive.parking(handle, at: .now)
+        sweepKeepAlive()
     }
 
     /// Cierra (detach) el terminal de una sesión; la sesión tmux sigue viva.
     func closeTerminal(server: Server.ID, sessionName: String) {
         let handle = SessionHandle(serverID: server, sessionID: sessionName)
+        keepAlive = keepAlive.removing(handle)
+        terminalViewers[handle] = nil
         terminals.removeValue(forKey: handle)?.stop()
     }
 
-    /// Al volver a primer plano: los PTY murieron con la suspensión, se reabren.
-    func reconnectTerminals() {
-        for controller in terminals.values where controller.needsReconnect {
-            controller.reconnect()
+    /// Cierra los aparcados caducados o sobrantes y programa la próxima limpieza.
+    private func sweepKeepAlive() {
+        for handle in keepAlive.evictions(at: .now) {
+            Log.terminal.info("Se cierra un terminal aparcado de \(handle.sessionID, privacy: .public)")
+            closeTerminal(server: handle.serverID, sessionName: handle.sessionID)
+        }
+        keepAliveSweep?.cancel()
+        guard let next = keepAlive.nextExpiry else { return }
+        keepAliveSweep = Task { @MainActor [weak self] in
+            do { try await Task.sleep(until: next, clock: .continuous) } catch { return }
+            self?.sweepKeepAlive()
+        }
+    }
+
+    /// Reabre los PTY de un servidor (o de todos) que murieron con la suspensión.
+    func reconnectTerminals(of serverID: Server.ID? = nil) {
+        for (handle, controller) in terminals where serverID == nil || handle.serverID == serverID {
+            if controller.needsReconnect { controller.reconnect() }
         }
     }
 
     /// Al pasar a segundo plano: detach limpio antes de que iOS congele la app. Se pide
     /// tiempo extra al sistema para que el cierre del canal llegue al servidor; si no,
     /// queda un cliente tmux fantasma que condiciona el tamaño de ventana de los demás.
+    /// Los aparcados se cierran del todo; los que están en pantalla se reabren al volver.
     func suspendTerminals() {
-        guard !terminals.isEmpty, detachTask == .invalid else { return }
+        let (pool, dropped) = keepAlive.droppingParked()
+        keepAlive = pool
+        keepAliveSweep?.cancel()
+        let parked = dropped.compactMap { terminals.removeValue(forKey: $0) }
+        guard !terminals.isEmpty || !parked.isEmpty, detachTask == .invalid else { return }
         detachTask = UIApplication.shared.beginBackgroundTask(withName: "argos.detach") { [weak self] in
             MainActor.assumeIsolated { self?.endDetachTask() }
         }
-        let controllers = Array(terminals.values)
+        let controllers = Array(terminals.values) + parked
         Task { @MainActor [weak self] in
             for controller in controllers { await controller.stopAndWait() }
             self?.endDetachTask()
@@ -253,6 +346,57 @@ final class ServerHub {
         guard detachTask != .invalid else { return }
         UIApplication.shared.endBackgroundTask(detachTask)
         detachTask = .invalid
+    }
+
+    // MARK: - Segundo plano y vuelta
+
+    /// La escena pasó a segundo plano (no basta con `.inactive`).
+    func didEnterBackground() {
+        lifecycle.enteredBackground()
+        stopActivityPolling()
+        suspendTerminals()
+        suspendAgents()
+    }
+
+    /// La escena vuelve a estar activa. Solo si se viene de segundo plano: se comprueba
+    /// cada conexión compartida (la de antes puede estar muerta sin saberlo), se refresca
+    /// la lista SIN vaciarla y se reabren terminales y agentes.
+    func didBecomeActive() {
+        startActivityPolling()
+        guard lifecycle.becameActive() else { return }
+        for (id, viewModel) in viewModels {
+            Task { @MainActor [weak self] in
+                await Self.revalidate(viewModel)
+                self?.reconnectTerminals(of: id)
+                self?.resumeAgents(of: id)
+            }
+        }
+        // Terminales de servidores sin view model (no debería haberlos) y agentes sueltos.
+        let known = Set(viewModels.keys)
+        for handle in terminals.keys where !known.contains(handle.serverID) {
+            reconnectTerminals(of: handle.serverID)
+        }
+    }
+
+    /// Sondea la conexión con plazo y refresca. Con la lista cargada usa `refresh()`
+    /// (no pasa por «Conectando…»); si no estaba cargada, carga desde cero.
+    private static func revalidate(_ viewModel: SessionsViewModel) async {
+        guard case .loaded = viewModel.state else {
+            if !viewModel.state.isBusy, case .failed = viewModel.state { await viewModel.load() }
+            return
+        }
+        let service = viewModel.service
+        // TODO(integración): el agente de conexión añade a `SSHServicing` una API para
+        // comprobar/descartar la conexión compartida; cuando esté, sustituye este sondeo
+        // (`listSessions` con plazo + `disconnect`) por ella.
+        let outcome = await ConnectionResume.revalidate(
+            probe: { (try? await service.listSessions()) != nil },
+            disconnect: { await service.disconnect() }
+        )
+        if outcome != .alive {
+            Log.ssh.notice("Al volver de segundo plano la conexión no respondía (\(String(describing: outcome), privacy: .public)): se reconecta")
+        }
+        await viewModel.refresh()
     }
 
     // MARK: - Agentes persistentes
@@ -275,14 +419,17 @@ final class ServerHub {
     }
 
     /// Segundo plano: deja de leer los logs (los agentes siguen en el servidor).
-    func suspendAgents() {
-        suspendedAgents = agents.values.map(\.session).filter(\.isAttached)
-        suspendedAgents.forEach { $0.detach() }
+    private func suspendAgents() {
+        let attached = agents.values.filter(\.session.isAttached)
+        suspendedAgents += attached.map { ($0.server, $0.session) }
+        attached.forEach { $0.session.detach() }
     }
 
-    func resumeAgents() {
-        suspendedAgents.forEach { $0.attach() }
-        suspendedAgents = []
+    /// Reengancha los agentes de un servidor (tras comprobar su conexión).
+    private func resumeAgents(of serverID: Server.ID) {
+        let resumed = suspendedAgents.filter { $0.server == serverID }
+        suspendedAgents.removeAll { $0.server == serverID }
+        resumed.forEach { $0.session.attach() }
     }
 
     private func disconnect(_ serverID: Server.ID) {
@@ -290,8 +437,9 @@ final class ServerHub {
             entry.session.detach()
             agents.removeValue(forKey: id)
         }
+        suspendedAgents.removeAll { $0.server == serverID }
         for handle in terminals.keys where handle.serverID == serverID {
-            terminals.removeValue(forKey: handle)?.stop()
+            closeTerminal(server: serverID, sessionName: handle.sessionID)
         }
         if let viewModel = viewModels.removeValue(forKey: serverID) {
             Task { await viewModel.service.disconnect() }

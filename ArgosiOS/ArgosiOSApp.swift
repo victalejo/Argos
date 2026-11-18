@@ -18,6 +18,7 @@ struct ArgosiOSApp: App {
         AgentNotifier.shared.register(hub: hub)
         // Nombre con el que este dispositivo aparece en `argos-ports` (skill de Claude).
         PortForwardDevice.name = UIDevice.current.model
+        hub.startNetworkMonitoring()
     }
 
     var body: some Scene {
@@ -29,17 +30,13 @@ struct ArgosiOSApp: App {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background:
-                hub.stopActivityPolling()
                 AgentNotifier.shared.prepareForBackground()
-                hub.suspendTerminals()
-                hub.suspendAgents()
+                hub.didEnterBackground()
             case .active:
                 hub.migrateSecretAccessibilityIfNeeded()
                 AgentNotifier.shared.didReturnToForeground()
-                hub.startActivityPolling()
                 hub.cloudSync?.sync()
-                hub.reconnectTerminals()
-                hub.resumeAgents()
+                hub.didBecomeActive()
             default: break
             }
         }
