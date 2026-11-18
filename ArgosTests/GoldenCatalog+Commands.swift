@@ -1,0 +1,91 @@
+//
+//  GoldenCatalog+Commands.swift
+//  ArgosTests
+//
+//  Goldens de git, GitHub, worktrees, puertos, hooks de Claude y estado de tmux. Mismas
+//  entradas que `GitTest`, `GitHubTest`, `GitWorktreeTest`, `CommitMessageSuggestionTest`,
+//  `PortsTest` y `SwiftParityGoldenTest` de Android.
+//
+
+import Foundation
+@testable import Argos
+
+extension GoldenCatalog {
+
+    static func commands() throws -> [String: String] {
+        let root = "/home/u/mi repo's"
+        let mod = GitFileChange(path: "src/a b.swift", originalPath: nil, indexCode: " ", worktreeCode: "M")
+        let ren = GitFileChange(path: "nuevo.txt", originalPath: "viejo*.txt", indexCode: "R", worktreeCode: " ")
+        let unt = GitFileChange(path: "*", originalPath: nil, indexCode: "?", worktreeCode: "?")
+        let quotedUntracked = GitFileChange(path: "it's new.txt", originalPath: nil, indexCode: "?", worktreeCode: "?")
+        let forwards = [
+            ActivePortForward(id: UUID(), remotePort: 5173, targetHost: "localhost", localPort: 5173),
+            ActivePortForward(id: UUID(), remotePort: 3000, targetHost: "10.0.0.5", localPort: 3001),
+        ]
+        return [
+            "git-status": GitCommands.status(path: "~/p/$(x)"),
+            "git-diff-modified": GitCommands.diff(root: root, change: mod, hasCommits: true),
+            "git-diff-renamed": GitCommands.diff(root: root, change: ren, hasCommits: true),
+            "git-diff-untracked": GitCommands.diff(root: root, change: unt, hasCommits: true),
+            "git-diff-nocommits": GitCommands.diff(root: root, change: mod, hasCommits: false),
+            "git-discard-tracked": GitCommands.discard(root: root, change: ren),
+            "git-discard-untracked": GitCommands.discard(root: root, change: unt),
+            "git-commit": GitCommands.commit(root: root, message: "feat: «hola» 'x' $HOME\nsegunda", changes: [mod, ren, unt]),
+            "git-push-upstream": GitCommands.push(root: root, hasUpstream: true),
+            "git-push-new": GitCommands.push(root: root, hasUpstream: false),
+            "git-pull": GitCommands.pull(root: root),
+            "git-summaries": GitSummaryCommands.summaries(paths: ["/a", "~/b c", "/d'e"]),
+            "claude-done-0": ClaudeDoneMessage.body(changedFiles: 0),
+            "claude-done-1": ClaudeDoneMessage.body(changedFiles: 1),
+            "claude-done-5": ClaudeDoneMessage.body(changedFiles: 5),
+            "cm-suggest": CommitMessageSuggestion.command(
+                claudePath: "/home/u/.local/bin/claude", root: root, changes: [mod, ren, quotedUntracked], hasCommits: true
+            ),
+            "cm-suggest-nocommits": CommitMessageSuggestion.command(
+                claudePath: "/usr/bin/claude", root: "/srv/app", changes: [mod, quotedUntracked], hasCommits: false
+            ),
+            "cm-suggest-untracked": CommitMessageSuggestion.command(
+                claudePath: "/usr/bin/claude", root: "/srv/app", changes: [quotedUntracked], hasCommits: true
+            ),
+            "wt-list": GitWorktreeCommands.list(path: root),
+            "wt-add-new": GitWorktreeCommands.add(GitWorktreeRequest(
+                repository: root, branch: "feat/login", createsBranch: true, base: "main", path: "\(root)-worktrees/feat-login"
+            )),
+            "wt-add-existing": GitWorktreeCommands.add(GitWorktreeRequest(
+                repository: "/srv/app", branch: "fix/x", createsBranch: false, base: "", path: "/srv/app-worktrees/fix-x"
+            )),
+            "wt-remove": GitWorktreeCommands.remove(repository: "/srv/app", path: "/srv/app-worktrees/a b", force: false),
+            "wt-remove-force": GitWorktreeCommands.remove(repository: "/srv/app", path: "/srv/app-worktrees/a b", force: true),
+            "gh-status": GitHubCommands.status(root: root),
+            "gh-create-pr": GitHubCommands.createPullRequest(root: root, draft: false),
+            "gh-create-pr-draft": GitHubCommands.createPullRequest(root: root, draft: true),
+            "gh-rerun": GitHubCommands.rerunFailed(root: root, runID: 42_853_364_727),
+            "gh-repos": GitHubCommands.repositories(),
+            "gh-clone-home": GitHubCommands.clone(try GitHubCloneRequest.make(repository: "victalejo/Argos", parent: "~/proy ectos", folder: "a'b")),
+            "gh-clone-abs": GitHubCommands.clone(try GitHubCloneRequest.make(repository: "https://github.com/o/r.git", parent: "/srv", folder: "r")),
+            "ports-listening": ListeningPortParser.command,
+            "ports-publish": PortForwardServerFiles.publishCommand(deviceID: "a1b2-C3/..;x", deviceName: "Pixel de O'Brien\t8", forwards: forwards),
+            "ports-unpublish": PortForwardServerFiles.unpublishCommand(deviceID: "DEV-1"),
+            "ports-install": PortForwardServerFiles.installCommand,
+            "ports-requests": PortForwardServerFiles.listRequestsCommand,
+            "ports-dismiss": PortForwardServerFiles.dismissRequestCommand(port: 5173),
+        ]
+    }
+
+    static func hooksAndStatus() throws -> [String: String] {
+        let existing = #"{"model":"opus","env":{},"arr":[],"x":0.1,"y":1.0,"t":true,"u":"a/b\u0001 ","#
+            + #""hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"python3 transcribe.py"}]}],"#
+            + #""Stop":[{"matcher":"","hooks":[{"type":"command","command":"x # argos-claude-status"},"#
+            + #"{"type":"command","command":"mine"}]}]}}"#
+        let settings = try ClaudeHookInstaller.parseSettings(existing)
+        return [
+            "hook-working": ClaudeHookInstaller.command(setting: .working),
+            "hook-clear": ClaudeHookInstaller.command(setting: nil),
+            "hooks-empty": try ClaudeHookInstaller.serialize(ClaudeHookInstaller.installing(into: [:])),
+            "hooks-merged": try ClaudeHookInstaller.serialize(ClaudeHookInstaller.installing(into: settings)),
+            "hooks-removed": try ClaudeHookInstaller.serialize(ClaudeHookInstaller.removing(from: settings)),
+            "serialize-empty": try ClaudeHookInstaller.serialize([:]),
+            "claude-activity": SSHService.claudeActivityCommand,
+        ]
+    }
+}
