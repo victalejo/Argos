@@ -163,6 +163,19 @@ object AgentProtocol {
         )
     }
 
+    /**
+     * Petición de control `interrupt` del protocolo stream-json (la que manda `interrupt()` del
+     * Agent SDK): corta el turno en curso sin cerrar la sesión; el CLI responde con un
+     * `control_response` y cierra el turno con un `result`. Como `encodeInterrupt` de Swift.
+     */
+    fun encodeInterrupt(requestID: String): String = SwiftJson.compact(
+        jsonObjectOf(
+            "type" to JsonPrimitive("control_request"),
+            "request_id" to JsonPrimitive(requestID),
+            "request" to jsonObjectOf("subtype" to JsonPrimitive("interrupt")),
+        ),
+    )
+
     private fun jsonObjectOf(vararg pairs: Pair<String, JsonElement>): JsonObject = JsonObject(mapOf(*pairs))
 }
 

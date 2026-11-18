@@ -29,6 +29,8 @@ data class PersistentAgentSessionState(
     val link: AgentLinkState = AgentLinkState.Detached,
     /** Reanudando (arrancando claude con `--resume`). */
     val isResuming: Boolean = false,
+    /** Se pidió interrumpir el turno y aún no llegó su `result`. */
+    val isInterrupting: Boolean = false,
     /**
      * Bytes ABSOLUTOS del log ya procesados (hasta la última línea completa): lo que el usuario
      * ya ha visto. El siguiente enganche sigue desde aquí.
@@ -183,7 +185,11 @@ class PersistentAgentSession(
                     val event = line.text?.let(AgentProtocol::decode)
                     val conversation = event?.let { AgentReducer.apply(it, state.conversation, echoesUserMessages = true) }
                         ?: state.conversation
-                    state.copy(conversation = conversation, receivedBytes = state.receivedBytes + line.byteCount)
+                    state.copy(
+                        conversation = conversation,
+                        receivedBytes = state.receivedBytes + line.byteCount,
+                        isInterrupting = state.isInterrupting && event !is AgentStreamEvent.Result,
+                    )
                 }
                 AgentAttachStreamParser.Line.Rotated -> {
                     logWasRotated(current)
@@ -309,12 +315,50 @@ class PersistentAgentSession(
     }
 
     /**
+     * «Detener» el turno en curso: la petición de control `interrupt` por la FIFO (como en el
+     * panel del Mac). El agente sigue vivo; el CLI cierra el turno con un `result`. Con un permiso
+     * pendiente no se manda (se deniega desde su tarjeta y queda anotado para los demás
+     * dispositivos). Devuelve si se envió.
+     */
+    suspend fun interrupt(): Boolean {
+        val current = mutableState.value
+        val canInterrupt = current.isAlive && current.conversation.status == AgentStatus.Working &&
+            current.conversation.pendingPermission == null && !current.isInterrupting
+        if (!canInterrupt) return false
+        mutableState.update { it.copy(isInterrupting = true) }
+        val requestID = "$INTERRUPT_REQUEST_PREFIX${UUID.randomUUID().toString().lowercase()}"
+        val sent = write(AgentProtocol.encodeInterrupt(requestID), answering = null)
+        if (!sent) mutableState.update { it.copy(isInterrupting = false) }
+        return sent
+    }
+
+    /**
+     * «Poner en reposo» a demanda: para el proceso SI en el servidor está quieto (su último evento
+     * es un `result`); escribirle lo reanuda. Devuelve si lo hizo.
+     */
+    suspend fun hibernateNow(): Boolean = try {
+        val output = service.runAgentScript(PersistentAgentScript.hibernate(id, minIdleSeconds = 0))
+        val done = output.contains("${PersistentAgentScript.HIBERNATED_REPLY} $id")
+        refreshInfo()
+        when {
+            done -> mutableState.update { it.copy(lastError = null) }
+            mutableState.value.isAlive -> mutableState.update { it.copy(lastError = HIBERNATE_BUSY_MESSAGE) }
+        }
+        done
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        mutableState.update { it.copy(lastError = error.userMessage) }
+        false
+    }
+
+    /**
      * Para el proceso del agente (la conversación se puede reanudar después). Con [delete], borra
      * también su log (solo si el proceso murió de verdad). Devuelve si se paró.
      */
     suspend fun stop(delete: Boolean = false): Boolean = try {
         service.runAgentScript(PersistentAgentScript.stop(id, delete))
-        mutableState.update { it.copy(isAlive = false) }
+        mutableState.update { it.copy(isAlive = false, isInterrupting = false) }
         if (delete) detach()
         true
     } catch (cancelled: CancellationException) {
@@ -413,6 +457,11 @@ class PersistentAgentSession(
         private const val LAUNCH_TIMEOUT_MILLIS = 60_000L
         private const val ERROR_TAIL_SHOWN = 600
         private const val LAUNCH_FAILED_MESSAGE = "No se pudo arrancar el agente en el servidor."
+
+        /** Prefijo del `request_id` de las interrupciones (como Swift). */
+        const val INTERRUPT_REQUEST_PREFIX = "argos-interrupt-"
+        const val HIBERNATE_BUSY_MESSAGE =
+            "Claude está trabajando o espera un permiso: no se puede poner en reposo ahora."
 
         /** Lanza un agente nuevo en [workingDirectory] y devuelve su sesión, aún sin enganchar. */
         suspend fun launch(

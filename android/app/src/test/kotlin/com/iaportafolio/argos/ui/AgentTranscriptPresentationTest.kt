@@ -213,4 +213,14 @@ class AgentTranscriptPresentationTest {
         assertEquals("", tool.summary)
         assertEquals("{}", tool.detail)
     }
+
+    @Test
+    fun `detener el turno solo con Claude trabajando y sin permiso a la vista`() {
+        val working = ready.copy(conversationStatus = AgentStatus.Working)
+        assertTrue(working.showsInterrupt && working.canInterrupt)
+        assertFalse(working.copy(isInterrupting = true).canInterrupt)
+        assertFalse(ready.showsInterrupt)
+        assertFalse(working.copy(permission = card).showsInterrupt)
+        assertFalse(working.copy(isAlive = false).showsInterrupt)
+    }
 }

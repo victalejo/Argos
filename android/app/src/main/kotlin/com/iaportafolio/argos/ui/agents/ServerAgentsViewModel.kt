@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.agent.PersistentAgentHibernation
+import com.iaportafolio.argos.core.agent.ServerAgentActions
 import com.iaportafolio.argos.core.agent.ServerAgentInventory
 import com.iaportafolio.argos.core.agent.ServerAgentProcess
 import com.iaportafolio.argos.core.agent.serverAgentInventory
@@ -116,25 +117,13 @@ class ServerAgentsViewModel(
         val candidates = state.value.candidates
         val minimum = state.value.hibernation.idleSeconds
         if (candidates.isEmpty()) return
-        perform { ssh ->
-            val output = ssh.runAgentScript(ServerAgentInventory.hibernate(candidates.map { it.sessionID }, minimum))
-            ServerAgentInventory.failures(output)
-        }
+        perform { ssh -> ServerAgentActions.hibernate(candidates, minimum, ssh) }
     }
 
     fun actionErrorShown() = mutableState.update { it.copy(actionError = null) }
 
-    private fun stopAgents(agents: List<ServerAgentProcess>): suspend (SSHServicing) -> List<String> = { ssh ->
-        val persistent = agents.filter { it.kind is ServerAgentProcess.Kind.Persistent }.map { it.sessionID }
-        val panel = agents.mapNotNull { agent -> (agent.kind as? ServerAgentProcess.Kind.Panel)?.let { it.pid to agent.sessionID } }
-        val failed = if (persistent.isEmpty()) {
-            emptyList()
-        } else {
-            ServerAgentInventory.failures(ssh.runAgentScript(ServerAgentInventory.stopPersistent(persistent)))
-        }
-        if (panel.isNotEmpty()) ssh.runAgentScript(ServerAgentInventory.stopPanel(panel))
-        failed
-    }
+    private fun stopAgents(agents: List<ServerAgentProcess>): suspend (SSHServicing) -> List<String> =
+        { ssh -> ServerAgentActions.stop(agents, ssh) }
 
     /** Ejecuta una acción que devuelve los agentes que no pudo tratar (p. ej. atascados). */
     private fun perform(action: suspend (SSHServicing) -> List<String>) {
@@ -144,9 +133,7 @@ class ServerAgentsViewModel(
             agentFailures("Acción sobre los agentes de $serverId fallida") {
                 withContext(io) { action(service()) }
             }.onSuccess { failed ->
-                if (failed.isNotEmpty()) {
-                    val agents = state.value.inventory?.agents.orEmpty()
-                    val names = failed.joinToString(", ") { id -> agents.firstOrNull { it.sessionID == id }?.title ?: id }
+                ServerAgentActions.failedNames(failed, state.value.inventory)?.let { names ->
                     mutableState.update { it.copy(actionError = UiText.res(R.string.server_agents_failed, names)) }
                 }
             }.onFailure { error ->

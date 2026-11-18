@@ -218,6 +218,7 @@ class AgentChatViewModel(
                 isAlive = if (aliveChanged) alive else it.isAlive,
                 isHibernated = projection.session.meta.isHibernated,
                 isResuming = resumingByUser || projection.session.isResuming,
+                isInterrupting = projection.session.isInterrupting,
             )
         }
     }
@@ -377,6 +378,24 @@ class AgentChatViewModel(
                 }
             } finally {
                 mutableState.update { it.copy(isResponding = false) }
+            }
+        }
+    }
+
+    // MARK: - Detener el turno
+
+    /** «Detener»: corta el turno en curso sin cerrar la conversación ni parar el agente. */
+    fun interrupt() {
+        val current = session ?: return
+        if (!state.value.canInterrupt) return
+        viewModelScope.launch {
+            if (current.interrupt()) {
+                mutableState.update { it.copy(error = null) }
+            } else {
+                current.state.value.lastError?.let { failure ->
+                    ArgosLog.warn(ArgosLog.TAG_AGENT, "No se pudo detener el turno del agente $agentId")
+                    mutableState.update { it.copy(error = UiText.Plain(redactor.redact(failure))) }
+                }
             }
         }
     }

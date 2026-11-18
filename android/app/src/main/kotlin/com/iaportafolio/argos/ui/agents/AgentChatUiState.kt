@@ -58,6 +58,8 @@ data class AgentChatUiState(
     val isResponding: Boolean = false,
     val isResuming: Boolean = false,
     val isStopping: Boolean = false,
+    /** «Detener» el turno pedido y aún sin su `result`. */
+    val isInterrupting: Boolean = false,
     val isDeleting: Boolean = false,
     val confirmDelete: Boolean = false,
     /** `meta.json` pide un modo que actúa sin preguntar: reanudar exige confirmarlo. */
@@ -91,4 +93,12 @@ data class AgentChatUiState(
     val canCompose: Boolean get() = isAlive || isHibernated
 
     val canSend: Boolean get() = load == AgentChatLoad.Ready && canCompose && !isSending && !isResuming
+
+    /**
+     * «Detener» el turno: solo con Claude trabajando y sin un permiso a la vista (ese se deniega
+     * desde su tarjeta, como en Swift). El agente sigue vivo y la conversación abierta.
+     */
+    val showsInterrupt: Boolean get() = status == AgentChatStatus.WORKING
+
+    val canInterrupt: Boolean get() = showsInterrupt && visiblePermission == null && !isInterrupting
 }

@@ -357,6 +357,7 @@
     <string name="agents_chat_placeholder">Pide algo a Claude…</string>
     <string name="agents_chat_placeholder_dead">El agente está detenido</string>
     <string name="agents_chat_send">Enviar</string>
+    <string name="agents_chat_interrupt">Detener el turno</string>
     <string name="agents_chat_to_bottom">Ir al final de la conversación</string>
     <string name="agents_chat_dismiss_error">Cerrar el aviso</string>
     <string name="agents_chat_thinking">Pensamiento</string>

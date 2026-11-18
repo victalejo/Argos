@@ -36,6 +36,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -283,7 +284,7 @@ private fun ChatContent(
                 onDecide = { allow -> viewModel.decidePermission(card.requestId, allow) },
             )
         }
-        Composer(state, draft, onDraftChange, onSend = { viewModel.send(draft.text) })
+        Composer(state, draft, onDraftChange, onSend = { viewModel.send(draft.text) }, onInterrupt = viewModel::interrupt)
     }
 }
 
@@ -458,7 +459,13 @@ private fun Banner(
 }
 
 @Composable
-private fun Composer(state: AgentChatUiState, draft: TextFieldValue, onDraftChange: (TextFieldValue) -> Unit, onSend: () -> Unit) {
+private fun Composer(
+    state: AgentChatUiState,
+    draft: TextFieldValue,
+    onDraftChange: (TextFieldValue) -> Unit,
+    onSend: () -> Unit,
+    onInterrupt: () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,
@@ -483,6 +490,15 @@ private fun Composer(state: AgentChatUiState, draft: TextFieldValue, onDraftChan
             },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         )
+        if (state.showsInterrupt) {
+            OutlinedIconButton(onClick = onInterrupt, enabled = state.canInterrupt) {
+                if (state.isInterrupting) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(painterResource(R.drawable.ic_stop), contentDescription = stringResource(R.string.agents_chat_interrupt))
+                }
+            }
+        }
         FilledIconButton(onClick = onSend, enabled = state.canSend && draft.text.isNotBlank()) {
             if (state.isSending) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)

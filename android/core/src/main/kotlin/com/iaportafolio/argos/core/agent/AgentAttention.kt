@@ -18,7 +18,11 @@ data class AgentNotificationText(val title: String, val body: String)
 sealed interface AgentAttention {
     data object None : AgentAttention
     data class NeedsPermission(val tool: String) : AgentAttention
-    data class Finished(val summary: String?, val isError: Boolean) : AgentAttention
+    /**
+     * [seeded]: es el `result` que cierra un log sembrado ([AgentTranscriptSeed]), no un turno que
+     * terminara ahora: el agente está quieto, pero no se avisa de «terminó» por él.
+     */
+    data class Finished(val summary: String?, val isError: Boolean, val seeded: Boolean = false) : AgentAttention
 
     /**
      * El final del log no se pudo interpretar (p. ej. un permiso sin `request_id` legible): no
@@ -33,7 +37,7 @@ sealed interface AgentAttention {
             "$agentTitle: Claude espera tu permiso",
             "Quiere usar $tool. Ábrelo para permitir o denegar.",
         )
-        is Finished -> AgentNotificationText(
+        is Finished -> if (seeded) null else AgentNotificationText(
             "$agentTitle: ${if (isError) "Claude terminó con error" else "Claude terminó"}",
             summary?.let { SwiftText.graphemePrefix(it, SUMMARY_MAX_CHARACTERS) }
                 ?: if (isError) "Terminó con un error." else "Terminó la tarea.",
@@ -66,7 +70,7 @@ sealed interface AgentAttention {
                     AgentLogLineSummary.Kind.RESULT -> {
                         pending = null
                         unreadablePermission = false
-                        outcome = Finished(line.resultText, line.isError)
+                        outcome = Finished(line.resultText, line.isError, seeded = line.isSeed)
                     }
                     AgentLogLineSummary.Kind.USER_PROMPT -> outcome = None // un prompt nuevo: vuelve a trabajar
                     AgentLogLineSummary.Kind.OTHER -> Unit
@@ -95,6 +99,8 @@ data class AgentLogLineSummary(
     val displayName: String? = null,
     val isError: Boolean = false,
     val resultText: String? = null,
+    /** `result` con `subtype` [AgentTranscriptSeed.CLOSING_SUBTYPE] (cierre de un log sembrado). */
+    val isSeed: Boolean = false,
 ) {
     enum class Kind { PERMISSION_REQUEST, PERMISSION_ANSWERED, PERMISSION_CANCEL, RESULT, USER_PROMPT, OTHER }
 
@@ -118,6 +124,7 @@ data class AgentLogLineSummary(
                 Kind.RESULT,
                 isError = event.result.isError,
                 resultText = event.result.text,
+                isSeed = event.result.subtype == AgentTranscriptSeed.CLOSING_SUBTYPE,
             )
             is AgentStreamEvent.User ->
                 AgentLogLineSummary(if (event.blocks.any { it is AgentContentBlock.Text }) Kind.USER_PROMPT else Kind.OTHER)
@@ -148,6 +155,7 @@ data class AgentLogLineSummary(
                 Kind.RESULT,
                 isError = line.contains("\"is_error\":true"),
                 resultText = firstString("\"result\":", line),
+                isSeed = firstString("\"subtype\":", line) == AgentTranscriptSeed.CLOSING_SUBTYPE,
             )
             "user" -> {
                 // Recortada no se sabe si es un prompt o un resultado de herramienta: los
@@ -205,6 +213,8 @@ data class AgentLogSnapshot(
     val title: String,
     val createdAt: Instant,
     val tail: String,
+    /** Carpeta del agente (`meta.json`): el aviso abre su proyecto. */
+    val workingDirectory: String = "",
 )
 
 /**
