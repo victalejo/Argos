@@ -18,9 +18,9 @@ concurrency:
 # deja su propio resumen.
 #
 # Acciones fijadas por SHA (Dependabot las mantiene al día): un tag se puede mover.
-#   actions/checkout        fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-#   actions/cache           0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-#   actions/upload-artifact ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+#   actions/checkout        3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+#   actions/cache           55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+#   actions/upload-artifact cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
 #
 # Caché: solo los paquetes SwiftPM clonados (clave = Package.resolved). NO se cachea
 # DerivedData: Xcode decide recompilar por inodo/fecha de cada fuente, que cambian al
