@@ -6,10 +6,15 @@
 //  conversaciones en pestañas por cada uno (como las ventanas del terminal). Mantiene
 //  los agentes vivos aunque cambies de proyecto o de pestaña (Terminal/Archivos/Agente).
 //
+//  Hay dos clases de pestaña (`AgentTabSlot`): conversaciones «de esta sesión» (su
+//  `claude` vive con la conexión) y agentes PERSISTENTES del servidor (creados aquí, en el
+//  iPhone/iPad, Android u otro Mac), a los que la pestaña solo se engancha.
+//
 //  Al llegar al tope NO cierra nada por su cuenta: la vista pregunta cuál cerrar. Las
 //  conversaciones cerradas se recuerdan para reanudarlas (`--resume`). Al salir de la app
-//  `stopAll()` mata todos los `claude`; al conectar, `cleanUpOrphans` mata los que este
-//  dispositivo lanzó y ya no tienen pestaña viva.
+//  `stopAll()` mata los `claude` de esta sesión y solo DESENGANCHA los persistentes; al
+//  conectar, `cleanUpOrphans` mata los del panel que este dispositivo lanzó y ya no tienen
+//  pestaña viva (nunca un persistente). Ver `AgentSessionStore+Persistent.swift`.
 //
 
 import Foundation
@@ -36,6 +41,76 @@ struct AgentTab: Identifiable {
                 return line.count > 28 ? String(line.prefix(27)) + "…" : line
             }
         }
+        return nil
+    }
+}
+
+/// Pestaña de un agente persistente (la pestaña solo se engancha a su log).
+struct PersistentAgentTab: Identifiable {
+    let id: UUID
+    let number: Int
+    let session: PersistentAgentSession
+
+    /// El inicio del primer mensaje del usuario, o el título con el que se creó.
+    @MainActor var title: String {
+        AgentTab.title(items: session.state.items) ?? session.meta.title
+    }
+}
+
+/// Una pestaña del panel: conversación de esta sesión o agente persistente.
+enum AgentTabSlot: Identifiable {
+    case session(AgentTab)
+    case persistent(PersistentAgentTab)
+
+    var id: UUID {
+        switch self {
+        case .session(let tab): return tab.id
+        case .persistent(let tab): return tab.id
+        }
+    }
+
+    var number: Int {
+        switch self {
+        case .session(let tab): return tab.number
+        case .persistent(let tab): return tab.number
+        }
+    }
+
+    var lifecycle: AgentConversationLifecycle {
+        switch self {
+        case .session: return .session
+        case .persistent: return .persistent
+        }
+    }
+
+    @MainActor var title: String {
+        switch self {
+        case .session(let tab): return tab.title
+        case .persistent(let tab): return tab.title
+        }
+    }
+
+    @MainActor var conversation: any AgentConversationDriving {
+        switch self {
+        case .session(let tab): return tab.session
+        case .persistent(let tab): return tab.session
+        }
+    }
+
+    @MainActor var permissionMode: ClaudeAgentCommand.PermissionMode {
+        switch self {
+        case .session(let tab): return tab.permissionMode
+        case .persistent(let tab): return tab.session.meta.resolvedPermissionMode
+        }
+    }
+
+    var sessionTab: AgentTab? {
+        if case .session(let tab) = self { return tab }
+        return nil
+    }
+
+    var persistentTab: PersistentAgentTab? {
+        if case .persistent(let tab) = self { return tab }
         return nil
     }
 }
@@ -74,16 +149,21 @@ enum AgentTabCapacity: Equatable {
 @Observable
 final class AgentSessionStore {
 
-    private var tabsByHandle: [SessionHandle: [AgentTab]] = [:]
-    private var selectedByHandle: [SessionHandle: UUID] = [:]
-    private var counters: [SessionHandle: Int] = [:]
-    private var closedByHandle: [SessionHandle: [ClosedAgentConversation]] = [:]
+    /// Pestañas de cada proyecto, en orden. (Interno para la extensión de persistentes.)
+    var slotsByHandle: [SessionHandle: [AgentTabSlot]] = [:]
+    var selectedByHandle: [SessionHandle: UUID] = [:]
+    var counters: [SessionHandle: Int] = [:]
+    var closedByHandle: [SessionHandle: [ClosedAgentConversation]] = [:]
+    /// Agentes persistentes de los servidores conectados (lista «En el servidor» y bandeja).
+    let watch = PersistentAgentWatch()
     /// Comprobaciones de Claude ya hechas por servidor: al cambiar de proyecto se muestran
     /// las pestañas al instante y se verifica en segundo plano.
     var readinessCache: [Server.ID: AgentServerReadiness] = [:]
     @ObservationIgnored private var lastCleanup: [Server.ID: Date] = [:]
     @ObservationIgnored private var resuming: Set<UUID> = []
-    @ObservationIgnored private let registry: AgentPanelRegistry
+    /// Pestañas que se están pasando al servidor.
+    @ObservationIgnored var converting: Set<UUID> = []
+    @ObservationIgnored let registry: AgentPanelRegistry
 
     /// Tope de agentes vivos a la vez EN TOTAL (cada uno es un `claude` remoto que ocupa
     /// ~0,5 GB en el servidor).
@@ -95,24 +175,35 @@ final class AgentSessionStore {
 
     init(registry: AgentPanelRegistry = AgentPanelRegistry()) {
         self.registry = registry
+        watch.viewing = { [weak self] in self?.viewingPersistent ?? [:] }
     }
 
+    /// Conversaciones de esta sesión de un proyecto.
     func tabs(for handle: SessionHandle) -> [AgentTab] {
-        tabsByHandle[handle] ?? []
+        slots(for: handle).compactMap(\.sessionTab)
     }
 
-    func selectedTab(for handle: SessionHandle) -> AgentTab? {
-        let tabs = tabs(for: handle)
-        return tabs.first { $0.id == selectedByHandle[handle] } ?? tabs.last
+    /// Todas las pestañas de un proyecto (de esta sesión y persistentes), en orden.
+    func slots(for handle: SessionHandle) -> [AgentTabSlot] {
+        slotsByHandle[handle] ?? []
+    }
+
+    func selectedSlot(for handle: SessionHandle) -> AgentTabSlot? {
+        let slots = slots(for: handle)
+        return slots.first { $0.id == selectedByHandle[handle] } ?? slots.last
     }
 
     func select(_ tabID: UUID, for handle: SessionHandle) {
         selectedByHandle[handle] = tabID
     }
 
-    /// Todas las pestañas con su proyecto (para elegir cuál cerrar al llegar al tope).
+    /// Todas las conversaciones DE ESTA SESIÓN con su proyecto (para elegir cuál cerrar al
+    /// llegar al tope, avisar al salir y saber si una conexión nueva cortaría algo). Los
+    /// persistentes no cuentan: no dependen de esta app.
     var allTabs: [AgentTabEntry] {
-        tabsByHandle.flatMap { handle, tabs in tabs.map { AgentTabEntry(handle: handle, tab: $0) } }
+        slotsByHandle.flatMap { handle, slots in
+            slots.compactMap(\.sessionTab).map { AgentTabEntry(handle: handle, tab: $0) }
+        }
     }
 
     /// Conversaciones con su `claude` en marcha.
@@ -135,11 +226,9 @@ final class AgentSessionStore {
         sessionID: String = UUID().uuidString.lowercased(),
         initialState: AgentConversationState = AgentConversationState()
     ) -> AgentTab {
-        let number = (counters[handle] ?? 0) + 1
-        counters[handle] = number
         let tab = AgentTab(
             id: UUID(),
-            number: number,
+            number: nextNumber(for: handle),
             session: ClaudeAgentSession(
                 service: service, command: command, workingDirectory: workingDirectory,
                 oauthToken: oauthToken, sessionID: sessionID, initialState: initialState
@@ -147,9 +236,16 @@ final class AgentSessionStore {
             permissionMode: permissionMode
         )
         registry.record(sessionID, serverID: handle.serverID)
-        tabsByHandle[handle, default: []].append(tab)
+        slotsByHandle[handle, default: []].append(.session(tab))
         selectedByHandle[handle] = tab.id
         return tab
+    }
+
+    /// Número para una pestaña nueva del proyecto.
+    func nextNumber(for handle: SessionHandle) -> Int {
+        let number = (counters[handle] ?? 0) + 1
+        counters[handle] = number
+        return number
     }
 
     /// Reanuda en la MISMA pestaña una conversación terminada (`--resume`), conservando lo
@@ -162,14 +258,14 @@ final class AgentSessionStore {
         resuming.insert(tabID)
         defer { resuming.remove(tabID) }
         await old.session.stopAndWait()
-        guard var tabs = tabsByHandle[handle], let index = tabs.firstIndex(where: { $0.id == tabID }),
-              tabs[index].session === old.session else { return }
+        guard var slots = slotsByHandle[handle], let index = slots.firstIndex(where: { $0.id == tabID }),
+              slots[index].sessionTab?.session === old.session else { return }
         let session = ClaudeAgentSession(
             service: service, command: command, workingDirectory: old.session.workingDirectory,
             oauthToken: oauthToken, sessionID: old.session.sessionID, initialState: old.session.state
         )
-        tabs[index] = AgentTab(id: old.id, number: old.number, session: session, permissionMode: old.permissionMode)
-        tabsByHandle[handle] = tabs
+        slots[index] = .session(AgentTab(id: old.id, number: old.number, session: session, permissionMode: old.permissionMode))
+        slotsByHandle[handle] = slots
         registry.record(old.session.sessionID, serverID: handle.serverID)
     }
 
@@ -200,17 +296,22 @@ final class AgentSessionStore {
         closedByHandle[handle] ?? []
     }
 
-    /// Cierra una conversación (mata su `claude` remoto). Si tenía mensajes, se recuerda
-    /// para poder reanudarla.
+    /// Cierra una pestaña. Una conversación de esta sesión se DETIENE (mata su `claude`
+    /// remoto) y, si tenía mensajes, se recuerda para reanudarla. Un agente persistente solo
+    /// se desengancha: sigue en el servidor (ver `AgentTabClosePolicy`).
     func closeTab(_ tabID: UUID, for handle: SessionHandle) {
-        guard var tabs = tabsByHandle[handle], let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
-        let tab = tabs[index]
-        tab.session.stop()
-        remember(tab, for: handle)
-        tabs.remove(at: index)
-        tabsByHandle[handle] = tabs.isEmpty ? nil : tabs
+        guard var slots = slotsByHandle[handle], let index = slots.firstIndex(where: { $0.id == tabID }) else { return }
+        switch slots[index] {
+        case .session(let tab):
+            tab.session.stop()
+            remember(tab, for: handle)
+        case .persistent(let tab):
+            tab.session.detach()
+        }
+        slots.remove(at: index)
+        slotsByHandle[handle] = slots.isEmpty ? nil : slots
         if selectedByHandle[handle] == tabID {
-            selectedByHandle[handle] = tabs.indices.contains(index) ? tabs[index].id : tabs.last?.id
+            selectedByHandle[handle] = slots.indices.contains(index) ? slots[index].id : slots.last?.id
         }
     }
 
@@ -229,24 +330,30 @@ final class AgentSessionStore {
         closedByHandle[handle] = Array(list.prefix(Self.maxClosedConversations))
     }
 
-    /// Cierra todas las conversaciones de un proyecto (p. ej. al detenerlo).
+    /// Cierra todas las pestañas de un proyecto (p. ej. al detenerlo). Los persistentes
+    /// solo se desenganchan.
     func closeAll(for handle: SessionHandle) {
-        for tab in tabs(for: handle) { closeTab(tab.id, for: handle) }
+        for slot in slots(for: handle) { closeTab(slot.id, for: handle) }
         counters[handle] = nil
     }
 
-    /// Cierra todos los agentes de un servidor (al eliminarlo/editarlo).
+    /// Cierra todas las pestañas de un servidor (al eliminarlo, editarlo o rehacer su
+    /// conexión: los persistentes se desenganchan del servicio viejo y siguen en el servidor).
     func closeAll(forServer serverID: Server.ID) {
-        for handle in tabsByHandle.keys where handle.serverID == serverID {
+        for handle in slotsByHandle.keys where handle.serverID == serverID {
             closeAll(for: handle)
         }
         readinessCache[serverID] = nil
+        watch.forget(serverID: serverID)
     }
 
-    /// Mata TODOS los `claude` del panel y espera a que el servidor lo confirme (o a que
+    /// Mata los `claude` de ESTA SESIÓN y espera a que el servidor lo confirme (o a que
     /// falle la conexión). Para el cierre de la app (`applicationShouldTerminate` con
-    /// `.terminateLater`): no deja huérfanos en el servidor.
+    /// `.terminateLater`): no deja huérfanos en el servidor. Los agentes persistentes NO se
+    /// detienen (para eso existen): solo se desenganchan y se deja de sondear.
     func stopAll() async {
+        watch.stop()
+        for slot in slotsByHandle.values.flatMap({ $0 }) { slot.persistentTab?.session.detach() }
         let sessions = allTabs.map(\.tab.session)
         await withTaskGroup(of: Void.self) { group in
             for session in sessions {

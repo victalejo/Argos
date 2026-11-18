@@ -27,6 +27,8 @@ final class PersistentAgentSession {
     private(set) var link: AgentLinkState = .detached
     /// Reanudando (arrancando claude con `--resume`).
     private(set) var isResuming = false
+    /// Se pidió interrumpir el turno y aún no llegó su `result`.
+    private(set) var isInterrupting = false
     /// Bytes ABSOLUTOS del log ya procesados (hasta la última línea completa): lo que el
     /// usuario ya ha visto. Los avisos en segundo plano solo avisan de lo posterior, y el
     /// siguiente enganche sigue desde aquí.
@@ -59,6 +61,20 @@ final class PersistentAgentSession {
         self.isAlive = info.isAlive
         self.listedLogBytes = info.logBytes
         self.hibernation = hibernation
+    }
+
+    /// Sesión que ya muestra `state` y ha leído `receivedBytes` del log (la que se crea al
+    /// pasar al servidor una conversación del Mac: su log empieza con esa conversación).
+    convenience init(
+        service: any SSHServicing,
+        info: PersistentAgentInfo,
+        seededState: AgentConversationState,
+        receivedBytes: Int,
+        hibernation: @escaping () -> PersistentAgentHibernation = { AgentHibernationPreferences.current() }
+    ) {
+        self.init(service: service, info: info, hibernation: hibernation)
+        self.state = seededState
+        self.receivedBytes = max(0, receivedBytes)
     }
 
     // MARK: - Crear / reanudar
@@ -109,15 +125,19 @@ final class PersistentAgentSession {
         }
     }
 
-    private static func start(
+    /// `claudePath`: ruta ya conocida del binario (si no, se busca en el servidor).
+    static func start(
         service: any SSHServicing,
         id: String,
         meta: PersistentAgentMeta,
         resume: Bool,
         oauthToken: String?,
-        hibernation: PersistentAgentHibernation
+        hibernation: PersistentAgentHibernation,
+        claudePath knownPath: String? = nil
     ) async throws {
-        guard let claudePath = try await service.locateClaude() else {
+        let located: String?
+        if let knownPath { located = knownPath } else { located = try await service.locateClaude() }
+        guard let claudePath = located else {
             throw PersistentAgentError.claudeMissing
         }
         let invocation = ClaudeAgentCommand.persistent(
@@ -218,6 +238,7 @@ final class PersistentAgentSession {
                             self.receivedBytes += line.byteCount
                             guard let text = line.text, let event = AgentProtocol.decode(line: text) else { continue }
                             AgentReducer.apply(event, to: &self.state, echoesUserMessages: true)
+                            if case .result = event { self.isInterrupting = false }
                         case .rotated:
                             self.logWasRotated(generation: current)
                         }
@@ -337,6 +358,39 @@ final class PersistentAgentSession {
         await respond(to: request, decision: .deny(message: "El usuario denegó esta acción."))
     }
 
+    /// «Detener» el turno en curso: la petición de control `interrupt` por la FIFO (como
+    /// en el panel del Mac). El agente sigue vivo; el CLI cierra el turno con un `result`.
+    func interrupt() async {
+        // Con un permiso pendiente no: se deniega (y queda anotado en el log para los
+        // demás dispositivos), en vez de dejar en el log un permiso que nadie respondió.
+        guard isAlive, state.status == .working, state.pendingPermission == nil, !isInterrupting else { return }
+        isInterrupting = true
+        let requestID = "argos-interrupt-\(UUID().uuidString.lowercased())"
+        if !(await write(AgentProtocol.encodeInterrupt(requestID: requestID), answering: nil)) {
+            isInterrupting = false
+        }
+    }
+
+    /// «Poner en reposo» a demanda: para el proceso SI en el servidor está quieto (su
+    /// último evento es un `result`); escribirle lo reanuda. Devuelve si lo hizo.
+    @discardableResult
+    func hibernateNow() async -> Bool {
+        do {
+            let output = try await service.runAgentScript(PersistentAgentScript.hibernate(id: id, minIdleSeconds: 0))
+            let done = output.contains("\(PersistentAgentScript.hibernatedReply) \(id)")
+            await refreshInfo()
+            if done {
+                lastError = nil
+            } else if isAlive {
+                lastError = "Claude está trabajando o espera un permiso: no se puede poner en reposo ahora."
+            }
+            return done
+        } catch {
+            lastError = error.userMessage
+            return false
+        }
+    }
+
     /// Para el proceso del agente (la conversación se puede reanudar después). Con
     /// `delete`, borra también su log (solo si el proceso murió de verdad).
     @discardableResult
@@ -344,6 +398,7 @@ final class PersistentAgentSession {
         do {
             _ = try await service.runAgentScript(PersistentAgentScript.stop(id: id, delete: delete))
             isAlive = false
+            isInterrupting = false
             if delete { detach() }
             return true
         } catch {
