@@ -2,6 +2,10 @@
 # Un solo PR agrupado por ecosistema y mes, para que no haya goteo.
 # Las dependencias Swift viven en project.yml (XcodeGen), que Dependabot no entiende:
 # se revisan a mano (Citadel, SwiftTerm, Sparkle, MarkdownUI).
+# SwiftTerm: se queda en 1.18.x. 1.19+ añade un plugin de compilación (SwiftTermBuildInfoPlugin)
+# que xcodebuild rechaza sin -skipPackagePluginValidation, y 1.99+ exige swift-tools-version 6.2
+# (Xcode 26), más nuevo que el Xcode 16.4 de la CI.
+# Sparkle: al subirlo, actualiza también la versión y el SHA-256 del tarball en release.yml.
 version: 2
 updates:
   - package-ecosystem: github-actions

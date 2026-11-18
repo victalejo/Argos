@@ -27,12 +27,12 @@ packages:
     minorVersion: 0.12.0
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm
-    minorVersion: 1.13.0
+    minorVersion: 1.18.0
   Sparkle:
     # Framework de auto-actualización (OTA). Firma sus updates con clave EdDSA propia
     # (independiente de Apple), así que funciona con builds ad-hoc.
     url: https://github.com/sparkle-project/Sparkle
-    majorVersion: 2.9.3
+    majorVersion: 2.10.1
   MarkdownUI:
     # Render de Markdown (con tablas/GFM) en el visor de archivos y en el agente.
     # En modo mantenimiento pero estable; pin a minor por seguridad.

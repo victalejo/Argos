@@ -351,10 +351,10 @@ jobs:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/2.9.3/Sparkle-2.9.3.tar.xz" -o /tmp/sparkle.tar.xz
+          curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/2.10.1/Sparkle-2.10.1.tar.xz" -o /tmp/sparkle.tar.xz
           # La herramienta que recibe la clave privada se comprueba antes de ejecutarla.
           # Al subir de versión, actualiza también este hash (el `digest` del asset en GitHub).
-          echo "74a07da821f92b79310009954c0e15f350173374a3abe39095b4fc5096916be6  /tmp/sparkle.tar.xz" | shasum -a 256 -c -
+          echo "1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27  /tmp/sparkle.tar.xz" | shasum -a 256 -c -
           mkdir -p /tmp/sparkle && tar -xf /tmp/sparkle.tar.xz -C /tmp/sparkle
           SIGN="/tmp/sparkle/bin/sign_update"
 
