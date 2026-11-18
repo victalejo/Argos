@@ -128,55 +128,114 @@ final class AgentNotifier {
 
     private func handle(_ task: BGAppRefreshTask) {
         schedule() // el siguiente, pase lo que pase con este
+        // Lo cierra quien llegue antes: el trabajo al terminar o el sistema al agotar el
+        // tiempo (iOS penaliza a la app si no se completa a tiempo).
+        let completion = CompletionOnce { task.setTaskCompleted(success: $0) }
         let work = Task { @MainActor in
             await self.check()
-            task.setTaskCompleted(success: true)
+            completion.complete(success: !Task.isCancelled)
         }
-        task.expirationHandler = { work.cancel() }
+        // Se completa en el propio aviso, sin esperar a que `check()` atienda la
+        // cancelación. La tarea se registró con la cola principal, así que suele llegar
+        // en el hilo principal; si no, se salta a él.
+        task.expirationHandler = {
+            let expire: @MainActor @Sendable () -> Void = {
+                Log.agent.notice("Se agotó el tiempo de la comprobación en segundo plano")
+                work.cancel()
+                completion.complete(success: false)
+            }
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { expire() }
+            } else {
+                Task { @MainActor in expire() }
+            }
+        }
+    }
+
+    /// Lo leído de un servidor en segundo plano (`nil` en lo que falló o no tocaba).
+    private struct ServerReading: Sendable {
+        var agentOutput: String?
+        var claude: ClaudeActivitySnapshot?
     }
 
     /// Revisa los servidores apuntados (agentes persistentes y Claude en tmux) y avisa de
-    /// lo nuevo. Una conexión por servidor, y solo de los que siguen existiendo.
+    /// lo nuevo. En paralelo y con plazo por servidor (`BackgroundCheckPlanner`): uno
+    /// inalcanzable no agota el tiempo de los demás. Lo de cada servidor se guarda en
+    /// cuanto llega, por si el sistema corta la tarea antes del final.
     func check() async {
         guard let hub else { return }
-        let withAgents = watchedServers(Self.serversKey)
-        let withClaude = watchedServers(Self.claudeServersKey)
-        var seen = seenBytes()
-        var snapshots = claudeSnapshots()
-        for server in hub.store.servers {
-            let key = server.id.uuidString
-            guard withAgents.contains(key) || withClaude.contains(key) else { continue }
-            guard !Task.isCancelled else { break }
-            let service = server.makeService()
-            if withAgents.contains(key) {
-                do {
-                    let output = try await service.runAgentScript(PersistentAgentScript.snapshots())
-                    let plan = AgentAttentionPlanner.notices(
-                        snapshots: PersistentAgentScript.parseSnapshots(output), seenBytes: seen[key] ?? [:]
-                    )
-                    seen[key] = plan.seen
-                    for notice in plan.notices { post(notice, server: server) }
-                } catch {
-                    Log.agent.notice("Avisos de agentes en segundo plano: \(error.userMessage, privacy: .public)")
-                }
+        let items = BackgroundCheckPlanner.items(
+            servers: hub.store.servers,
+            agentKeys: watchedServers(Self.serversKey),
+            claudeKeys: watchedServers(Self.claudeServersKey)
+        )
+        let targets = items.compactMap { item in hub.store.server(withID: item.serverID).map { ($0, item) } }
+        await withTaskGroup(of: Void.self) { group in
+            for (server, item) in targets {
+                group.addTask { await self.check(server, item: item) }
             }
-            if withClaude.contains(key) {
-                do {
-                    let fresh = try await service.claudeActivity()
-                    // Sin referencia previa no se sabe qué es nuevo: solo se toma nota.
-                    if let previous = snapshots[key] {
-                        postClaude(fresh.notableTransitions(since: previous), server: server, viewing: nil)
-                    }
-                    snapshots[key] = fresh
-                } catch {
-                    Log.agent.notice("Avisos de Claude en segundo plano: \(error.userMessage, privacy: .public)")
-                }
-            }
-            await service.disconnect()
         }
-        defaults.set(seen, forKey: Self.seenKey)
-        saveClaudeSnapshots(snapshots)
         forgetRemovedServers(existing: Set(hub.store.servers.map(\.id.uuidString)))
+    }
+
+    private func check(_ server: Server, item: BackgroundCheckPlanner.Item) async {
+        let service = server.makeService()
+        let reading = await Deadline.value(within: BackgroundCheckPlanner.perServerTimeout) {
+            await Self.read(service, item: item)
+        }
+        // Sin esperar: con una conexión colgada, el cierre tampoco respondería.
+        Task { await service.disconnect() }
+        guard let reading else {
+            Log.agent.notice("El servidor \(server.name, privacy: .private) no respondió a tiempo en segundo plano")
+            return
+        }
+        apply(reading, server: server)
+    }
+
+    /// Lecturas de un servidor (fuera del hilo principal; se aplican después).
+    private nonisolated static func read(
+        _ service: any SSHServicing, item: BackgroundCheckPlanner.Item
+    ) async -> ServerReading {
+        var reading = ServerReading()
+        if item.checkAgents {
+            do {
+                reading.agentOutput = try await service.runAgentScript(PersistentAgentScript.snapshots())
+            } catch {
+                Log.agent.notice("Avisos de agentes en segundo plano: \(error.userMessage, privacy: .public)")
+            }
+        }
+        if item.checkClaude, !Task.isCancelled {
+            do {
+                reading.claude = try await service.claudeActivity()
+            } catch {
+                Log.agent.notice("Avisos de Claude en segundo plano: \(error.userMessage, privacy: .public)")
+            }
+        }
+        return reading
+    }
+
+    /// Avisa de lo nuevo y lo guarda ya (lectura-modificación-escritura en el hilo
+    /// principal: las de otros servidores no se pisan).
+    private func apply(_ reading: ServerReading, server: Server) {
+        let key = server.id.uuidString
+        if let output = reading.agentOutput {
+            var seen = seenBytes()
+            let plan = AgentAttentionPlanner.notices(
+                snapshots: PersistentAgentScript.parseSnapshots(output), seenBytes: seen[key] ?? [:]
+            )
+            seen[key] = plan.seen
+            defaults.set(seen, forKey: Self.seenKey)
+            for notice in plan.notices { post(notice, server: server) }
+        }
+        if let fresh = reading.claude {
+            var snapshots = claudeSnapshots()
+            // Sin referencia previa no se sabe qué es nuevo: solo se toma nota.
+            if let previous = snapshots[key] {
+                postClaude(fresh.notableTransitions(since: previous), server: server, viewing: nil)
+            }
+            snapshots[key] = fresh
+            saveClaudeSnapshots(snapshots)
+        }
     }
 
     /// Los servidores borrados dejan de revisarse.
