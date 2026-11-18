@@ -194,14 +194,21 @@ struct ServerAgentInventoryTests {
 
     @Test func lasAccionesComprubanAntesDeMatar() {
         let stop = ServerAgentInventory.stopPanel([(pid: 4321, sessionID: panelID), (pid: 1, sessionID: panelID), (pid: 9, sessionID: "x")])
-        #expect(stop.contains("ps -o args= -p 4321"))
-        #expect(stop.contains(panelID))
-        #expect(stop.contains("kill -KILL"))
-        #expect(!stop.contains("-p 1 "))
-        #expect(!stop.contains("-p 9 "))
+        #expect(stop.contains("4321:\(panelID)"))
+        #expect(stop.contains("pm()")) // cada señal comprueba antes el id
+        #expect(stop.contains("kill -s KILL"))
+        #expect(!stop.contains(" 1:"))
+        #expect(!stop.contains("9:x"))
         #expect(ServerAgentInventory.stopPanel([]) == "true")
-        #expect(ServerAgentInventory.hibernate(ids: [id, "../x"]).contains("hibernatedAt"))
+        #expect(ServerAgentInventory.stopPanelSessions(["no-uuid"]) == "true")
+        let hibernate = ServerAgentInventory.hibernate(ids: [id, "../x"], minIdleSeconds: 3600)
+        #expect(hibernate.contains("hibernatedAt") && hibernate.contains("-ge 3600"))
+        #expect(!hibernate.contains("../x"))
         #expect(!ServerAgentInventory.stopPersistent(ids: ["../x"]).contains("rm -rf"))
+        // Cada agente en su subshell: uno atascado no corta los demás y queda anotado.
+        let both = ServerAgentInventory.stopPersistent(ids: [id, panelID])
+        #expect(both.components(separatedBy: ServerAgentInventory.failedMarker).count == 3)
+        #expect(ServerAgentInventory.failures(in: "x\n\(ServerAgentInventory.failedMarker) \(id)\n") == [id])
         // El script no se encuentra a sí mismo en `ps`.
         #expect(!ServerAgentInventory.script().contains("stream-json"))
     }

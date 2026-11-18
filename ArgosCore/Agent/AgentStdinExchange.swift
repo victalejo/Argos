@@ -11,34 +11,69 @@ import Foundation
 
 enum AgentStdinExchange {
 
+    /// Plazo por defecto para recibir la respuesta.
+    static let defaultTimeout: Duration = .seconds(45)
+
     /// Ejecuta `command` por un canal exec, le escribe `input` por stdin y devuelve la
-    /// PRIMERA línea de stdout. stdin se cierra en cuanto llega esa línea (el script ya
-    /// leyó lo suyo). Si no llega ninguna, lanza el error del canal (o uno genérico).
-    static func firstLine(service: any SSHServicing, command: String, input: [UInt8]) async throws -> String {
+    /// primera línea de stdout que `accept` reconozca (las anteriores, p. ej. ruido que
+    /// imprime el perfil del shell, se ignoran). stdin se cierra en cuanto llega. Si no
+    /// llega en `timeout`, se cancela el canal y se lanza `AgentExchangeTimeout`.
+    static func firstLine(
+        service: any SSHServicing,
+        command: String,
+        input: [UInt8],
+        timeout: Duration = defaultTimeout,
+        accept: @escaping @Sendable (String) -> Bool = { !$0.isEmpty }
+    ) async throws -> String {
         let (stdin, writer) = AsyncStream<[UInt8]>.makeStream()
         writer.yield(input)
         let (outputStream, output) = AsyncStream<[UInt8]>.makeStream()
         let run = Task { try await service.runAgentExec(command: command, stdin: stdin, output: output) }
-        var reply = ""
-        for await chunk in outputStream {
-            reply += String(decoding: chunk, as: UTF8.self)
-            if reply.contains("\n") { break }
+        let timer = Task<Bool, Never> {
+            do { try await Task.sleep(for: timeout) } catch { return false }
+            writer.finish()
+            run.cancel()
+            output.finish()
+            return true
+        }
+        var pending = ""
+        var accepted: String?
+        reading: for await chunk in outputStream {
+            pending += String(decoding: chunk, as: UTF8.self)
+            while let newline = pending.firstIndex(of: "\n") {
+                let line = String(pending[..<newline]).trimmingCharacters(in: .whitespaces)
+                pending = String(pending[pending.index(after: newline)...])
+                if accept(line) { accepted = line; break reading }
+            }
         }
         writer.finish()
+        timer.cancel()
+        let timedOut = await timer.value
         var channelError: Error?
         do {
             try await run.value
         } catch {
             channelError = error
         }
-        if let line = reply.split(whereSeparator: \.isNewline).first.map(String.init), !line.isEmpty {
-            return line
+        if let accepted { return accepted }
+        let leftover = pending.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !leftover.isEmpty, accept(leftover) { return leftover }
+        if timedOut {
+            Log.agent.error("El servidor no respondió a tiempo.")
+            throw AgentExchangeTimeout()
         }
         if let channelError {
-            Log.agent.error("Sin respuesta del servidor: \(channelError.localizedDescription, privacy: .public)")
+            Log.agent.error("Sin respuesta del servidor: \(channelError.localizedDescription, privacy: .private)")
             throw channelError
         }
         throw AgentExecError(message: "El servidor no respondió.")
+    }
+}
+
+/// El servidor no contestó a tiempo (conexión colgada o comando bloqueado).
+struct AgentExchangeTimeout: LocalizedError, Equatable {
+    var errorDescription: String? {
+        "El servidor no respondió a tiempo. Comprueba la conexión y vuelve a intentarlo."
     }
 }
 

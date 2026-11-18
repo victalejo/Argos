@@ -94,14 +94,16 @@ struct AgentsView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu("Opciones de agentes", systemImage: "ellipsis.circle") {
                     Button("Agentes en este servidor", systemImage: "server.rack") { showsServerAgents = true }
-                    Picker(selection: $idleHours) {
-                        ForEach(PersistentAgentHibernation.choices, id: \.self) { hours in
-                            Text(PersistentAgentHibernation.title(forHours: hours)).tag(hours)
+                    Section(PersistentAgentHibernation.backgroundWorkWarning) {
+                        Picker(selection: $idleHours) {
+                            ForEach(PersistentAgentHibernation.choices, id: \.self) { hours in
+                                Text(PersistentAgentHibernation.title(forHours: hours)).tag(hours)
+                            }
+                        } label: {
+                            Label("Poner en reposo tras inactividad", systemImage: "moon.zzz")
                         }
-                    } label: {
-                        Label("Poner en reposo tras inactividad", systemImage: "moon.zzz")
+                        .pickerStyle(.menu)
                     }
-                    .pickerStyle(.menu)
                     Button("Conectar Claude…", systemImage: "person.badge.key") {
                         launchAfterLogin = false
                         isShowingLogin = true
@@ -195,7 +197,7 @@ struct AgentsView: View {
             guard case .warning(let title, let message) = assessment else { return nil }
             return LaunchWarning(title: title, message: message)
         } catch {
-            Log.agent.notice("No se pudo comprobar la memoria antes de crear el agente: \(error.localizedDescription, privacy: .public)")
+            Log.agent.notice("No se pudo comprobar la memoria antes de crear el agente: \(error.localizedDescription, privacy: .private)")
             return nil
         }
     }

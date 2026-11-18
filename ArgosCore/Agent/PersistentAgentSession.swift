@@ -96,7 +96,8 @@ final class PersistentAgentSession {
             meta = fresh
             isAlive = true
             lastError = nil
-            attach()
+            // Solo si la vista seguía abierta: reanudar no debe reengancharse a escondidas.
+            if isAttached { attach() }
             return true
         } catch {
             lastError = error.userMessage
@@ -123,9 +124,16 @@ final class PersistentAgentSession {
         )
         // El token va por stdin (primera línea), nunca en la línea de comandos.
         let reply = try await AgentStdinExchange.firstLine(
-            service: service, command: command, input: ClaudeAgentCommand.tokenLine(oauthToken)
+            service: service, command: command, input: ClaudeAgentCommand.tokenLine(oauthToken),
+            timeout: .seconds(60), accept: isLaunchReply
         )
         try parseLaunchReply(reply)
+    }
+
+    /// ¿Es `line` una respuesta del lanzador? (lo demás es ruido del perfil del shell)
+    nonisolated static func isLaunchReply(_ line: String) -> Bool {
+        line == PersistentAgentScript.busyReply || line == PersistentAgentScript.aliveReply
+            || line.hasPrefix(PersistentAgentScript.failedReply) || Int32(line) != nil
     }
 
     /// Interpreta la primera línea del lanzador.
@@ -148,6 +156,14 @@ final class PersistentAgentSession {
     func attach() {
         isAttached = true
         connect(attempt: 0)
+    }
+
+    /// «Recargar»: olvida lo leído y reconstruye la conversación desde el principio.
+    func reload() {
+        detach()
+        state = AgentConversationState()
+        receivedBytes = 0
+        attach()
     }
 
     /// Deja de leer el log. El agente sigue trabajando en el servidor.
@@ -183,21 +199,24 @@ final class PersistentAgentSession {
         task = Task { [weak self] in
             let parser = Task { @MainActor [weak self] in
                 var buffer = NDJSONLineBuffer()
-                var isFirstLine = true
+                var stream = AgentAttachStreamParser()
                 for await chunk in outputStream {
                     guard let self, self.generation == current else { continue }
                     if !self.link.isLive { self.link = .live }
                     for line in buffer.appendCountingBytes(chunk) {
-                        if isFirstLine {
-                            isFirstLine = false
-                            if let text = line.text, let header = PersistentAgentScript.parseLogBase(text) {
-                                self.adoptLogBase(header, requested: requested)
-                                continue
-                            }
+                        guard self.generation == current else { break }
+                        switch stream.classify(text: line.text) {
+                        case .noise:
+                            continue
+                        case .header(let base, let from):
+                            self.adoptLogBase((base, from), requested: requested)
+                        case .data:
+                            self.receivedBytes += line.byteCount
+                            guard let text = line.text, let event = AgentProtocol.decode(line: text) else { continue }
+                            AgentReducer.apply(event, to: &self.state, echoesUserMessages: true)
+                        case .rotated:
+                            self.logWasRotated(generation: current)
                         }
-                        self.receivedBytes += line.byteCount
-                        guard let text = line.text, let event = AgentProtocol.decode(line: text) else { continue }
-                        AgentReducer.apply(event, to: &self.state, echoesUserMessages: true)
                     }
                 }
             }
@@ -224,10 +243,27 @@ final class PersistentAgentSession {
         receivedBytes = start
     }
 
+    /// El servidor va a sustituir el log (rotación al reanudar): lo que siga en ESTE
+    /// enganche es la copia conservada, que ya tenemos. Se corta y se reengancha desde lo
+    /// leído (que no incluye la marca: sus bytes no cuentan).
+    private func logWasRotated(generation rotated: Int) {
+        guard rotated == generation, isAttached else { return }
+        Log.agent.notice("El log del agente se va a rotar: se reengancha.")
+        generation += 1
+        let pending = generation
+        keepOpen?.finish()
+        task?.cancel()
+        retryTask = Task { [weak self] in
+            try? await Task.sleep(for: AgentAttachStreamParser.rotationSettleDelay)
+            guard !Task.isCancelled, let self, self.isAttached, self.generation == pending else { return }
+            self.connect(attempt: 0)
+        }
+    }
+
     private func connectionEnded(generation ended: Int, attempt: Int, error: Error?) {
         guard ended == generation, isAttached else { return }
         if let error {
-            Log.agent.notice("Se cortó el log del agente: \(error.localizedDescription, privacy: .public)")
+            Log.agent.notice("Se cortó el log del agente: \(error.localizedDescription, privacy: .private)")
         }
         // Con la vista abierta se reintenta solo, cada vez más espaciado.
         let next = attempt + 1
@@ -312,7 +348,7 @@ final class PersistentAgentSession {
             listedLogBytes = info.logBytes
             return true
         } catch {
-            Log.agent.notice("No se pudo releer el agente: \(error.localizedDescription, privacy: .public)")
+            Log.agent.notice("No se pudo releer el agente: \(error.localizedDescription, privacy: .private)")
             return false
         }
     }
@@ -342,16 +378,22 @@ final class PersistentAgentSession {
             return
         }
         let bytes = Array((line + "\n").utf8)
+        let replies = [
+            PersistentAgentScript.sentReply, PersistentAgentScript.deadReply,
+            PersistentAgentScript.shortReply, PersistentAgentScript.timeoutReply,
+        ]
         let reply = try await AgentStdinExchange.firstLine(
             service: service,
             command: PersistentAgentScript.sendViaStdin(id: id, byteCount: bytes.count, answeredRequestID: requestID),
-            input: bytes
+            input: bytes,
+            timeout: .seconds(PersistentAgentScript.sendTimeoutSeconds + 30),
+            accept: { replies.contains($0) }
         )
         switch reply {
         case PersistentAgentScript.sentReply: return
         case PersistentAgentScript.deadReply: throw PersistentAgentError.notRunning
         case PersistentAgentScript.shortReply: throw PersistentAgentError.truncatedSend
-        default: throw AgentExecError(message: "Respuesta inesperada del servidor: \(reply.prefix(200))")
+        default: throw AgentExchangeTimeout()
         }
     }
 

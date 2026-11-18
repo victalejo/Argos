@@ -18,6 +18,9 @@ struct ServerAgentsView: View {
     @State private var errorMessage: String?
     @State private var isWorking = false
     @State private var confirmStopAll = false
+    /// Error de la última acción (parar, hibernar): se muestra en una alerta y no lo borra
+    /// el refresco posterior.
+    @State private var actionError: String?
     @State private var showsStopped = false
 
     private var hibernation: PersistentAgentHibernation { AgentHibernationPreferences.current() }
@@ -42,6 +45,11 @@ struct ServerAgentsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .refreshable { await load() }
+        .alert("No se pudo completar", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(actionError ?? "")
+        }
         .confirmationDialog("¿Detener todos los agentes?", isPresented: $confirmStopAll, titleVisibility: .visible) {
             Button("Detener todos", role: .destructive) { Task { await stopAll() } }
         } message: {
@@ -71,7 +79,7 @@ struct ServerAgentsView: View {
                     .disabled(live.isEmpty || isWorking)
             } footer: {
                 Text(hibernation.isEnabled
-                     ? "Hibernar para los agentes quietos sin actividad desde hace \(PersistentAgentHibernation.title(forHours: hibernation.idleHours)) o más; se reanudan solos al escribirles."
+                     ? "Hibernar para los agentes quietos sin actividad desde hace \(PersistentAgentHibernation.title(forHours: hibernation.idleHours)) o más; se reanudan solos al escribirles. \(PersistentAgentHibernation.backgroundWorkWarning)"
                      : "La hibernación automática está desactivada: «Hibernar inactivos» no encontrará candidatos.")
             }
             if live.isEmpty {
@@ -118,8 +126,13 @@ struct ServerAgentsView: View {
                 if case .panel(let pid) = agent.kind { return (pid, agent.sessionID) }
                 return nil
             }
-            if !persistent.isEmpty { _ = try await service.runAgentScript(ServerAgentInventory.stopPersistent(ids: persistent)) }
+            var failed: [String] = []
+            if !persistent.isEmpty {
+                let output = try await service.runAgentScript(ServerAgentInventory.stopPersistent(ids: persistent))
+                failed = ServerAgentInventory.failures(in: output)
+            }
             if !panel.isEmpty { _ = try await service.runAgentScript(ServerAgentInventory.stopPanel(panel)) }
+            return failed
         }
     }
 
@@ -128,19 +141,28 @@ struct ServerAgentsView: View {
     }
 
     private func hibernate(_ agents: [ServerAgentProcess]) async {
+        let minimum = hibernation.idleSeconds
         await run {
-            _ = try await service.runAgentScript(ServerAgentInventory.hibernate(ids: agents.map(\.sessionID)))
+            let output = try await service.runAgentScript(
+                ServerAgentInventory.hibernate(ids: agents.map(\.sessionID), minIdleSeconds: minimum)
+            )
+            return ServerAgentInventory.failures(in: output)
         }
     }
 
-    private func run(_ action: () async throws -> Void) async {
+    /// Ejecuta una acción que devuelve los agentes que no pudo tratar (p. ej. atascados).
+    private func run(_ action: () async throws -> [String]) async {
         isWorking = true
         defer { isWorking = false }
         do {
-            try await action()
+            let failed = try await action()
+            if !failed.isEmpty {
+                let names = failed.map { id in inventory?.agents.first { $0.sessionID == id }?.title ?? id }
+                actionError = "No se pudieron parar: \(names.joined(separator: ", ")). Inténtalo de nuevo; si sigue, reinicia el servidor."
+            }
         } catch {
-            errorMessage = error.userMessage
-            Log.agent.error("Acción sobre agentes fallida: \(error.localizedDescription, privacy: .public)")
+            actionError = error.userMessage
+            Log.agent.error("Acción sobre agentes fallida: \(error.localizedDescription, privacy: .private)")
         }
         await load()
     }

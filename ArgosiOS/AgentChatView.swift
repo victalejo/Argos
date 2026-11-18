@@ -222,7 +222,7 @@ struct AgentChatView: View {
                         }
                     }
                 }
-                Button("Recargar", systemImage: "arrow.clockwise") { session.attach() }
+                Button("Recargar", systemImage: "arrow.clockwise") { session.reload() }
                 Divider()
                 Button("Borrar conversación", systemImage: "trash", role: .destructive) { confirmDelete = true }
             }

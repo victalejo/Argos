@@ -81,10 +81,17 @@ enum PersistentAgentScript {
     static let failedReply = "ARGOS_AGENT_FAILED"
     static let sentReply = "ARGOS_SENT"
     static let shortReply = "ARGOS_SEND_SHORT"
+    static let timeoutReply = "ARGOS_SEND_TIMEOUT"
 
     /// Un argumento no puede pasar de 128 KiB (`MAX_ARG_STRLEN` de Linux) y el script
-    /// entero va en UN argumento de `sh -c`. Por encima de esto, la línea viaja por stdin.
+    /// entero va en UN argumento de `sh -c`.
     static let maxInlineCommandBytes = 96 * 1024
+    /// Línea máxima (bytes) que va dentro del comando. Muy por debajo del búfer de una
+    /// FIFO (64 KiB en Linux): escribirla nunca se bloquea aunque nadie la lea. Las mayores
+    /// van por stdin con un escritor vigilado (`sendViaStdin`).
+    static let maxInlineLineBytes = 16 * 1024
+    /// Segundos que el escritor vigilado espera a que claude lea la línea.
+    static let sendTimeoutSeconds = 30
 
     /// Bytes del final de `err.log` que se muestran cuando el agente no arranca.
     static let errorTailBytes = 1_500
@@ -148,16 +155,24 @@ enum PersistentAgentScript {
             + "printf '%s %s\\n' \(failedReply) \"$(tail -c \(errorTailBytes) \(dir)/err.log 2>/dev/null | base64 | tr -d '\\n')\"; "
             + "rm -f \(dir)/pid; exit 6; fi"
         // `mkdir` como cerrojo atómico: dos «Reanudar» a la vez (Mac e iPhone) no lanzan
-        // dos claude sobre la misma FIFO.
-        let lock = "\"$HOME/\(rootRelativePath)/.\(id).lock\""
+        // dos claude sobre la misma FIFO. Se espera un poco: el vigilante lo coge mientras
+        // hiberna (unos segundos).
+        let lock = PersistentAgentShell.lockPath(id)
+        // Vivo: se reescribe `meta.json` igualmente (quita una marca `hibernatedAt` de una
+        // hibernación que no llegó a pararlo).
+        let alive = "if \(aliveCheck(id)); then "
+            + "( umask 077 && printf '%s' '\(metaB64)' | base64 -d > \(dir)/meta.json.tmp ) && mv \(dir)/meta.json.tmp \(dir)/meta.json; "
+            + "echo \(aliveReply); exit 0; fi"
         var lines = [
             "IFS= read -r ARGOS_OAUTH; export ARGOS_OAUTH",
             "mkdir -p \"$HOME/\(rootRelativePath)\" && chmod 700 \"$HOME/\(rootRelativePath)\"",
             // Un cerrojo de más de un minuto es de un lanzamiento que se interrumpió.
             "find \"$HOME/\(rootRelativePath)\" -maxdepth 1 -name '.\(id).lock' -mmin +1 -exec rmdir {} \\; 2>/dev/null",
-            "mkdir \(lock) 2>/dev/null || { echo \(busyReply); exit 4; }",
+            PersistentAgentShell.acquireLock(
+                id, waitSeconds: PersistentAgentShell.lockWaitSeconds, onBusy: "echo \(busyReply); exit 4"
+            ),
             "trap 'rmdir \(lock) 2>/dev/null' EXIT",
-            "if \(aliveCheck(id)); then echo \(aliveReply); exit 0; fi",
+            alive,
             "\(prepare) || exit 1",
             // Agente parado y cerrojo cogido: momento seguro para recortar los logs.
             PersistentAgentShell.rotateOutputLog(dir),
@@ -185,7 +200,7 @@ enum PersistentAgentScript {
     static func send(id: String, line: String, answeredRequestID: String? = nil) -> String {
         let dir = directory(id)
         let b64 = Data((line + "\n").utf8).base64EncodedString()
-        var command = "\(aliveCheck(id)) || { echo '\(deadReply)' >&2; exit 3; }; "
+        var command = "\(deliverable(id)) || { echo '\(deadReply)' >&2; exit 3; }; "
             + "exec 3<>\(dir)/in && printf '%s' '\(b64)' | base64 -d >&3"
         if let answeredRequestID {
             command += " && " + appendAnsweredMarker(dir: dir, requestID: answeredRequestID)
@@ -193,25 +208,49 @@ enum PersistentAgentScript {
         return command
     }
 
-    /// ¿La línea es demasiado grande para ir dentro del comando? (base64 = 4/3 + margen)
+    /// Vivo Y no hibernándose: con `hibernatedAt` el vigilante ya lo está parando y lo
+    /// escrito se perdería (el cliente lo reanuda y reenvía).
+    static func deliverable(_ id: String) -> String {
+        "{ \(aliveCheck(id)) && ! \(PersistentAgentShell.isMarkedHibernated(directory(id))); }"
+    }
+
+    /// ¿La línea es demasiado grande para ir dentro del comando?
     static func needsStdin(line: String) -> Bool {
-        (line.utf8.count + 1) * 4 / 3 + 1_024 > maxInlineCommandBytes
+        line.utf8.count + 1 > maxInlineLineBytes
     }
 
     /// Variante para líneas grandes (un `Write` de 70 KB que aprobar): la línea llega por
     /// la ENTRADA ESTÁNDAR del canal (una sola línea: el JSON no lleva saltos), se guarda
     /// en un archivo privado, se comprueba que llegó entera (`byteCount` = bytes de la
     /// línea con su `\n`) y solo entonces se escribe en la FIFO. Responde por stdout con
-    /// `ARGOS_SENT`, `ARGOS_AGENT_DEAD` o `ARGOS_SEND_SHORT`.
-    static func sendViaStdin(id: String, byteCount: Int, answeredRequestID: String? = nil) -> String {
+    /// `ARGOS_SENT`, `ARGOS_AGENT_DEAD`, `ARGOS_SEND_SHORT` o `ARGOS_SEND_TIMEOUT`.
+    ///
+    /// La escritura va en SEGUNDO PLANO y vigilada: una línea mayor que el búfer de la FIFO
+    /// se bloquea si claude no lee (muerto o colgado), y como este script tiene la FIFO
+    /// abierta también para leer, nunca llegaría un SIGPIPE. Si el agente muere o pasan
+    /// `sendTimeoutSeconds`, se mata al escritor y el script termina: al cerrarse la FIFO
+    /// sin nadie más, lo que quedara en ella se descarta (no le llega a otro claude).
+    static func sendViaStdin(
+        id: String,
+        byteCount: Int,
+        answeredRequestID: String? = nil,
+        timeoutSeconds: Int = sendTimeoutSeconds
+    ) -> String {
         let dir = directory(id)
         let file = "\(dir)/.send.$$"
+        let ticks = max(1, timeoutSeconds) * 5
         var lines = [
-            "\(aliveCheck(id)) || { echo \(deadReply); exit 3; }",
+            "\(deliverable(id)) || { echo \(deadReply); exit 3; }",
             "( umask 077 && head -n 1 > \(file) )",
             "n=$(wc -c < \(file) | tr -d ' ')",
             "if [ \"$n\" != \"\(byteCount)\" ]; then rm -f \(file); echo \(shortReply); exit 7; fi",
-            "exec 3<>\(dir)/in && cat \(file) >&3; r=$?; rm -f \(file); [ $r -eq 0 ] || exit 1",
+            "exec 3<>\(dir)/in || { rm -f \(file); exit 1; }",
+            "cat \(file) >&3 & w=$!",
+            "i=0; while kill -0 \"$w\" 2>/dev/null; do",
+            "if ! \(aliveCheck(id)); then kill \"$w\" 2>/dev/null; rm -f \(file); echo \(deadReply); exit 3; fi",
+            "if [ $i -ge \(ticks) ]; then kill \"$w\" 2>/dev/null; rm -f \(file); echo \(timeoutReply); exit 8; fi",
+            "sleep 0.2; i=$((i+1)); done",
+            "wait \"$w\"; r=$?; rm -f \(file); [ $r -eq 0 ] || exit 1",
         ]
         if let answeredRequestID {
             lines.append(appendAnsweredMarker(dir: dir, requestID: answeredRequestID) + " || exit 1")
@@ -234,9 +273,14 @@ enum PersistentAgentScript {
     /// los bytes rotados y `S` el byte local desde el que sigue (si lo pedido ya se rotó,
     /// `S` = 1 y el cliente debe reconstruir desde ahí). El `tail` muere cuando se cierra
     /// el canal SSH (EOF en stdin): si no, cada reconexión dejaría un `tail` huérfano.
+    /// Mientras se rota (`.rotating`) espera hasta 10 s. Si lo pedido queda más allá del
+    /// final del archivo (desplazamientos que ya no cuadran), responde `S` = 1 para que el
+    /// cliente reconstruya en vez de quedarse esperando bytes que no llegarán.
     static func attach(id: String, fromByte: Int = 1) -> String {
         let dir = directory(id)
-        return "\(PersistentAgentShell.readBase(dir)); s=$((\(max(1, fromByte)) - b)); [ \"$s\" -ge 1 ] || s=1; "
+        return "w=0; while [ -e \(dir)/.rotating ] && [ $w -lt 50 ]; do sleep 0.2; w=$((w+1)); done; "
+            + "\(PersistentAgentShell.readBase(dir)); s=$((\(max(1, fromByte)) - b)); [ \"$s\" -ge 1 ] || s=1; "
+            + "sz=$(wc -c < \(dir)/out.ndjson 2>/dev/null | tr -d ' '); [ \"$s\" -le $(( ${sz:-0} + 1 )) ] || s=1; "
             + "printf '{\"type\":\"\(logBaseEventType)\",\"base\":%s,\"from\":%s}\\n' \"$b\" \"$s\"; "
             + "tail -c +\"$s\" -F \(dir)/out.ndjson 2>/dev/null & T=$!; "
             + "trap 'kill $T 2>/dev/null' EXIT HUP TERM; cat > /dev/null; kill $T 2>/dev/null"
@@ -261,17 +305,28 @@ enum PersistentAgentScript {
     /// `ARGOS_AGENT_STUCK` y la carpeta sigue ahí, visible y reintentable).
     static func stop(id: String, delete: Bool, graceSeconds: Int = PersistentAgentShell.stopGraceSeconds) -> String {
         let dir = directory(id)
-        let terminate = PersistentAgentShell.terminateProcess(graceSeconds: graceSeconds)
+        let terminate = PersistentAgentShell.terminateProcess(id: id, graceSeconds: graceSeconds)
         let kill = "{ if \(aliveCheck(id)); then \(terminate); fi; rm -f \(dir)/pid; true; }"
         return delete ? "\(kill) && rm -rf \(dir)" : kill
     }
 
-    /// Hiberna a demanda («Hibernar inactivos»): lo anota en `meta.json` y lo para.
-    static func hibernate(id: String) -> String {
-        let dir = directory(id)
-        return "if \(aliveCheck(id)); then \(PersistentAgentShell.markHibernated(dir)); "
-            + "\(PersistentAgentShell.terminateProcess()); [ \"$(cat \(dir)/pid 2>/dev/null)\" = \"$p\" ] && rm -f \(dir)/pid; fi; true"
+    /// Hiberna a demanda («Hibernar inactivos»), pero solo si EN EL SERVIDOR sigue quieto
+    /// y sin actividad desde hace `minIdleSeconds` (el inventario de la vista puede estar
+    /// viejo): con el cerrojo, comprueba como el vigilante, lo anota y lo para. Imprime
+    /// `ARGOS_HIBERNATED <id>` si lo hizo.
+    static func hibernate(id: String, minIdleSeconds: Int) -> String {
+        [
+            aliveCheck(id) + " || exit 0",
+            PersistentAgentShell.acquireLock(id, waitSeconds: 5, onBusy: "exit 0"),
+            "trap '\(PersistentAgentShell.releaseLock(id))' EXIT",
+            "h=0",
+            PersistentAgentShell.hibernateIfQuiet(id: id, minIdleSeconds: max(0, minIdleSeconds)),
+            "[ \"$h\" = 1 ] && echo \(hibernatedReply) \(id)",
+            "true",
+        ].joined(separator: "\n")
     }
+
+    static let hibernatedReply = "ARGOS_HIBERNATED"
 
     /// Final de `err.log` (para explicar por qué el agente no está en marcha).
     static func errorTail(id: String) -> String {

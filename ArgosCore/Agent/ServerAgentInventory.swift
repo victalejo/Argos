@@ -174,35 +174,73 @@ extension ServerAgentInventory {
 
     // MARK: - Acciones
 
-    /// Para varios persistentes (sin borrar nada: se pueden reanudar).
+    /// Marca que imprime una acción por cada agente que no pudo parar o hibernar.
+    static let failedMarker = "ARGOS_ACTION_FAILED"
+
+    /// Para varios persistentes (sin borrar nada: se pueden reanudar). Cada parada va en
+    /// su propio subshell: uno atascado no impide parar los demás, y queda anotado.
     static func stopPersistent(ids: [String]) -> String {
         ids.filter(PersistentAgentScript.isValidID)
-            .map { PersistentAgentScript.stop(id: $0, delete: false) }
+            .map { "( \(PersistentAgentScript.stop(id: $0, delete: false)) ) || echo \(failedMarker) \($0)" }
             .joined(separator: "\n") + "\ntrue"
     }
 
-    /// Hiberna varios persistentes (se reanudan solos al escribirles).
-    static func hibernate(ids: [String]) -> String {
+    /// Hiberna varios persistentes si EN EL SERVIDOR siguen quietos desde hace al menos
+    /// `minIdleSeconds` (se reanudan solos al escribirles).
+    static func hibernate(ids: [String], minIdleSeconds: Int) -> String {
         ids.filter(PersistentAgentScript.isValidID)
-            .map { PersistentAgentScript.hibernate(id: $0) }
+            .map { "( \(PersistentAgentScript.hibernate(id: $0, minIdleSeconds: minIdleSeconds)) ) || echo \(failedMarker) \($0)" }
             .joined(separator: "\n") + "\ntrue"
     }
 
-    /// Mata conversaciones del panel por PID, comprobando ANTES que cada PID sigue siendo
-    /// esa conversación (`--input-format stream-json` y su id), con TERM y luego KILL.
+    /// Ids que una acción no pudo completar (ver `failedMarker`).
+    static func failures(in output: String) -> [String] {
+        output.split(whereSeparator: \.isNewline).compactMap { line in
+            let parts = line.split(separator: " ")
+            guard parts.count == 2, parts[0] == failedMarker else { return nil }
+            return String(parts[1])
+        }
+    }
+
+    /// Función de shell `pm PID ID`: verdadero si EN ESTE INSTANTE el PID es una
+    /// conversación del panel con ese id (no un shell, `grep` u otro programa que lleve
+    /// el texto, ni un persistente).
+    static let panelMatchFunction = "pm() { c=$(ps -o comm= -p \"$1\" 2>/dev/null); "
+        + "case \"${c##*/}\" in ''|sh|bash|dash|zsh|ksh|fish|grep|sed|awk|ps|ssh|sshd|tail|cat) return 1;; esac; "
+        + "a=$(ps -o args= -p \"$1\" 2>/dev/null); "
+        + "case \"$a\" in *--replay-user-messages*) return 1;; *'--input-format stream-json'*) ;; *) return 1;; esac; "
+        + "printf '%s\\n' \"$a\" | grep -qi -- \"$2\"; }"
+
+    /// TERM a las entradas `pid:id` de `$K` que sigan siendo suyas, espera hasta 5 s y
+    /// KILL a las que sigan vivas (comprobando otra vez cada una).
+    private static let terminatePanelEntries = [
+        "for e in $K; do pm \"${e%%:*}\" \"${e#*:}\" && kill -s TERM \"${e%%:*}\" 2>/dev/null; done",
+        "i=0; while [ -n \"$K\" ] && [ $i -lt 10 ]; do v=0; for e in $K; do pm \"${e%%:*}\" \"${e#*:}\" && v=1; done; "
+            + "[ $v = 0 ] && break; sleep 0.5; i=$((i+1)); done",
+        "for e in $K; do pm \"${e%%:*}\" \"${e#*:}\" && kill -s KILL \"${e%%:*}\" 2>/dev/null; done",
+        "true",
+    ]
+
+    /// Mata conversaciones del panel por PID, comprobando en cada señal que el PID sigue
+    /// siendo esa conversación (su id en la línea de comandos).
     static func stopPanel(_ processes: [(pid: Int32, sessionID: String)]) -> String {
         let valid = processes.filter { $0.pid > 1 && UUID(uuidString: $0.sessionID) != nil }
         guard !valid.isEmpty else { return "true" }
-        let checks = valid.map { process in
-            "if ps -o args= -p \(process.pid) 2>/dev/null | grep -q -- 'input-format stream-json' "
-                + "&& ps -o args= -p \(process.pid) 2>/dev/null | grep -qi -- '\(process.sessionID)'; then "
-                + "kill -TERM \(process.pid) 2>/dev/null; K=\"$K \(process.pid)\"; fi"
+        let entries = valid.map { "\($0.pid):\($0.sessionID.lowercased())" }.joined(separator: " ")
+        return ([panelMatchFunction, "K=", "for e in \(entries); do pm \"${e%%:*}\" \"${e#*:}\" && K=\"$K $e\"; done"]
+            + terminatePanelEntries).joined(separator: "\n")
+    }
+
+    /// Mata TODAS las conversaciones del panel con esos ids de sesión, encontrándolas por
+    /// su línea de comandos (sin depender de un PID guardado, que pudo reutilizarse).
+    static func stopPanelSessions(_ sessionIDs: [String]) -> String {
+        let ids = sessionIDs.map { $0.lowercased() }.filter { UUID(uuidString: $0) != nil }
+        guard !ids.isEmpty else { return "true" }
+        let find = ids.map { id in
+            "for x in $(ps -eo pid=,args= 2>/dev/null | grep -i -- '\(id)' | awk '{print $1}'); do "
+                + "pm \"$x\" '\(id)' && K=\"$K $x:\(id)\"; done"
         }
-        return (["K="] + checks + [
-            "[ -n \"$K\" ] && sleep 2",
-            "for p in $K; do kill -KILL \"$p\" 2>/dev/null; done",
-            "true",
-        ]).joined(separator: "\n")
+        return ([panelMatchFunction, "K="] + find + terminatePanelEntries).joined(separator: "\n")
     }
 }
 
