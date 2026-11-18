@@ -70,13 +70,13 @@ struct AgentPanelView: View {
         )) { request in
             ClaudeSetupSheet(service: service, serverName: serverName, purpose: request.purpose) { _ in
                 setupPurpose = nil
-                Task { await prepare() }
+                Task { await prepare(userInitiated: true) }
             }
         }
         .sheet(isPresented: $showTokenSheet) {
             AgentTokenSheet {
                 showTokenSheet = false
-                Task { await prepare() }
+                Task { await prepare(userInitiated: true) }
             }
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: readiness)
@@ -225,7 +225,7 @@ struct AgentPanelView: View {
             authChip
             Menu {
                 closedConversationsMenu
-                Button("Comprobar de nuevo") { Task { await prepare() } }
+                Button("Comprobar de nuevo") { Task { await prepare(userInitiated: true) } }
                 Button("Usar un token de suscripción…") { showTokenSheet = true }
                 if claudePath != nil {
                     Button("Volver a iniciar sesión en \(serverName)…") { startLogin() }
@@ -296,7 +296,7 @@ struct AgentPanelView: View {
             card(icon: "exclamationmark.triangle", tint: .red,
                  title: "No se pudo preparar el agente",
                  text: message,
-                 action: ("Reintentar", { Task { await prepare() } }))
+                 action: ("Reintentar", { Task { await prepare(userInitiated: true) } }))
         case .ready:
             conversations
         }
@@ -388,7 +388,10 @@ struct AgentPanelView: View {
             sessionID: tab.session.sessionID, permissionMode: tab.permissionMode, resume: true
         )
         let token = oauthTokenForLaunch
-        Task { await store.resumeTab(tab.id, for: handle, service: service, command: command, oauthToken: token) }
+        Task {
+            await service.resetConnectionHealth()
+            await store.resumeTab(tab.id, for: handle, service: service, command: command, oauthToken: token)
+        }
     }
 
     private func reopen(_ conversation: ClosedAgentConversation) {
@@ -399,7 +402,10 @@ struct AgentPanelView: View {
             sessionID: conversation.sessionID, permissionMode: conversation.permissionMode, resume: true
         )
         let token = oauthTokenForLaunch
-        Task { await store.reopen(conversation, for: handle, service: service, command: command, oauthToken: token) }
+        Task {
+            await service.resetConnectionHealth()
+            await store.reopen(conversation, for: handle, service: service, command: command, oauthToken: token)
+        }
     }
 
     /// Con sesión en el servidor el token sobra: no se toca el llavero (evita su aviso).
@@ -412,7 +418,10 @@ struct AgentPanelView: View {
     /// Resuelve carpeta, instalación y sesión; si todo está listo y no hay
     /// conversaciones, arranca la primera automáticamente. Si ya hay pestañas (o el
     /// servidor ya se comprobó), se muestran AL INSTANTE y se verifica en segundo plano.
-    private func prepare() async {
+    /// `userInitiated` («Reintentar», «Comprobar de nuevo», al cerrar una hoja): levanta el
+    /// bloqueo de conexión; la aparición automática del panel lo respeta.
+    private func prepare(userInitiated: Bool = false) async {
+        if userInitiated { await service.resetConnectionHealth() }
         let tabs = store.tabs(for: handle)
         let knownFolder = projectPath ?? tabs.first?.session.workingDirectory
         let cached = store.readinessCache[handle.serverID]
@@ -470,12 +479,13 @@ struct AgentPanelView: View {
         store.readinessCache[handle.serverID] = AgentServerReadiness(claudePath: path, authStatus: auth)
         if !showsInstantly || readiness != .ready { readiness = .ready }
         if store.tabs(for: handle).isEmpty {
-            await newConversation(force: false)
+            await newConversation(force: false, userInitiated: false)
         }
     }
 
-    /// Abre una conversación nueva (nueva pestaña) en la carpeta del proyecto.
-    private func newConversation(force: Bool) async {
+    /// Abre una conversación nueva (nueva pestaña) en la carpeta del proyecto. Pedida por el
+    /// usuario levanta el bloqueo de conexión; la primera automática tras `verify`, no.
+    private func newConversation(force: Bool, userInitiated: Bool = true) async {
         guard let folder, let claudePath, !isStartingTab else { return }
         guard store.capacity == .available else {
             askEviction(then: .newConversation)
@@ -483,6 +493,7 @@ struct AgentPanelView: View {
         }
         isStartingTab = true
         defer { isStartingTab = false }
+        if userInitiated { await service.resetConnectionHealth() }
 
         if !force, let free = try? await service.availableMemoryKB(),
            case .warning(_, let message) = AgentLaunchGuard.assess(freeMemoryKB: free, liveAgents: 0) {

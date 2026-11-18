@@ -234,12 +234,14 @@ extension SSHService {
 
         do {
             // Conexión dedicada: evita agotar el `MaxSessions` de la conexión compartida.
-            try await withDedicatedClient { client in
+            // Cada salida anota actividad: un agente que habla no gasta sondeos del vigilante.
+            try await withDedicatedClient { client, activity in
                 try await client.withExec(ShellQuoting.posixShell(command)) { inbound, outbound in
                     try await withThrowingTaskGroup(of: Void.self) { group in
                         // Proceso remoto -> consumidor: solo stdout (donde va el NDJSON).
                         group.addTask {
                             for try await chunk in inbound {
+                                activity.touch()
                                 switch chunk {
                                 case .stdout(let buffer):
                                     if let bytes = buffer.getBytes(
@@ -281,6 +283,10 @@ extension SSHService {
                     }
                 }
             }
+        } catch SSHConnectionError.connectionLost {
+            // La conexión murió: eso es lo que hay que decir (y lo que permite «Reanudar»),
+            // aunque claude hubiera escrito algo en stderr.
+            throw SSHConnectionError.connectionLost
         } catch {
             // Si claude dejó algo en stderr, es mucho más útil que el error de canal.
             let stderr = stderrBox.withLockedValue { $0 }

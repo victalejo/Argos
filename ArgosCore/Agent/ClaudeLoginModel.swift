@@ -175,6 +175,8 @@ final class ClaudeLoginModel {
         guard generation == current else { return }
         if let status, status.loggedIn {
             succeed(status)
+        } else if AgentConnectionLoss.isConnectionLost(error) {
+            phase = .failed(AgentConnectionLoss.login)
         } else if wasVerifying {
             phase = .failed("No se pudo confirmar la sesión. Revisa el código y vuelve a intentarlo.")
         } else if let error, !(error is CancellationError) {

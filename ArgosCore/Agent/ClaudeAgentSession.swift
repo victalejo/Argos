@@ -83,6 +83,9 @@ final class ClaudeAgentSession {
         state.pendingPermission != nil || state.status == .working
     }
 
+    /// La conversación terminó porque se perdió la conexión (se ofrece «Reanudar»).
+    private(set) var lostConnection = false
+
     /// Tiene algo que reanudar (al menos un mensaje del usuario).
     var hasConversation: Bool {
         state.items.contains { if case .userText = $0.kind { return true } else { return false } }
@@ -245,6 +248,7 @@ final class ClaudeAgentSession {
         // El proceso terminó (o se perdió el canal): su PID ya no es de fiar.
         remotePID = nil
         guard !isStopping else { return }
-        AgentReducer.finished(error: error?.userMessage, to: &state)
+        lostConnection = AgentConnectionLoss.isConnectionLost(error)
+        AgentReducer.finished(error: error.map(AgentConnectionLoss.conversationMessage(for:)), to: &state)
     }
 }

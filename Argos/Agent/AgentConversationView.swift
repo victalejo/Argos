@@ -154,13 +154,21 @@ struct AgentConversationView: View {
 
     // MARK: - Entrada
 
+    /// Por qué no se puede escribir: conexión perdida (se puede reanudar) o fin normal.
+    private var closedText: String {
+        if session.lostConnection {
+            return onResume == nil ? "Se perdió la conexión con el servidor. Abre otra con + o ⌘T."
+                                   : "Se perdió la conexión con el servidor."
+        }
+        return onResume == nil ? "Esta conversación terminó. Abre otra con + o ⌘T." : "Esta conversación terminó."
+    }
+
     private var inputBar: some View {
         VStack(spacing: 0) {
             Divider()
             if isClosed {
                 HStack(spacing: 12) {
-                    Label(onResume == nil ? "Esta conversación terminó. Abre otra con + o ⌘T."
-                                          : "Esta conversación terminó.", systemImage: "stop.circle")
+                    Label(closedText, systemImage: session.lostConnection ? "wifi.exclamationmark" : "stop.circle")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                     if let onResume {
