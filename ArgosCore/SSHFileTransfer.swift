@@ -57,9 +57,9 @@ extension SSHService {
         flags: SFTPOpenFileFlags,
         attributes: SFTPFileAttributes
     ) async throws -> String {
-        let client = try await connectedClient()
         do {
-            try await withShortChannel {
+            // La conexión se resuelve dentro del turno (la de antes de esperar pudo caerse).
+            try await withSharedChannel { client in
                 try await client.withSFTP { sftp in
                     try await sftp.withFile(
                         filePath: remotePath,

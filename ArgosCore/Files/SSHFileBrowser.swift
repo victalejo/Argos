@@ -169,7 +169,7 @@ extension SSHService {
     /// Rutas relativas de los archivos del proyecto (para ⌘P).
     func indexProjectFiles(root: String) async throws -> [String] {
         let client = try await connectedClient()
-        let result = try await capture(client, command: Self.fileIndexCommand(root: root))
+        let result = try await capture(client, command: Self.fileIndexCommand(root: root), timeout: .long)
         return result.stdout
             .split(whereSeparator: \.isNewline)
             .map { $0.hasPrefix("./") ? String($0.dropFirst(2)) : String($0) }

@@ -274,6 +274,11 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func suspendHeartbeat() async { heartbeatSuspensions.append(true) }
     func resumeHeartbeat() async { heartbeatSuspensions.append(false) }
 
+    // MARK: - Salud de la conexión
+    private(set) var healthResets = 0
+    func resetConnectionHealth() async { healthResets += 1 }
+    func checkConnectionNow(timeout: Duration) async -> Bool { true }
+
     func attachTerminal(
         session name: String,
         initialCols: Int,

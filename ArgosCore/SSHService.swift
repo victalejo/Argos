@@ -115,27 +115,37 @@ actor SSHService {
 
     // MARK: - Estado
 
-    private let configuration: Configuration
-    private var client: SSHClient?
+    let configuration: Configuration
+    /// Conexión compartida de comandos cortos. `internal` para las extensiones del actor.
+    var client: SSHClient?
 
     /// Cliente SFTP persistente del explorador de archivos (abrir uno por operación
     /// sería lento) y la conexión SSH a la que pertenece (al reconectar, se reabre).
     var fileSFTP: SFTPClient?
     var fileSFTPOwner: ObjectIdentifier?
     /// Tope de canales cortos simultáneos en la conexión compartida (ver `ChannelGate`).
-    let channelGate = ChannelGate()
+    nonisolated let channelGate = ChannelGate()
     /// Apertura en curso del SFTP compartido: las transferencias en paralelo la esperan
     /// en vez de abrir cada una su canal (quedaban huérfanos y agotaban `MaxSessions`).
     var fileSFTPOpening: Task<SFTPClient, Error>?
 
     /// Tarea de heartbeat de la conexión actual (keep-alive). Ver `startHeartbeat`.
-    private var heartbeatTask: Task<Void, Never>?
+    var heartbeatTask: Task<Void, Never>?
     /// `true` mientras el Mac duerme: el heartbeat no toca la red hasta
     /// `resumeHeartbeat()`. Idea original de Kevin Jovy (PR #2).
-    private var heartbeatSuspended = false
+    var heartbeatSuspended = false
     /// Conexiones dedicadas abiertas para canales de larga duración (terminales, agente).
     /// Se guardan para cerrarlas todas en `disconnect()`.
-    private var dedicatedClients: [UUID: SSHClient] = [:]
+    var dedicatedClients: [UUID: SSHClient] = [:]
+    /// Vigilantes de las conexiones dedicadas y de los túneles (ver `SSHConnectionMonitor`).
+    var linkMonitors: [UUID: Task<Void, Never>] = [:]
+    /// Conexiones dedicadas que el vigilante cerró por no responder: su dueño recibe
+    /// `SSHConnectionError.connectionLost` (y reconecta) aunque el canal acabara «limpio».
+    var lostLinks: Set<UUID> = []
+    /// Salud de la conexión: bloqueo por credenciales y espera entre reintentos de red.
+    var health = ConnectionHealth()
+    /// Error que bloqueó los reintentos (se relanza tal cual: la UI distingue host key).
+    var lastBlockingError: Error?
     /// Túneles de reenvío de puertos activos (ver `SSHPortForwarding.swift`).
     var portForwards: [UUID: PortForwardRuntime] = [:]
     /// Vigilante de los túneles: cierra los inactivos y renueva su archivo en el servidor.
@@ -154,16 +164,6 @@ actor SSHService {
     /// Sube en cada `disconnect()`: una apertura que termina después de desconectar no
     /// debe instalarse (dejaría una conexión y un heartbeat sin dueño).
     private var connectionEpoch = 0
-
-    /// Intervalo del heartbeat: más corto que los timeouts típicos de NAT/firewall
-    /// (~60-120s) para que la conexión idle no se corte sin que la app lo sepa.
-    private static let heartbeatInterval: Duration = .seconds(30)
-    /// Tope de un latido. Una conexión medio abierta (cambio de red, NAT que la olvidó)
-    /// no falla: se queda esperando hasta el timeout de TCP, que son minutos. Es holgado
-    /// a propósito: por la conexión compartida también van subidas y el agente, y con la
-    /// línea cargada la respuesta a un comando trivial puede tardar; cerrarla por un
-    /// retraso corto abortaría trabajo sano.
-    private static let heartbeatTimeout: Duration = .seconds(30)
 
     /// Formato exacto requerido para `tmux list-sessions -F`.
     private static let sessionFormat =
@@ -220,6 +220,7 @@ actor SSHService {
         connecting = nil
         stopHeartbeat()
         await stopAllPortForwards()
+        stopAllLinkMonitors()
         let dedicated = dedicatedClients.values
         dedicatedClients.removeAll()
         for dedicatedClient in dedicated {
@@ -233,19 +234,6 @@ actor SSHService {
         guard let client else { return }
         try? await client.close()
         self.client = nil
-    }
-
-    /// Ejecuta un comando corto best-effort SOLO si la conexión compartida ya está viva (no
-    /// reconecta: p. ej. al desconectar). Devuelve si salió con código 0.
-    @discardableResult
-    func captureIfConnected(_ command: String) async -> Bool {
-        guard let client, client.isConnected else { return false }
-        do {
-            return try await capture(client, command: command).exitCode == 0
-        } catch {
-            Log.ssh.notice("Comando best-effort falló: \(error.userMessage, privacy: .public)")
-            return false
-        }
     }
 
     /// Prueba la conexión con la configuración actual: conecta (verificando host key,
@@ -335,7 +323,8 @@ actor SSHService {
         let install =
             "sudo -n sh -c 'apt-get update && "
             + "DEBIAN_FRONTEND=noninteractive apt-get install -y tmux'"
-        let result = try await capture(client, command: install)
+        // Largo a propósito: `apt-get update` + instalar pueden tardar minutos.
+        let result = try await capture(client, command: install, timeout: .long)
 
         // Verificación independiente del código de salida de apt.
         let check = try await capture(client, command: "command -v tmux")
@@ -444,6 +433,8 @@ actor SSHService {
             throw CancellationError()
         }
         replaceSharedClient(with: fresh)
+        // El tope adaptativo de canales se recuerda solo para la conexión en la que se aprendió.
+        await channelGate.resetLimit()
         Log.ssh.notice("Conexión SSH establecida con \(self.configuration.host, privacy: .public):\(self.configuration.port)")
         startHeartbeat()
         return fresh
@@ -452,7 +443,7 @@ actor SSHService {
     /// Cambia la conexión compartida cerrando la anterior (el `SSHClient` de Citadel no se
     /// cierra solo al soltarlo). Cerrarla hace fallar los comandos que siguieran colgados
     /// en ella.
-    private func replaceSharedClient(with fresh: SSHClient?) {
+    func replaceSharedClient(with fresh: SSHClient?) {
         let stale = client
         client = fresh
         guard let stale, stale !== fresh else { return }
@@ -466,28 +457,54 @@ actor SSHService {
     /// proyectos en marcha se superaría el límite y el servidor rechazaría los canales
     /// nuevos ("no more sessions" → `NIOSSHError`). Los canales de larga duración usan
     /// por eso una conexión dedicada; la compartida queda para comandos cortos.
+    ///
+    /// Un vigilante la sondea cada `linkCheckInterval`: si deja de responder (cambio de
+    /// red, reposo largo) la cierra y `body` termina con `SSHConnectionError.connectionLost`,
+    /// para que su dueño reconecte con su propio backoff en vez de quedarse «conectado».
     func withDedicatedClient(_ body: (SSHClient) async throws -> Void) async throws {
         let id = UUID()
         let client = try await openClient()
         dedicatedClients[id] = client
+        startLinkMonitor(id)
         Log.ssh.debug("Conexión dedicada abierta (\(self.dedicatedClients.count) activas)")
         do {
             try await body(client)
         } catch {
-            await closeDedicatedClient(id)
+            let lost = await closeDedicatedClient(id)
+            if lost, !(error is CancellationError) { throw SSHConnectionError.connectionLost }
             throw error
         }
-        await closeDedicatedClient(id)
+        if await closeDedicatedClient(id) { throw SSHConnectionError.connectionLost }
     }
 
-    private func closeDedicatedClient(_ id: UUID) async {
-        guard let client = dedicatedClients.removeValue(forKey: id) else { return }
+    /// Cierra la conexión dedicada. Devuelve si el vigilante la había dado por perdida.
+    private func closeDedicatedClient(_ id: UUID) async -> Bool {
+        stopLinkMonitor(id)
+        let lost = lostLinks.remove(id) != nil
+        guard let client = dedicatedClients.removeValue(forKey: id) else { return lost }
         try? await client.close()
+        return lost
     }
 
     /// Abre y autentica una conexión nueva (TOFU + clave/Keychain), sin compartirla.
     /// `internal`: los túneles de puertos abren la suya (`SSHPortForwarding.swift`).
+    ///
+    /// Respeta la salud de la conexión: con credenciales rechazadas no toca la red hasta
+    /// `resetConnectionHealth()`, y tras un fallo de red los sondeos de fondo esperan.
     func openClient() async throws -> SSHClient {
+        try admitConnectionAttempt()
+        do {
+            let fresh = try await connectNewClient()
+            health = health.recordingSuccess()
+            lastBlockingError = nil
+            return fresh
+        } catch {
+            recordConnectionFailure(error)
+            throw error
+        }
+    }
+
+    private func connectNewClient() async throws -> SSHClient {
         let authentication = try makeAuthenticationMethod()
 
         // Verificación de host key con Trust-On-First-Use (estilo known_hosts).
@@ -505,221 +522,5 @@ actor SSHService {
             hostKeyValidator: .custom(hostKeyValidator),
             reconnect: .never
         )
-    }
-
-    // MARK: - Heartbeat (keep-alive)
-
-    /// Arranca el heartbeat de la conexión actual. Ejecuta un comando trivial cada
-    /// `heartbeatInterval` para: (a) evitar que NAT/firewall corten la conexión idle —la
-    /// causa del "terminal congelado" al volver tras un rato—, y (b) detectar pronto una
-    /// caída en vez de descubrirla al próximo uso (cuando el indicador seguiría "verde").
-    ///
-    /// `beatImmediately`: al despertar del reposo conviene comprobar la conexión YA (la
-    /// red pudo cambiar o el NAT olvidarla) en vez de esperar al primer intervalo.
-    private func startHeartbeat(beatImmediately: Bool = false) {
-        guard !heartbeatSuspended else { return }
-        heartbeatTask?.cancel()
-        heartbeatTask = Task { [weak self] in
-            var skipSleep = beatImmediately
-            while !Task.isCancelled {
-                if !skipSleep {
-                    try? await Task.sleep(for: SSHService.heartbeatInterval)
-                }
-                skipSleep = false
-                guard let self else { return }
-                let alive = await self.beat()
-                if !alive { return }
-            }
-        }
-    }
-
-    /// Un latido: comprueba la conexión con un comando trivial. Devuelve `false` si la
-    /// conexión está caída y la limpia, forzando una reconexión en la próxima operación.
-    private func beat() async -> Bool {
-        // Si el reposo llegó con un latido ya en marcha, no tocar la red.
-        if heartbeatSuspended { return true }
-        guard let probed = client, probed.isConnected else { return false }
-        let alive = await Deadline.succeeds(within: Self.heartbeatTimeout) { [weak self] in
-            await self?.probe() ?? false
-        }
-        if alive { return true }
-        // Cancelado (reposo, desconexión) no es «caída»: no se toca la conexión.
-        if Task.isCancelled || heartbeatSuspended { return true }
-        Log.ssh.notice("Heartbeat falló en \(self.configuration.host, privacy: .public); se marca la conexión como caída.")
-        // Solo si sigue siendo la misma: entretanto pudo reconectarse otra operación.
-        if client === probed { replaceSharedClient(with: nil) }
-        return false
-    }
-
-    /// Comando trivial sobre la conexión compartida actual.
-    private func probe() async -> Bool {
-        guard let client, client.isConnected else { return false }
-        return (try? await capture(client, command: "true")) != nil
-    }
-
-    private func stopHeartbeat() {
-        heartbeatTask?.cancel()
-        heartbeatTask = nil
-    }
-
-    /// Pausa el keep-alive sin cerrar la conexión: con el Mac dormido no se ejecuta
-    /// ningún comando proactivo. Las acciones explícitas siguen conectando.
-    func suspendHeartbeat() async {
-        heartbeatSuspended = true
-        stopHeartbeat()
-    }
-
-    /// Reanuda el keep-alive tras el reposo. Si queda conexión, late YA: si murió
-    /// durante el reposo se limpia y la próxima operación reconecta sola.
-    func resumeHeartbeat() async {
-        heartbeatSuspended = false
-        if let client, client.isConnected {
-            startHeartbeat(beatImmediately: true)
-        }
-    }
-
-    /// Construye el método de autenticación según el `authMethod` configurado:
-    /// clave Ed25519 (con passphrase opcional) o usuario+contraseña.
-    private func makeAuthenticationMethod() throws -> SSHAuthenticationMethod {
-        switch configuration.authMethod {
-        case .key:
-            let privateKey = try loadPrivateKey()
-            return .ed25519(username: configuration.username, privateKey: privateKey)
-        case .password:
-            // Sin contraseña no se toca la red: probar con una vacía solo suma intentos
-            // fallidos en el servidor (fail2ban) cada vez que se sondea en segundo plano.
-            guard let password = configuration.password, !password.isEmpty else {
-                throw SSHServiceError.credentialUnavailable
-            }
-            return .passwordBased(username: configuration.username, password: password)
-        }
-    }
-
-    /// Lee y parsea la clave Ed25519 OpenSSH del disco.
-    private func loadPrivateKey() throws -> Curve25519.Signing.PrivateKey {
-        let keyText = try readKeyText()
-
-        // Passphrase opcional -> Data UTF-8 (nil si la clave no está cifrada).
-        let decryptionKey = configuration.passphrase.map { Data($0.utf8) }
-
-        do {
-            return try Curve25519.Signing.PrivateKey(
-                sshEd25519: keyText,
-                decryptionKey: decryptionKey
-            )
-        } catch {
-            throw SSHServiceError.keyParseFailed(underlying: error)
-        }
-    }
-
-    /// Lee el texto de la clave privada. Bajo App Sandbox resuelve el
-    /// security-scoped bookmark que el usuario concedió al elegir el archivo; si
-    /// no hay bookmark (modo sin sandbox), lee por ruta directa (admite `~`).
-    private func readKeyText() throws -> String {
-        if let bookmark = configuration.privateKeyBookmark {
-            do {
-                var isStale = false
-                // macOS exige `.withSecurityScope` para bookmarks del sandbox; en iOS
-                // los bookmarks de archivos elegidos ya llevan el scope implícito.
-                #if os(macOS)
-                let resolveOptions: URL.BookmarkResolutionOptions = [.withSecurityScope]
-                #else
-                let resolveOptions: URL.BookmarkResolutionOptions = []
-                #endif
-                let url = try URL(
-                    resolvingBookmarkData: bookmark,
-                    options: resolveOptions,
-                    relativeTo: nil,
-                    bookmarkDataIsStale: &isStale
-                )
-                let accessed = url.startAccessingSecurityScopedResource()
-                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-                return try String(contentsOf: url, encoding: .utf8)
-            } catch {
-                throw SSHServiceError.keyUnreadable(
-                    path: configuration.privateKeyPath, underlying: error
-                )
-            }
-        }
-
-        let path = SSHDirectoryAccess.expandTilde(configuration.privateKeyPath)
-        do {
-            // Claves en ~/.ssh: con el permiso de carpeta concedido (canal App Store) o
-            // por la excepción de sandbox (canal GitHub).
-            return try SSHDirectoryAccess.withAccess {
-                try String(contentsOfFile: path, encoding: .utf8)
-            }
-        } catch {
-            throw SSHServiceError.keyUnreadable(path: path, underlying: error)
-        }
-    }
-
-    // MARK: - Ejecución de comandos
-
-    /// Ejecuta un comando capturando stdout, stderr y el código de salida.
-    ///
-    /// Un exit-code distinto de cero NO lanza aquí: se devuelve para que la capa
-    /// superior decida (p. ej. tmux "no server running" sale con código != 0 pero
-    /// debe tratarse como lista vacía).
-    ///
-    /// `internal` (no `private`) para que la extensión de gestión de sesiones
-    /// (`SSHSessionManagement.swift`) reutilice esta misma ejecución de comandos.
-    func capture(
-        _ client: SSHClient,
-        command: String
-    ) async throws -> (stdout: String, stderr: String, exitCode: Int) {
-        try await withShortChannel {
-            try await captureOnce(client, command: command)
-        }
-    }
-
-    /// Ejecuta `body` (que abre UN canal corto) respetando el tope de la conexión y
-    /// reintentando si el servidor rechaza el canal: el rechazo llega antes de ejecutar
-    /// nada, así que repetir es seguro.
-    func withShortChannel<T>(_ body: () async throws -> T) async throws -> T {
-        var attempt = 1
-        while true {
-            await channelGate.acquire()
-            do {
-                let value = try await body()
-                await channelGate.release()
-                return value
-            } catch let error as NIOSSHError where error.type == .channelSetupRejected
-                && attempt < ChannelRetry.maxAttempts {
-                await channelGate.release()
-                Log.ssh.notice("Canal rechazado por \(self.configuration.host, privacy: .public) (intento \(attempt)); se reintenta.")
-                try await Task.sleep(for: ChannelRetry.delay(forAttempt: attempt))
-                attempt += 1
-            } catch {
-                await channelGate.release()
-                throw error
-            }
-        }
-    }
-
-    private func captureOnce(
-        _ client: SSHClient,
-        command: String
-    ) async throws -> (stdout: String, stderr: String, exitCode: Int) {
-        var stdout = ByteBuffer()
-        var stderr = ByteBuffer()
-        var exitCode = 0
-
-        do {
-            let stream = try await client.executeCommandStream(command)
-            for try await chunk in stream {
-                switch chunk {
-                case .stdout(let buffer):
-                    stdout.writeImmutableBuffer(buffer)
-                case .stderr(let buffer):
-                    stderr.writeImmutableBuffer(buffer)
-                }
-            }
-        } catch let failure as SSHClient.CommandFailed {
-            // Salida con código != 0: capturamos el código; stdout/stderr ya recogidos.
-            exitCode = failure.exitCode
-        }
-
-        return (String(buffer: stdout), String(buffer: stderr), exitCode)
     }
 }

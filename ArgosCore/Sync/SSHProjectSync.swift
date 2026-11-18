@@ -16,7 +16,7 @@ extension SSHService {
     /// Archivos del proyecto en el servidor (sin carpetas excluidas).
     func syncFileList(root: String) async throws -> [SyncFile] {
         let client = try await connectedClient()
-        let result = try await capture(client, command: ServerFileList.command(root: root))
+        let result = try await capture(client, command: ServerFileList.command(root: root), timeout: .long)
         guard result.exitCode == 0 else {
             let message = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.commandFailed(

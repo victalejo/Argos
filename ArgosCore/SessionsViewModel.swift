@@ -51,7 +51,9 @@ final class SessionsViewModel {
     }
 
     /// Al conectar: asegura tmux (detecta → instala si puede → configura) y LUEGO lista.
+    /// Es una acción explícita: levanta el bloqueo por credenciales y la espera de red.
     func load() async {
+        await service.resetConnectionHealth()
         do {
             try await ensureTmuxEnvironment()
 
@@ -143,9 +145,14 @@ final class SessionsViewModel {
     /// "esperando" o "terminó" (para notificar). El primer sondeo no notifica nada:
     /// no sabemos si esos estados son nuevos. Fallos de red: se conserva lo último.
     func refreshClaudeActivity() async -> [ClaudeTransition] {
-        guard case .loaded = state,
-              let fresh = try? await service.claudeActivity()
-        else { return [] }
+        guard case .loaded = state else { return [] }
+        let fresh: ClaudeActivitySnapshot
+        do {
+            fresh = try await ConnectionPriority.background { try await service.claudeActivity() }
+        } catch {
+            noteBackgroundFailure(error, during: "leer el estado de Claude")
+            return []
+        }
         let isFirstPoll = !hasPolledClaude
         hasPolledClaude = true
         if isFirstPoll { await upgradeClaudeHooks() }
@@ -169,7 +176,7 @@ final class SessionsViewModel {
     /// anterior, se actualizan (los de ahora cubren más casos). Fallar no es grave.
     private func upgradeClaudeHooks() async {
         do {
-            if try await service.upgradeClaudeHooksIfOutdated() {
+            if try await ConnectionPriority.background({ try await service.upgradeClaudeHooksIfOutdated() }) {
                 Log.ssh.notice("Hooks de Claude actualizados en el servidor")
             }
         } catch {
@@ -205,6 +212,7 @@ final class SessionsViewModel {
     /// parpadear la columna y desmontaba el terminal abierto (que perdía sus ventanas y
     /// contadores) cada vez que se creaba, renombraba o mataba cualquier sesión.
     func refresh() async {
+        await service.resetConnectionHealth()
         if case .loaded = state { isRefreshing = true } else { state = .loading }
         defer { isRefreshing = false }
         do {
@@ -220,12 +228,42 @@ final class SessionsViewModel {
     /// otro dispositivo, `exit` en la última shell). Solo con la lista cargada; un fallo de
     /// red conserva lo último, que ya lo detecta la operación que lo necesite.
     func refreshSessionsQuietly() async {
-        guard case .loaded(let current) = state, !isRefreshing,
-              let fresh = try? await service.listSessions(),
-              // Entretanto pudo cambiarla un refresco explícito: manda ese.
-              case .loaded(let now) = state, now == current, !isRefreshing,
-              fresh != current
-        else { return }
+        guard case .loaded(let current) = state, !isRefreshing else { return }
+        let fresh: [TmuxSession]
+        do {
+            fresh = try await ConnectionPriority.background { try await service.listSessions() }
+        } catch {
+            noteBackgroundFailure(error, during: "releer las sesiones")
+            return
+        }
+        // Entretanto pudo cambiarla un refresco explícito: manda ese.
+        guard case .loaded(let now) = state, now == current, !isRefreshing, fresh != current else { return }
         state = .loaded(fresh)
+    }
+
+    // MARK: - Fallos de los sondeos de fondo
+
+    /// Un sondeo de fondo falló. Un fallo de red conserva lo último (lo detecta la
+    /// operación que lo necesite y la conexión espera antes de reintentar). Contraseña o
+    /// clave rechazada y host key cambiada NO se arreglan solos: se muestran en vez de
+    /// seguir «cargado», y no se reintenta hasta que el usuario actúe (`load()`).
+    /// Para los sondeos de las extensiones (git, CI…).
+    func noteBackgroundFailure(_ error: Error, during task: String) {
+        let message = error.userMessage
+        guard let blocking = SSHFailureKind.blocking(error) else {
+            if error is SSHConnectionError {
+                Log.ssh.debug("Sondeo en pausa (\(task, privacy: .public)): \(message, privacy: .public)")
+            } else if !(error is CancellationError) {
+                Log.ssh.notice("Sondeo fallido (\(task, privacy: .public)): \(message, privacy: .public)")
+            }
+            return
+        }
+        Log.ssh.error("Sondeo fallido (\(task, privacy: .public)): \(message, privacy: .public)")
+        // Solo con la lista a la vista: no se pisa un arranque en curso ni otro error.
+        guard case .loaded = state, !isRefreshing else { return }
+        switch blocking {
+        case .hostKey: state = .hostKeyChanged(message)
+        case .authentication, .network: state = .failed(message)
+        }
     }
 }

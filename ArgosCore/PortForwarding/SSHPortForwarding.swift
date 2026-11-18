@@ -92,7 +92,7 @@ extension SSHService {
 
     /// Una sola reapertura a la vez: la piden el vigilante, el botón y el panel, y dos a
     /// la vez abrirían dos túneles para el mismo puerto.
-    private func reopenBrokenPortForwards() async {
+    func reopenBrokenPortForwards() async {
         guard !isReopeningPortForwards else { return }
         isReopeningPortForwards = true
         defer { isReopeningPortForwards = false }
@@ -128,10 +128,14 @@ extension SSHService {
     // MARK: - Solicitudes de Claude
 
     /// Solicitudes pendientes (`argos-ports open`). Las caducadas se borran y no se devuelven.
+    ///
+    /// Siempre es un sondeo (lo pide la interfaz cada pocos segundos): va como trabajo de
+    /// fondo, así un servidor caído no recibe un intento de conexión en cada vuelta.
     func pendingPortForwardRequests() async throws -> [PortForwardRequest] {
-        let client = try await connectedClient()
-        let result = try await capture(client, command: PortForwardServerFiles.listRequestsCommand)
-        return PortForwardRequestParser.parse(result.stdout)
+        try await ConnectionPriority.background {
+            let result = try await run(PortForwardServerFiles.listRequestsCommand)
+            return PortForwardRequestParser.parse(result.stdout)
+        }
     }
 
     /// Retira una solicitud (aceptada o rechazada). Best-effort.
@@ -147,7 +151,8 @@ extension SSHService {
             while !Task.isCancelled {
                 try? await Task.sleep(for: SSHService.portForwardWatchInterval)
                 guard let self, !Task.isCancelled else { return }
-                let keepGoing = await self.watchPortForwards()
+                // Pasada automática: reabrir túneles respeta la espera entre reintentos.
+                let keepGoing = await ConnectionPriority.background { await self.watchPortForwards() }
                 if !keepGoing { return }
             }
         }
@@ -220,6 +225,9 @@ extension SSHService {
             )
             let info = ActivePortForward(id: id, remotePort: remotePort, targetHost: targetHost, localPort: localPort)
             portForwards[id] = PortForwardRuntime(info: info, connection: connection, listener: listener, activity: activity)
+            // Un túnel sobre una conexión medio abierta parece abierto y el navegador se
+            // queda cargando: se vigila como las demás conexiones dedicadas.
+            startLinkMonitor(id)
             Log.ssh.notice("Túnel abierto: localhost:\(localPort) → \(targetHost, privacy: .public):\(remotePort)")
             return info
         } catch {
@@ -229,6 +237,8 @@ extension SSHService {
     }
 
     private func close(_ runtime: PortForwardRuntime) async {
+        // Solo si el vigilante es el de esta conexión (al reabrir se reutiliza el id).
+        if portForwards[runtime.info.id] == nil { stopLinkMonitor(runtime.info.id) }
         try? await runtime.listener.close()
         try? await runtime.connection.client.close()
     }

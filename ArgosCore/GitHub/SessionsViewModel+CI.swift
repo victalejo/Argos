@@ -24,7 +24,7 @@ extension SessionsViewModel {
         for root in ciWatcher.watches.keys.sorted() {
             let result: GitHubStatusResult
             do {
-                result = try await service.gitHubStatus(root: root)
+                result = try await ConnectionPriority.background { try await service.gitHubStatus(root: root) }
             } catch {
                 Log.ssh.notice("CI vigilado de \(root, privacy: .public): \(error.userMessage, privacy: .public)")
                 continue

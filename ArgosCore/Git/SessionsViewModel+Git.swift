@@ -35,7 +35,7 @@ extension SessionsViewModel {
         lastGitSummaryRefresh = now
         let paths = Self.uniquePaths(of: projects)
         do {
-            gitSummaries = try await service.gitSummaries(paths: paths)
+            gitSummaries = try await ConnectionPriority.background { try await service.gitSummaries(paths: paths) }
         } catch {
             Log.ssh.notice("Resumen git de los proyectos: \(error.userMessage, privacy: .public)")
         }

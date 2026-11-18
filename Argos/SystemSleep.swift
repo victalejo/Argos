@@ -73,7 +73,10 @@ final class HeartbeatSleepCoordinator {
 
 enum TerminalSleepPolicy {
     /// Al despertar, solo se reintenta un terminal que cayó por error de red/SSH; el
-    /// detach limpio (`.ended`) no se reconecta solo.
+    /// detach limpio (`.ended`) no se reconecta solo. Los que figuran como conectados los
+    /// comprueba `SSHService.resumeHeartbeat()`: si su conexión murió durante el reposo, la
+    /// cierra y el terminal pasa a `.failed` (`SSHConnectionError.connectionLost`), con lo
+    /// que entra en la reconexión automática normal.
     static func reconnectsOnWake(_ status: LiveTerminalStatus?) -> Bool {
         if case .failed = status { return true }
         return false

@@ -33,7 +33,7 @@ extension SSHService {
 
     func gitHubClone(_ request: GitHubCloneRequest) async throws -> String {
         let client = try await connectedClient()
-        let result = try await capture(client, command: GitHubCommands.clone(request))
+        let result = try await capture(client, command: GitHubCommands.clone(request), timeout: .long)
         if let refusal = GitHubParser.cloneRefusal(result.stdout) { throw GitCommandError(message: refusal) }
         guard result.exitCode == 0 else {
             throw GitCommandError.from(stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode)

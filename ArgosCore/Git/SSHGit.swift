@@ -69,7 +69,7 @@ extension SSHService {
 
     func gitAddWorktree(_ request: GitWorktreeRequest) async throws -> String {
         let client = try await connectedClient()
-        let result = try await capture(client, command: GitWorktreeCommands.add(request))
+        let result = try await capture(client, command: GitWorktreeCommands.add(request), timeout: .long)
         if let refusal = GitWorktreeParser.addRefusal(result.stdout) { throw GitCommandError(message: refusal) }
         guard result.exitCode == 0 else {
             throw GitCommandError.from(stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode)
@@ -94,7 +94,7 @@ extension SSHService {
     /// Ejecuta un comando git y devuelve su salida (resumida); lanza si falla.
     private func runGit(_ command: String) async throws -> String {
         let client = try await connectedClient()
-        let result = try await capture(client, command: command)
+        let result = try await capture(client, command: command, timeout: .long)
         guard result.exitCode == 0 else {
             throw GitCommandError.from(stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode)
         }

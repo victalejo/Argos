@@ -209,6 +209,23 @@ protocol SSHServicing: Sendable {
     func pendingPortForwardRequests() async throws -> [PortForwardRequest]
     /// Retira una solicitud (aceptada o rechazada).
     func dismissPortForwardRequest(port: Int) async
+
+    // MARK: - Salud de la conexión
+
+    /// Acción explícita del usuario: olvida el bloqueo por credenciales rechazadas o host
+    /// key cambiada y la espera entre reintentos; el próximo intento va a la red.
+    func resetConnectionHealth() async
+    /// Comprueba ya la conexión compartida con plazo corto; si no responde la descarta (la
+    /// próxima operación reconecta) y revisa las dedicadas. `true` si respondió.
+    @discardableResult func checkConnectionNow(timeout: Duration) async -> Bool
+}
+
+extension SSHServicing {
+    /// `checkConnectionNow(timeout:)` con el plazo corto por defecto.
+    @discardableResult
+    func checkConnectionNow() async -> Bool {
+        await checkConnectionNow(timeout: SSHService.quickCheckTimeout)
+    }
 }
 
 extension SSHService: SSHServicing {}
