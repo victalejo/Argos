@@ -114,3 +114,29 @@ extension GoldenCatalog {
         ]
     }
 }
+
+// MARK: - Agentes (interrumpir, listado con estado, logs sembrados) y Doctor
+
+extension GoldenCatalog {
+
+    /// Mismas entradas que `AgentClosingGoldenTest` y `DoctorGoldenTest` de Android.
+    static func androidClosing() -> [String: String] {
+        var finished = AgentConversationState()
+        AgentReducer.userSent(text: "revisa el código", to: &finished)
+        AgentReducer.apply(.assistant([.thinking("pienso"), .text("Voy a leerlo."),
+                                       .toolUse(id: "t1", name: "Read", input: .object(["file_path": .string("/srv/web/a.swift")]))]), to: &finished)
+        AgentReducer.apply(.user([.toolResult(toolUseID: "t1", text: "línea 1\nlínea 2", isError: false)]), to: &finished)
+        AgentReducer.apply(.assistant([.text("Todo bien.")]), to: &finished)
+        AgentReducer.apply(.result(AgentResult(subtype: "success", isError: false, text: "Todo bien.", totalCostUSD: 0.01)), to: &finished)
+        var open = AgentConversationState()
+        AgentReducer.userSent(text: "hola", to: &open)
+        AgentReducer.finished(error: "Se perdió la conexión", to: &open)
+        return [
+            "agent-interrupt": AgentProtocol.encodeInterrupt(requestID: "argos-interrupt-\(agentID)"),
+            "overview": PersistentAgentScript.overview(),
+            "seed-log": AgentTranscriptSeed.make(from: finished).lines.joined(separator: "\n"),
+            "seed-log-open": AgentTranscriptSeed.make(from: open).lines.joined(separator: "\n"),
+            "doctor-script": DoctorScript.command,
+        ]
+    }
+}

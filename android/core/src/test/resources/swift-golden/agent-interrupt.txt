@@ -1,0 +1,1 @@
+{"request":{"subtype":"interrupt"},"request_id":"argos-interrupt-6a55640d-ac70-41ab-8426-6eb72d4fb5eb","type":"control_request"}

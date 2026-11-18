@@ -1,0 +1,2 @@
+{"message":{"content":"hola","role":"user"},"type":"user"}
+{"is_error":false,"subtype":"argos_seed","type":"result"}

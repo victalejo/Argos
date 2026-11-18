@@ -1,0 +1,7 @@
+{"message":{"content":"revisa el código","role":"user"},"type":"user"}
+{"message":{"content":[{"thinking":"pienso","type":"thinking"}],"role":"assistant"},"type":"assistant"}
+{"message":{"content":[{"text":"Voy a leerlo.","type":"text"}],"role":"assistant"},"type":"assistant"}
+{"message":{"content":[{"id":"argos-seed-3","input":{"file_path":"/srv/web/a.swift"},"name":"Read","type":"tool_use"}],"role":"assistant"},"type":"assistant"}
+{"message":{"content":[{"content":"línea 1\nlínea 2","is_error":false,"tool_use_id":"argos-seed-4","type":"tool_result"}],"role":"user"},"type":"user"}
+{"message":{"content":[{"text":"Todo bien.","type":"text"}],"role":"assistant"},"type":"assistant"}
+{"is_error":false,"result":"Todo bien.","subtype":"success","total_cost_usd":0.01,"type":"result"}
