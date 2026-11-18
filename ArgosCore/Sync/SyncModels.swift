@@ -39,11 +39,15 @@ enum SyncExclusions {
     static let directories: Set<String> = RemoteFileEntry.noisyDirectories.subtracting([".git"])
         .union([ClaudeSessionTransfer.stagingDirectory, ClaudeSessionTransfer.exportDirectory])
     static let files: Set<String> = [".DS_Store"]
+    /// Temporales de Argos (subida, descarga y config de git en bruto): nunca son del
+    /// proyecto; un envío interrumpido puede dejarlos y no deben viajar ni compararse.
+    static let temporarySuffixes = [SyncStaging.suffix, ".argos-down", ".argos-raw"]
 
     static func isExcluded(_ relativePath: String) -> Bool {
         let components = relativePath.split(separator: "/").map(String.init)
         guard let last = components.last else { return true }
         if files.contains(last) { return true }
+        if temporarySuffixes.contains(where: last.hasSuffix) { return true }
         if isGitExecutionVector(components) { return true }
         return components.dropLast().contains { directories.contains($0) }
     }

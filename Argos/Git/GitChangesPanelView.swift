@@ -39,6 +39,12 @@ struct GitChangesPanelView: View {
             } message: {
                 Text(model.errorMessage ?? "")
             }
+            .alert("Los cambios han cambiado", isPresented: reviewBinding) {
+                Button("Hacer commit igualmente") { Task { await model.confirmCommit() } }
+                Button("Revisar", role: .cancel) { model.cancelCommit() }
+            } message: {
+                Text(model.commitReview ?? "")
+            }
     }
 
     @ViewBuilder
@@ -76,6 +82,10 @@ struct GitChangesPanelView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .bottom) { GitNoticeBanner(model: model) }
         }
+    }
+
+    private var reviewBinding: Binding<Bool> {
+        Binding(get: { model.commitReview != nil }, set: { if !$0 { model.cancelCommit() } })
     }
 
     private var errorBinding: Binding<Bool> {
@@ -122,6 +132,12 @@ private struct GitChangesSidebar: View {
                 ForEach(status.changes) { change in
                     GitChangeRow(model: model, change: change)
                         .tag(change.path)
+                        // Volver a pulsar el archivo seleccionado recarga su diff (la
+                        // selección no cambia, así que el enlace de arriba no se entera).
+                        .simultaneousGesture(TapGesture().onEnded {
+                            guard model.selectedPath == change.path else { return }
+                            Task { await model.select(change.path) }
+                        })
                 }
                 if status.truncated {
                     Text("Hay más archivos que no se muestran.")

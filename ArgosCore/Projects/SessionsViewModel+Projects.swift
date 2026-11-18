@@ -23,8 +23,7 @@ extension SessionsViewModel {
     /// Relee projects.json. Un fallo no tumba la lista de sesiones: se muestra aparte.
     func reloadProjects() async {
         do {
-            projects = try await service.loadProjects()
-            projectsError = nil
+            apply(try await service.loadProjectsReport())
         } catch {
             Log.store.error("Leer proyectos: \(error.userMessage, privacy: .public)")
             projectsError = error.userMessage
@@ -131,13 +130,28 @@ extension SessionsViewModel {
 
     // MARK: - Persistencia
 
-    /// Lee-modifica-escribe sobre la versión ACTUAL del servidor (otro Mac pudo
-    /// cambiarla), para no pisar cambios ajenos con una copia vieja.
-    private func mutateProjects(_ transform: (inout [Project]) -> Void) async throws {
-        var fresh = try await service.loadProjects()
-        transform(&fresh)
-        try await service.saveProjects(fresh)
-        projects = fresh
-        projectsError = nil
+    /// Restaura projects.json desde su copia `.argos-backup` (para cuando está dañado).
+    /// Lanza `ProjectError.noBackup`/`.invalidBackup` si no se puede.
+    func restoreProjectsBackup() async throws {
+        apply(try await service.restoreProjectsBackup())
+        await refresh()
+    }
+
+    /// Lee-modifica-escribe sobre la versión ACTUAL del servidor (otro dispositivo pudo
+    /// cambiarla): el servicio comprueba que nadie la cambió entretanto y, si no, relee
+    /// y reaplica `transform`.
+    private func mutateProjects(_ transform: @escaping @Sendable (inout [Project]) -> Void) async throws {
+        let report = try await service.updateProjects { list in
+            var updated = list
+            transform(&updated)
+            return updated
+        }
+        apply(report)
+    }
+
+    private func apply(_ report: ProjectsLoadReport) {
+        projects = report.projects
+        projectsError = report.warning
+        if let warning = report.warning { Log.store.notice("Proyectos: \(warning, privacy: .public)") }
     }
 }

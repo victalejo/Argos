@@ -142,6 +142,11 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     private(set) var pulls = 0
     private(set) var diffRequests: [GitFileChange] = []
     func gitStatus(at path: String) async throws -> GitStatusResult { gitStatusResult }
+    /// Huella por ruta para `gitFingerprints` (por defecto, "fp").
+    var gitFingerprintByPath: [String: String] = [:]
+    func gitFingerprints(root: String, changes: [GitFileChange], hasCommits: Bool) async throws -> [String] {
+        changes.map { gitFingerprintByPath[$0.path] ?? "fp" }
+    }
     func gitDiff(root: String, change: GitFileChange, hasCommits: Bool) async throws -> GitFileDiff {
         diffRequests.append(change)
         return gitDiffResult

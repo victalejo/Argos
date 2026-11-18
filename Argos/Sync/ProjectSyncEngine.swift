@@ -20,7 +20,10 @@ final class ProjectSyncEngine {
     private(set) var doneBytes: UInt64 = 0
     private(set) var currentPath: String?
 
-    /// Operaciones SFTP simultáneas.
+    /// Operaciones SFTP simultáneas. Van todas por el MISMO canal SFTP persistente, así
+    /// que no consumen cupo de `ChannelGate` (6 canales): los comandos (`mkdir`, `mv`,
+    /// limpieza) van aparte, de uno en uno y por lotes, y el resto de la app no se queda
+    /// sin turno durante un envío.
     static let concurrency = 6
 
     var fraction: Double {
@@ -150,17 +153,17 @@ final class ProjectSyncEngine {
         return (SyncPlanner.plan(manifest: manifest.files, local: local, server: server), local)
     }
 
-    /// Aplica el plan (ya sin conflictos) en el servidor.
+    /// Aplica el plan (ya sin conflictos) en el servidor. Sube todo a temporales y solo
+    /// entonces los coloca (`SyncStaging`): si la subida falla o se cancela, se borran
+    /// los temporales y el servidor queda como estaba.
     func upload(plan: SyncPlan, remoteRoot: String, localRoot: URL, service: any SSHServicing) async throws {
+        await removeStaleTemporaries(root: remoteRoot, service: service)
         let directories = Set(plan.uploads.map { ($0.path as NSString).deletingLastPathComponent }.filter { !$0.isEmpty })
         try await service.makeRemoteDirectories(root: remoteRoot, relativeDirectories: directories.sorted())
 
         reset(files: plan.uploads)
         totalFiles += plan.deletions.count
-        try await forEachConcurrently(plan.uploads) { file in
-            guard let url = LocalProjectFiles.url(for: file.path, in: localRoot) else { return }
-            try await service.uploadSyncFile(root: remoteRoot, file: file, from: url)
-        }
+        try await stageAndPlace(plan.uploads, root: remoteRoot, from: localRoot, service: service)
         for path in plan.deletions {
             try Task.checkCancellation()
             try await service.deleteRemoteSyncFile(root: remoteRoot, relativePath: path)
@@ -185,12 +188,50 @@ final class ProjectSyncEngine {
         try await service.makeRemoteDirectories(root: directory, relativeDirectories: directories.sorted())
 
         reset(files: files)
-        try await forEachConcurrently(files) { file in
-            guard let url = LocalProjectFiles.url(for: file.path, in: export) else { return }
-            try await service.uploadSyncFile(root: directory, file: file, from: url)
-        }
+        try await stageAndPlace(files, root: directory, from: export, service: service)
         try? FileManager.default.removeItem(at: export)
         return true
+    }
+
+    // MARK: - Temporales del servidor
+
+    /// Sube `files` a temporales en paralelo (solo SFTP: no ocupa canales de comandos) y
+    /// los coloca después con pocos `mv` por lotes. Ante un fallo o una cancelación borra
+    /// los temporales que queden; los ya colocados son la versión nueva, completa.
+    private func stageAndPlace(_ files: [SyncFile], root: String, from localRoot: URL, service: any SSHServicing) async throws {
+        let sendable = files.filter { LocalProjectFiles.url(for: $0.path, in: localRoot) != nil }
+        do {
+            try await forEachConcurrently(sendable) { file in
+                guard let url = LocalProjectFiles.url(for: file.path, in: localRoot) else { return }
+                try await service.stageSyncFile(root: root, file: file, from: url)
+            }
+            try Task.checkCancellation()
+            try await service.placeStagedSyncFiles(root: root, files: sendable)
+        } catch {
+            discardInBackground(root: root, paths: sendable.map(\.path), service: service)
+            throw error
+        }
+    }
+
+    /// Huérfanos de envíos interrumpidos: un fallo no impide enviar (se registra).
+    private func removeStaleTemporaries(root: String, service: any SSHServicing) async {
+        do {
+            try await service.removeStaleSyncTemporaries(root: root)
+        } catch {
+            Log.store.error("No se limpiaron los temporales antiguos de \(root, privacy: .public): \(error.userMessage, privacy: .public)")
+        }
+    }
+
+    /// Borra los temporales tras un fallo o una cancelación. En una tarea aparte: la del
+    /// envío puede estar cancelada. Lo que quede, lo limpia el siguiente envío.
+    private func discardInBackground(root: String, paths: [String], service: any SSHServicing) {
+        Task {
+            do {
+                try await service.discardStagedSyncFiles(root: root, paths: paths)
+            } catch {
+                Log.store.error("Temporales de subida sin borrar en \(root, privacy: .public): \(error.userMessage, privacy: .public)")
+            }
+        }
     }
 
     // MARK: - Concurrencia

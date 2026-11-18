@@ -29,23 +29,42 @@ enum CommitMessageSuggestion {
     comillas, sin bloques de código y sin comentarios.
     """
 
+    /// Archivos sin seguimiento cuyo contenido entra en el prompt (cada uno es una orden).
+    static let maxUntrackedDiffs = 30
+    /// Bytes de rutas seguidas que entran en la orden (el resto se omite del prompt).
+    static let trackedPathBudget = 20_000
+
     private static func q(_ value: String) -> String { ShellQuoting.singleQuoted(value) }
+
+    /// Qué cambios entran en el prompt: el prompt se recorta a `promptByteLimit` de todos
+    /// modos, así que con muchos archivos basta una muestra (y la orden sigue cabiendo).
+    static func sample(_ changes: [GitFileChange]) -> (tracked: [String], untracked: [String], omitted: Int) {
+        let trackedPaths = GitCommands.commitPaths(changes.filter { !$0.isUntracked })
+        let quoted = RemoteCommandLimit.batches(trackedPaths.map(q), maxBytes: trackedPathBudget).first ?? []
+        let untracked = changes.filter(\.isUntracked).map(\.path)
+        let keptUntracked = Array(untracked.prefix(maxUntrackedDiffs))
+        let omitted = (trackedPaths.count - quoted.count) + (untracked.count - keptUntracked.count)
+        return (quoted, keptUntracked, omitted)
+    }
 
     /// Script (sin envolver en `sh -c`: lo envuelve `runAgentExec`). La primera línea de
     /// stdin es el token (vacía = credencial de `claude login` del servidor).
     static func command(claudePath: String, root: String, changes: [GitFileChange], hasCommits: Bool) -> String {
         let git = "\(GitCommands.git(root)) -c core.quotepath=off"
         let diff = "\(git) diff --no-color --no-ext-diff"
-        let tracked = changes.filter { !$0.isUntracked }
-        let trackedPaths = GitCommands.commitPaths(tracked).map(q).joined(separator: " ")
+        let chosen = sample(changes)
+        let trackedPaths = chosen.tracked.joined(separator: " ")
         var parts: [String] = []
-        if !tracked.isEmpty {
+        if !chosen.tracked.isEmpty {
             parts.append(hasCommits
                 ? "\(diff) -M HEAD -- \(trackedPaths)"
                 : "\(diff) --cached -- \(trackedPaths); \(diff) -- \(trackedPaths)")
         }
-        for change in changes where change.isUntracked {
-            parts.append("\(diff) --no-index -- /dev/null \(q(change.path))")
+        for path in chosen.untracked {
+            parts.append("\(diff) --no-index -- /dev/null \(q(path))")
+        }
+        if chosen.omitted > 0 {
+            parts.append("echo \(q("(y \(chosen.omitted) archivos más que no se muestran aquí)"))")
         }
         let diffs = parts.map { "\($0) 2>/dev/null" }.joined(separator: "\n  ")
         return """
@@ -103,6 +122,7 @@ enum CommitMessageSuggestion {
             throw GitCommandError(message: "Claude Code no está instalado en el servidor.")
         }
         let command = command(claudePath: claude, root: root, changes: changes, hasCommits: hasCommits)
+        try RemoteCommandLimit.check(ShellQuoting.posixShell(command))
         // stdin queda ABIERTO: si se cerrara, `runAgentExec` dejaría de leer la respuesta.
         let (stdin, input) = AsyncStream<[UInt8]>.makeStream()
         input.yield(ClaudeAgentCommand.tokenLine(oauthToken))

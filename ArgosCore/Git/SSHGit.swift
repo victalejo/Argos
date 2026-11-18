@@ -49,8 +49,32 @@ extension SSHService {
         _ = try await runGit(GitCommands.discard(root: root, change: change))
     }
 
+    /// Commit de `changes`. Si las rutas no caben en un comando (más de ~1.000 archivos),
+    /// viajan en archivos privados de `/tmp` (`--pathspec-from-file`, git ≥ 2.26).
     func gitCommit(root: String, message: String, changes: [GitFileChange]) async throws -> String {
-        try await runGit(GitCommands.commit(root: root, message: message, changes: changes))
+        if GitCommands.commitFitsInline(root: root, message: message, changes: changes) {
+            return try await runGit(GitCommands.commit(root: root, message: message, changes: changes))
+        }
+        // El mensaje sí va en la orden: si ni así cabe, se avisa antes de subir nada.
+        let placeholder = RemoteUpload.pathspecPath()
+        try RemoteCommandLimit.check(
+            GitCommands.commitFromFiles(root: root, message: message, stageFile: placeholder, commitFile: placeholder)
+        )
+        let lists = GitCommands.pathspecFiles(changes)
+        let stageFile = try await uploadPrivately(data: lists.stage, toRemotePath: RemoteUpload.pathspecPath())
+        let commitFile: String
+        do {
+            commitFile = try await uploadPrivately(data: lists.commit, toRemotePath: RemoteUpload.pathspecPath())
+        } catch {
+            _ = try? await runChecked("rm -f -- \(ShellQuoting.singleQuoted(stageFile))", failureMessage: "")
+            throw error
+        }
+        let command = GitCommands.commitFromFiles(root: root, message: message, stageFile: stageFile, commitFile: commitFile)
+        do {
+            return try await runGit(command)
+        } catch let error as GitCommandError where error.message.contains(GitCommands.gitTooOldMarker) {
+            throw GitCommandError(message: GitCommands.gitTooOldMessage)
+        }
     }
 
     func gitPush(root: String, hasUpstream: Bool) async throws -> String {

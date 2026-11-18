@@ -94,6 +94,37 @@ enum GitCommands {
         return "\(git(root)) add -A -- \(stage) && \(git(root)) commit -m \(q(message)) -- \(spec)"
     }
 
+    /// Marcador de un git anterior a 2.26 (sin `--pathspec-from-file` en `commit`).
+    static let gitTooOldMarker = "ARGOS_GIT_TOO_OLD"
+    static let gitTooOldMessage = "El git del servidor es anterior a 2.26 y no admite commits de tantos archivos a la vez. "
+        + "Actualiza git en el servidor o desmarca archivos y haz el commit en varias veces."
+
+    /// ¿Cabe el commit en un solo comando? Si no, `commitFromFiles`.
+    static func commitFitsInline(root: String, message: String, changes: [GitFileChange]) -> Bool {
+        commit(root: root, message: message, changes: changes).utf8.count <= RemoteCommandLimit.maxCommandBytes
+    }
+
+    /// Rutas a añadir y a commitear, separadas por NUL (para `--pathspec-file-nul`).
+    static func pathspecFiles(_ changes: [GitFileChange]) -> (stage: Data, commit: Data) {
+        func nul(_ paths: [String]) -> Data { Data(paths.map { $0 + "\0" }.joined().utf8) }
+        return (nul(unique(changes.map(\.path))), nul(commitPaths(changes)))
+    }
+
+    /// Commit con las rutas en archivos del servidor (sin límite de longitud). Los borra
+    /// al terminar y avisa (`gitTooOldMarker`) si el git del servidor no lo admite.
+    static func commitFromFiles(root: String, message: String, stageFile: String, commitFile: String) -> String {
+        ShellQuoting.posixShell("""
+        argos_stage=\(q(stageFile)); argos_commit=\(q(commitFile))
+        trap 'rm -f -- "$argos_stage" "$argos_commit"' EXIT
+        case "$(git version 2>/dev/null)" in
+          "git version 1."*|"git version 2."[0-9].*|"git version 2.1"[0-9].*|"git version 2.2"[0-5].*)
+            echo \(gitTooOldMarker); exit 3;;
+        esac
+        \(git(root)) add -A --pathspec-from-file="$argos_stage" --pathspec-file-nul && \
+        \(git(root)) commit -m \(q(message)) --pathspec-from-file="$argos_commit" --pathspec-file-nul
+        """)
+    }
+
     /// Rutas del commit (incluye el origen de los renombrados), sin duplicados.
     static func commitPaths(_ changes: [GitFileChange]) -> [String] {
         unique(changes.flatMap(\.affectedPaths))

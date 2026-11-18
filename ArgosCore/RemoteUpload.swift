@@ -27,6 +27,22 @@ enum RemoteUpload {
         "/tmp/argos-\(uniqueStamp(now))-\(sanitize(originalName))"
     }
 
+    /// Lista de rutas para `git … --pathspec-from-file` (se borra al terminar el commit).
+    static func pathspecPath(now: Date = Date()) -> String {
+        "/tmp/argos-pathspec-\(uniqueStamp(now))"
+    }
+
+    /// Días que se conservan las subidas en `/tmp` (una captura pegada puede seguir
+    /// citada en una conversación de Claude un tiempo).
+    static let retentionDays = 3
+
+    /// Borra las subidas antiguas DE ESTE USUARIO: solo archivos normales (nunca enlaces
+    /// ni carpetas), directamente en `/tmp` y con los nombres que genera este archivo. `find` no sigue
+    /// enlaces, así que no puede borrar nada fuera de `/tmp`.
+    static let staleCleanupCommand =
+        "find /tmp -maxdepth 1 -type f \\( -name 'argos-pasted-*' -o -name 'argos-pathspec-*' -o -name 'argos-[0-9]*-*' \\) -user \"$(id -u)\" -mmin +\(retentionDays * 24 * 60) "
+        + "-exec rm -f -- {} + 2>/dev/null; exit 0"
+
     private static func uniqueStamp(_ now: Date) -> String {
         let random = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         return "\(Int(now.timeIntervalSince1970 * 1000))-\(random)"

@@ -45,14 +45,69 @@ extension SSHService {
 
     // MARK: - Fichero de proyectos
 
+    static let projectsBackupSuffix = ".argos-backup"
+    static let projectsDamagedSuffix = ".argos-damaged"
+
     func loadProjects() async throws -> [Project] {
-        try ProjectsFile.decode(try await readHomeFile(Self.projectsRelativePath)).projects
+        try await loadProjectsReport().projects
     }
 
-    func saveProjects(_ projects: [Project]) async throws {
-        let data = try ProjectsFile(projects: projects).encoded()
-        try await writeHomeFilePrivately(data, to: Self.projectsRelativePath, backup: true)
+    func loadProjectsReport() async throws -> ProjectsLoadReport {
+        ProjectsLoadReport(document: try ProjectsDocument.parse(try await readHomeFile(Self.projectsRelativePath)))
     }
+
+    /// Sustituye la lista entera (conservando lo desconocido de cada proyecto por `id`).
+    func saveProjects(_ projects: [Project]) async throws {
+        _ = try await updateProjects { _ in projects }
+    }
+
+    /// Lee-modifica-escribe con comprobación de huella y reintentos (`ProjectsUpdater`),
+    /// en fila con las demás escrituras de projects.json de este servidor en esta app.
+    func updateProjects(
+        _ transform: @escaping @Sendable ([Project]) throws -> [Project]
+    ) async throws -> ProjectsLoadReport {
+        try await SerialQueue.projects.run(key: projectsQueueKey) {
+            try await ProjectsUpdater.run(
+                read: { try await self.readHomeFile(Self.projectsRelativePath) },
+                write: { data, expected in
+                    try await self.writeHomeFile(
+                        data, to: Self.projectsRelativePath,
+                        expecting: HomeFileExpectation(expected: expected),
+                        backupSuffix: Self.projectsBackupSuffix
+                    )
+                },
+                transform: transform
+            )
+        }
+    }
+
+    /// Vuelve a la copia `.argos-backup` (la deja cada escritura). El archivo actual se
+    /// guarda en `.argos-damaged` por si hiciera falta. Lanza si no hay copia o si
+    /// tampoco se puede leer.
+    func restoreProjectsBackup() async throws -> ProjectsLoadReport {
+        try await SerialQueue.projects.run(key: projectsQueueKey) {
+            let backupPath = Self.projectsRelativePath + Self.projectsBackupSuffix
+            for _ in 1...ProjectsUpdater.maxAttempts {
+                let current = try await self.readHomeFile(Self.projectsRelativePath)
+                let backup = try await self.readHomeFile(backupPath)
+                guard !backup.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ProjectError.noBackup }
+                guard let document = try? ProjectsDocument.parse(backup) else { throw ProjectError.invalidBackup }
+                let outcome = try await self.writeHomeFile(
+                    Data(backup.utf8), to: Self.projectsRelativePath,
+                    expecting: HomeFileExpectation(expected: ProjectsUpdater.expectedFingerprint(of: current)),
+                    backupSuffix: Self.projectsDamagedSuffix
+                )
+                if outcome == .written {
+                    Log.store.notice("projects.json restaurado desde la copia anterior.")
+                    return ProjectsLoadReport(document: document)
+                }
+            }
+            throw ProjectError.writeConflict
+        }
+    }
+
+    /// Una fila por conexión (entre conexiones o dispositivos protege la huella).
+    private nonisolated var projectsQueueKey: String { "\(ObjectIdentifier(self))" }
 
     // MARK: - Sesiones de proyecto
 

@@ -33,6 +33,12 @@ struct GitChangesView: View {
             } message: {
                 Text(model.errorMessage ?? "")
             }
+            .alert("Los cambios han cambiado", isPresented: reviewBinding) {
+                Button("Hacer commit igualmente") { Task { await model.confirmCommit() } }
+                Button("Revisar", role: .cancel) { model.cancelCommit() }
+            } message: {
+                Text(model.commitReview ?? "")
+            }
             .overlay(alignment: .bottom) { notice }
     }
 
@@ -79,6 +85,10 @@ struct GitChangesView: View {
                     if model.notice == text { model.notice = nil }
                 }
         }
+    }
+
+    private var reviewBinding: Binding<Bool> {
+        Binding(get: { model.commitReview != nil }, set: { if !$0 { model.cancelCommit() } })
     }
 
     private var errorBinding: Binding<Bool> {

@@ -94,17 +94,33 @@ enum ProjectError: LocalizedError, Equatable {
     case duplicateName(String)
     case missingFolder(String)
     case invalidPath
+    /// El archivo lo escribió una versión más nueva de Argos (formato `n`).
+    case newerFormat(Int)
+    /// Otro dispositivo lo cambió una y otra vez mientras se guardaba.
+    case writeConflict
+    case noBackup
+    case invalidBackup
 
     var errorDescription: String? {
         switch self {
         case .invalidFile:
-            return "~/.config/argos/projects.json del servidor no es válido; no se modificó."
+            return "~/.config/argos/projects.json del servidor está dañado (no es JSON válido) y Argos no lo ha modificado. "
+                + "Restaura la copia anterior (projects.json.argos-backup) desde Argos o corrige el archivo en el servidor."
         case .duplicateName(let name):
             return "Ya existe un proyecto o sesión llamado '\(name)' en este servidor."
         case .missingFolder(let path):
             return "La carpeta '\(path)' ya no existe en el servidor. Edita el proyecto para elegir otra."
         case .invalidPath:
             return "La carpeta debe ser una ruta absoluta del servidor (empieza por '/')."
+        case .newerFormat(let version):
+            return "Los proyectos de este servidor los guardó una versión más nueva de Argos (formato \(version)). "
+                + "Actualiza Argos en este dispositivo para poder modificarlos."
+        case .writeConflict:
+            return "Otro dispositivo está cambiando los proyectos de este servidor a la vez. Vuelve a intentarlo en unos segundos."
+        case .noBackup:
+            return "No hay copia anterior de los proyectos (projects.json.argos-backup) en este servidor."
+        case .invalidBackup:
+            return "La copia anterior de los proyectos también está dañada; no se ha restaurado. Corrige el archivo en el servidor."
         }
     }
 }

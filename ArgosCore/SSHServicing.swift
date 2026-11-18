@@ -218,6 +218,23 @@ protocol SSHServicing: Sendable {
     /// Comprueba ya la conexión compartida con plazo corto; si no responde la descarta (la
     /// próxima operación reconecta) y revisa las dedicadas. `true` si respondió.
     @discardableResult func checkConnectionNow(timeout: Duration) async -> Bool
+
+    // MARK: - Datos seguros: projects.json, envío atómico y huellas de git
+
+    /// Proyectos con avisos (entradas ilegibles apartadas, formato más nuevo).
+    func loadProjectsReport() async throws -> ProjectsLoadReport
+    /// Lee-modifica-escribe projects.json sin pisar cambios ajenos (ver `ProjectsUpdater`).
+    func updateProjects(_ transform: @escaping @Sendable ([Project]) throws -> [Project]) async throws -> ProjectsLoadReport
+    /// Sustituye projects.json por su copia `.argos-backup` (el dañado queda en `.argos-damaged`).
+    func restoreProjectsBackup() async throws -> ProjectsLoadReport
+    /// Sube a `<ruta>.argos-up` sin colocarlo (ver `SyncStaging`).
+    func stageSyncFile(root: String, file: SyncFile, from localURL: URL) async throws
+    /// Coloca con `mv -f` los archivos ya subidos (y crea los enlaces).
+    func placeStagedSyncFiles(root: String, files: [SyncFile]) async throws
+    func discardStagedSyncFiles(root: String, paths: [String]) async throws
+    func removeStaleSyncTemporaries(root: String) async throws
+    /// Huella barata (cksum del diff) de cada cambio, en el mismo orden.
+    func gitFingerprints(root: String, changes: [GitFileChange], hasCommits: Bool) async throws -> [String]
 }
 
 extension SSHServicing {

@@ -32,7 +32,9 @@ extension SSHService {
     }
 
     /// Crea `remotePath` en exclusiva y con permisos 0600. Falla si la ruta ya existe.
-    private func uploadPrivately(data: Data, toRemotePath remotePath: String) async throws -> String {
+    /// La primera subida de cada conexión limpia, de paso, las antiguas de `/tmp`.
+    func uploadPrivately(data: Data, toRemotePath remotePath: String) async throws -> String {
+        await cleanStaleUploadsOnce()
         var attributes = SFTPFileAttributes()
         attributes.permissions = RemoteUpload.privatePermissions
         return try await write(
@@ -41,6 +43,17 @@ extension SSHService {
             flags: SFTPOpenFileFlags(rawValue: RemoteUpload.exclusiveOpenFlags),
             attributes: attributes
         )
+    }
+
+    /// Borra (una vez por conexión) las subidas de este usuario con más de
+    /// `RemoteUpload.retentionDays` días. Un fallo solo se registra.
+    private func cleanStaleUploadsOnce() async {
+        guard await RemoteUploadCleanup.shared.claim(ObjectIdentifier(self)) else { return }
+        do {
+            _ = try await runChecked(RemoteUpload.staleCleanupCommand, failureMessage: "No se pudo limpiar /tmp.")
+        } catch {
+            Log.ssh.notice("Limpieza de subidas antiguas en /tmp: \(error.userMessage, privacy: .public)")
+        }
     }
 
     /// Escribe `data` en `remotePath` vía SFTP (crea/trunca). Lanza `uploadFailed`. Solo
@@ -77,4 +90,13 @@ extension SSHService {
         Log.ssh.notice("Archivo subido por SFTP a \(remotePath, privacy: .public) (\(data.count, privacy: .public) bytes)")
         return remotePath
     }
+}
+
+/// Conexiones que ya limpiaron `/tmp` (una vez por servicio y ejecución de la app).
+actor RemoteUploadCleanup {
+    static let shared = RemoteUploadCleanup()
+    private var done: Set<ObjectIdentifier> = []
+
+    /// `true` la primera vez para `id`.
+    func claim(_ id: ObjectIdentifier) -> Bool { done.insert(id).inserted }
 }
