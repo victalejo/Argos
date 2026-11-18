@@ -3,7 +3,7 @@
 //  Argos
 //
 //  Qué visor usar para un archivo (Markdown renderizado, HTML, código, imagen, PDF,
-//  binario) y límites de tamaño. Lógica pura: decide a partir del nombre y de los bytes
+//  hoja de cálculo, binario) y límites de tamaño. Lógica pura: decide a partir del nombre y de los bytes
 //  leídos, y decodifica el texto (UTF-8, UTF-16 con BOM o Windows-1252/Latin-1).
 //
 
@@ -16,6 +16,8 @@ enum FilePreviewKind: Equatable, Sendable {
     case code(language: String?)
     case image
     case pdf
+    /// Hoja de cálculo (Excel, Numbers): se muestra con Vista Rápida del sistema.
+    case spreadsheet
     case binary
 }
 
@@ -26,12 +28,16 @@ enum FilePreview {
     static let maxImageBytes: UInt64 = 20 * 1024 * 1024
     /// Los PDF se muestran enteros hasta este tamaño (más grandes: solo descargar).
     static let maxPDFBytes: UInt64 = 50 * 1024 * 1024
+    /// Las hojas de cálculo se muestran enteras hasta este tamaño (Vista Rápida necesita
+    /// el archivo completo).
+    static let maxSpreadsheetBytes: UInt64 = 30 * 1024 * 1024
 
     /// Cuánto leer para previsualizar un archivo según su tipo por nombre.
     static func readLimit(for kind: FilePreviewKind) -> UInt64 {
         switch kind {
         case .image: return maxImageBytes
         case .pdf: return maxPDFBytes
+        case .spreadsheet: return maxSpreadsheetBytes
         default: return maxTextBytes
         }
     }
@@ -39,6 +45,7 @@ enum FilePreview {
     private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "ico", "tiff", "avif"]
     private static let markdownExtensions: Set<String> = ["md", "mdx", "markdown"]
     private static let htmlExtensions: Set<String> = ["html", "htm", "xhtml"]
+    private static let spreadsheetExtensions: Set<String> = ["xlsx", "xlsm", "xls", "numbers"]
 
     private static let languages: [String: String] = [
         "swift": "swift", "ts": "typescript", "tsx": "typescript", "js": "javascript",
@@ -57,6 +64,7 @@ enum FilePreview {
         if htmlExtensions.contains(ext) { return .html }
         if imageExtensions.contains(ext) { return .image }
         if ext == "pdf" { return .pdf }
+        if spreadsheetExtensions.contains(ext) { return .spreadsheet }
         if name.lowercased().hasPrefix("dockerfile") { return .code(language: "shell") }
         return .code(language: languages[ext])
     }
@@ -67,12 +75,22 @@ enum FilePreview {
         let byName = kind(forName: name)
         if byName == .image { return .image }
         if byName == .pdf { return isPDF(data) ? .pdf : .binary }
+        if byName == .spreadsheet { return isOfficeContainer(data) ? .spreadsheet : .binary }
         return looksBinary(data) ? .binary : byName
     }
 
     /// Firma `%PDF-` al principio (se tolera basura antes, como permiten los lectores).
     static func isPDF(_ data: Data) -> Bool {
         data.prefix(1024).range(of: Data("%PDF-".utf8)) != nil
+    }
+
+    /// Contenedor de una hoja de cálculo: ZIP (xlsx, xlsm, numbers) u OLE2 (xls antiguo).
+    /// Lo que no lo sea no se entrega a Vista Rápida.
+    static func isOfficeContainer(_ data: Data) -> Bool {
+        let zip: [UInt8] = [0x50, 0x4B, 0x03, 0x04]
+        let ole: [UInt8] = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]
+        let head = [UInt8](data.prefix(8))
+        return head.starts(with: zip) || head.starts(with: ole)
     }
 
     /// Heurística de binario sobre los primeros 8 KB: no se pueden decodificar como texto.

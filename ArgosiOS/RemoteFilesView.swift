@@ -230,6 +230,14 @@ struct FilePreviewScreen: View {
             }
         case .pdf:
             PDFKitView(data: file.data)
+        case .spreadsheet where file.isTruncated:
+            ContentUnavailableView {
+                Label("Hoja de cálculo demasiado grande", systemImage: "tablecells")
+            } description: {
+                Text("Usa «Compartir» para abrirla con otra app.")
+            }
+        case .spreadsheet:
+            QuickLookPreview(data: file.data, name: entry.name)
         case .binary:
             ContentUnavailableView {
                 Label("Archivo binario", systemImage: "doc.zipper")

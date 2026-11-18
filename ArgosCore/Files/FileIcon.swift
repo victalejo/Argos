@@ -94,6 +94,7 @@ struct FileIcon: Equatable, Sendable {
         (["sql", "db", "sqlite", "prisma"], FileIcon(symbol: "cylinder.split.1x2.fill", tint: .yellow)),
         (["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "heic", "bmp", "avif"], FileIcon(symbol: "photo.fill", tint: .pink)),
         (["pdf"], FileIcon(symbol: "doc.text.fill", tint: .red)),
+        (["xlsx", "xlsm", "xls", "numbers", "ods"], FileIcon(symbol: "tablecells.fill", tint: .green)),
         (["zip", "gz", "tgz", "tar", "rar", "7z"], FileIcon(symbol: "doc.zipper", tint: .gray)),
         (["mp4", "mov", "webm", "mp3", "wav", "m4a"], FileIcon(symbol: "play.rectangle.fill", tint: .purple)),
         (["txt", "log", "csv"], FileIcon(symbol: "doc.text", tint: .gray)),

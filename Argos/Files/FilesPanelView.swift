@@ -329,6 +329,18 @@ private struct FileViewer: View {
                     downloadButton(entry)
                 }
             }
+        case .spreadsheet:
+            if !content.isTruncated {
+                QuickLookDocumentView(data: content.data, name: entry.name)
+            } else {
+                ContentUnavailableView {
+                    Label("Hoja de cálculo demasiado grande", systemImage: "tablecells")
+                } description: {
+                    Text("Pesa \(ResourceFormat.kilobytes(Int(content.size / 1024))): descárgala para abrirla en el Mac.")
+                } actions: {
+                    downloadButton(entry)
+                }
+            }
         case .binary:
             ContentUnavailableView {
                 Label("Archivo binario", systemImage: "doc.zipper")
