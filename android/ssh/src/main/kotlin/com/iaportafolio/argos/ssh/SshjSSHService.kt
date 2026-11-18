@@ -23,6 +23,10 @@ import com.iaportafolio.argos.core.homefile.HomeFileExpectation
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectCommands
 import com.iaportafolio.argos.core.projects.ProjectListing
+import com.iaportafolio.argos.core.monitor.ServerResourceCommands
+import com.iaportafolio.argos.core.monitor.ServerResourceParser
+import com.iaportafolio.argos.core.monitor.ServerResourceReading
+import com.iaportafolio.argos.core.monitor.ServerResourceSample
 import com.iaportafolio.argos.core.status.ClaudeActivityReading
 import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.status.ClaudeHookInstaller
@@ -77,7 +81,8 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     PortForwardOperations,
     ConnectionHealthProbing,
     ClaudeHookMaintenance,
-    ClaudeActivityReading {
+    ClaudeActivityReading,
+    ServerResourceReading {
 
     private val terminal = SshjTerminal(connection)
     private val files = SshjFileBrowser(connection)
@@ -248,6 +253,11 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
         runManagement(TmuxCommands.sendKeys(session, keys, enter))
 
     // MARK: Hooks de Claude
+
+    // MARK: Monitor de recursos (port de Monitor/SSHServerResources.swift)
+
+    override suspend fun resourceSample(): ServerResourceSample =
+        ServerResourceParser.parse(connection.capture(ServerResourceCommands.COMMAND).stdout)
 
     override suspend fun claudeActivity(): ClaudeActivitySnapshot {
         val result = connection.capture(ClaudeStatusCommands.CLAUDE_ACTIVITY_COMMAND)

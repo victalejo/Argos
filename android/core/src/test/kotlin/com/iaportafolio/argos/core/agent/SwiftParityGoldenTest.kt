@@ -93,6 +93,7 @@ class SwiftParityGoldenTest {
         assertGolden("dir-exists", AgentExecCommands.remoteDirectoryExists("~/mi repo"))
         assertGolden("auth-status", AgentExecCommands.claudeAuthStatus("/home/u/.local/bin/claude"))
         assertGolden("claude-activity", ClaudeStatusCommands.CLAUDE_ACTIVITY_COMMAND)
+        assertGolden("monitor-resources", com.iaportafolio.argos.core.monitor.ServerResourceCommands.COMMAND)
     }
 
     @Test

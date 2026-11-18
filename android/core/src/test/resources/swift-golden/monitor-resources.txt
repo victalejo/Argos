@@ -1,0 +1,1 @@
+cat /proc/loadavg && echo '@@' && head -1 /proc/stat && echo '@@' && grep -E '^(MemTotal|MemAvailable|SwapTotal|SwapFree):' /proc/meminfo && echo '@@' && nproc && echo '@@' && cut -d' ' -f1 /proc/uptime && echo '@@' && df -Pk / | tail -1 && echo '@@' && ps -eo pid=,pcpu=,pmem=,comm= --sort=-pcpu | head -8

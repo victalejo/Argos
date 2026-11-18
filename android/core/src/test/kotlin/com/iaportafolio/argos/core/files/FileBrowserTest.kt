@@ -92,6 +92,8 @@ class FileBrowserTest {
         assertEquals(FileIcon.PACKAGE_MANIFEST, FileIcon.file("package.json"))
         assertEquals(FileIcon.README, FileIcon.file("README.md"))
         assertEquals(FileIcon.MARKDOWN, FileIcon.file("notas.md"))
+        assertEquals(FileIcon.SPREADSHEET, FileIcon.file("Ventas 2026.XLSX"))
+        assertEquals(FileIcon.SPREADSHEET, FileIcon.file("cuentas.ods"))
         assertEquals(FileIcon.ENV, FileIcon.file(".env.local"))
         assertEquals(FileIcon.DOCKER, FileIcon.file("Dockerfile.prod"))
         assertEquals(FileIcon.SWIFT, FileIcon.file("App.swift"))
@@ -177,6 +179,9 @@ class FileBrowserTest {
         )
         for ((input, expected) in cases) assertEquals(expected, PreviewTempFileName.safe(input), input)
         assertEquals(200, PreviewTempFileName.safe("a".repeat(300) + ".xlsx").length)
+        assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", SpreadsheetMime.of("Ventas.XLSX"))
+        assertEquals("application/vnd.ms-excel", SpreadsheetMime.of("viejo.xls"))
+        assertEquals(SpreadsheetMime.GENERIC, SpreadsheetMime.of("sin-extension"))
     }
 
     @Test
