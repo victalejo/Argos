@@ -102,6 +102,14 @@ jobs:
             -enableCodeCoverage YES -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO | xcbeautify
 
+      # Goldens de paridad Swift → Kotlin (android/core/src/test/resources/swift-golden/):
+      # GoldenParityTests ya los compara en el paso anterior; aquí se REGENERAN con el Swift
+      # real y se falla con el diff en el registro si alguno cambió o falta en el repo.
+      - name: Goldens de Android al día
+        run: |
+          set -o pipefail
+          scripts/regenerate-swift-goldens.sh --check --without-building -clonedSourcePackagesDirPath .spm
+
       # Cobertura del NÚCLEO (ArgosCore/): `Argos.app` incluye las vistas, que los tests no
       # ejercitan, y su porcentaje global dice poco. La puerta falla si el núcleo baja de
       # CORE_COVERAGE_MIN. Informe global + los 15 archivos peor cubiertos en el resumen.
