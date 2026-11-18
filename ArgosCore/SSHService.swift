@@ -22,6 +22,7 @@ import os
 @preconcurrency import Citadel
 import Crypto      // Curve25519.Signing.PrivateKey
 import NIOCore     // ByteBuffer, String(buffer:)
+import NIOSSH      // NIOSSHError (canal rechazado)
 
 /// Gestiona una conexión SSH a un host y lista sus sesiones tmux.
 ///
@@ -121,6 +122,8 @@ actor SSHService {
     /// sería lento) y la conexión SSH a la que pertenece (al reconectar, se reabre).
     var fileSFTP: SFTPClient?
     var fileSFTPOwner: ObjectIdentifier?
+    /// Tope de canales cortos simultáneos en la conexión compartida (ver `ChannelGate`).
+    let channelGate = ChannelGate()
     /// Apertura en curso del SFTP compartido: las transferencias en paralelo la esperan
     /// en vez de abrir cada una su canal (quedaban huérfanos y agotaban `MaxSessions`).
     var fileSFTPOpening: Task<SFTPClient, Error>?
@@ -662,6 +665,39 @@ actor SSHService {
     /// `internal` (no `private`) para que la extensión de gestión de sesiones
     /// (`SSHSessionManagement.swift`) reutilice esta misma ejecución de comandos.
     func capture(
+        _ client: SSHClient,
+        command: String
+    ) async throws -> (stdout: String, stderr: String, exitCode: Int) {
+        try await withShortChannel {
+            try await captureOnce(client, command: command)
+        }
+    }
+
+    /// Ejecuta `body` (que abre UN canal corto) respetando el tope de la conexión y
+    /// reintentando si el servidor rechaza el canal: el rechazo llega antes de ejecutar
+    /// nada, así que repetir es seguro.
+    func withShortChannel<T>(_ body: () async throws -> T) async throws -> T {
+        var attempt = 1
+        while true {
+            await channelGate.acquire()
+            do {
+                let value = try await body()
+                await channelGate.release()
+                return value
+            } catch let error as NIOSSHError where error.type == .channelSetupRejected
+                && attempt < ChannelRetry.maxAttempts {
+                await channelGate.release()
+                Log.ssh.notice("Canal rechazado por \(self.configuration.host, privacy: .public) (intento \(attempt)); se reintenta.")
+                try await Task.sleep(for: ChannelRetry.delay(forAttempt: attempt))
+                attempt += 1
+            } catch {
+                await channelGate.release()
+                throw error
+            }
+        }
+    }
+
+    private func captureOnce(
         _ client: SSHClient,
         command: String
     ) async throws -> (stdout: String, stderr: String, exitCode: Int) {

@@ -57,7 +57,8 @@ extension SSHService {
         // Se guarda DENTRO de la tarea (aislada al actor): así quien espera la apertura
         // nunca ve el hueco entre abrir y guardar, ni abre otro.
         let opening = Task { () async throws -> SFTPClient in
-            let sftp = try await client.openSFTP()
+            // Abrir también es un canal: si el servidor está al tope, se reintenta.
+            let sftp = try await self.withShortChannel { try await client.openSFTP() }
             self.fileSFTP = sftp
             self.fileSFTPOwner = owner
             return sftp

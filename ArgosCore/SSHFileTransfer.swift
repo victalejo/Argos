@@ -59,13 +59,15 @@ extension SSHService {
     ) async throws -> String {
         let client = try await connectedClient()
         do {
-            try await client.withSFTP { sftp in
-                try await sftp.withFile(
-                    filePath: remotePath,
-                    flags: flags,
-                    attributes: attributes
-                ) { file in
-                    try await file.write(ByteBuffer(bytes: data))
+            try await withShortChannel {
+                try await client.withSFTP { sftp in
+                    try await sftp.withFile(
+                        filePath: remotePath,
+                        flags: flags,
+                        attributes: attributes
+                    ) { file in
+                        try await file.write(ByteBuffer(bytes: data))
+                    }
                 }
             }
         } catch {
