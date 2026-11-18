@@ -5,7 +5,11 @@
 //  Comando remoto del Doctor: UN solo script `sh` (POSIX: dash, busybox, bash; Linux y
 //  macOS) que solo LEE y vuelca líneas `clave=valor` (ver `DoctorFacts`). Nunca usa sudo ni
 //  modifica nada. Cada valor se aplana a una línea de ≤200 caracteres, así que un valor raro
-//  (saltos de línea, tabuladores) no rompe el formato. Se ejecuta con
+//  (saltos de línea, tabuladores) no rompe el formato. Tampoco escribe en el HOME: `gh` y
+//  `claude` crean su configuración al arrancar (`gh` migra/crea `~/.config/gh`, `claude`
+//  `~/.claude*`), así que si el usuario no la tiene se les da una carpeta temporal fuera del
+//  HOME que se borra al terminar; `gh` va sin telemetría (2.10x guarda `~/.local/state/gh/device-id`), sin avisos de actualización y con su estado en esa carpeta.
+//  Lo que escriban los perfiles de login del sistema (`sh -lc`) no es del Doctor. Se ejecuta con
 //  `SSHServicing.runAgentScript`, que ya lo envuelve en `sh -c`; sale siempre con 0.
 //  Android debe generar este mismo script (golden) si porta el Doctor.
 //
@@ -44,10 +48,15 @@ enum DoctorScript {
             if [ -x "$c" ]; then cl=$c; break; fi
           done
         fi
+        tmpd() { mktemp -d "${TMPDIR:-/tmp}/argos-doctor.XXXXXX" 2>/dev/null; }
         if [ -n "$cl" ]; then
           e claude.present yes
-          e claude.version "$(tmo 10 "$cl" --version 2>/dev/null </dev/null | head -n 1)"
-          o=$(tmo 15 "$cl" auth status --json 2>/dev/null </dev/null | tr '\n' ' ')
+          ct=
+          if [ -z "$CLAUDE_CONFIG_DIR" ] && [ ! -e "$HOME/.claude" ] && [ ! -e "$HOME/.claude.json" ]; then ct=$(tmpd); fi
+          cx() { DISABLE_AUTOUPDATER=1 DISABLE_TELEMETRY=1; export DISABLE_AUTOUPDATER DISABLE_TELEMETRY; if [ -n "$ct" ]; then CLAUDE_CONFIG_DIR=$ct; export CLAUDE_CONFIG_DIR; fi; tmo "$@"; }
+          e claude.version "$(cx 10 "$cl" --version 2>/dev/null </dev/null | head -n 1)"
+          o=$(cx 15 "$cl" auth status --json 2>/dev/null </dev/null | tr '\n' ' ')
+          if [ -n "$ct" ]; then rm -rf "$ct"; fi
           case "$o" in
             *'"loggedIn": true'*|*'"loggedIn":true'*) e claude.auth in;;
             *'"loggedIn"'*) e claude.auth out;;
@@ -58,8 +67,14 @@ enum DoctorScript {
         fi
         if has gh; then
           e gh.present yes
-          e gh.version "$(gh --version 2>/dev/null | head -n 1)"
-          o=$(tmo 15 gh auth status 2>&1 </dev/null); rc=$?
+          gd=${GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/gh}; gt=$(tmpd)
+          if [ ! -d "$gd" ] && [ -n "$gt" ]; then gd=$gt/config; fi
+          gx() { GH_CONFIG_DIR=$gd GH_TELEMETRY=0 DO_NOT_TRACK=1 GH_NO_UPDATE_NOTIFIER=1 GH_NO_EXTENSION_UPDATE_NOTIFIER=1 GH_PROMPT_DISABLED=1
+            export GH_CONFIG_DIR GH_TELEMETRY DO_NOT_TRACK GH_NO_UPDATE_NOTIFIER GH_NO_EXTENSION_UPDATE_NOTIFIER GH_PROMPT_DISABLED
+            if [ -n "$gt" ]; then XDG_STATE_HOME=$gt/state; export XDG_STATE_HOME; fi; tmo "$@"; }
+          e gh.version "$(gx 10 gh --version 2>/dev/null </dev/null | head -n 1)"
+          o=$(gx 15 gh auth status 2>&1 </dev/null); rc=$?
+          if [ -n "$gt" ]; then rm -rf "$gt"; fi
           if [ "$rc" -eq 0 ]; then e gh.auth in
           elif printf '%s' "$o" | grep -qiE 'not logged|gh auth login'; then e gh.auth out
           else e gh.auth unknown; fi

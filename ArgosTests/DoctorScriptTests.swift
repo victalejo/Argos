@@ -37,10 +37,12 @@ struct DoctorScriptTests {
     }
 
     /// Ejecuta el script como `sshd` (`sh -c`), con PATH mínimo más `extraPath` para stubs.
-    private func run(shell: String = "/bin/sh", home: URL, extraPath: String? = nil) throws -> (status: Int32, output: String) {
+    private func run(
+        shell: String = "/bin/sh", home: URL, extraPath: String? = nil, script: String = DoctorScript.command
+    ) throws -> (status: Int32, output: String) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: shell)
-        process.arguments = ["-c", DoctorScript.command]
+        process.arguments = ["-c", script]
         let path = [extraPath, "/usr/bin:/bin:/usr/sbin:/sbin"].compactMap { $0 }.joined(separator: ":")
         process.environment = ["HOME": home.path, "PATH": path, "SHELL": "/bin/sh", "LANG": "en_US.UTF-8"]
         let pipe = Pipe()
@@ -52,6 +54,33 @@ struct DoctorScriptTests {
         return (process.terminationStatus, String(decoding: data, as: UTF8.self))
     }
 
+    /// Rutas (relativas) de todo lo que hay en `root`: dicen QUÉ apareció si algo se escribe.
+    private func tree(_ root: URL) -> Set<String> {
+        let paths = FileManager.default.enumerator(atPath: root.path)?.allObjects as? [String] ?? []
+        return Set(paths)
+    }
+
+    /// Solo la búsqueda de `claude` del Doctor por los shells de login (`"$s" -lc`): lo que
+    /// crean los perfiles del sistema por sí solos no es del Doctor.
+    private static let baselineScript = "for s in \"$SHELL\" bash zsh sh; do [ -n \"$s\" ] || continue; "
+        + "\"$s\" -lc 'command -v claude' >/dev/null 2>&1 </dev/null; done; exit 0"
+
+    private func loginBaseline(shell: String, extraPath: String? = nil) throws -> Set<String> {
+        let home = try makeHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        _ = try run(shell: shell, home: home, extraPath: extraPath, script: Self.baselineScript)
+        return tree(home)
+    }
+
+    /// El Doctor no añade nada al HOME más allá de lo que hacen los perfiles de login.
+    private func expectNothingWritten(_ home: URL, baseline: Set<String>, _ shell: String) {
+        let created = tree(home)
+        let owned = created.filter { $0.hasPrefix(".config/argos") || $0.hasPrefix(".claude") || $0.hasPrefix(".config/gh") }
+        #expect(owned.isEmpty, "\(shell) creó en HOME rutas de Argos, Claude o gh: \(owned.sorted())")
+        let extra = created.subtracting(baseline)
+        #expect(extra.isEmpty, "\(shell) escribió en HOME: \(extra.sorted()) (los perfiles de login solos crean: \(baseline.sorted()))")
+    }
+
     private var shells: [String] {
         ["/bin/sh", "/bin/dash", "/bin/bash"].filter { FileManager.default.isExecutableFile(atPath: $0) }
     }
@@ -61,6 +90,7 @@ struct DoctorScriptTests {
         for shell in shells {
             let home = try makeHome()
             defer { try? FileManager.default.removeItem(at: home) }
+            let baseline = try loginBaseline(shell: shell)
             let (status, output) = try run(shell: shell, home: home)
             #expect(status == 0, "\(shell)")
             let facts = DoctorFacts.parse(output)
@@ -79,8 +109,25 @@ struct DoctorScriptTests {
             #expect(facts["projects.file"] == "missing")
             #expect(facts["locale.env"] == "yes")
             #expect(Int(facts["clock"] ?? "") ?? 0 > 1_700_000_000)
-            // Todo el script es de solo lectura: el HOME temporal sigue vacío.
-            #expect((try? FileManager.default.contentsOfDirectory(atPath: home.path))?.isEmpty == true, "\(shell) escribió en HOME")
+            // Todo el script es de solo lectura: no añade nada al HOME temporal.
+            expectNothingWritten(home, baseline: baseline, shell)
+        }
+    }
+
+    @Test("Con el gh REAL de la máquina tampoco escribe en HOME (se salta si no hay gh)")
+    func realGHWritesNothing() throws {
+        let found = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"].first {
+            FileManager.default.isExecutableFile(atPath: "\($0)/gh")
+        }
+        guard let directory = found else { return }
+        for shell in shells {
+            let home = try makeHome()
+            defer { try? FileManager.default.removeItem(at: home) }
+            let baseline = try loginBaseline(shell: shell, extraPath: directory)
+            let (status, output) = try run(shell: shell, home: home, extraPath: directory)
+            #expect(status == 0)
+            #expect(DoctorFacts.parse(output)["gh.present"] == "yes", "\(shell): \(output)")
+            expectNothingWritten(home, baseline: baseline, shell)
         }
     }
 
@@ -123,11 +170,28 @@ struct DoctorScriptTests {
             try "#!/bin/sh\n\(body)\n".write(to: url, atomically: true, encoding: .utf8)
             try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
         }
-        try stub("claude", "case \"$1\" in --version) echo '2.1.5 (Claude Code)';; auth) echo '{\"loggedIn\": true, \"email\": \"yo@example.com\"}';; esac")
-        try stub("gh", "case \"$1\" in --version) echo 'gh version 2.45.0 (2024-03-01)';; auth) echo 'You are not logged into any GitHub hosts. Run gh auth login' >&2; exit 1;; esac")
+        // Anotan (fuera del HOME) con qué carpeta de configuración corren; gh la crea, como el real.
+        try stub("claude", "printf '%s\\n' \"${CLAUDE_CONFIG_DIR:-}\" >> '\(bin.path)/claude.dirs'\n"
+            + "case \"$1\" in --version) echo '2.1.5 (Claude Code)';; auth) echo '{\"loggedIn\": true, \"email\": \"yo@example.com\"}';; esac")
+        try stub("gh", "printf '%s|%s\\n' \"${GH_CONFIG_DIR:-}\" \"${GH_NO_UPDATE_NOTIFIER:-}\" >> '\(bin.path)/gh.dirs'\n"
+            + "if [ -n \"$GH_CONFIG_DIR\" ]; then mkdir -p \"$GH_CONFIG_DIR\" && : > \"$GH_CONFIG_DIR/config.yml\"; fi\n"
+            + "case \"$1\" in --version) echo 'gh version 2.45.0 (2024-03-01)';; auth) echo 'You are not logged into any GitHub hosts. Run gh auth login' >&2; exit 1;; esac")
         let home = try makeHome()
         defer { try? FileManager.default.removeItem(at: home) }
+        let baseline = try loginBaseline(shell: "/bin/sh", extraPath: bin.path)
         let output = try run(home: home, extraPath: bin.path).output
+        expectNothingWritten(home, baseline: baseline, "/bin/sh")
+        // Sin configuración propia, claude y gh la reciben en una carpeta temporal FUERA del
+        // HOME (gh, sin avisos de actualización) que el Doctor borra al terminar.
+        let claudeDirs = (try? String(contentsOf: bin.appendingPathComponent("claude.dirs"), encoding: .utf8))?
+            .split(separator: "\n").map(String.init) ?? []
+        let ghLines = (try? String(contentsOf: bin.appendingPathComponent("gh.dirs"), encoding: .utf8))?
+            .split(separator: "\n").map(String.init) ?? []
+        #expect(!claudeDirs.isEmpty && !ghLines.isEmpty)
+        for dir in claudeDirs + ghLines.map({ String($0.prefix { $0 != "|" }) }) {
+            #expect(!dir.isEmpty && !dir.hasPrefix(home.path) && !FileManager.default.fileExists(atPath: dir), "carpeta de config: «\(dir)»")
+        }
+        #expect(ghLines.allSatisfy { $0.hasSuffix("|1") }, "gh sin GH_NO_UPDATE_NOTIFIER: \(ghLines)")
         let facts = DoctorFacts.parse(output)
         #expect(facts["claude.present"] == "yes")
         #expect(facts["claude.auth"] == "in")
