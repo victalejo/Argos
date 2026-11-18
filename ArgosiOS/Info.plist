@@ -33,6 +33,10 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Argos usa Face ID para que solo tú puedas abrir tus servidores.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Argos se conecta a servidores de tu red local por SSH.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

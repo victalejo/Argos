@@ -2,13 +2,13 @@
 //  ServerFormView.swift
 //  ArgosiOS
 //
-//  Alta/edición de un servidor. Autenticación por contraseña o por clave Ed25519
-//  importada desde Archivos (se guarda una copia privada; ver `ImportedKeyStore`).
+//  Alta/edición de un servidor. Autenticación por contraseña o por clave Ed25519:
+//  importada, pegada o creada en el propio iPhone (`ServerKeySection`; se guarda una
+//  copia privada, ver `ImportedKeyStore`).
 //  Los secretos van al Keychain, nunca al JSON de servidores.
 //
 
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct ServerFormView: View {
     enum Mode: Identifiable {
@@ -42,8 +42,7 @@ struct ServerFormView: View {
     @State private var secret = ""
     @State private var requiresPassphrase = false
     @State private var keyPath = ""
-    @State private var pendingKey: Data?
-    @State private var isImportingKey = false
+    @State private var pendingKey: PendingKey?
     @State private var testState: TestState = .idle
     @State private var errorMessage: String?
 
@@ -112,26 +111,25 @@ struct ServerFormView: View {
 
                     if authMethod == .password {
                         SecureField(needsSecret ? "Contraseña" : "Contraseña (vacía = sin cambios)", text: $secret)
-                    } else {
-                        Button {
-                            isImportingKey = true
-                        } label: {
-                            Label(hasKey ? "Clave importada · cambiar" : "Importar clave privada…",
-                                  systemImage: hasKey ? "key.fill" : "key")
-                        }
-                        Toggle("La clave tiene passphrase", isOn: $requiresPassphrase)
-                        if requiresPassphrase {
-                            SecureField(needsSecret ? "Passphrase" : "Passphrase (vacía = sin cambios)", text: $secret)
-                        }
                     }
                 } header: {
                     Text("Autenticación")
                 } footer: {
-                    Text(authMethod == .password
-                         ? "La contraseña se guarda en el Llavero de este dispositivo."
-                         : keyFromOtherDevice
-                         ? "Este servidor llegó de tu Mac por iCloud con la clave «\(keyPath)», pero las claves no viajan. Importa aquí una copia (Archivos, iCloud Drive o AirDrop)."
-                         : "Elige tu clave Ed25519 en formato OpenSSH (Archivos, iCloud Drive o AirDrop). Argos guarda una copia privada; la passphrase va al Llavero.")
+                    if authMethod == .password {
+                        Text("La contraseña se guarda en el Llavero de este dispositivo. Cuando entres, podrás pasar a una clave creada en este iPhone desde el menú del servidor.")
+                    }
+                }
+                if authMethod == .key {
+                    ServerKeySection(
+                        pendingKey: $pendingKey,
+                        requiresPassphrase: $requiresPassphrase,
+                        secret: $secret,
+                        hasKey: hasKey,
+                        needsSecret: needsSecret,
+                        serverID: serverID,
+                        keyFromOtherDevice: keyFromOtherDevice,
+                        keyPath: keyPath
+                    )
                 }
 
                 Section {
@@ -163,9 +161,7 @@ struct ServerFormView: View {
                     Button("Guardar", action: save).disabled(!canSave)
                 }
             }
-            .fileImporter(isPresented: $isImportingKey, allowedContentTypes: [.data, .text, .item]) { result in
-                importKey(result)
-            }
+            .onChange(of: pendingKey) { _, _ in testState = .idle }
             .alert("No se pudo guardar", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -189,25 +185,11 @@ struct ServerFormView: View {
         keyPath = server.privateKeyPath
     }
 
-    private func importKey(_ result: Result<URL, Error>) {
-        do {
-            let url = try result.get()
-            let accessed = url.startAccessingSecurityScopedResource()
-            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-            let data = try Data(contentsOf: url)
-            _ = try ImportedKeyStore.validate(data)
-            pendingKey = data
-            testState = .idle
-        } catch {
-            errorMessage = error.userMessage
-        }
-    }
-
     /// Construye el servidor; si hay una clave nueva, la escribe en `keyDirectory`.
     private func buildServer(keyDirectory: URL) throws -> (Server, String?) {
         var path = keyPath
         if authMethod == .key, let pendingKey {
-            path = try ImportedKeyStore.store(pendingKey, for: serverID, in: keyDirectory)
+            path = try ImportedKeyStore.store(pendingKey.data, for: serverID, in: keyDirectory)
         }
         let server = Server(
             id: serverID,

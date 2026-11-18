@@ -219,7 +219,7 @@ struct ProjectFormView: View {
 
     @ViewBuilder
     private var commandSection: some View {
-        Section("Al iniciar el proyecto") {
+        Section {
             Picker("Al abrir", selection: $commandMode) {
                 Text("Predeterminado (\(settings.defaultStartupCommand.isEmpty ? "nada" : settings.defaultStartupCommand))")
                     .tag(CommandMode.default)
@@ -227,10 +227,14 @@ struct ProjectFormView: View {
                 Text("Personalizado…").tag(CommandMode.custom)
             }
             if commandMode == .custom {
-                TextField("Comando", text: $customCommand, prompt: Text("cc --continue, npm run dev…"))
+                TextField("Comando", text: $customCommand, prompt: Text("claude --continue, npm run dev…"))
                     .font(.body.monospaced())
                     .plainCodeInput()
             }
+        } header: {
+            Text("Al iniciar el proyecto")
+        } footer: {
+            Text("«cc» es un alias de «claude» que Claude Code no instala: si el servidor no lo tiene, usa «claude --continue». El predeterminado se cambia en Ajustes.")
         }
     }
 

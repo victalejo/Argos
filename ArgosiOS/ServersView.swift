@@ -6,16 +6,34 @@
 //  `NavigationSplitView` para iPhone e iPad: en ancho compacto se colapsa en una pila
 //  (servidores → proyectos → detalle), así que girar o redimensionar no reconstruye la
 //  navegación. La selección vive en `AppNavigation` y se restaura con `@SceneStorage`.
-//  Deslizar un servidor permite editarlo o borrarlo.
+//  Deslizar un servidor permite editarlo o borrarlo; mantenerlo pulsado, además, ver sus
+//  recursos, activar el indicador de Claude, pasar a una clave del iPhone u olvidar su
+//  host key (`ServerActions`).
 //
 
 import SwiftUI
 
+/// Alta desde el QR del Mac (con el código ya leído si llegó por enlace).
+struct ImportRequest: Identifiable {
+    let id = UUID()
+    let transfer: ServerTransfer?
+}
+
 struct RootView: View {
+    /// Argumento de lanzamiento de los tests de interfaz: arranca sin la navegación
+    /// restaurada de una ejecución anterior (`@SceneStorage` sobrevive entre lanzamientos
+    /// en el mismo simulador).
+    static let resetStateArgument = "-ArgosResetNavigation"
+
     @Environment(ServerHub.self) private var hub
     @SceneStorage("argos.navigation") private var savedNavigation = ""
     @State private var navigation = AppNavigation()
     @State private var restored = false
+    /// Enlace `argos://add-server` recibido (QR escaneado con la cámara del sistema).
+    /// Vive en la raíz de la escena: la columna de servidores puede no estar montada
+    /// (iPhone con otra columna visible o con la navegación restaurada).
+    @State private var linkImport: ImportRequest?
+    @State private var linkError: String?
 
     private var server: Server? { navigation.serverID.flatMap { hub.store.server(withID: $0) } }
 
@@ -55,12 +73,39 @@ struct RootView: View {
             guard let route, hub.store.server(withID: route.serverID) != nil else { return }
             if navigation.serverID != route.serverID { navigation.selectServer(route.serverID) }
         }
+        .onOpenURL(perform: handleLink)
+        .sheet(item: $linkImport) { request in
+            ImportServerSheet(transfer: request.transfer)
+        }
+        .alert(
+            "No se pudo añadir el servidor",
+            isPresented: Binding(get: { linkError != nil }, set: { if !$0 { linkError = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(linkError ?? "")
+        }
+    }
+
+    /// Un enlace nuevo no sustituye una confirmación ya abierta (se podría cambiar el
+    /// servidor que el usuario está revisando sin que lo note).
+    private func handleLink(_ url: URL) {
+        guard linkImport == nil else {
+            Log.store.notice("Se ignora un enlace de alta: ya hay una confirmación abierta")
+            return
+        }
+        do {
+            linkImport = ImportRequest(transfer: try ServerTransfer.decode(url.absoluteString))
+        } catch {
+            linkError = error.userMessage
+        }
     }
 
     /// Arranque en frío o escena nueva: vuelve a donde se estaba.
     private func restoreOnce() {
         guard !restored else { return }
         restored = true
+        if ProcessInfo.processInfo.arguments.contains(Self.resetStateArgument) { savedNavigation = "" }
         navigation.restore(from: savedNavigation)
         navigation.dropMissingServer { hub.store.server(withID: $0) != nil }
     }
@@ -73,17 +118,11 @@ struct ServerList: View {
     @Environment(ServerHub.self) private var hub
     @State private var editing: ServerFormView.Mode?
     @State private var pendingDeletion: Server?
-    @AppStorage(CloudServerSync.enabledKey) private var cloudSyncEnabled = true
-    @AppStorage(AgentPermissionPreferences.globalKey)
-    private var agentPermissionMode = AgentPermissionPreferences.fallback.rawValue
-    /// Alta desde el QR del Mac (con el código ya leído si llegó por enlace).
+    @State private var serverAction: ServerAction?
+    @State private var showingSettings = false
+    /// Alta escaneando el QR del Mac con la cámara de la app (el enlace del QR leído con
+    /// la cámara del sistema lo atiende `RootView`).
     @State private var importing: ImportRequest?
-    @State private var linkError: String?
-
-    private struct ImportRequest: Identifiable {
-        let id = UUID()
-        let transfer: ServerTransfer?
-    }
 
     var body: some View {
         List(selection: selection) {
@@ -96,6 +135,8 @@ struct ServerList: View {
                 }
                 .contextMenu {
                     Button("Editar", systemImage: "pencil") { editing = .edit(server) }
+                    ServerActionItems(server: server) { serverAction = $0 }
+                    Divider()
                     Button("Borrar", systemImage: "trash", role: .destructive) { pendingDeletion = server }
                 }
             }
@@ -126,41 +167,16 @@ struct ServerList: View {
                 }
             }
             ToolbarItem(placement: .topBarLeading) {
-                Menu("Ajustes", systemImage: "gearshape") {
-                    Toggle("Sincronizar con iCloud", systemImage: "icloud", isOn: $cloudSyncEnabled)
-                    Text("Servidores y huellas, con tu Mac y tus otros dispositivos. Las contraseñas y claves no viajan.")
-                    Picker(selection: $agentPermissionMode) {
-                        ForEach(ClaudeAgentCommand.PermissionMode.allCases, id: \.self) { mode in
-                            Label(mode.title, systemImage: mode.symbolName).tag(mode.rawValue)
-                        }
-                    } label: {
-                        Label("Permisos de los agentes", systemImage: "sparkles")
-                    }
-                    .pickerStyle(.menu)
-                }
+                Button("Ajustes", systemImage: "gearshape") { showingSettings = true }
             }
         }
+        .sheet(isPresented: $showingSettings) { SettingsView() }
+        .serverActions($serverAction)
         .sheet(item: $editing) { mode in
             ServerFormView(mode: mode)
         }
         .sheet(item: $importing) { request in
             ImportServerSheet(transfer: request.transfer)
-        }
-        // QR escaneado con la cámara del sistema: llega como enlace argos://add-server.
-        .onOpenURL { url in
-            do {
-                importing = ImportRequest(transfer: try ServerTransfer.decode(url.absoluteString))
-            } catch {
-                linkError = error.userMessage
-            }
-        }
-        .alert(
-            "No se pudo añadir el servidor",
-            isPresented: Binding(get: { linkError != nil }, set: { if !$0 { linkError = nil } })
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(linkError ?? "")
         }
         .confirmationDialog(
             "¿Borrar «\(pendingDeletion?.name ?? "")»?",
@@ -172,7 +188,7 @@ struct ServerList: View {
                 pendingDeletion = nil
             }
         } message: {
-            Text("Se borran sus datos de acceso de este dispositivo. Las sesiones y proyectos del servidor no se tocan.")
+            Text("Se borran sus datos de acceso y su huella de host key de este dispositivo. Las sesiones y proyectos del servidor no se tocan.")
         }
 }
 
@@ -202,7 +218,7 @@ struct ServerRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if ImportedKeyStore.needsImport(server) {
-                    Label("Falta la clave · envíalo desde el Mac", systemImage: "key.slash")
+                    Label("Falta la clave en este dispositivo", systemImage: "key.slash")
                         .font(.caption2)
                         .foregroundStyle(.orange)
                 }

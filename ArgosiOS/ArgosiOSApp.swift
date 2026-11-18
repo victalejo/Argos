@@ -8,6 +8,7 @@ import SwiftUI
 @main
 struct ArgosiOSApp: App {
     @State private var hub: ServerHub
+    @State private var lock = AppLock()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -25,14 +26,25 @@ struct ArgosiOSApp: App {
         WindowGroup {
             RootView()
                 .environment(hub)
+                .environment(lock)
                 .tint(.indigo)
+                // Bloqueada, o con el bloqueo activo fuera de primer plano (selector de
+                // apps): se tapa todo.
+                .overlay {
+                    if AppLockPolicy.shouldCover(enabled: lock.isEnabled, isLocked: lock.isLocked, isActive: scenePhase == .active) {
+                        AppLockCover(lock: lock, isActive: scenePhase == .active)
+                    }
+                }
+                .task { await lock.unlock() }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background:
+                lock.didEnterBackground()
                 AgentNotifier.shared.prepareForBackground()
                 hub.didEnterBackground()
             case .active:
+                lock.didBecomeActive()
                 hub.migrateSecretAccessibilityIfNeeded()
                 AgentNotifier.shared.didReturnToForeground()
                 hub.cloudSync?.sync()

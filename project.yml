@@ -239,6 +239,10 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.iaportafolio.argos.add-server
             CFBundleURLSchemes: [argos]
+        # Servidores SSH en la red local (iOS pide permiso de red local la primera vez).
+        NSLocalNetworkUsageDescription: "Argos se conecta a servidores de tu red local por SSH."
+        # Bloqueo opcional de la app (Ajustes → Seguridad).
+        NSFaceIDUsageDescription: "Argos usa Face ID para que solo tú puedas abrir tus servidores."
         # Refresco en segundo plano para avisar de los agentes (AgentNotifier).
         UIBackgroundModes: [fetch]
         BGTaskSchedulerPermittedIdentifiers: [com.iaportafolio.argos.agents-refresh]
