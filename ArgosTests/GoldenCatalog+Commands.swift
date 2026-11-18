@@ -86,6 +86,31 @@ extension GoldenCatalog {
             "hooks-removed": try ClaudeHookInstaller.serialize(ClaudeHookInstaller.removing(from: settings)),
             "serialize-empty": try ClaudeHookInstaller.serialize([:]),
             "claude-activity": SSHService.claudeActivityCommand,
+            "monitor-resources": SSHService.resourcesCommand,
+        ]
+    }
+
+    /// Mismas entradas que `HomeFileScriptsTest` de Android.
+    static func homeFiles() -> [String: String] {
+        let projects = ".config/argos/projects.json"
+        let token = "0123456789abcdef0123456789abcdef"
+        let inputs = [Data(), Data("a".utf8), Data("ñandú 123456789".utf8), Data(String(repeating: "x", count: 70_000).utf8)]
+        return [
+            "homefile-prepare": HomeFileScripts.prepare(projects, token: token),
+            "homefile-prepare-claude": HomeFileScripts.prepare(".claude/settings.json", token: token),
+            "homefile-commit-any": HomeFileScripts.commit(
+                ".claude/settings.json", token: token, expectation: .any, backupSuffix: ".argos-backup"
+            ),
+            "homefile-commit-absent": HomeFileScripts.commit(
+                projects, token: token, expectation: .absentOrEmpty, backupSuffix: ".argos-backup"
+            ),
+            "homefile-commit-fingerprint": HomeFileScripts.commit(
+                projects, token: token, expectation: .fingerprint("1220704766 1"), backupSuffix: ".argos-backup"
+            ),
+            "homefile-commit-nobackup": HomeFileScripts.commit(
+                projects, token: token, expectation: .fingerprint("it's"), backupSuffix: nil
+            ),
+            "cksum": inputs.map { PosixChecksum.fingerprint(of: $0) }.joined(separator: "\n"),
         ]
     }
 }

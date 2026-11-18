@@ -33,8 +33,8 @@ struct GoldenParityTests {
         ProcessInfo.processInfo.environment[regenerateVariable] == "1"
     }
 
-    /// Goldens del repo SIN generador porque su texto vive dentro de un método de
-    /// `SSHService` (no hay función pura que llamar sin conexión). Añadir uno nuevo sin
+    /// Goldens del repo SIN generador: su texto vive dentro de un método de `SSHService` (no
+    /// hay función pura que llamar sin conexión) o son datos de entrada. Añadir uno nuevo sin
     /// generador ni entrada aquí hace fallar `todoGoldenTieneGenerador`.
     static let withoutGenerator: Set<String> = [
         "locate-claude",        // SSHService.locateClaude()
@@ -44,6 +44,10 @@ struct GoldenParityTests {
         "dir-exists",           // SSHService.remoteDirectoryExists(_:)
         "auth-status",          // SSHService.claudeAuthStatus()
         "clipboard-forwarding", // SSHService.enableClipboardForwarding()
+        // Entrada de datos (no la produce Swift) y su salida, que depende de la API de
+        // fusión de `ProjectsDocument` (Android la expresa con `applying`; ver ProjectsDocumentTest).
+        "projects-document-input",
+        "projects-document-output",
     ]
 
     private static func goldenNamesOnDisk() throws -> Set<String> {
