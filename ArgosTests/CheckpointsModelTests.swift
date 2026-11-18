@@ -3,7 +3,7 @@
 //  ArgosTests
 //
 //  `CheckpointsModel` de punta a punta con un `sh` local en lugar de SSH (mismos comandos
-//  que viajarían al servidor), el parser con salidas fijas y el instalador de hooks.
+//  que viajarían al servidor), el parser con salidas fijas y el instalador del hook.
 //
 
 import Foundation
@@ -14,11 +14,36 @@ import Testing
 @Suite("CheckpointsModel", .serialized)
 struct CheckpointsModelTests {
 
-    private func makeRepo() throws -> CheckpointRepo {
-        let repo = try CheckpointRepo(name: "mi proyecto")
+    private func makeRepo(enabled: Bool = true) throws -> CheckpointRepo {
+        let repo = try CheckpointRepo(name: "mi proyecto", enabled: enabled)
         try repo.write("a.txt", "uno\n")
         try repo.git("add -A && git commit -qm inicial")
         return repo
+    }
+
+    private func model(_ repo: CheckpointRepo, hooks: FakeCheckpointHooks = FakeCheckpointHooks(),
+                       activity: ClaudeActivity? = nil) -> CheckpointsModel {
+        CheckpointsModel(path: repo.repo.path, run: repo.runner, hooks: hooks.control) { activity }
+    }
+
+    @Test("Activar instala el hook la primera vez y escribe argos.checkpoints en el repo")
+    func enableInstallsHook() async throws {
+        let repo = try makeRepo(enabled: false)
+        let hooks = FakeCheckpointHooks()
+        let model = model(repo, hooks: hooks)
+        await model.refresh()
+        #expect(!model.isEnabled)
+        await model.setEnabled(true)
+        #expect(model.isEnabled)
+        #expect(hooks.installs == 1)
+        #expect(try repo.git("config --bool argos.checkpoints").stdout == "true\n")
+        await model.setEnabled(false)
+        #expect(!model.isEnabled)
+        await model.setEnabled(true)
+        #expect(hooks.installs == 1, "ya estaba instalado")
+        await model.removeFromServer()
+        #expect(hooks.uninstalls == 1)
+        #expect(!model.isEnabled)
     }
 
     @Test("Lista los turnos, el diff de cada turno y deshace hasta un punto con confirmación")
@@ -30,24 +55,23 @@ struct CheckpointsModelTests {
         try repo.hook(prompt: "Segundo turno")
         try repo.write("a.txt", "turno 2\n")
 
-        let model = CheckpointsModel(path: repo.repo.path, run: repo.runner)
+        let model = model(repo)
         await model.refresh()
         let checkpoints = model.checkpoints
         try #require(checkpoints.count == 2)
-        #expect(checkpoints.map(\.title) == ["Segundo turno", "Primer turno"])
+        #expect(checkpoints.map(\.title) == ["Turno 2", "Turno 1"])
         #expect(checkpoints.map(\.changedFiles) == [1, 2])
 
-        // Turno 1 (el más antiguo): de su punto al siguiente.
         await model.select(checkpoints[1].id)
         guard case .loaded(let files) = model.files else { Issue.record("sin archivos"); return }
         #expect(Set(files.map(\.path)) == ["a.txt", "nuevo.txt"])
         await model.selectFile("a.txt")
         guard case .loaded(let diff) = model.diffState else { Issue.record("sin diff"); return }
         #expect(diff.lines.contains { $0.kind == .added && $0.text == "turno 1" })
+        #expect(!model.canRestoreFile, "en «Este turno» no se restaura un archivo")
 
         await model.setComparison(.sinceThen)
-        guard case .loaded(let since) = model.files else { Issue.record("sin archivos"); return }
-        #expect(Set(since.map(\.path)) == ["a.txt", "nuevo.txt"])
+        #expect(model.canRestoreFile)
 
         await model.prepareRestore(checkpoints[1])
         let preview = try #require(model.pendingRestore)
@@ -60,15 +84,16 @@ struct CheckpointsModelTests {
         #expect(model.checkpoints.first?.kind == .restore)
     }
 
-    @Test("Restaurar un archivo y crear un punto a mano")
+    @Test("Restaurar un archivo desde «Hasta ahora» y crear un punto a mano")
     func singleFileAndManual() async throws {
         let repo = try makeRepo()
         try repo.hook()
         try repo.write("a.txt", "cambiado\n")
-        let model = CheckpointsModel(path: repo.repo.path, run: repo.runner)
+        let model = model(repo)
         await model.refresh()
-        let point = try #require(model.checkpoints.first)
-        await model.restoreFile("a.txt", from: point)
+        await model.select(try #require(model.checkpoints.first).id)
+        await model.setComparison(.sinceThen)
+        await model.restoreFile("a.txt")
         #expect(repo.read("a.txt") == "uno\n")
         #expect(model.notice?.contains("a.txt") == true)
 
@@ -77,23 +102,64 @@ struct CheckpointsModelTests {
         #expect(model.checkpoints.first?.kind == .manual)
     }
 
-    @Test("Carpeta sin git y desactivar en el servidor")
-    func notRepositoryAndToggle() async throws {
+    @Test("Restaurar un archivo que cambió después de listarlo: no toca nada")
+    func singleFileChangedSinceListing() async throws {
+        let repo = try makeRepo()
+        try repo.hook()
+        try repo.write("a.txt", "cambio 1\n")
+        let model = model(repo)
+        await model.refresh()
+        await model.select(try #require(model.checkpoints.first).id)
+        await model.setComparison(.sinceThen)
+        try repo.write("a.txt", "cambio 2\n")
+        await model.restoreFile("a.txt")
+        #expect(repo.read("a.txt") == "cambio 2\n")
+        #expect(model.errorMessage != nil)
+    }
+
+    @Test("Con Claude trabajando, restaurar exige confirmarlo expresamente")
+    func workingNeedsAcknowledgement() async throws {
+        let repo = try makeRepo()
+        try repo.hook()
+        try repo.write("a.txt", "cambio\n")
+        let model = model(repo, activity: .working)
+        await model.refresh()
+        let point = try #require(model.checkpoints.first)
+        await model.prepareRestore(point)
+        #expect(model.claudeIsWorking)
+        await model.confirmRestore()
+        #expect(repo.read("a.txt") == "cambio\n")
+        #expect(model.pendingRestore != nil)
+        await model.confirmRestore(acknowledgingWork: true)
+        #expect(repo.read("a.txt") == "uno\n")
+    }
+
+    @Test("Conflictos: la vista previa no deja restaurar y no se toca nada")
+    func conflictsBlock() async throws {
+        let repo = try makeRepo()
+        try repo.write("lib", "v1\n")
+        try repo.hook()
+        try repo.remove("lib")
+        try repo.write("lib/dentro.txt", "x\n")
+        try repo.write(".gitignore", "*.local\n")
+        try repo.write("lib/secreto.local", "S\n")
+        let model = model(repo)
+        await model.refresh()
+        await model.prepareRestore(try #require(model.checkpoints.first))
+        let preview = try #require(model.pendingRestore)
+        #expect(!preview.canRestore)
+        await model.confirmRestore()
+        #expect(repo.read("lib/secreto.local") == "S\n")
+    }
+
+    @Test("Carpeta sin git")
+    func notRepository() async throws {
         let repo = try makeRepo()
         let outside = repo.base.appendingPathComponent("suelta")
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
-        let loose = CheckpointsModel(path: outside.path, run: repo.runner)
+        let loose = CheckpointsModel(path: outside.path, run: repo.runner, hooks: FakeCheckpointHooks().control)
         await loose.refresh()
         #expect(loose.state == .notRepository)
-
-        let model = CheckpointsModel(path: repo.repo.path, run: repo.runner)
-        await model.refresh()
-        #expect(model.isEnabledOnServer)
-        await model.setEnabledOnServer(false)
-        #expect(!model.isEnabledOnServer)
-        #expect(FileManager.default.fileExists(atPath: repo.home.appendingPathComponent(CheckpointScript.serverOffRelativePath).path))
-        await model.setEnabledOnServer(true)
-        #expect(model.isEnabledOnServer)
     }
 
     @Test("Rebase en curso: la vista previa avisa y no deja nada pendiente")
@@ -101,7 +167,7 @@ struct CheckpointsModelTests {
         let repo = try makeRepo()
         try repo.hook()
         try repo.write("a.txt", "cambio\n")
-        let model = CheckpointsModel(path: repo.repo.path, run: repo.runner)
+        let model = model(repo)
         await model.refresh()
         try FileManager.default.createDirectory(at: repo.repo.appendingPathComponent(".git/rebase-apply"),
                                                 withIntermediateDirectories: true)
@@ -113,7 +179,7 @@ struct CheckpointsModelTests {
     @Test("Rango comparado: turno hasta el siguiente punto, el último hasta ahora")
     func ranges() {
         let points = ["c3", "c2", "c1"].map {
-            Checkpoint(ref: "refs/argos/checkpoints/main/\($0)", commit: $0, parent: nil, date: Date(),
+            Checkpoint(ref: "refs/checkpoints/\($0)", commit: $0, parent: nil, date: Date(),
                        kind: .prompt, sessionID: nil, label: $0, changedFiles: nil)
         }
         func pair(_ index: Int, _ comparison: CheckpointComparison) -> String? {
@@ -122,7 +188,7 @@ struct CheckpointsModelTests {
         #expect(pair(2, .turn) == "c1>c2")
         #expect(pair(0, .turn) == "c3>-")
         #expect(pair(2, .sinceThen) == "c1>-")
-        #expect(CheckpointsModel.range(index: 5, in: points, comparison: .turn) == nil)
+        #expect(pair(5, .turn) == nil)
     }
 }
 
@@ -131,25 +197,24 @@ struct CheckpointParserTests {
 
     @Test("Lista: ignora la basura del perfil y lee metadatos, recuentos y omisiones")
     func parsesList() throws {
-        let output = "Bienvenido al servidor\nARGOS_CP_LIST 1\nARGOS_CP_STATE off-repo\nARGOS_CP_ROOT /srv/app\n"
-            + "ARGOS_CP_SKIPPED 1800000000 archivo nuevo de mas de 20 MB: data.bin\nARGOS_CP_HEAD abc\n"
+        let output = "Bienvenido al servidor\nARGOS_CP_LIST 2\nARGOS_CP_STATE on\nARGOS_CP_PROMPTS off\nARGOS_CP_ROOT /srv/app\n"
+            + "ARGOS_CP_HEAD abc\nARGOS_CP_SKIPLOG 1800000050 archivo de mas de 20 MB: data.bin\n"
             + "ARGOS_CP_COUNT c2 3\nARGOS_CP_COUNT c1 1\nARGOS_CP_META\n"
-            + "refs/argos/checkpoints/main/1800000100\u{1f}c2\u{1f}abc\u{1f}1800000100\u{1f}Haz \"x\" ñ\n\nArgos-Checkpoint: 1\nArgos-Kind: prompt\nArgos-Session: s-1\n\u{1e}\n"
-            + "refs/argos/checkpoints/main/1800000000\u{1f}c1\u{1f}\u{1f}1800000000\u{1f}Antes de restaurar: x\n\nArgos-Kind: restore\nArgos-Session: -\n\u{1e}\n"
+            + "refs/checkpoints/1800000100\u{1f}c2\u{1f}abc\u{1f}1800000100\u{1f}Turno 2\n\nArgos-Checkpoint: 1\nArgos-Kind: prompt\nArgos-Session: s-1\n\u{1e}\n"
+            + "refs/checkpoints/1800000000\u{1f}c1\u{1f}\u{1f}1800000000\u{1f}Antes de restaurar: x\n\nArgos-Kind: restore\nArgos-Session: -\n\u{1e}\n"
         guard case .listing(let listing) = try CheckpointParser.parseList(output) else {
             Issue.record("no es una lista"); return
         }
         #expect(listing.root == "/srv/app")
-        #expect(listing.state == .offRepo)
+        #expect(listing.isEnabled && !listing.storesPrompts)
         #expect(listing.headCommit == "abc")
-        #expect(listing.lastSkip?.reason.contains("data.bin") == true)
         #expect(listing.checkpoints.map(\.commit) == ["c2", "c1"])
-        #expect(listing.checkpoints[0].label == "Haz \"x\" ñ")
         #expect(listing.checkpoints[0].sessionID == "s-1")
         #expect(listing.checkpoints[0].changedFiles == 3)
         #expect(listing.checkpoints[1].kind == .restore)
         #expect(listing.checkpoints[1].parent == nil)
-        #expect(listing.checkpoints[1].sessionID == nil)
+        #expect(listing.skips(duringTurnAt: 1).map(\.reason) == ["archivo de mas de 20 MB: data.bin"])
+        #expect(listing.skips(duringTurnAt: 0).isEmpty)
     }
 
     @Test("Estados especiales y errores")
@@ -158,8 +223,12 @@ struct CheckpointParserTests {
         #expect(try CheckpointParser.parseList("ARGOS_CP_NOGIT\n") == .gitMissing)
         #expect(throws: CheckpointError.busy("MERGE_HEAD")) { try CheckpointParser.parseRestore("ARGOS_CP_BUSY MERGE_HEAD\n") }
         #expect(throws: CheckpointError.badReference) { try CheckpointParser.parseFiles("ARGOS_CP_BADREF\n") }
+        #expect(throws: CheckpointError.heavy("x")) { try CheckpointParser.parseFiles("ARGOS_CP_HEAVY x\n") }
         #expect(throws: CheckpointError.self) { try CheckpointParser.parseList("algo raro") }
-        #expect(CheckpointError.busy("rebase-merge").errorDescription?.contains("rebase") == true)
+        #expect(try CheckpointParser.parseRestore("ARGOS_CP_NOOP invalid\n") == .nothing(CheckpointParser.noopText("invalid")))
+        let conflict = try CheckpointParser.parseRestore("ARGOS_CP_NEW abc\nARGOS_CP_CONFLICT\nD\0lib\0R\0v/x.c\0END\0\0\n")
+        #expect(conflict == .conflict([CheckpointIssue(kind: .directoryInTheWay, path: "lib"),
+                                       CheckpointIssue(kind: .nestedRepository, path: "v/x.c")]))
     }
 
     @Test("name-status separado por NUL, con rutas que contienen saltos de línea")
@@ -176,7 +245,7 @@ struct CheckpointParserTests {
     }
 }
 
-@Suite("ClaudeHookInstaller · puntos de restauración")
+@Suite("CheckpointHookInstaller")
 struct CheckpointHookInstallerTests {
 
     private func commands(_ settings: [String: Any], event: String) -> [String] {
@@ -185,46 +254,42 @@ struct CheckpointHookInstallerTests {
         return groups.flatMap { ($0["hooks"] as? [[String: Any]] ?? []).compactMap { $0["command"] as? String } }
     }
 
-    @Test("Instalación nueva: añade el hook de captura en UserPromptSubmit con su plazo")
-    func freshInstall() throws {
-        let installed = ClaudeHookInstaller.installing(into: [:])
-        let prompt = commands(installed, event: "UserPromptSubmit")
-        #expect(prompt.contains(ClaudeHookInstaller.checkpointCommand))
-        #expect(prompt.contains(ClaudeHookInstaller.command(setting: .working)))
-        #expect(ClaudeHookInstaller.checkpointCommand.contains(ClaudeHookInstaller.marker))
-        #expect(ClaudeHookInstaller.checkpointCommand.contains(CheckpointScript.installedRelativePath))
-        #expect(ClaudeHookInstaller.isInstalled(in: installed))
-        let serialized = try ClaudeHookInstaller.serialize(installed)
-        #expect(serialized.contains("\"timeout\" : 15"))
+    @Test("La instalación normal del indicador queda exactamente igual que el golden de antes")
+    func normalInstallUnchanged() throws {
+        let golden = GoldenParityTests.directory.appendingPathComponent("hooks-empty.txt")
+        let expected = try String(contentsOf: golden, encoding: .utf8)
+        #expect(try ClaudeHookInstaller.serialize(ClaudeHookInstaller.installing(into: [:])) == expected)
+        #expect(!expected.contains(CheckpointHookInstaller.marker))
+        #expect(!CheckpointHookInstaller.command.contains(ClaudeHookInstaller.marker))
     }
 
-    @Test("Actualización desde la versión anterior (sin el hook de captura)")
-    func upgradeFromPrevious() throws {
-        var previous = ClaudeHookInstaller.installing(into: [:])
-        var hooks = try #require(previous["hooks"] as? [String: Any])
-        var groups = try #require(hooks["UserPromptSubmit"] as? [[String: Any]])
-        groups.removeAll { group in
-            (group["hooks"] as? [[String: Any]])?.contains { ($0["command"] as? String) == ClaudeHookInstaller.checkpointCommand } == true
-        }
-        hooks["UserPromptSubmit"] = groups
-        previous["hooks"] = hooks
-        #expect(ClaudeHookInstaller.hasAnyOurs(in: previous))
-        #expect(!ClaudeHookInstaller.isInstalled(in: previous))
-        let upgraded = ClaudeHookInstaller.installing(into: previous)
-        #expect(ClaudeHookInstaller.isInstalled(in: upgraded))
-        #expect(commands(upgraded, event: "UserPromptSubmit").count == 2)
+    @Test("El hook de captura se instala aparte y el indicador no lo toca al reinstalar ni al quitar")
+    func separateFromStatusHooks() throws {
+        let status = ClaudeHookInstaller.installing(into: [:])
+        let both = CheckpointHookInstaller.installing(into: status)
+        #expect(CheckpointHookInstaller.isInstalled(in: both))
+        #expect(ClaudeHookInstaller.isInstalled(in: both))
+        #expect(commands(both, event: "UserPromptSubmit").contains(CheckpointHookInstaller.command))
+        let reinstalled = ClaudeHookInstaller.installing(into: both)
+        #expect(CheckpointHookInstaller.isInstalled(in: reinstalled))
+        let statusRemoved = ClaudeHookInstaller.removing(from: both)
+        #expect(CheckpointHookInstaller.isInstalled(in: statusRemoved))
+        let removed = CheckpointHookInstaller.removing(from: both)
+        #expect(try ClaudeHookInstaller.serialize(removed) == ClaudeHookInstaller.serialize(status))
+        #expect(!CheckpointHookInstaller.hasAny(in: status))
     }
 
-    @Test("Convive con hooks ajenos y desinstalar los quita todos los nuestros")
-    func coexistsAndUninstalls() throws {
+    @Test("Convive con hooks ajenos e instalar dos veces no duplica")
+    func coexistsAndIdempotent() throws {
         let existing = try ClaudeHookInstaller.parseSettings("""
         {"env":{"K":"v"},"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"python3 mio.py"}]}]}}
         """)
-        let installed = ClaudeHookInstaller.installing(into: existing)
-        #expect(commands(installed, event: "UserPromptSubmit").contains("python3 mio.py"))
-        let removed = ClaudeHookInstaller.removing(from: installed)
+        let once = CheckpointHookInstaller.installing(into: existing)
+        let twice = CheckpointHookInstaller.installing(into: once)
+        #expect(try ClaudeHookInstaller.serialize(once) == ClaudeHookInstaller.serialize(twice))
+        #expect(commands(once, event: "UserPromptSubmit") == ["python3 mio.py", CheckpointHookInstaller.command])
+        let removed = CheckpointHookInstaller.removing(from: once)
         #expect(commands(removed, event: "UserPromptSubmit") == ["python3 mio.py"])
         #expect((removed["env"] as? [String: Any])?["K"] as? String == "v")
-        #expect(!ClaudeHookInstaller.hasAnyOurs(in: removed))
     }
 }

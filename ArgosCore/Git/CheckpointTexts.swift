@@ -14,39 +14,61 @@ enum CheckpointTexts {
     static let maxListedPaths = 200
 
     static let restoreFootnote = "Antes se guarda un punto con el estado actual, así que se puede deshacer. "
-        + "Los archivos ignorados por git (.env, node_modules…) nunca se tocan, y la rama y los commits no se mueven."
+        + "Los archivos ignorados por git (.env, node_modules…) y los repositorios anidados nunca se tocan, "
+        + "y la rama y los commits no se mueven."
 
-    static let restoreFileMessage = "Queda como estaba en este punto, o se borra si entonces no existía. "
-        + "Antes se guarda un punto con el estado actual."
+    static let restoreFileMessage = "Queda como se ve en «Hasta ahora»: como estaba en este punto, o se borra si "
+        + "entonces no existía. Antes se guarda un punto con el estado actual."
+
+    static let restoreFileOnlySinceThen = "Para restaurar un archivo, compara «Hasta ahora»: es exactamente lo que se deshará."
+
+    static let workingWarning = "Claude está trabajando en este proyecto ahora mismo: podría seguir cambiando "
+        + "archivos mientras restauras. Mejor detenlo antes."
+
+    static let workingAcknowledgement = "Restaurar aunque Claude esté trabajando"
+
+    static let enableFootnote = "Guarda una instantánea del proyecto cada vez que envías un mensaje a Claude Code, "
+        + "en una carpeta privada dentro de .git que no viaja con push ni con «Enviar al Mac». "
+        + "Al activarlo por primera vez se instala un hook en ~/.claude/settings.json del servidor."
+
+    static let promptsFootnote = "Si está desactivado, cada punto se etiqueta solo con su número de turno y la fecha."
 
     static func restoreFileTitle(_ path: String) -> String {
         "¿Restaurar «\((path as NSString).lastPathComponent)» como estaba en este punto?"
     }
 
     static func emptyDescription(_ listing: CheckpointListing) -> String {
-        switch listing.state {
-        case .offServer:
-            return "Están desactivados en este servidor. Actívalos con el interruptor de arriba."
-        case .offRepo:
-            return "Este repositorio los tiene desactivados (git config argos.checkpoints false)."
-        case .on:
-            return "Se crean solos cada vez que envías un mensaje a Claude Code en este proyecto, "
-                + "si el indicador de Claude está activado en el servidor (ajustes del servidor). "
-                + "También puedes crear uno ahora."
+        guard listing.isEnabled else {
+            return "Están desactivados en este proyecto. Actívalos para guardar un punto cada vez que envíes "
+                + "un mensaje a Claude Code y poder deshacer un turno."
         }
+        return "Se crean solos cada vez que envías un mensaje a Claude Code en este proyecto. "
+            + "También puedes crear uno ahora."
     }
 
-    /// Aviso de la lista (captura desactivada u omitida), o `nil`.
+    /// Aviso de la lista (omisiones recientes), o `nil`.
     static func warning(_ listing: CheckpointListing) -> String? {
-        switch listing.state {
-        case .offServer: return "Desactivados en este servidor: no se crean puntos nuevos."
-        case .offRepo: return "Desactivados en este repositorio (git config argos.checkpoints)."
-        case .on: break
-        }
-        if let skip = listing.lastSkip {
-            return "El último turno no se guardó: \(skip.reason)."
-        }
-        return nil
+        guard let skip = listing.skips.last else { return nil }
+        if let newest = listing.checkpoints.first, skip.date < newest.date { return nil }
+        return "El último mensaje no se guardó: \(skip.reason)."
+    }
+
+    /// Omisiones dentro de un turno (entre dos puntos).
+    static func skipsText(_ skips: [CheckpointSkip]) -> String? {
+        guard let last = skips.last else { return nil }
+        let count = skips.count == 1 ? "1 mensaje no se guardó" : "\(skips.count) mensajes no se guardaron"
+        return "En este turno \(count) (\(last.reason)): el diff puede incluir varios mensajes."
+    }
+
+    static func conflictMessage(_ issues: [CheckpointIssue]) -> String {
+        let listed = issues.prefix(5).map { "«\($0.path)» \($0.explanation)" }.joined(separator: "; ")
+        let more = issues.count > 5 ? " y \(issues.count - 5) más" : ""
+        return "No se restauró nada para no perder datos: \(listed)\(more). Muévelos o resuélvelos a mano y vuelve a intentarlo."
+    }
+
+    static func heavyMessage(_ reason: String) -> String {
+        "Para poder deshacer la restauración hay que guardar antes el estado actual, y eso costará "
+            + "(\(reason)). Puede tardar y ocupar espacio en el servidor."
     }
 
     static func symbol(_ kind: CheckpointKind) -> String {

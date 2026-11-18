@@ -251,6 +251,12 @@ protocol SSHServicing: Sendable {
     /// Ejecuta un comando de `CheckpointCommands` (plazo largo). No lanza por el código de
     /// salida. Implementación por defecto (lanza) para los dobles en `SSHCheckpoints.swift`.
     func runCheckpointCommand(_ command: String) async throws -> CheckpointCommandOutput
+    /// ¿Están el hook de captura y su script, en su versión actual?
+    func checkpointHookInstalled() async throws -> Bool
+    /// Instala el hook de captura (solo al activar los puntos en un proyecto).
+    func installCheckpointHook() async throws
+    /// Quita el hook de captura y su script del servidor.
+    func uninstallCheckpointHook() async throws
 }
 
 extension SSHServicing {

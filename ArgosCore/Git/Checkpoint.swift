@@ -2,9 +2,10 @@
 //  Checkpoint.swift
 //  ArgosCore
 //
-//  Puntos de restauración por turno (lógica pura): un punto es un commit suelto bajo
-//  `refs/argos/checkpoints/<worktree>/<epoch>` con el contenido del árbol de trabajo
-//  justo cuando el usuario envió un mensaje a Claude. Lo crea `CheckpointScript`.
+//  Puntos de restauración por turno (lógica pura): un punto es un commit suelto en el
+//  repositorio aparte `<gitdir>/argos-checkpoints.git` (`refs/checkpoints/<epoch>`) con el
+//  contenido del árbol de trabajo justo cuando el usuario envió un mensaje a Claude. Lo
+//  crea `CheckpointScript`.
 //
 
 import Foundation
@@ -44,25 +45,27 @@ struct Checkpoint: Identifiable, Hashable, Sendable {
     }
 }
 
-/// ¿Se capturan puntos en este repositorio?
-enum CheckpointCaptureState: String, Sendable, Equatable {
-    case on
-    /// `~/.config/argos/checkpoints-off` existe en el servidor.
-    case offServer = "off-server"
-    /// `git config argos.checkpoints false` en el repositorio.
-    case offRepo = "off-repo"
-}
-
 struct CheckpointListing: Sendable, Equatable {
     let root: String
-    let state: CheckpointCaptureState
+    /// `git config argos.checkpoints true`: el hook captura en este repositorio.
+    let isEnabled: Bool
+    /// `git config argos.checkpointsPrompt true`: se guarda un extracto de cada mensaje.
+    let storesPrompts: Bool
     let headCommit: String?
     /// Del más reciente al más antiguo.
     let checkpoints: [Checkpoint]
-    /// Último intento del hook que se omitió (repo enorme, archivo grande…).
-    let lastSkip: CheckpointSkip?
+    /// Mensajes cuyo punto no se guardó (repo enorme, archivo grande, plazo agotado…).
+    let skips: [CheckpointSkip]
     /// Por qué no se pudo comparar con el estado actual (si pasó).
     let currentSkipReason: String?
+
+    /// Omisiones durante el turno del punto `index` (hasta el siguiente punto o ahora).
+    func skips(duringTurnAt index: Int) -> [CheckpointSkip] {
+        guard checkpoints.indices.contains(index) else { return [] }
+        let start = checkpoints[index].date
+        let end = index > 0 ? checkpoints[index - 1].date : .distantFuture
+        return skips.filter { $0.date >= start && $0.date < end }
+    }
 }
 
 struct CheckpointSkip: Sendable, Equatable {
@@ -98,6 +101,38 @@ struct CheckpointFileChange: Identifiable, Hashable, Sendable {
     }
 }
 
+/// Algo que impide escribir una ruta (o que se deja sin tocar) al restaurar.
+struct CheckpointIssue: Hashable, Sendable {
+    enum Kind: String, Sendable, Hashable {
+        /// Hoy es una carpeta donde el punto tenía un archivo.
+        case directoryInTheWay = "D"
+        /// Hay un repositorio git anidado en el camino.
+        case nestedRepository = "R"
+        /// En el camino hay un archivo o enlace que no está en la copia (p. ej. ignorado).
+        case blockedPath = "F"
+        /// Falta el contenido en el punto (objetos borrados).
+        case missingContent = "M"
+        /// Existe y no está en la copia (p. ej. ignorado por git): no se toca.
+        case unprotected = "I"
+    }
+
+    let kind: Kind
+    let path: String
+
+    /// Bloquea la restauración entera (el resto solo se salta).
+    var isConflict: Bool { kind != .unprotected }
+
+    var explanation: String {
+        switch kind {
+        case .directoryInTheWay: return "hoy es una carpeta"
+        case .nestedRepository: return "está dentro de un repositorio git anidado"
+        case .blockedPath: return "en su camino hay un archivo o enlace que git ignora"
+        case .missingContent: return "falta su contenido en el punto"
+        case .unprotected: return "existe y git lo ignora: no se toca"
+        }
+    }
+}
+
 /// Qué pasará al restaurar un punto (para la confirmación).
 struct CheckpointRestorePreview: Sendable, Equatable {
     let checkpoint: Checkpoint
@@ -110,8 +145,19 @@ struct CheckpointRestorePreview: Sendable, Equatable {
     let toRecreate: [String]
     /// Commits hechos desde el punto (la rama no se mueve: solo se restauran archivos).
     let commitsSince: Int
+    /// Rutas con problemas: los conflictos bloquean; las «sin proteger» se saltan.
+    let issues: [CheckpointIssue]
 
+    var conflicts: [CheckpointIssue] { issues.filter(\.isConflict) }
+    var untouched: [String] { issues.filter { !$0.isConflict }.map(\.path) }
+    var canRestore: Bool { conflicts.isEmpty }
     var isEmpty: Bool { toModify.isEmpty && toDelete.isEmpty && toRecreate.isEmpty }
+}
+
+enum CheckpointPreviewResult: Sendable, Equatable {
+    case ready(CheckpointRestorePreview)
+    /// Hacer la copia del estado actual costaría mucho (lo que el hook rechazó): se pregunta.
+    case heavy(String)
 }
 
 enum CheckpointRestoreOutcome: Sendable, Equatable {
@@ -121,6 +167,10 @@ enum CheckpointRestoreOutcome: Sendable, Equatable {
     case partial(backup: String?)
     /// Los archivos cambiaron desde la vista previa: no se tocó nada.
     case changed
+    /// Hay rutas que no se pueden escribir sin perder datos: no se tocó nada.
+    case conflict([CheckpointIssue])
+    /// No había nada que hacer (ruta no válida, ignorada o ausente).
+    case nothing(String)
 }
 
 enum CheckpointError: LocalizedError, Equatable {
@@ -129,6 +179,8 @@ enum CheckpointError: LocalizedError, Equatable {
     case failed(String)
     case unexpectedOutput(String)
     case unavailable
+    /// Comparar con el estado actual costaría mucho.
+    case heavy(String)
 
     var errorDescription: String? {
         switch self {
@@ -145,6 +197,8 @@ enum CheckpointError: LocalizedError, Equatable {
                 : detail
         case .unavailable:
             return "Los puntos de restauración no están disponibles en esta conexión."
+        case .heavy(let reason):
+            return "Comparar con el estado actual costaría mucho (\(reason)). Compara entre puntos o ignora esos archivos en git."
         }
     }
 

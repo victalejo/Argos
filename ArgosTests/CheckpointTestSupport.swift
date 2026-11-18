@@ -25,7 +25,8 @@ final class CheckpointRepo {
         ["/bin/sh", "/bin/dash"].filter { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
-    init(shell: String = "/bin/sh", name: String = "proyecto") throws {
+    /// `enabled`: `git config argos.checkpoints true` (sin él, el hook no hace nada).
+    init(shell: String = "/bin/sh", name: String = "proyecto", enabled: Bool = true) throws {
         self.shell = shell
         base = try LocalShell.makeTemporaryDirectory()
         home = base.appendingPathComponent("home", isDirectory: true)
@@ -33,6 +34,7 @@ final class CheckpointRepo {
         try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
         try git("init -q && git config user.email t@t && git config user.name Test && git config commit.gpgsign false")
+        if enabled { try git("config argos.checkpoints true") }
     }
 
     deinit { LocalShell.remove(base) }
@@ -44,13 +46,17 @@ final class CheckpointRepo {
         return env
     }
 
+    /// Repositorio de los puntos del worktree principal.
+    var store: URL { repo.appendingPathComponent(".git/\(CheckpointScript.storeName)") }
+
     /// Ejecuta `executable arguments…` en `cwd` (por defecto, el repo).
     @discardableResult
-    func exec(_ executable: String, _ arguments: [String], stdin: String? = nil, cwd: URL? = nil) throws -> ShellRun {
+    func exec(_ executable: String, _ arguments: [String], stdin: String? = nil, cwd: URL? = nil,
+              extraEnvironment: [String: String] = [:]) throws -> ShellRun {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
-        process.environment = environment
+        process.environment = environment.merging(extraEnvironment) { _, new in new }
         process.currentDirectoryURL = cwd ?? repo
         let out = Pipe(), err = Pipe(), input = Pipe()
         process.standardOutput = out
@@ -69,8 +75,8 @@ final class CheckpointRepo {
 
     /// Script de shell en el repo (para preparar el escenario). Lanza si falla.
     @discardableResult
-    func sh(_ script: String, stdin: String? = nil) throws -> ShellRun {
-        let result = try exec("/bin/sh", ["-c", script], stdin: stdin)
+    func sh(_ script: String, stdin: String? = nil, cwd: URL? = nil) throws -> ShellRun {
+        let result = try exec("/bin/sh", ["-c", script], stdin: stdin, cwd: cwd)
         guard result.exitCode == 0 else {
             throw CheckpointError.failed("script de prueba: \(script)\n\(result.stderr)")
         }
@@ -80,10 +86,17 @@ final class CheckpointRepo {
     @discardableResult
     func git(_ arguments: String) throws -> ShellRun { try sh("git " + arguments) }
 
-    /// Modo `mode` del script de puntos con el shell de la prueba (sh o dash).
+    /// git sobre el repositorio de los puntos (`store`), que ve los objetos del principal.
     @discardableResult
-    func checkpoint(_ arguments: [String]) throws -> ShellRun {
-        try exec(shell, ["-c", CheckpointScript.source, CheckpointScript.processName] + arguments)
+    func storeGit(_ arguments: String, store: URL? = nil) throws -> ShellRun {
+        try sh("git --git-dir=\(ShellQuoting.singleQuoted((store ?? self.store).path)) " + arguments)
+    }
+
+    /// Un modo del script con el shell de la prueba (sh o dash).
+    @discardableResult
+    func checkpoint(_ arguments: [String], cwd: URL? = nil, extraEnvironment: [String: String] = [:]) throws -> ShellRun {
+        try exec(shell, ["-c", CheckpointScript.source, CheckpointScript.processName] + arguments,
+                 cwd: cwd, extraEnvironment: extraEnvironment)
     }
 
     /// Simula el hook `UserPromptSubmit`: el script en `$HOME` y la entrada JSON por stdin.
@@ -96,6 +109,13 @@ final class CheckpointRepo {
         ], options: [.sortedKeys]), as: UTF8.self)
         let script = home.appendingPathComponent(CheckpointScript.installedRelativePath).path
         return try exec(shell, [script, "hook"], stdin: json, cwd: cwd)
+    }
+
+    /// Duración del hook en segundos.
+    func timedHook(prompt: String = "hola") throws -> TimeInterval {
+        let start = Date()
+        try hook(prompt: prompt)
+        return Date().timeIntervalSince(start)
     }
 
     func installScript() throws {
@@ -122,9 +142,21 @@ final class CheckpointRepo {
         try FileManager.default.removeItem(at: repo.appendingPathComponent(relativePath))
     }
 
-    func refs() throws -> [String] {
-        try git("for-each-ref --sort=-refname --format='%(refname)' refs/argos/").stdout
+    /// Commits de los puntos, del más reciente al más antiguo.
+    func points(store: URL? = nil) throws -> [String] {
+        let target = store ?? self.store
+        guard FileManager.default.fileExists(atPath: target.appendingPathComponent("HEAD").path) else { return [] }
+        return try storeGit("for-each-ref --sort=-refname --format='%(objectname)' refs/checkpoints/", store: target).stdout
             .split(separator: "\n").map(String.init)
+    }
+
+    /// Archivos del árbol de un punto.
+    func files(of point: String) throws -> [String] {
+        try storeGit("ls-tree -r -z --name-only \(point)").stdout.split(separator: "\0").map(String.init).sorted()
+    }
+
+    func show(_ point: String, _ path: String) throws -> String {
+        try storeGit("show \(ShellQuoting.singleQuoted("\(point):\(path)"))").stdout
     }
 
     /// `git status` y el índice real, para comprobar que capturar no los toca.
@@ -132,6 +164,15 @@ final class CheckpointRepo {
         let status = try sh("GIT_OPTIONAL_LOCKS=0 git status --porcelain=v1 -z --untracked-files=all").stdout
         let index = try Data(contentsOf: repo.appendingPathComponent(".git/index"))
         return status + "|" + index.base64EncodedString()
+    }
+
+    /// Vista previa + restauración completa, como hace la app.
+    @discardableResult
+    func restore(_ point: String) throws -> String {
+        let preview = try checkpoint(["preview", repo.path, point, "full"]).stdout
+        let tree = preview.components(separatedBy: "\n").first { $0.hasPrefix("ARGOS_CP_CURRENT ") }
+            .map { String($0.dropFirst("ARGOS_CP_CURRENT ".count)) } ?? "-"
+        return try checkpoint(["restore", repo.path, point, tree]).stdout
     }
 
     /// Runner del modelo: ejecuta el comando tal como iría por SSH, con /bin/sh.
@@ -155,5 +196,20 @@ final class CheckpointRepo {
                                            stderr: String(decoding: errData, as: UTF8.self),
                                            exitCode: Int(process.terminationStatus))
         }
+    }
+}
+
+/// Doble del hook de captura para el modelo.
+final class FakeCheckpointHooks: @unchecked Sendable {
+    var installed = false
+    private(set) var installs = 0
+    private(set) var uninstalls = 0
+
+    var control: CheckpointHookControl {
+        CheckpointHookControl(
+            isInstalled: { self.installed },
+            install: { self.installs += 1; self.installed = true },
+            uninstall: { self.uninstalls += 1; self.installed = false }
+        )
     }
 }

@@ -33,8 +33,9 @@ enum CheckpointCommands {
         invocation(["diff", root, from, to, path, String(GitCommands.diffByteLimit + 1)])
     }
 
-    static func preview(root: String, commit: String) -> String {
-        invocation(["preview", root, commit])
+    /// `force`: hacer la copia del estado actual aunque sea costosa (tras avisar).
+    static func preview(root: String, commit: String, force: Bool) -> String {
+        invocation(["preview", root, commit, force ? "full" : "guard"])
     }
 
     /// Restaura el punto entero (`path == nil`) o un archivo. `expectedTree`: el árbol que
@@ -49,9 +50,22 @@ enum CheckpointCommands {
         invocation(["snapshot", root, label])
     }
 
-    static func setServerEnabled(_ enabled: Bool) -> String {
-        invocation([enabled ? "server-on" : "server-off"])
+    /// Activa la captura en el repositorio (`git config argos.checkpoints true`).
+    static func enable(root: String) -> String { invocation(["enable", root]) }
+
+    /// La desactiva y borra todos sus puntos e índices privados.
+    static func disable(root: String) -> String { invocation(["disable", root]) }
+
+    /// Borra todos los puntos del repositorio (sigue activado).
+    static func purge(root: String) -> String { invocation(["purge", root]) }
+
+    /// Guardar (o no) un extracto de cada mensaje en el punto.
+    static func storePrompts(root: String, _ enabled: Bool) -> String {
+        invocation(["prompts", root, enabled ? "true" : "false"])
     }
+
+    /// Borra el script instalado (al quitar el hook del servidor).
+    static func removeScript() -> String { invocation(["remove-script"]) }
 }
 
 enum CheckpointParser {
@@ -65,25 +79,27 @@ enum CheckpointParser {
         let lines = output.components(separatedBy: "\n")
         if lines.contains("ARGOS_CP_NOGIT") { return .gitMissing }
         if lines.contains("ARGOS_CP_NOREPO") { return .notRepository }
-        guard let start = lines.firstIndex(of: "ARGOS_CP_LIST 1"),
+        guard let start = lines.firstIndex(of: "ARGOS_CP_LIST 2"),
               let metaIndex = lines[start...].firstIndex(of: "ARGOS_CP_META")
         else { throw CheckpointError.unexpectedOutput("") }
 
-        var state = CheckpointCaptureState.on
+        var enabled = false, prompts = false
         var root = ""
         var head: String?
-        var skip: CheckpointSkip?
+        var skips: [CheckpointSkip] = []
         var currentSkip: String?
         var counts: [String: Int] = [:]
         for line in lines[start..<metaIndex] {
             if let value = line.value(after: "ARGOS_CP_STATE ") {
-                state = CheckpointCaptureState(rawValue: value) ?? .on
+                enabled = value == "on"
+            } else if let value = line.value(after: "ARGOS_CP_PROMPTS ") {
+                prompts = value == "on"
             } else if let value = line.value(after: "ARGOS_CP_ROOT ") {
                 root = value
             } else if let value = line.value(after: "ARGOS_CP_HEAD ") {
                 head = value == "-" ? nil : value
-            } else if let value = line.value(after: "ARGOS_CP_SKIPPED ") {
-                skip = parseSkip(value)
+            } else if let value = line.value(after: "ARGOS_CP_SKIPLOG ") {
+                if let skip = parseSkip(value) { skips.append(skip) }
             } else if let value = line.value(after: "ARGOS_CP_CURRENT_SKIPPED ") {
                 currentSkip = value
             } else if let value = line.value(after: "ARGOS_CP_COUNT ") {
@@ -94,8 +110,8 @@ enum CheckpointParser {
         let meta = lines[(metaIndex + 1)...].joined(separator: "\n")
         let checkpoints = parseRecords(meta, counts: counts)
         return .listing(CheckpointListing(
-            root: root, state: state, headCommit: head, checkpoints: checkpoints,
-            lastSkip: skip, currentSkipReason: currentSkip
+            root: root, isEnabled: enabled, storesPrompts: prompts, headCommit: head,
+            checkpoints: checkpoints, skips: skips, currentSkipReason: currentSkip
         ))
     }
 
@@ -147,6 +163,16 @@ enum CheckpointParser {
     // MARK: - Archivos, vista previa y restauración
 
     /// `git diff-tree -z --name-status` tras el marcador `ARGOS_CP_FILES`.
+    /// Árboles comparados (`ARGOS_CP_TREES de a`): el segundo es el actual si se pidió `-`.
+    static func parseTrees(_ output: String) -> (from: String, to: String)? {
+        for line in output.components(separatedBy: "\n") {
+            guard let value = line.value(after: "ARGOS_CP_TREES ") else { continue }
+            let parts = value.split(separator: " ")
+            if parts.count == 2 { return (String(parts[0]), String(parts[1])) }
+        }
+        return nil
+    }
+
     static func parseFiles(_ output: String) throws -> [CheckpointFileChange] {
         try throwIfFailed(output)
         guard let range = output.range(of: "ARGOS_CP_FILES\n") else {
@@ -179,21 +205,40 @@ enum CheckpointParser {
     }
 
     /// Vista previa: los cambios van del árbol ACTUAL al del punto.
-    static func parsePreview(_ output: String, checkpoint: Checkpoint) throws -> CheckpointRestorePreview {
-        try throwIfFailed(output)
+    static func parsePreview(_ output: String, checkpoint: Checkpoint) throws -> CheckpointPreviewResult {
+        try throwIfFailed(output, allowHeavy: true)
         let lines = output.components(separatedBy: "\n")
+        if let reason = lines.lazy.compactMap({ $0.value(after: "ARGOS_CP_HEAVY ") }).first {
+            return .heavy(reason)
+        }
         guard let tree = lines.lazy.compactMap({ $0.value(after: "ARGOS_CP_CURRENT ") }).first else {
             throw CheckpointError.unexpectedOutput("")
         }
         let moved = lines.lazy.compactMap { $0.value(after: "ARGOS_CP_HEADMOVED ") }.first.flatMap(Int.init) ?? 0
         let changes = try parseFiles(output)
-        return CheckpointRestorePreview(
+        return .ready(CheckpointRestorePreview(
             checkpoint: checkpoint, currentTree: tree,
             toModify: changes.filter { $0.kind == .modified || $0.kind == .typeChanged }.map(\.path),
             toDelete: changes.filter { $0.kind == .deleted }.map(\.path),
             toRecreate: changes.filter { $0.kind == .added }.map(\.path),
-            commitsSince: moved
-        )
+            commitsSince: moved,
+            issues: parseIssues(output, after: "ARGOS_CP_CHECK\n")
+        ))
+    }
+
+    /// Registros `tipo\0ruta\0` tras `marker`, hasta el registro `END`.
+    static func parseIssues(_ output: String, after marker: String) -> [CheckpointIssue] {
+        guard let range = output.range(of: marker) else { return [] }
+        let tokens = output[range.upperBound...].split(separator: "\0", omittingEmptySubsequences: false)
+        var issues: [CheckpointIssue] = []
+        var index = 0
+        while index + 1 < tokens.count, tokens[index] != "END" {
+            if let kind = CheckpointIssue.Kind(rawValue: String(tokens[index])) {
+                issues.append(CheckpointIssue(kind: kind, path: String(tokens[index + 1])))
+            }
+            index += 2
+        }
+        return issues
     }
 
     static func parseRestore(_ output: String) throws -> CheckpointRestoreOutcome {
@@ -204,9 +249,26 @@ enum CheckpointParser {
             return value.split(separator: " ").first.map(String.init)
         }.first
         if lines.contains("ARGOS_CP_CHANGED") { return .changed }
+        if lines.contains("ARGOS_CP_CONFLICT") {
+            return .conflict(parseIssues(output, after: "ARGOS_CP_CONFLICT\n"))
+        }
+        if let reason = lines.lazy.compactMap({ $0.value(after: "ARGOS_CP_NOOP ") }).first {
+            return .nothing(noopText(reason))
+        }
         if lines.contains("ARGOS_CP_PARTIAL") { return .partial(backup: backup) }
         if lines.contains("ARGOS_CP_DONE") { return .done(backup: backup) }
         throw CheckpointError.unexpectedOutput("")
+    }
+
+    static func noopText(_ reason: String) -> String {
+        if let kind = CheckpointIssue.Kind(rawValue: reason) {
+            return "No se tocó: \(CheckpointIssue(kind: kind, path: "").explanation)."
+        }
+        switch reason {
+        case "invalid": return "No se tocó: la ruta no es válida dentro del repositorio."
+        case "absent": return "No había nada que restaurar: el archivo no existe ni existía en ese punto."
+        default: return "No se tocó nada (\(reason))."
+        }
     }
 
     /// Ref del punto creado a mano (`nil` si el árbol era idéntico al último).
@@ -224,9 +286,10 @@ enum CheckpointParser {
     }
 
     /// Marcadores de error comunes a todos los modos.
-    static func throwIfFailed(_ output: String) throws {
+    static func throwIfFailed(_ output: String, allowHeavy: Bool = false) throws {
         for line in output.components(separatedBy: "\n") {
             if let operation = line.value(after: "ARGOS_CP_BUSY ") { throw CheckpointError.busy(operation) }
+            if let reason = line.value(after: "ARGOS_CP_HEAVY "), !allowHeavy { throw CheckpointError.heavy(reason) }
             if line == "ARGOS_CP_BADREF" { throw CheckpointError.badReference }
             if let detail = line.value(after: "ARGOS_CP_FAILED ") { throw CheckpointError.failed(detail) }
             if line == "ARGOS_CP_NOREPO" {

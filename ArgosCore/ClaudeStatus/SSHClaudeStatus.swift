@@ -46,7 +46,6 @@ extension SSHService {
     /// settings.json puede contener secretos (p. ej. `env` con API keys): se escribe con
     /// `writeHomeFilePrivately` (SFTP, permisos 600, atómico) y con copia `.argos-backup`.
     func installClaudeHooks() async throws {
-        try await installCheckpointScript()
         let merged = ClaudeHookInstaller.installing(into: try await readClaudeSettings())
         let content = Data(try ClaudeHookInstaller.serialize(merged).utf8)
         try await writeHomeFilePrivately(content, to: Self.claudeSettingsRelativePath, backup: true)
@@ -56,30 +55,15 @@ extension SSHService {
     /// actualiza (sin preguntar: el usuario ya dio su permiso). Devuelve si escribió.
     @discardableResult
     func upgradeClaudeHooksIfOutdated() async throws -> Bool {
+        // El de los puntos de restauración, solo donde el usuario ya lo activó.
+        try await upgradeCheckpointHookIfOutdated()
         let settings = try await readClaudeSettings()
-        guard ClaudeHookInstaller.hasAnyOurs(in: settings) else { return false }
-        let scriptWritten = try await installCheckpointScriptIfOutdated()
-        guard !ClaudeHookInstaller.isInstalled(in: settings) else { return scriptWritten }
+        guard ClaudeHookInstaller.hasAnyOurs(in: settings),
+              !ClaudeHookInstaller.isInstalled(in: settings)
+        else { return false }
         let merged = ClaudeHookInstaller.installing(into: settings)
         let content = Data(try ClaudeHookInstaller.serialize(merged).utf8)
         try await writeHomeFilePrivately(content, to: Self.claudeSettingsRelativePath, backup: true)
-        return true
-    }
-
-    // MARK: - Script de los puntos de restauración
-
-    /// Sube el script que ejecuta el hook de captura (`CheckpointScript`). Va ANTES que
-    /// settings.json: un hook sin su script no hace nada (comprueba `[ -f ]`).
-    private func installCheckpointScript() async throws {
-        try await writeHomeFilePrivately(Data(CheckpointScript.source.utf8), to: CheckpointScript.installedRelativePath)
-    }
-
-    /// Reescribe el script si falta o no es el de esta versión. Devuelve si escribió.
-    private func installCheckpointScriptIfOutdated() async throws -> Bool {
-        guard try await readHomeFile(CheckpointScript.installedRelativePath) != CheckpointScript.source else {
-            return false
-        }
-        try await installCheckpointScript()
         return true
     }
 
