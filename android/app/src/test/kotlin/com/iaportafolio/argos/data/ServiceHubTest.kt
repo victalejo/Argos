@@ -1,6 +1,8 @@
 package com.iaportafolio.argos.data
 
 import com.iaportafolio.argos.core.AuthMethod
+import com.iaportafolio.argos.core.ConnectionHealthProbing
+import com.iaportafolio.argos.core.ConnectionProbeResult
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHConnector
 import com.iaportafolio.argos.core.SSHCredentials
@@ -178,5 +180,36 @@ class ServiceHubTest {
         assertTrue(hub.connectedServerIds().isEmpty())
         assertEquals(listOf("A", "B"), disconnected)
         assertTrue(connector.made.all { it.third.disconnects == 1 })
+    }
+
+    private class ProbingService(var result: ConnectionProbeResult) : FakeSSHService(), ConnectionHealthProbing {
+        var probes = 0
+
+        override suspend fun probeConnection(timeoutMillis: Long): ConnectionProbeResult {
+            probes++
+            return result
+        }
+    }
+
+    @Test
+    fun `probeAll usa la sonda del servicio y suelta solo la conexión reciclada`() = runTest {
+        secrets.write("A", SecretKind.PASSWORD, "pw")
+        secrets.write("B", SecretKind.PASSWORD, "pw")
+        secrets.write("C", SecretKind.PASSWORD, "pw")
+        val results = mapOf("A" to ConnectionProbeResult.ALIVE, "B" to ConnectionProbeResult.RECYCLED, "C" to ConnectionProbeResult.NOT_CONNECTED)
+        val made = mutableMapOf<String, ProbingService>()
+        val probingConnector = SSHConnector { server, _, _ -> ProbingService(results.getValue(server.id)).also { made[server.id] = it } }
+        val hub = ServiceHub(probingConnector, secrets, trust, StandardTestDispatcher(testScheduler))
+        hub.service(server(id = "A"))
+        hub.service(server(id = "B"))
+        hub.service(server(id = "C"))
+
+        assertEquals(setOf("B"), hub.probeAll(timeoutMillis = 4_000))
+
+        assertEquals(setOf("A", "C"), hub.connectedServerIds())
+        assertEquals(listOf(1, 1, 1), listOf("A", "B", "C").map { made.getValue(it).probes })
+        // Sin `tmux ls`: la sonda es más barata.
+        assertTrue(made.values.none { "list" in it.calls })
+        assertEquals(1, made.getValue("B").disconnects)
     }
 }

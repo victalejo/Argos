@@ -4,7 +4,12 @@ import com.iaportafolio.argos.core.HostKeyMismatchException
 import com.iaportafolio.argos.core.HostKeyStoreUnreadableException
 import com.iaportafolio.argos.core.SSHServiceError
 import com.iaportafolio.argos.data.MissingCredentialsException
+import com.iaportafolio.argos.core.homefile.HomeFileException
+import com.iaportafolio.argos.core.projects.ProjectError
+import com.iaportafolio.argos.ssh.SshChannelRejectedException
+import com.iaportafolio.argos.ssh.SshCommandTimeoutException
 import com.iaportafolio.argos.ssh.SshConnectionException
+import com.iaportafolio.argos.ssh.SshTerminalException
 
 /** El servidor del terminal ya no existe (borrado con la pantalla abierta). */
 class TerminalServerMissingException : Exception("Este servidor ya no existe.")
@@ -34,9 +39,19 @@ data class ReconnectPolicy(
     /** Espera antes del reintento número [attempt] (0 = primer reintento). */
     fun delayFor(attempt: Int): Long = delaysMillis[attempt.coerceIn(0, delaysMillis.lastIndex)]
 
-    /** ¿Tiene sentido reintentar solo? No si el fallo exige que el usuario haga algo. */
+    /**
+     * ¿Tiene sentido reintentar solo? Sí con la red: conexión cortada
+     * ([SshConnectionException.ConnectionClosed], [SshTerminalException]) o canal rechazado por
+     * `MaxSessions` ([SshChannelRejectedException]: la conexión ya se recicló). No si el fallo exige
+     * que el usuario haga algo, ni con el plazo vencido de un comando ([SshCommandTimeoutException]:
+     * repetirlo en bucle cargaría al servidor que ya no responde; lo decide el usuario con
+     * «Reconectar»).
+     */
     fun isRetryable(error: Throwable): Boolean = causeChain(error).none { cause ->
-        cause is HostKeyMismatchException ||
+        cause is SshCommandTimeoutException ||
+            cause is HomeFileException ||
+            cause is ProjectError ||
+            cause is HostKeyMismatchException ||
             cause is HostKeyStoreUnreadableException ||
             cause is MissingCredentialsException ||
             cause is SshConnectionException.AuthenticationFailed ||

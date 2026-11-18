@@ -1,5 +1,7 @@
 package com.iaportafolio.argos.data
 
+import com.iaportafolio.argos.core.ConnectionHealthProbing
+import com.iaportafolio.argos.core.ConnectionProbeResult
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHConnector
 import com.iaportafolio.argos.core.SSHServicing
@@ -9,6 +11,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -90,11 +95,14 @@ class ServiceHub(
 
     /**
      * Comprueba con un plazo corto que cada conexión abierta responde y cierra las que no (NAT
-     * caducado, Doze): así la pantalla siguiente reconecta en vez de esperar 30–90 s. Devuelve
-     * los servidores descartados.
+     * caducado, Doze, red nueva): así la pantalla siguiente reconecta en vez de esperar 30–90 s.
+     * Las sondas van en paralelo (un servidor colgado no retrasa a los demás). Devuelve los
+     * servidores descartados.
      */
     suspend fun probeAll(timeoutMillis: Long): Set<String> {
-        val dead = entries.values.filterNot { isResponsive(it, timeoutMillis) }
+        val dead = coroutineScope {
+            entries.values.map { entry -> async { entry.takeUnless { isResponsive(it, timeoutMillis) } } }.awaitAll().filterNotNull()
+        }
         dead.forEach { entry ->
             // Solo si sigue siendo la misma conexión (otra pantalla pudo renovarla entretanto).
             val removed = mutex.withLock {
@@ -105,9 +113,31 @@ class ServiceHub(
         return dead.map { it.server.id }.toSet()
     }
 
-    private suspend fun isResponsive(entry: Entry, timeoutMillis: Long): Boolean = try {
-        // TODO(integración): usar la sonda específica que está añadiendo el módulo `ssh` (más barata
-        //  que `tmux ls`) en cuanto exista en `SSHServicing`.
+    /**
+     * Con [ConnectionHealthProbing] (el servicio real), una orden mínima con plazo: [ConnectionProbeResult.RECYCLED]
+     * = estaba caída y ya se soltó; los terminales que iban por ella terminan con «conexión perdida» y su
+     * reintento reengancha con una conexión nueva. Sin sonda (dobles de prueba), `tmux ls` con plazo.
+     */
+    private suspend fun isResponsive(entry: Entry, timeoutMillis: Long): Boolean {
+        val probing = entry.service as? ConnectionHealthProbing ?: return respondsToListing(entry, timeoutMillis)
+        return try {
+            when (withContext(io) { probing.probeConnection(timeoutMillis) }) {
+                ConnectionProbeResult.ALIVE, ConnectionProbeResult.NOT_CONNECTED -> true
+                ConnectionProbeResult.RECYCLED -> {
+                    ArgosLog.warn(ArgosLog.TAG_SSH, "La conexión con ${entry.server.endpoint} no respondió en $timeoutMillis ms")
+                    false
+                }
+            }
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (error: Exception) {
+            // La sonda no lanza; por si acaso, un fallo cuenta como conexión muerta.
+            ArgosLog.warn(ArgosLog.TAG_SSH, "La sonda de ${entry.server.endpoint} falló", error)
+            false
+        }
+    }
+
+    private suspend fun respondsToListing(entry: Entry, timeoutMillis: Long): Boolean = try {
         withTimeout(timeoutMillis) { withContext(io) { entry.service.listSessions() } }
         true
     } catch (timeout: TimeoutCancellationException) {

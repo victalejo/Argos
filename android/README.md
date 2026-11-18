@@ -91,16 +91,38 @@ estado de navegación ni en logs.
 
 ## Segundo plano (`background/`)
 
-**Avisos de agentes** (`AgentNotifier`, como `AgentNotifier.swift`): sin push ni servidores
-intermedios. Para cada servidor apuntado (al crear o abrir un agente) abre una conexión nueva, lee
-`PersistentAgentScript.snapshots()` y avisa de lo nuevo. Corre con WorkManager cada 15 min (con
-red) y, mientras viva el servicio del terminal, cada ~60 s. En segundo plano **nunca se confía en
-una huella nueva**: un endpoint sin huella guardada se salta hasta conectar desde la app.
+**Avisos** (`AgentNotifier`, como `AgentNotifier.swift`): sin push ni servidores intermedios. Se
+revisan los servidores apuntados: los de agentes persistentes (al crear o abrir uno; se lee
+`PersistentAgentScript.snapshots()`) y aquellos donde se vio Claude Code en una ventana tmux (se lee el
+estado de los paneles y se avisa de lo que entró en «terminó» / «espera tu respuesta»). Corre con
+WorkManager cada 15 min (con red) en un único trabajo junto con las vigilancias de CI; si la app ya tiene
+abierta la conexión del servidor la reutiliza, y si no abre una nueva que siempre cierra. En segundo plano
+**nunca se confía en una huella nueva**: un endpoint sin huella guardada se salta hasta conectar desde la
+app. Con la app a la vista: al volver se revisan todos los agentes y después, cada minuto, solo los
+servidores con conexión abierta (sin abrir conexiones nuevas).
 
-**Terminal vivo** (`TerminalKeepAliveService`, servicio en primer plano `specialUse`): mantiene el
-proceso mientras haya terminales adjuntos; la conexión sigue en los `TerminalViewModel`. Se arranca
-con la app en primer plano al adjuntar el primero; si el sistema no lo deja, el terminal vuelve a
-hacer detach/reattach. Se desactiva en Ajustes → Avisos y segundo plano.
+**Claude en tmux con la app a la vista** (`ClaudeActivityMonitor`, como `ServerHub.startActivityPolling`):
+cada 5 s, con un solo comando por servidor y SOLO sobre conexiones ya abiertas, alimenta las insignias de
+la lista y de las pestañas y avisa de las transiciones, salvo de la ventana que se está mirando. El primer
+sondeo de cada conexión no avisa y actualiza los hooks antiguos (`upgradeClaudeHooksIfOutdated`). La última
+lectura se guarda (`ClaudeWatchStore`): es la referencia del worker, y al volver se adopta lo que el worker
+ya avisó. Tocar el aviso abre el proyecto en su pestaña Terminal (o la sesión suelta) en esa ventana.
+
+**Estado que persiste** (`SharedPreferences` `agent_watch`): servidores apuntados y bytes vistos de cada
+agente, servidores con Claude y su última lectura, vigilancias de CI (`CIWatchStore`) y la última
+comprobación en segundo plano (`BackgroundDiagnosticsStore`, Ajustes → Avisos y segundo plano →
+Diagnóstico, con el bucket de App Standby y la optimización de batería).
+
+**Servicio en primer plano** (`TerminalKeepAliveService`, `specialUse`): mantiene el proceso mientras haya
+terminales adjuntos **o túneles de puertos** abiertos; la conexión sigue en los `TerminalViewModel` y los
+túneles en el `ServiceHub`. No hace trabajo periódico propio (los avisos van por WorkManager): solo relee
+cada minuto cuántos túneles siguen abiertos para pararse con el último. Se arranca con la app en primer
+plano al adjuntar el primer terminal o abrir el primer túnel; si el sistema no lo deja, el terminal vuelve a
+hacer detach/reattach. Los terminales se pueden desactivar en Ajustes → Avisos y segundo plano.
+
+**Conexiones** (`ServiceHub`): una por servidor. Al volver a primer plano (tras ≥5 s) y al cambiar la red
+por defecto se sondean con `probeConnection` (4 s): la que no responde se suelta y sus terminales se
+reenganchan solos con una nueva. Oculta ≥60 s sin servicio ni túneles, se cierran todas.
 
 **Limitación conocida:** a propósito no se usa WifiLock ni WakeLock. El servicio protege al proceso
 de que lo maten, no al móvil de dormirse: en Doze el sistema puede cortar la red y parar la CPU, así

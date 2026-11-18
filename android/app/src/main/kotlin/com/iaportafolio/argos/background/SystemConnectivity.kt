@@ -35,7 +35,8 @@ object LocalNetworkPermission {
 
 /**
  * Vigila la red por defecto: al cambiar (Wi-Fi → datos, otra Wi-Fi) o volver tras perderla, las
- * conexiones abiertas ya no sirven y se cierran para que la pantalla siguiente reconecte al momento.
+ * conexiones abiertas pueden haber muerto sin avisar: se sondean con plazo corto y las que no
+ * responden se sueltan para que la pantalla siguiente (y los terminales) reconecten al momento.
  */
 class SystemNetworkMonitor(context: Context, private val onNetworkChanged: () -> Unit) {
     private val manager = context.applicationContext.getSystemService(ConnectivityManager::class.java)
@@ -44,7 +45,7 @@ class SystemNetworkMonitor(context: Context, private val onNetworkChanged: () ->
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             if (tracker.onAvailable(network.networkHandle)) {
-                ArgosLog.info(ArgosLog.TAG_SSH, "Cambió la red: se cierran las conexiones abiertas")
+                ArgosLog.info(ArgosLog.TAG_SSH, "Cambió la red: se comprueban las conexiones abiertas")
                 onNetworkChanged()
             }
         }

@@ -3,7 +3,12 @@ package com.iaportafolio.argos.ui
 import com.iaportafolio.argos.core.HostKeyMismatchException
 import com.iaportafolio.argos.core.SSHServiceError
 import com.iaportafolio.argos.data.MissingCredentialsException
+import com.iaportafolio.argos.core.homefile.HomeFileException
+import com.iaportafolio.argos.core.projects.ProjectError
+import com.iaportafolio.argos.ssh.SshChannelRejectedException
+import com.iaportafolio.argos.ssh.SshCommandTimeoutException
 import com.iaportafolio.argos.ssh.SshConnectionException
+import com.iaportafolio.argos.ssh.SshTerminalException
 import com.iaportafolio.argos.ui.terminal.ReconnectPolicy
 import com.iaportafolio.argos.ui.terminal.TerminalServerMissingException
 import com.iaportafolio.argos.ui.terminal.TerminalStreamingUnavailableException
@@ -28,6 +33,18 @@ class ReconnectPolicyTest {
         assertTrue(policy.isRetryable(IOException("Broken pipe")))
         assertTrue(policy.isRetryable(SshConnectionException.Unreachable("dev:22")))
         assertTrue(policy.isRetryable(SshConnectionException.Timeout("dev:22")))
+        assertTrue(policy.isRetryable(SshConnectionException.ConnectionClosed("dev:22")))
+        assertTrue(policy.isRetryable(SshChannelRejectedException("dev:22")))
+        assertTrue(policy.isRetryable(SshTerminalException.ConnectionLost("dev:22")))
+        assertTrue(policy.isRetryable(SshTerminalException.OpenFailed("dev:22", SshChannelRejectedException("dev:22"))))
+    }
+
+    @Test
+    fun `un plazo vencido de un comando no se reintenta en bucle`() {
+        assertFalse(policy.isRetryable(SshCommandTimeoutException("dev:22", 30)))
+        assertFalse(policy.isRetryable(IOException("envoltorio", SshCommandTimeoutException("dev:22", 30))))
+        assertFalse(policy.isRetryable(HomeFileException.Locked(".config/argos/projects.json")))
+        assertFalse(policy.isRetryable(ProjectError.ConcurrentModification))
     }
 
     @Test
