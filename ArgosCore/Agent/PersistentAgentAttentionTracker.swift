@@ -5,7 +5,8 @@
 //  Qué agentes persistentes necesitan al usuario en el Mac (lógica pura), a partir de
 //  `PersistentAgentOverview`:
 //   - Espera un permiso: mientras el log lo diga (se lee en vivo, no se recuerda).
-//   - Terminó sin mirar: entra cuando su log CRECE y acaba en un `result`; sale al
+//   - Terminó sin mirar: entra cuando su log CRECE y acaba en un `result` (no el que
+//     cierra un log sembrado por el Mac: ese no es un turno que terminara); sale al
 //     mirarlo (pestaña enganchada), al elegirlo en la bandeja o si vuelve a trabajar.
 //  La primera vuelta de cada servidor solo toma referencia: abrir Argos no inunda la
 //  bandeja con lo que terminó mientras estaba cerrado.
@@ -55,7 +56,7 @@ struct PersistentAgentAttentionTracker: Equatable, Sendable {
                 unseenDone[notice.id] = nil
                 continue
             }
-            if !Self.isFinished(agent.attention), agent.attention != .undetermined {
+            if !Self.isFinished(agent.attention), !Self.isSeeded(agent.attention), agent.attention != .undetermined {
                 // Volvió a trabajar (o espera un permiso): ya no está «terminado».
                 unseenDone[notice.id] = nil
             }
@@ -107,14 +108,21 @@ struct PersistentAgentAttentionTracker: Equatable, Sendable {
         return result.sorted { $0.id < $1.id }
     }
 
+    /// Terminó un turno de verdad (el `result` de un log sembrado no cuenta).
     private static func isFinished(_ attention: AgentAttention) -> Bool {
-        if case .finished = attention { return true }
+        if case .finished(_, _, false) = attention { return true }
+        return false
+    }
+
+    /// Quieto tras un log sembrado: ni terminó ahora ni volvió a trabajar.
+    private static func isSeeded(_ attention: AgentAttention) -> Bool {
+        if case .finished(_, _, true) = attention { return true }
         return false
     }
 
     private static func finishedNotice(_ agent: PersistentAgentOverview, serverID: Server.ID) -> Notice {
         let kind: Notice.Kind
-        if case .finished(let summary, let isError) = agent.attention {
+        if case .finished(let summary, let isError, _) = agent.attention {
             kind = .finished(summary: summary, isError: isError)
         } else {
             kind = .finished(summary: nil, isError: false)

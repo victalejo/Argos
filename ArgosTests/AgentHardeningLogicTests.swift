@@ -46,7 +46,7 @@ struct AgentAttentionTolerantTests {
     @Test func unResultadoRecortadoSeResumeIgual() {
         let result = #"{"type":"result","subtype":"success","is_error":false,"result":"Hecho: "# + String(repeating: "a", count: 2_000)
         let cut = String(result.prefix(400))
-        guard case .finished(_, let isError) = AgentAttention.evaluate(logTail: cut) else {
+        guard case .finished(_, let isError, _) = AgentAttention.evaluate(logTail: cut) else {
             Issue.record("debía terminar")
             return
         }

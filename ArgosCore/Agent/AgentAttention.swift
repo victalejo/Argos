@@ -16,7 +16,9 @@ import Foundation
 enum AgentAttention: Equatable, Sendable {
     case none
     case needsPermission(tool: String)
-    case finished(summary: String?, isError: Bool)
+    /// `seeded`: es el `result` que cierra un log sembrado (`AgentTranscriptSeed`), no un
+    /// turno que terminara ahora: el agente está quieto, pero no se avisa de «terminó».
+    case finished(summary: String?, isError: Bool, seeded: Bool = false)
     /// El final del log no se pudo interpretar (p. ej. un permiso sin `request_id`
     /// legible): no se avisa, pero tampoco se marca como visto.
     case undetermined
@@ -46,7 +48,7 @@ enum AgentAttention: Equatable, Sendable {
             case .result:
                 pending = nil
                 unreadablePermission = false
-                outcome = .finished(summary: line.resultText, isError: line.isError)
+                outcome = .finished(summary: line.resultText, isError: line.isError, seeded: line.isSeed)
             case .userPrompt:
                 outcome = .none // un prompt nuevo: vuelve a trabajar
             case .other:
@@ -66,7 +68,9 @@ enum AgentAttention: Equatable, Sendable {
             return nil
         case .needsPermission(let tool):
             return (String(localized: "\(agentTitle): Claude espera tu permiso"), String(localized: "Quiere usar \(tool). Ábrelo para permitir o denegar."))
-        case .finished(let summary, let isError):
+        case .finished(_, _, true):
+            return nil
+        case .finished(let summary, let isError, _):
             let body = summary.map { String($0.prefix(180)) } ?? (isError ? String(localized: "Terminó con un error.") : String(localized: "Terminó la tarea."))
             return (String(localized: "\(agentTitle): \(isError ? "Claude terminó con error" : "Claude terminó")"), body)
         }
@@ -93,6 +97,8 @@ struct AgentLogLineSummary: Equatable, Sendable {
     var displayName: String?
     var isError = false
     var resultText: String?
+    /// `result` con `subtype` `AgentTranscriptSeed.closingSubtype` (cierre de un log sembrado).
+    var isSeed = false
 
     /// `nil` si la línea no tiene ni un `type` reconocible.
     init?(line: String) {
@@ -128,6 +134,7 @@ struct AgentLogLineSummary: Equatable, Sendable {
             kind = .result
             isError = line.contains("\"is_error\":true")
             resultText = Self.firstString(after: "\"result\":", in: line)
+            isSeed = Self.firstString(after: "\"subtype\":", in: line) == AgentTranscriptSeed.closingSubtype
         case "user":
             // Recortada no se sabe si es un prompt o un resultado de herramienta: los
             // resultados llevan `tool_result` cerca del principio.
@@ -153,6 +160,7 @@ struct AgentLogLineSummary: Equatable, Sendable {
             kind = .result
             isError = result.isError
             resultText = result.text
+            isSeed = result.subtype == AgentTranscriptSeed.closingSubtype
         case .user(let blocks) where blocks.contains(where: { if case .text = $0 { return true } else { return false } }):
             kind = .userPrompt
         default:
