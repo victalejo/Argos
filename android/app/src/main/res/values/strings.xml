@@ -801,4 +801,21 @@
     <string name="files_open_with">Abrir con…</string>
     <string name="files_open_with_title">Abrir «%1$s» con</string>
     <string name="files_open_with_none">Ninguna app de este teléfono abre hojas de cálculo. Descárgala o instala una.</string>
+    <!-- Doctor del servidor y «Copiar diagnóstico» -->
+    <string name="doctor_menu">Doctor del servidor</string>
+    <string name="doctor_title">Doctor del servidor</string>
+    <string name="doctor_loading">Comprobando el servidor…</string>
+    <string name="doctor_failed">No se pudo comprobar el servidor</string>
+    <string name="doctor_recheck">Volver a comprobar</string>
+    <string name="doctor_copy_command">Copiar comando</string>
+    <string name="doctor_copied">Copiado al portapapeles</string>
+    <string name="doctor_fix_install_hooks">Instalar hooks de Claude</string>
+    <string name="doctor_fix_update_hooks">Actualizar hooks de Claude</string>
+    <string name="doctor_fix_install_skill">Instalar la skill de puertos</string>
+    <string name="doctor_fix_update_skill">Actualizar la skill de puertos</string>
+    <string name="doctor_copy_report">Copiar diagnóstico</string>
+    <string name="doctor_report_explanation">Copia un informe con la versión de Argos, el dispositivo y el resultado del Doctor para pegarlo en un issue. Los secretos (claves, tokens, contraseñas) se omiten siempre.</string>
+    <string name="doctor_report_personal">Incluir nombres de servidores, usuarios e IPs</string>
+    <string name="doctor_report_review">Revisa el texto antes de publicarlo: Argos oculta lo que reconoce, pero no puede garantizar que no se escape nada.</string>
+    <string name="doctor_report_copy">Copiar</string>
 </resources>

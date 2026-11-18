@@ -1,0 +1,128 @@
+package com.iaportafolio.argos.core.doctor
+
+import com.iaportafolio.argos.core.ShellQuoting
+import com.iaportafolio.argos.core.ports.PortForwardServerFiles
+import com.iaportafolio.argos.core.status.ClaudeHookInstaller
+
+/**
+ * Comando remoto del Doctor (port BYTE A BYTE de `ArgosCore/Doctor/DoctorScript.swift`, golden
+ * `doctor-script`): UN solo script `sh` (POSIX: dash, busybox, bash; Linux y macOS) que solo LEE y
+ * vuelca líneas `clave=valor` (ver [DoctorFacts]). Nunca usa sudo ni modifica nada. Cada valor se
+ * aplana a una línea de ≤200 caracteres. Se ejecuta con `runAgentScript`; sale siempre con 0.
+ */
+object DoctorScript {
+
+    /** Versión del formato de salida (por si cambian las claves). */
+    const val FORMAT_VERSION = 1
+
+    val command: String = build()
+
+    private fun build(): String {
+        val toolVersion = ShellQuoting.singleQuoted(PortForwardServerFiles.TOOL_VERSION)
+        val hookMarker = ShellQuoting.singleQuoted(ClaudeHookInstaller.MARKER)
+        return $$"""
+            e() { v=$(printf '%s' "$2" | tr '\r\n\t' '   ' | cut -c1-200); printf '%s=%s\n' "$1" "$v"; }
+            has() { command -v "$1" >/dev/null 2>&1; }
+            tmo() { n=$1; shift; if has timeout; then timeout "$n" "$@"; else "$@"; fi; }
+            e format $${FORMAT_VERSION}
+            e os "$(uname -s 2>/dev/null)"
+            e arch "$(uname -m 2>/dev/null)"
+            e shell "${SHELL##*/}"
+            e clock "$(date +%s 2>/dev/null)"
+            pm=; for p in apt-get dnf yum pacman apk zypper brew; do if has $p; then pm=$p; break; fi; done
+            e pm "$pm"
+            if has tmux; then e tmux.present yes; e tmux.version "$(tmux -V 2>&1 | head -n 1)"; else e tmux.present no; fi
+            if has git; then e git.present yes; e git.version "$(git --version 2>&1 | head -n 1)"; else e git.present no; fi
+            cl=
+            for s in "$SHELL" bash zsh sh; do
+              [ -n "$s" ] || continue
+              p=$(tmo 10 "$s" -lc 'command -v claude' 2>/dev/null </dev/null | tail -n 1)
+              case "$p" in /*) cl=$p; break;; esac
+            done
+            if [ -z "$cl" ]; then
+              for c in "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" "$HOME/.claude/bin/claude" "$HOME/bin/claude" /usr/local/bin/claude /opt/homebrew/bin/claude /usr/bin/claude; do
+                if [ -x "$c" ]; then cl=$c; break; fi
+              done
+            fi
+            if [ -n "$cl" ]; then
+              e claude.present yes
+              e claude.version "$(tmo 10 "$cl" --version 2>/dev/null </dev/null | head -n 1)"
+              o=$(tmo 15 "$cl" auth status --json 2>/dev/null </dev/null | tr '\n' ' ')
+              case "$o" in
+                *'"loggedIn": true'*|*'"loggedIn":true'*) e claude.auth in;;
+                *'"loggedIn"'*) e claude.auth out;;
+                *) e claude.auth unknown;;
+              esac
+            else
+              e claude.present no
+            fi
+            if has gh; then
+              e gh.present yes
+              e gh.version "$(gh --version 2>/dev/null | head -n 1)"
+              o=$(tmo 15 gh auth status 2>&1 </dev/null); rc=$?
+              if [ "$rc" -eq 0 ]; then e gh.auth in
+              elif printf '%s' "$o" | grep -qiE 'not logged|gh auth login'; then e gh.auth out
+              else e gh.auth unknown; fi
+            else
+              e gh.present no
+            fi
+            for t in timeout cksum base64 python3 mkfifo nohup awk; do if has $t; then e tool.$t yes; else e tool.$t no; fi; done
+            if [ "$(printf 'QQ==' | base64 -d 2>/dev/null)" = A ]; then e tool.base64d yes; else e tool.base64d no; fi
+            if find / -maxdepth 0 -printf x >/dev/null 2>&1; then e tool.findprintf yes; else e tool.findprintf no; fi
+            df_kb() { df -Pk "$1" 2>/dev/null | awk 'NR==2 {print $2 " " $4}'; }
+            e disk.home "$(df_kb "$HOME")"
+            e disk.tmp "$(df_kb /tmp)"
+            if [ -r /proc/meminfo ]; then
+              e mem "$(awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2;h=1} /^MemFree:/{f=$2} /^Buffers:/{b=$2} /^Cached:/{c=$2} /^SwapTotal:/{st=$2} /^SwapFree:/{sf=$2} END{if(!h)a=f+b+c; print t+0, a+0, st+0, sf+0}' /proc/meminfo)"
+            fi
+            ps_out=$(ps -eo rss=,args= 2>/dev/null)
+            if [ -n "$ps_out" ]; then
+              e claude.procs "$(printf '%s\n' "$ps_out" | awk '{n=split($2,a,"/"); m=split($3,b,"/"); if (a[n]=="claude" || (a[n]=="node" && b[m]=="claude")) {c++; s+=$1}} END{print c+0, s+0}')"
+            fi
+            cfgs=
+            for f in /etc/ssh/sshd_config.d/*.conf /etc/ssh/sshd_config; do if [ -r "$f" ]; then cfgs="$cfgs $f"; fi; done
+            if [ -r /etc/ssh/sshd_config ]; then
+              e sshd.config readable
+              ms=$(awk 'FNR==1{skip=0} tolower($1)=="match"{skip=1} !skip && tolower($1)=="maxsessions" && $2 ~ /^[0-9]+$/ {print $2; exit}' $cfgs 2>/dev/null)
+              e sshd.maxsessions "${ms:-default}"
+            elif [ -e /etc/ssh/sshd_config ]; then
+              e sshd.config unreadable
+            else
+              e sshd.config missing
+            fi
+            if has pgrep && pgrep -x fail2ban-server >/dev/null 2>&1; then e fail2ban running
+            elif has fail2ban-client || [ -d /etc/fail2ban ]; then e fail2ban installed
+            else e fail2ban absent; fi
+            cs="$HOME/.claude/settings.json"
+            if [ -r "$cs" ]; then
+              e hooks.settings ok
+              e hooks.marker "$(grep -c $${hookMarker} "$cs" 2>/dev/null)"
+            elif [ -e "$cs" ]; then e hooks.settings unreadable
+            else e hooks.settings missing; fi
+            sd="$HOME/.claude/skills/argos-puertos"
+            if grep -qs $${toolVersion} "$sd/argos-ports" && grep -qs $${toolVersion} "$sd/SKILL.md"; then e skill.ports current
+            elif [ -e "$sd/SKILL.md" ] || [ -e "$sd/argos-ports" ]; then e skill.ports outdated
+            else e skill.ports missing; fi
+            pj="$HOME/.config/argos/projects.json"
+            if [ -r "$pj" ]; then
+              e projects.file ok
+              if has python3; then
+                pv=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("version","") if isinstance(d,dict) else "")' "$pj" 2>/dev/null)
+                if [ $? -eq 0 ]; then e projects.json valid; e projects.version "$pv"; else e projects.json invalid; fi
+              else
+                e projects.json unknown
+                e projects.version "$(grep -o '"version"[[:space:]]*:[[:space:]]*[0-9]*' "$pj" 2>/dev/null | head -n 1 | grep -o '[0-9]*$')"
+              fi
+            elif [ -e "$pj" ]; then e projects.file unreadable
+            else e projects.file missing; fi
+            lc="${LC_ALL:-${LC_CTYPE:-$LANG}}"
+            la=unknown
+            if has locale; then if locale -a 2>/dev/null | grep -qiE 'utf-?8'; then la=yes; else la=no; fi; fi
+            e locale.avail "$la"
+            case "$lc" in *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) e locale.env yes;; *) e locale.env no;; esac
+            e locale.lang "$lc"
+            e done 1
+            exit 0
+        """.trimIndent()
+    }
+}

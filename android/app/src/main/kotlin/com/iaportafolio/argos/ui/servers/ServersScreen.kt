@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
@@ -88,6 +89,8 @@ fun ServersScreen(
     diagnostics: @Composable (onDismiss: () -> Unit) -> Unit = {},
     /** «Activar indicador de Claude» del menú de un servidor. */
     onEnableClaude: (Server) -> Unit = {},
+    /** «Doctor del servidor» del menú de un servidor. */
+    onOpenDoctor: (Server) -> Unit = {},
     /** Ajustes globales extra del menú (p. ej. el comando de arranque). */
     extraSettings: @Composable (closeMenu: () -> Unit) -> Unit = {},
 ) {
@@ -194,6 +197,7 @@ fun ServersScreen(
                         onDelete = { onRequestDelete(server) },
                         onForgetHostKey = { onForgetHostKey(server) },
                         onEnableClaude = { onEnableClaude(server) },
+                        onOpenDoctor = { onOpenDoctor(server) },
                     )
                 }
             }
@@ -248,6 +252,7 @@ private fun ServerRow(
     onDelete: () -> Unit,
     onForgetHostKey: () -> Unit,
     onEnableClaude: () -> Unit,
+    onOpenDoctor: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     ListItem(
@@ -284,6 +289,11 @@ private fun ServerRow(
                         text = { Text(stringResource(R.string.claude_hooks_menu)) },
                         leadingIcon = { Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null) },
                         onClick = { menuOpen = false; onEnableClaude() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.doctor_menu)) },
+                        leadingIcon = { Icon(Icons.Filled.Build, contentDescription = null) },
+                        onClick = { menuOpen = false; onOpenDoctor() },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
