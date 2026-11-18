@@ -26,6 +26,10 @@ struct ProjectsView: View {
     @State private var projectForm: ProjectFormMode?
     @State private var worktreesProject: Project?
     @State private var pendingRemoval: Project?
+    @State private var searchText = ""
+    @State private var statusFilter: ProjectStatusFilter = .all
+    @State private var collapsedGroups = CollapsedSessionGroups.shared
+    @State private var showingResources = false
 
     private enum SessionPrompt: Identifiable {
         case create
@@ -49,6 +53,13 @@ struct ProjectsView: View {
         content
             .navigationTitle(server.name)
             .toolbar {
+                ToolbarItem(placement: .secondaryAction) {
+                    Button("Recursos del servidor", systemImage: "gauge.with.dots.needle.50percent") { showingResources = true }
+                        .disabled(needsKey)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    statusFilterMenu
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button("Nuevo proyecto", systemImage: "folder.badge.plus") { projectForm = .new }
@@ -97,6 +108,9 @@ struct ProjectsView: View {
             .sheet(item: $projectForm) { mode in
                 ProjectFormView(mode: mode, vm: viewModel, serverName: currentServer.name)
             }
+            .sheet(isPresented: $showingResources) {
+                ServerResourcesScreen(serverName: currentServer.name, service: viewModel.service)
+            }
             .sheet(item: $worktreesProject) { project in
                 WorktreesView(project: project, vm: viewModel)
             }
@@ -139,7 +153,7 @@ struct ProjectsView: View {
         } actions: {
             Button("Escanear QR del Mac", systemImage: "qrcode.viewfinder") { scanningQR = true }
                 .buttonStyle(.borderedProminent)
-            Button("Importar archivo de clave", systemImage: "key") { editingServer = .edit(currentServer) }
+            Button("Importar, pegar o crear una clave", systemImage: "key") { editingServer = .edit(currentServer) }
         }
     }
 
@@ -194,37 +208,146 @@ struct ProjectsView: View {
     }
 
     private var projectList: some View {
-        let listing = viewModel.projectListing
+        let visible = visibleListing
         return List {
+            ServerTipsSection(server: currentServer, viewModel: viewModel)
             if let projectsError = viewModel.projectsError {
                 Label(projectsError, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
                     .font(.footnote)
             }
-            ForEach(ProjectListing.groups(listing.entries)) { group in
-                Section(group.name) {
-                    ForEach(group.entries) { entry in
+            ForEach(visible.groups) { group in
+                Section {
+                    ForEach(group.visibleEntries) { entry in
                         projectRow(entry)
+                    }
+                } header: {
+                    if visible.showsGroupHeaders {
+                        groupHeader(
+                            name: group.name, count: group.entries.count, sessions: group.sessionNames,
+                            isCollapsed: group.isCollapsed, canCollapse: !visible.isFiltering
+                        )
                     }
                 }
             }
-            if !listing.looseSessions.isEmpty {
-                Section("Sesiones sin proyecto") {
-                    ForEach(listing.looseSessions) { session in
+            if !visible.looseSessions.isEmpty {
+                Section {
+                    ForEach(visible.visibleLooseSessions) { session in
                         sessionRow(session)
                     }
+                } header: {
+                    groupHeader(
+                        name: VisibleProjectListing.looseGroupName, count: visible.looseSessions.count,
+                        sessions: visible.looseSessions.map(\.name),
+                        isCollapsed: visible.isLooseCollapsed, canCollapse: !visible.isFiltering
+                    )
                 }
             }
         }
+        .searchable(text: $searchText, prompt: "Buscar proyectos o sesiones")
+        .onSubmit(of: .search) {
+            guard let name = visibleListing.firstVisibleSessionName else { return }
+            if let entry = viewModel.projectListing.entries.first(where: { $0.project.sessionName == name }) {
+                open(entry)
+            } else {
+                show(session: name)
+            }
+        }
         .overlay {
-            if listing.entries.isEmpty && listing.looseSessions.isEmpty {
+            if visible.isSourceEmpty {
                 ContentUnavailableView {
                     Label("Sin proyectos ni sesiones", systemImage: "terminal")
                 } description: {
                     Text("Crea un proyecto o una sesión con «+». Los proyectos que añadas desde Argos en el Mac también aparecen aquí.")
                 }
+            } else if visible.hasNoMatches {
+                ContentUnavailableView {
+                    Label("Sin coincidencias", systemImage: "magnifyingglass")
+                } description: {
+                    Text(statusFilter == .all || !searchText.isEmpty
+                         ? "Prueba con otro nombre o carpeta."
+                         : "Ningún proyecto «\(statusFilter.title.lowercased())» en este servidor.")
+                } actions: {
+                    if statusFilter != .all { Button("Ver todos") { statusFilter = .all } }
+                }
             }
         }
+    }
+
+    // MARK: - Búsqueda, filtro y grupos
+
+    private var visibleListing: VisibleProjectListing {
+        let listing = viewModel.projectListing
+        let serverID = server.id
+        return VisibleProjectListing(
+            entries: listing.entries,
+            looseSessions: listing.looseSessions,
+            query: searchText,
+            statusFilter: statusFilter,
+            status: status(of:),
+            sessionStatus: status(of:),
+            isCollapsed: { collapsedGroups.isCollapsed(serverID: serverID, group: $0) }
+        )
+    }
+
+    /// Estado para el filtro: «abierta» si hay un terminal de Argos en este dispositivo.
+    private func status(of entry: ProjectEntry) -> ProjectStatus {
+        let connection = entry.session.map { connectionState(sessionName: entry.project.sessionName, isAttached: $0.isAttached) }
+        return .of(connection: connection, onMac: entry.project.macCheckout != nil)
+    }
+
+    private func status(of session: TmuxSession) -> ProjectStatus {
+        .of(connection: connectionState(sessionName: session.name, isAttached: session.isAttached), onMac: false)
+    }
+
+    private func connectionState(sessionName: String, isAttached: Bool) -> SessionConnectionState {
+        let open = hub.hasTerminal(server: server.id, sessionName: sessionName)
+        return .from(status: open ? .connected : nil, isAttached: isAttached)
+    }
+
+    private var statusFilterMenu: some View {
+        let listing = viewModel.projectListing
+        let counts = VisibleProjectListing.statusCounts(
+            entries: listing.entries, looseSessions: listing.looseSessions,
+            status: status(of:), sessionStatus: status(of:)
+        )
+        return Menu {
+            Picker("Mostrar", selection: $statusFilter) {
+                ForEach(ProjectStatusFilter.allCases) { option in
+                    Label("\(option.title) (\(counts[option] ?? 0))", systemImage: option.systemImage).tag(option)
+                }
+            }
+        } label: {
+            Label("Filtrar", systemImage: statusFilter == .all
+                  ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+        }
+        .disabled(needsKey)
+    }
+
+    private func groupHeader(name: String, count: Int, sessions: [String], isCollapsed: Bool, canCollapse: Bool) -> some View {
+        Button {
+            withAnimation { collapsedGroups.toggle(serverID: server.id, group: name) }
+        } label: {
+            HStack(spacing: 6) {
+                if canCollapse {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.bold))
+                        .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                }
+                Text(name)
+                Text("\(count)").foregroundStyle(.secondary)
+                Spacer()
+                // Plegado, la insignia del grupo avisa de lo que hay dentro.
+                if isCollapsed, let claude = viewModel.claudeActivity.activity(forSessions: sessions) {
+                    ClaudeActivityBadge(activity: claude, size: 12)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!canCollapse)
+        .accessibilityLabel("Grupo \(name), \(count) elementos")
+        .accessibilityValue(canCollapse ? (isCollapsed ? "plegado" : "desplegado") : "")
     }
 
     /// Resumen git de los proyectos (insignia ✎/↑/↓) mientras la lista está visible.

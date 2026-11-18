@@ -4,7 +4,9 @@
 //
 //  Explorador de archivos del proyecto (SFTP, solo lectura): una carpeta por pantalla,
 //  como Archivos de iOS. Tocar un archivo lo previsualiza (código con resaltado,
-//  Markdown, HTML, imágenes y PDF) y se puede compartir/guardar con la hoja de iOS.
+//  Markdown, HTML, imágenes y PDF) y se puede compartir/guardar con la hoja de iOS;
+//  mantener pulsado cualquier archivo lo descarga entero y lo comparte, y la lupa busca
+//  por nombre en todo el proyecto (`RemoteFileSharing`).
 //
 
 import PDFKit
@@ -19,6 +21,8 @@ struct RemoteFilesView: View {
 
     @State private var entries: [RemoteFileEntry]?
     @State private var errorMessage: String?
+    @State private var searching = false
+    @State private var sharing: RemoteFileEntry?
     @AppStorage("files.showHidden") private var showHidden = false
 
     private var visible: [RemoteFileEntry] {
@@ -51,6 +55,17 @@ struct RemoteFilesView: View {
                     } label: {
                         FileRowView(entry: entry)
                     }
+                    .contextMenu {
+                        if !entry.isDirectory {
+                            Button("Descargar y compartir…", systemImage: "square.and.arrow.up") { sharing = entry }
+                        }
+                    }
+                    .swipeActions(edge: .trailing) {
+                        if !entry.isDirectory {
+                            Button("Compartir", systemImage: "square.and.arrow.up") { sharing = entry }
+                                .tint(.indigo)
+                        }
+                    }
                 }
                 .overlay {
                     if visible.isEmpty {
@@ -64,6 +79,9 @@ struct RemoteFilesView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Button("Buscar archivos", systemImage: "magnifyingglass") { searching = true }
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Toggle(isOn: $showHidden) {
                     Label("Mostrar ocultos", systemImage: showHidden ? "eye" : "eye.slash")
                 }
@@ -71,6 +89,8 @@ struct RemoteFilesView: View {
             }
         }
         .task { if entries == nil { await load() } }
+        .sheet(isPresented: $searching) { FileSearchSheet(service: service, root: root) }
+        .remoteFileSharing($sharing, service: service, root: root)
     }
 
     private func load() async {
@@ -147,6 +167,7 @@ struct FilePreviewScreen: View {
     @State private var showHTMLSource = false
     @State private var allowsRemoteHTML = false
     @State private var pendingLink: URL?
+    @State private var sharing: RemoteFileEntry?
 
     var body: some View {
         content
@@ -160,9 +181,15 @@ struct FilePreviewScreen: View {
                     ToolbarItem(placement: .primaryAction) {
                         ShareLink(item: shareURL) { Label("Compartir", systemImage: "square.and.arrow.up") }
                     }
+                } else if isLoaded {
+                    // Truncado o binario grande: se descarga entero para compartirlo.
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Descargar y compartir", systemImage: "square.and.arrow.down") { sharing = entry }
+                    }
                 }
             }
             .task { await load() }
+            .remoteFileSharing($sharing, service: service, root: root)
             .alert("¿Abrir este enlace?", isPresented: Binding(get: { pendingLink != nil }, set: { if !$0 { pendingLink = nil } })) {
                 Button("Abrir") { if let pendingLink { UIApplication.shared.open(pendingLink) } }
                 Button("Cancelar", role: .cancel) {}
@@ -170,6 +197,11 @@ struct FilePreviewScreen: View {
                 Text(pendingLink?.absoluteString ?? "")
             }
             .onDisappear { if let shareURL { try? FileManager.default.removeItem(at: shareURL.deletingLastPathComponent()) } }
+    }
+
+    private var isLoaded: Bool {
+        if case .loaded = state { return true }
+        return false
     }
 
     private var htmlMenu: some View {
@@ -234,7 +266,7 @@ struct FilePreviewScreen: View {
             ContentUnavailableView {
                 Label("Hoja de cálculo demasiado grande", systemImage: "tablecells")
             } description: {
-                Text("Usa «Compartir» para abrirla con otra app.")
+                Text("Usa «Descargar y compartir» para abrirla con otra app.")
             }
         case .spreadsheet:
             QuickLookPreview(data: file.data, name: entry.name)
