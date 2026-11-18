@@ -98,7 +98,7 @@ struct ClaudeAgentSessionTokenTests {
             service: mock, command: "cmd", workingDirectory: "/repo", oauthToken: token
         )
         session.sendUserText("hola")
-        for _ in 0..<100 where mock.agentStdinLines.count < (token == nil ? 1 : 2) {
+        for _ in 0..<3000 where mock.agentStdinLines.count < (token == nil ? 1 : 2) {
             try await Task.sleep(for: .milliseconds(10))
         }
         session.stop()

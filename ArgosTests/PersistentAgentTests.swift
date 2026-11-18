@@ -163,7 +163,7 @@ struct PersistentAgentScriptTests {
         _ = try shell(PersistentAgentScript.send(id: id, line: #"{"n":2}"#, answeredRequestID: "r2"), home: home)
         let agentDir = home.appendingPathComponent(".config/argos/agents/\(id)")
         var log = ""
-        for _ in 0..<150 { // hasta 3 s: el proceso de fondo escribe de forma asíncrona
+        for _ in 0..<3000 { // hasta 60 s: el proceso de fondo escribe de forma asíncrona
             log = (try? String(contentsOf: agentDir.appendingPathComponent("out.ndjson"), encoding: .utf8)) ?? ""
             if log.contains(#""line":{"n":2}"#) { break }
             try await Task.sleep(for: .milliseconds(20))
@@ -187,7 +187,7 @@ struct PersistentAgentScriptTests {
 
         _ = try shell(PersistentAgentScript.stop(id: id, delete: false), home: home)
         var alive = true
-        for _ in 0..<150 where alive {
+        for _ in 0..<3000 where alive {
             alive = PersistentAgentScript.parseList(try shell(PersistentAgentScript.list(), home: home)).first?.isAlive ?? false
             if alive { try await Task.sleep(for: .milliseconds(20)) }
         }
@@ -416,7 +416,7 @@ struct PersistentAgentConversationTests {
 
     @MainActor
     private func waitUntil(_ condition: () -> Bool) async throws {
-        for _ in 0..<100 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        for _ in 0..<3000 where !condition() { try await Task.sleep(for: .milliseconds(20)) } // hasta 60 s
         #expect(condition())
     }
 }

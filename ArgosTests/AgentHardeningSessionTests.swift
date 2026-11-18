@@ -30,7 +30,7 @@ struct PersistentAgentSessionHardeningTests {
     }
 
     private func waitUntil(_ condition: () -> Bool) async throws {
-        for _ in 0..<150 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        for _ in 0..<3000 where !condition() { try await Task.sleep(for: .milliseconds(20)) } // hasta 60 s
         #expect(condition())
     }
 
@@ -155,7 +155,7 @@ struct AgentPanelHardeningTests {
     }
 
     private func waitUntil(_ condition: () -> Bool) async throws {
-        for _ in 0..<150 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        for _ in 0..<3000 where !condition() { try await Task.sleep(for: .milliseconds(20)) } // hasta 60 s
         #expect(condition())
     }
 

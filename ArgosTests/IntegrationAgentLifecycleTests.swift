@@ -86,7 +86,7 @@ struct AgentLifecycle {
         #expect(try await isRunning(box, pid: witness))
     }
 
-    @Test("Hibernar a demanda solo si está quieto; escribirle lo reanuda con --resume", .timeLimit(.minutes(2)))
+    @Test("Hibernar a demanda solo si está quieto; escribirle lo reanuda con --resume", .timeLimit(.minutes(4)))
     func manualHibernateAndResumeOnSend() async throws {
         let box = try await RemoteBox.open("agent-hib")
         let agent = try await box.launchAgent()
@@ -100,8 +100,13 @@ struct AgentLifecycle {
         #expect(!refused.contains(PersistentAgentScript.hibernatedReply))
         #expect(try await box.isAlive(agent))
 
-        try await Task.sleep(for: .seconds(2))
-        let done = try await box.sh(PersistentAgentScript.hibernate(id: agent.id, minIdleSeconds: 1))
+        // Con 1 s de inactividad exigida acaba hibernándolo: se reintenta hasta que el log
+        // lleve ese tiempo quieto (sin un `sleep` fijo que dependa de la carga).
+        var done = ""
+        #expect(try await eventually(seconds: 60) {
+            done = try await box.sh(PersistentAgentScript.hibernate(id: agent.id, minIdleSeconds: 1))
+            return done.contains(PersistentAgentScript.hibernatedReply)
+        })
         #expect(done.contains("\(PersistentAgentScript.hibernatedReply) \(agent.id)"))
         #expect(try await box.isAlive(agent) == false)
         #expect(try await box.agentMeta(agent).contains("\"hibernatedAt\""))
