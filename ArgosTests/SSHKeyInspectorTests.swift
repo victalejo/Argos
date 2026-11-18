@@ -151,10 +151,13 @@ struct SSHKeyInspectorTests {
         #expect(throws: SSHKeyProblem.unsupportedAlgorithm(.rsa)) {
             try ImportedKeyStore.validateSupported(Data(Self.openSSH(type: "ssh-rsa").utf8))
         }
-        let pem = OpenSSHKeyWriter.privateKeyPEM(Curve25519.Signing.PrivateKey(), comment: "c")
+        let key = Curve25519.Signing.PrivateKey()
+        let pem = OpenSSHKeyWriter.privateKeyPEM(key, comment: "c")
         let result = try ImportedKeyStore.validateSupported(Data(pem.utf8))
         #expect(!result.isEncrypted)
-        #expect(result.text == pem)
+        // Se normaliza a líneas de 70 (como ssh-keygen): mismo contenido, misma clave.
+        #expect(result.text.filter { !$0.isWhitespace } == pem.filter { !$0.isWhitespace })
+        #expect(try Curve25519.Signing.PrivateKey(sshEd25519: result.text).rawRepresentation == key.rawRepresentation)
     }
 
     @Test("La clave creada en el dispositivo es coherente y se puede volver a leer su pública")
