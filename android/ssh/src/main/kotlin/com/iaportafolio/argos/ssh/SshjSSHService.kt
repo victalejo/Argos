@@ -142,6 +142,10 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
 
     override suspend fun listSessions(): List<TmuxSession> {
         val result = connection.capture(RemoteTimeout.wrap(TmuxCommands.LIST_SESSIONS))
+        // Un tmux colgado que cortó el plazo remoto es un plazo vencido, como el local.
+        if (TmuxOutputParser.isRemoteTimeout(result.stdout, result.stderr, result.exitCode)) {
+            throw SshCommandTimeoutException(connection.endpoint, RemoteTimeout.POLL_SECONDS.toLong())
+        }
         return TmuxOutputParser.parseListSessions(result.stdout, result.stderr, result.exitCode)
     }
 
@@ -200,7 +204,8 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     // MARK: Ventanas
 
     override suspend fun listWindows(session: String): List<TmuxWindow> {
-        val result = connection.capture(TmuxCommands.listWindows(session))
+        // Se sondea cada pocos segundos: con plazo también en el servidor (como Swift).
+        val result = connection.capture(RemoteTimeout.wrap(TmuxCommands.listWindows(session)))
         return TmuxOutputParser.parseListWindows(result.stdout, result.exitCode)
     }
 

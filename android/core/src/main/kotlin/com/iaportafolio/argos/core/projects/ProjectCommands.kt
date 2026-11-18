@@ -22,7 +22,7 @@ object ProjectCommands {
 
     /** Carpeta del primer panel de cada sesión; se parsea con [ProjectListing.firstPanePaths]. */
     const val FIRST_PANE_PATHS =
-        "tmux list-panes -a -F '#{window_index}|#{pane_index}|#{pane_current_path}|#{session_name}' 2>/dev/null"
+        "tmux -u list-panes -a -F '#{window_index}|#{pane_index}|#{pane_current_path}|#{session_name}' 2>/dev/null"
 
     private const val START_FAILED_MESSAGE = "No se pudo abrir el proyecto."
 

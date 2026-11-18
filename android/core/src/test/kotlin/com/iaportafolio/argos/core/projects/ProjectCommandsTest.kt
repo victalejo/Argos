@@ -20,7 +20,7 @@ class ProjectCommandsTest {
     fun `rutas y comandos fijos coinciden con Apple`() {
         assertEquals(".config/argos/projects.json", ProjectCommands.PROJECTS_RELATIVE_PATH)
         assertEquals(
-            "tmux list-panes -a -F '#{window_index}|#{pane_index}|#{pane_current_path}|#{session_name}' 2>/dev/null",
+            "tmux -u list-panes -a -F '#{window_index}|#{pane_index}|#{pane_current_path}|#{session_name}' 2>/dev/null",
             ProjectCommands.FIRST_PANE_PATHS,
         )
         assertEquals("No se pudo detener la sesión 'x'.", ProjectCommands.stopSessionFailureMessage("x"))

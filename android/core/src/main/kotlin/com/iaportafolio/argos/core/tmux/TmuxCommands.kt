@@ -17,7 +17,12 @@ object TmuxCommands {
     /** Formato exacto de `tmux list-sessions -F` que parsea [TmuxSession.parse]. */
     const val SESSION_FORMAT = "#{session_name}|#{session_windows}|#{session_attached}|#{session_created}"
 
-    const val LIST_SESSIONS = "tmux list-sessions -F '$SESSION_FORMAT'"
+    /**
+     * `-u`: salida en UTF-8 aunque el servidor no tenga locale (macOS, Linux mínimo). Sin él tmux
+     * cambia cada carácter no ASCII por `_` y una sesión «diseño» se listaría como «dise_o», un
+     * nombre que luego no encuentra ningún `-t =nombre`.
+     */
+    const val LIST_SESSIONS = "tmux -u list-sessions -F '$SESSION_FORMAT'"
 
     /** Target EXACTO de sesión (`'=nombre'`): sin '=', tmux cae a coincidencia por prefijo. */
     fun exactSessionTarget(name: String): String = ShellQuoting.singleQuoted("=$name")
@@ -47,8 +52,9 @@ object TmuxCommands {
     const val LIST_WINDOWS_FORMAT =
         "#{window_index}|#{window_active}|#{window_panes}|#{@argos_color}|#{pane_current_command}|#{window_name}"
 
+    /** `-u`: nombres con acentos intactos aunque el servidor no tenga locale UTF-8. */
     fun listWindows(session: String): String =
-        "tmux list-windows -t ${ShellQuoting.singleQuoted(session)} " +
+        "tmux -u list-windows -t ${ShellQuoting.singleQuoted(session)} " +
             "-F ${ShellQuoting.singleQuoted(LIST_WINDOWS_FORMAT)}"
 
     fun selectWindow(session: String, index: Int): String =

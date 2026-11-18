@@ -100,14 +100,14 @@ class WindowManagementTest {
 
     @Test
     fun `comandos de sesion identicos a Apple`() {
-        assertEquals("tmux list-sessions -F '#{session_name}|#{session_windows}|#{session_attached}|#{session_created}'", TmuxCommands.LIST_SESSIONS)
+        assertEquals("tmux -u list-sessions -F '#{session_name}|#{session_windows}|#{session_attached}|#{session_created}'", TmuxCommands.LIST_SESSIONS)
         assertEquals("tmux new-session -d -s 'a b'", TmuxCommands.createSession("a b"))
         assertEquals("tmux rename-session -t '=old' 'new'", TmuxCommands.renameSession("old", "new"))
         assertEquals("tmux kill-session -t '=it'\\''s'", TmuxCommands.killSession("it's"))
         assertEquals("tmux -u attach -t 'main'", TmuxCommands.attach("main"))
         assertEquals("tmux select-window -t 'main':4", TmuxCommands.selectWindow("main", 4))
         assertEquals(
-            "tmux list-windows -t 'main' -F '#{window_index}|#{window_active}|#{window_panes}|#{@argos_color}|#{pane_current_command}|#{window_name}'",
+            "tmux -u list-windows -t 'main' -F '#{window_index}|#{window_active}|#{window_panes}|#{@argos_color}|#{pane_current_command}|#{window_name}'",
             TmuxCommands.listWindows("main"),
         )
     }

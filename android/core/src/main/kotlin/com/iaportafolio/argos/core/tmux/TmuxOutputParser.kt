@@ -1,5 +1,6 @@
 package com.iaportafolio.argos.core.tmux
 
+import com.iaportafolio.argos.core.RemoteTimeout
 import com.iaportafolio.argos.core.SSHServiceError
 
 /**
@@ -40,6 +41,14 @@ object TmuxOutputParser {
         if ("command not found" in text || "tmux: not found" in text) return true
         return exitCode == COMMAND_NOT_FOUND_EXIT_CODE && "tmux" in text
     }
+
+    /**
+     * ¿El plazo remoto (`timeout`, código 124 sin salida) mató un tmux colgado? Es un plazo
+     * vencido, no un fallo de tmux: quien llama lo trata como tal (si no, la interfaz decía
+     * «tmux list-sessions no devolvió detalles»). Como `listSessions` de `SSHService.swift`.
+     */
+    fun isRemoteTimeout(stdout: String, stderr: String, exitCode: Int): Boolean =
+        exitCode == RemoteTimeout.EXPIRED_EXIT_CODE && stdout.isEmpty() && stderr.isEmpty()
 
     /**
      * Resultado de [TmuxCommands.LIST_SESSIONS]: sin servidor/sesiones → lista vacía; tmux

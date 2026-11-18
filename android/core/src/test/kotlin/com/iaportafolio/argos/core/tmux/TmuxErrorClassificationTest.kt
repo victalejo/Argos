@@ -74,6 +74,20 @@ class TmuxErrorClassificationTest {
     }
 
     @Test
+    fun `el plazo remoto vencido sin salida es un plazo, no un fallo de tmux`() {
+        assertTrue(TmuxOutputParser.isRemoteTimeout(stdout = "", stderr = "", exitCode = 124))
+        assertFalse(TmuxOutputParser.isRemoteTimeout(stdout = "", stderr = "no server running", exitCode = 124))
+        assertFalse(TmuxOutputParser.isRemoteTimeout(stdout = "main|1|0|1", stderr = "", exitCode = 124))
+        assertFalse(TmuxOutputParser.isRemoteTimeout(stdout = "", stderr = "", exitCode = 1))
+    }
+
+    @Test
+    fun `los listados de tmux piden UTF-8 aunque el servidor no tenga locale`() {
+        assertTrue(TmuxCommands.LIST_SESSIONS.startsWith("tmux -u list-sessions "))
+        assertTrue(TmuxCommands.listWindows("diseño").startsWith("tmux -u list-windows -t 'diseño' "))
+    }
+
+    @Test
     fun `list-sessions correcto descarta lineas invalidas`() {
         val sessions = TmuxOutputParser.parseListSessions("main|1|0|1700000000\nbasura\r\nlogs|2|1|1700000001\n", "", 0)
         assertEquals(listOf("main", "logs"), sessions.map { it.name })
