@@ -16,6 +16,9 @@ import java.io.ByteArrayOutputStream
  */
 object AgentStdinExchange {
 
+    /** Detalle cuando el canal terminó sin ninguna línea aceptada ni error. */
+    const val NO_REPLY = "El servidor no respondió."
+
     /** Plazo por defecto para recibir la respuesta. */
     const val DEFAULT_TIMEOUT_MILLIS = 45_000L
 
@@ -63,7 +66,7 @@ object AgentStdinExchange {
         val leftover = SwiftText.trimWhitespaceAndNewlines(pending.toByteArray().toString(Charsets.UTF_8))
         if (leftover.isNotEmpty() && accept(leftover)) return@coroutineScope leftover
         if (timedOut) throw AgentExchangeTimeoutException()
-        throw ended ?: AgentExecException("El servidor no respondió.")
+        throw ended ?: AgentExecException(NO_REPLY)
     }
 
     /** Añade [chunk] y devuelve la primera línea completa aceptada (descarta las anteriores). */

@@ -13,7 +13,10 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import com.iaportafolio.argos.core.ConnectionPriority
 import com.iaportafolio.argos.core.ConnectionProbeResult
+import com.iaportafolio.argos.core.SSHBackingOffException
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -271,7 +274,7 @@ class SshjConnectionTest {
     }
 
     @Test
-    fun `si el servidor rechaza canales una y otra vez se recicla la conexión`() = runBlocking<Unit> {
+    fun `si el servidor rechaza canales una y otra vez no se da la conexion por muerta y baja el tope`() = runBlocking<Unit> {
         val connection = connection()
         try {
             val ssh = connection.connectedClient()
@@ -279,13 +282,55 @@ class SshjConnectionTest {
             val held = (1..EmbeddedSshServer.MAX_CHANNELS_PER_CONNECTION).map { ssh.startSession() }
             val error = assertFailsWith<SshChannelRejectedException> { connection.capture("true") }
             assertContains(error.message.orEmpty(), "rechazó abrir un canal")
-            assertFalse(ssh.isConnected, "la conexión saturada debe cerrarse")
+            // Un rechazo prueba que el servidor está vivo: la conexión sigue (como en Apple).
+            assertTrue(ssh.isConnected, "un rechazo no debe cerrar la conexión")
+            assertEquals(ConnectionProbeResult.ALIVE, connection.probe())
             held.forEach { runCatching { it.close() } }
-            // La siguiente operación abre una conexión nueva y funciona.
+            assertEquals(0, connection.capture("true").exitCode)
+            assertTrue(ssh === connection.connectedClient(), "sigue siendo la misma conexión")
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `comandos vencidos cuyo canal se cierra bien no reciclan la conexion`() = runBlocking<Unit> {
+        val connection = connection()
+        try {
+            val first = connection.connectedClient()
+            connection.capture("true")
+            val baseline = server.openChannels
+            // Con el servidor sano el canal vencido se cierra de verdad y devuelve su turno: no
+            // cuenta como abandonado (solo los que no se pueden cerrar llevan a reciclar).
+            repeat(CommandTimeouts.ABANDONED_CHANNEL_LIMIT + 1) {
+                assertFailsWith<SshCommandTimeoutException> { connection.capture("sleep 30", 300.milliseconds) }
+            }
+            awaitChannelsAtMost(baseline)
+            assertTrue(first === connection.connectedClient(), "una conexión sana no se recicla")
             assertEquals(0, connection.capture("true").exitCode)
         } finally {
             connection.disconnect()
         }
+    }
+
+    @Test
+    fun `credenciales rechazadas no se reintentan en segundo plano hasta que actua el usuario`() {
+        val service = service(SSHCredentials.Password("mala"))
+        assertFailsWith<SshConnectionException.AuthenticationFailed> { runBlocking { service.listSessions() } }
+        val deferred = assertFailsWith<SSHBackingOffException> {
+            runBlocking { ConnectionPriority.background { service.listSessions() } }
+        }
+        assertTrue(deferred.message.orEmpty().contains("Último error"))
+        // El usuario sí vuelve a intentarlo (y vuelve a fallar por la contraseña, no por la espera).
+        assertFailsWith<SshConnectionException.AuthenticationFailed> { runBlocking { service.listSessions() } }
+    }
+
+    @Test
+    fun `un fallo de red hace esperar al fondo pero no al usuario`() {
+        val service = connector.service(testServer(ServerSocket(0).use { it.localPort }), SSHCredentials.Password(PASSWORD), InMemoryTrustStore()) as SshjSSHService
+        assertFailsWith<SshConnectionException.Unreachable> { runBlocking { ConnectionPriority.background { service.listSessions() } } }
+        assertFailsWith<SSHBackingOffException> { runBlocking { ConnectionPriority.background { service.listSessions() } } }
+        assertFailsWith<SshConnectionException.Unreachable> { runBlocking { service.listSessions() } }
     }
 
     @Test

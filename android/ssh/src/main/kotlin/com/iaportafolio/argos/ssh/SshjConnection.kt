@@ -1,14 +1,20 @@
 package com.iaportafolio.argos.ssh
 
+import com.iaportafolio.argos.core.ConnectionHealth
+import com.iaportafolio.argos.core.ConnectionPriority
 import com.iaportafolio.argos.core.ConnectionProbeResult
+import com.iaportafolio.argos.core.HostKeyMismatchException
+import com.iaportafolio.argos.core.HostKeyStoreUnreadableException
 import com.iaportafolio.argos.core.HostKeyTrustStore
+import com.iaportafolio.argos.core.ProbeOutcome
+import com.iaportafolio.argos.core.SSHBackingOffException
+import com.iaportafolio.argos.core.SSHFailureKind
 import com.iaportafolio.argos.core.SSHCredentials
 import com.iaportafolio.argos.core.SSHServiceError
 import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.userMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
@@ -41,6 +47,7 @@ import java.net.UnknownHostException
 import java.util.EnumSet
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
 
 /** Resultado de un comando remoto: un código distinto de 0 NO es una excepción. */
@@ -57,7 +64,11 @@ internal data class CommandResult(val stdout: String, val stderr: String, val ex
  * - Todo lo bloqueante de sshj va en [Dispatchers.IO] y es interrumpible al cancelar, SALVO
  *   abrir un canal: interrumpirlo lo dejaría huérfano en el servidor ([openChannelDetached]).
  * - Los comandos cortos pasan por un tope de canales con reintento ([withShortChannel]) y tienen
- *   plazo ([CommandTimeouts]).
+ *   plazo ([CommandTimeouts]); un comando vencido sigue ocupando su turno hasta que su canal se
+ *   cierra de verdad y, con varios así, la conexión se recicla.
+ * - [health] decide si se puede intentar conectar (ver `ConnectionHealth`): credenciales
+ *   rechazadas o host key cambiada no se reintentan en segundo plano, y tras un fallo de red el
+ *   fondo espera cada vez más ([ConnectionPriority]).
  */
 internal class SshjConnection(
     private val server: Server,
@@ -80,6 +91,17 @@ internal class SshjConnection(
     /** Conexiones de canales largos abiertas ahora mismo (ver [withDedicatedClient]). */
     private val dedicated: MutableSet<SSHClient> = ConcurrentHashMap.newKeySet()
 
+    /** Salud de los intentos de conexión (compartida y dedicadas). */
+    @Volatile
+    private var health = ConnectionHealth()
+    private val healthLock = Any()
+
+    /** Comandos vencidos cuyo canal aún no se ha cerrado (en la conexión compartida actual). */
+    private val abandoned = AtomicInteger(0)
+
+    /** Salud actual (para los tests y la interfaz). */
+    val connectionHealth: ConnectionHealth get() = health
+
     /** `host:puerto` del servidor, para los mensajes de error. */
     val endpoint: String get() = server.endpoint
 
@@ -91,8 +113,43 @@ internal class SshjConnection(
         client?.takeIf { it.isConnected && it.isAuthenticated } ?: run {
             client?.let { stale -> withContext(Dispatchers.IO) { closeQuietly(stale) } }
             client = null
-            open().also { client = it }
+            val opened = attemptConnection { open() }
+            // Conexión nueva: tope de partida y ningún canal abandonado.
+            gate.resetLimit()
+            abandoned.set(0)
+            opened.also { client = it }
         }
+    }
+
+    /**
+     * Intenta conectar si [health] lo admite para la prioridad actual y registra el resultado. La
+     * cancelación no cuenta como fallo.
+     *
+     * @throws SSHBackingOffException el fondo debe esperar todavía (sin tocar la red).
+     */
+    private suspend fun <T> attemptConnection(open: suspend () -> T): T {
+        val priority = ConnectionPriority.current()
+        when (val admission = health.admission(priority, nowMillis())) {
+            ConnectionHealth.Admission.Allowed -> Unit
+            is ConnectionHealth.Admission.Blocked ->
+                throw SSHBackingOffException(ConnectionHealth.MAX_BACKOFF_MILLIS, health.lastFailureMessage)
+            is ConnectionHealth.Admission.Deferred ->
+                throw SSHBackingOffException(admission.remainingMillis, health.lastFailureMessage)
+        }
+        return try {
+            open().also { synchronized(healthLock) { health = health.recordingSuccess() } }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            val kind = failureKind(error)
+            synchronized(healthLock) { health = health.recordingFailure(kind, error.userMessage, nowMillis()) }
+            throw error
+        }
+    }
+
+    /** Acción explícita del usuario: olvida el bloqueo y la espera entre reintentos. */
+    fun resetConnectionHealth() {
+        synchronized(healthLock) { health = ConnectionHealth() }
     }
 
     /**
@@ -107,7 +164,7 @@ internal class SshjConnection(
     suspend fun <T> withDedicatedClient(block: suspend (SSHClient) -> T): T {
         val pending = withContext(Dispatchers.IO) { newClient() }
         try {
-            runInterruptible(Dispatchers.IO) { connect(pending) }
+            attemptConnection { runInterruptible(Dispatchers.IO) { connect(pending) } }
             dedicated += pending.ssh
             return block(pending.ssh)
         } finally {
@@ -140,7 +197,7 @@ internal class SshjConnection(
      * ([translateTransportError]).
      */
     suspend fun capture(command: String, timeout: Duration = CommandTimeouts.SHORT): CommandResult =
-        withShortChannel({ connectedClient() }) { ssh -> captureOn(ssh, command, timeout) }
+        captureInTurn(command, timeout) { connectedClient() }
 
     /**
      * Como [capture] pero SOLO si la conexión compartida ya está viva (no reconecta: p. ej. al
@@ -148,7 +205,72 @@ internal class SshjConnection(
      */
     suspend fun captureIfConnected(command: String, timeout: Duration = CommandTimeouts.SHORT): CommandResult? {
         val ssh = liveClient() ?: return null
-        return withShortChannel({ ssh }) { captureOn(it, command, timeout) }
+        return captureInTurn(command, timeout) { ssh }
+    }
+
+    /**
+     * Un comando con plazo dentro de un turno de canal. Si el plazo vence, quien llama recibe
+     * [SshCommandTimeoutException] enseguida, pero el turno NO se libera hasta que el canal se
+     * cierra de verdad (lo suelta la propia tarea, desacoplada): si no, los canales colgados se
+     * acumularían en el servidor por encima de `MaxSessions`. Pasados
+     * [CommandTimeouts.ABANDONED_CHANNEL_LIMIT] así, se recicla la conexión compartida. Si el
+     * servidor rechaza el canal, el tope baja y se reintenta (el comando nunca llegó a correr).
+     */
+    private suspend fun captureInTurn(command: String, timeout: Duration, client: suspend () -> SSHClient): CommandResult {
+        val priority = ConnectionPriority.current()
+        var attempt = 1
+        while (true) {
+            gate.acquire(priority)
+            val ssh = try {
+                client()
+            } catch (error: Throwable) {
+                gate.release(priority)
+                throw error
+            }
+            try {
+                return runHoldingTurn(ssh, command, timeout, priority)
+            } catch (error: IOException) {
+                currentCoroutineContext().ensureActive()
+                if (!ChannelRetry.isRejection(error)) throw translateTransportError(error, endpoint, ssh.isConnected)
+                if (attempt >= ChannelRetry.MAX_ATTEMPTS) throw SshChannelRejectedException(endpoint, error)
+                delay(ChannelRetry.delay(attempt))
+                attempt += 1
+            }
+        }
+    }
+
+    /** Ver [captureInTurn]: el turno (ya cogido) lo devuelve la tarea al cerrar el canal. */
+    private suspend fun runHoldingTurn(ssh: SSHClient, command: String, timeout: Duration, priority: ConnectionPriority): CommandResult {
+        val abandonedHere = java.util.concurrent.atomic.AtomicBoolean(false)
+        val operation = channelScope.async {
+            var rejected = false
+            try {
+                captureClosing(ssh, command)
+            } catch (error: IOException) {
+                rejected = ChannelRetry.isRejection(error)
+                throw error
+            } finally {
+                if (abandonedHere.get()) abandoned.decrementAndGet()
+                if (rejected) gate.lowerLimitAfterRejection()
+                gate.release(priority)
+            }
+        }
+        val result = try {
+            withTimeoutOrNull(timeout) { operation.await() }
+        } catch (cancelled: CancellationException) {
+            operation.cancel()
+            throw cancelled
+        }
+        if (result != null) return result
+        // Vencido: se deja de esperar y se cancela (cerrar el canal puede tardar: lo hace la tarea).
+        abandonedHere.set(true)
+        val count = abandoned.incrementAndGet()
+        operation.cancel()
+        if (count >= CommandTimeouts.ABANDONED_CHANNEL_LIMIT) {
+            abandoned.set(0)
+            recycle(ssh)
+        }
+        throw SshCommandTimeoutException(endpoint, timeout.inWholeSeconds)
     }
 
     /**
@@ -158,21 +280,27 @@ internal class SshjConnection(
      * la conexión (la siguiente operación abre otra) y lanza [SshChannelRejectedException].
      */
     suspend fun <T> withShortChannel(client: suspend () -> SSHClient, body: suspend (SSHClient) -> T): T {
+        val priority = ConnectionPriority.current()
         var attempt = 1
         while (true) {
-            val ssh = client()
+            gate.acquire(priority)
+            var ssh: SSHClient? = null
             try {
-                return gate.withPermit { body(ssh) }
+                // Dentro del turno: quien esperaba en cola usa la conexión vigente al entrar.
+                val current = client().also { ssh = it }
+                return body(current)
             } catch (error: IOException) {
                 currentCoroutineContext().ensureActive()
-                if (!ChannelRetry.isRejection(error)) throw translateTransportError(error, endpoint, ssh.isConnected)
-                if (attempt >= ChannelRetry.MAX_ATTEMPTS) {
-                    recycle(ssh)
-                    throw SshChannelRejectedException(endpoint, error)
-                }
-                delay(ChannelRetry.delay(attempt))
-                attempt += 1
+                val open = ssh ?: throw error
+                if (!ChannelRetry.isRejection(error)) throw translateTransportError(error, endpoint, open.isConnected)
+                // Un rechazo prueba que el servidor está vivo: no se recicla, se baja el tope.
+                gate.lowerLimitAfterRejection()
+                if (attempt >= ChannelRetry.MAX_ATTEMPTS) throw SshChannelRejectedException(endpoint, error)
+            } finally {
+                gate.release(priority)
             }
+            delay(ChannelRetry.delay(attempt))
+            attempt += 1
         }
     }
 
@@ -181,6 +309,19 @@ internal class SshjConnection(
 
     /** Abre un subsistema SFTP sin dejarlo huérfano si se cancela a mitad. Usar dentro de [withShortChannel]. */
     suspend fun openSftp(ssh: SSHClient): SFTPClient = channelScope.openChannelDetached { ssh.newSFTPClient() }
+
+    /**
+     * Abre un canal, ejecuta [command] y CIERRA el canal antes de volver, también si se cancela
+     * (el cierre puede esperar al servidor: lo usa una tarea desacoplada, ver [runHoldingTurn]).
+     */
+    private suspend fun captureClosing(ssh: SSHClient, command: String): CommandResult {
+        val session = openSession(ssh)
+        try {
+            return runCommand(session, command)
+        } finally {
+            withContext(NonCancellable + Dispatchers.IO) { closeChannelQuietly(session) }
+        }
+    }
 
     private suspend fun captureOn(ssh: SSHClient, command: String, timeout: Duration): CommandResult {
         val session = openSession(ssh)
@@ -240,28 +381,36 @@ internal class SshjConnection(
             recycle(ssh)
             return ConnectionProbeResult.RECYCLED
         }
-        val check = channelScope.async {
-            withShortChannel({ ssh }) { captureOn(it, PROBE_COMMAND, timeout) }.exitCode == 0
-        }
-        val alive = try {
-            withTimeoutOrNull(timeout) { awaitQuietly(check) } ?: false
+        // Fuera del cupo de canales (como el latido de Apple): con la cola llena, esperar turno
+        // no es «conexión muerta».
+        val check = channelScope.async { probeOutcome { captureOn(ssh, PROBE_COMMAND, timeout) } }
+        val outcome = try {
+            withTimeoutOrNull(timeout) { check.await() } ?: ProbeOutcome.UNRESPONSIVE
         } catch (cancelled: CancellationException) {
             check.cancel()
             throw cancelled
         }
-        if (alive) return ConnectionProbeResult.ALIVE
+        // Un canal rechazado también es respuesta: el servidor está vivo, solo sin canales libres.
+        if (outcome == ProbeOutcome.ALIVE || outcome == ProbeOutcome.REJECTED) return ConnectionProbeResult.ALIVE
         check.cancel()
         recycle(ssh)
         return ConnectionProbeResult.RECYCLED
     }
 
-    /** Resultado de [check]; `false` si falló (la cancelación SÍ se propaga). */
-    private suspend fun awaitQuietly(check: Deferred<Boolean>): Boolean = try {
-        check.await()
+    /** Clasifica el resultado de una sonda (port de `ProbeOutcome.from(error:)`). */
+    private suspend fun probeOutcome(probe: suspend () -> CommandResult): ProbeOutcome = try {
+        probe()
+        ProbeOutcome.ALIVE
     } catch (cancelled: CancellationException) {
         throw cancelled
-    } catch (_: Exception) {
-        false
+    } catch (error: IOException) {
+        when {
+            ChannelRetry.isRejection(error) -> ProbeOutcome.REJECTED
+            translateTransportError(error, endpoint, false) is SshConnectionException.ConnectionClosed -> ProbeOutcome.BROKEN
+            else -> ProbeOutcome.UNRESPONSIVE
+        }
+    } catch (_: SshCommandTimeoutException) {
+        ProbeOutcome.UNRESPONSIVE
     }
 
     /** Suelta [stale] si sigue siendo la conexión compartida y la cierra sin esperar. */
@@ -390,7 +539,19 @@ internal class SshjConnection(
         }
     }
 
+    private fun nowMillis(): Long = System.nanoTime() / NANOS_PER_MILLI
+
+    /** Qué clase de fallo es abrir una conexión (port de `SSHFailureKind.classify`). */
+    private fun failureKind(error: Exception): SSHFailureKind = when (error) {
+        is HostKeyMismatchException, is HostKeyStoreUnreadableException -> SSHFailureKind.HOST_KEY
+        is SshConnectionException.AuthenticationFailed, is SSHServiceError.KeyParseFailed, is SSHServiceError.KeyUnreadable ->
+            SSHFailureKind.AUTHENTICATION
+        else -> SSHFailureKind.NETWORK
+    }
+
     private companion object {
+        const val NANOS_PER_MILLI = 1_000_000L
+
         /** El proceso terminó por una señal (sin `exit-status`). */
         const val SIGNAL_EXIT_CODE = -1
 

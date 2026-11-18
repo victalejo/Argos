@@ -1,11 +1,11 @@
 package com.iaportafolio.argos.ssh
 
+import com.iaportafolio.argos.core.ConnectionPriority
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import net.schmizz.sshj.connection.channel.OpenFailException
 import net.schmizz.sshj.transport.TransportException
 import java.io.Closeable
@@ -23,20 +23,118 @@ import kotlin.time.Duration.Companion.seconds
  * Tope de canales cortos simultáneos sobre la conexión compartida (port de
  * `ArgosCore/ChannelGate.swift`). OpenSSH admite `MaxSessions` (10 por defecto) canales por
  * conexión; los sondeos, git, puertos y las subidas podían coincidir y pasarse, y el servidor
- * rechazaba el canal («open failed»). Quien llega con el cupo lleno espera su turno (FIFO).
+ * rechazaba el canal («open failed»). Quien llega con el cupo lleno espera su turno.
+ *
+ * - Dos clases de turno: el usuario tiene preferencia y el fondo, un cupo menor
+ *   ([backgroundLimit]), para que una acción no espere detrás de los sondeos.
+ * - Esperar es cancelable: una corrutina cancelada sale de la cola sin ocupar turno.
+ * - Límite adaptativo: si el servidor rechaza un canal, el tope baja para esa conexión (con suelo
+ *   en 1: servidores con `MaxSessions 1`) y vuelve al de partida con la siguiente ([resetLimit]).
  */
 internal class ChannelGate(limit: Int = SHARED_CONNECTION_LIMIT) {
+    /** Tope de partida (el adaptativo nunca lo supera). */
     val limit: Int = maxOf(1, limit)
-    private val semaphore = Semaphore(this.limit)
+
+    private val lock = Any()
+    private var current: Int = this.limit
+    private val inUse = IntArray(ConnectionPriority.entries.size)
+    private val waiters = ArrayDeque<Waiter>()
+
+    private class Waiter(val priority: ConnectionPriority, val granted: CompletableDeferred<Unit> = CompletableDeferred())
+
+    /** Tope vigente para la conexión actual. */
+    val currentLimit: Int get() = synchronized(lock) { current }
 
     /** Canales cortos en curso ahora mismo. */
-    val activeCount: Int get() = limit - semaphore.availablePermits
+    val activeCount: Int get() = synchronized(lock) { inUse.sum() }
 
-    suspend fun <T> withPermit(block: suspend () -> T): T = semaphore.withPermit { block() }
+    fun activeCount(priority: ConnectionPriority): Int = synchronized(lock) { inUse[priority.ordinal] }
+
+    /** Canales que puede ocupar a la vez el trabajo de fondo (la mitad del tope). */
+    private val backgroundLimit: Int get() = maxOf(1, current / 2)
+
+    /** Espera turno. Si la corrutina se cancela mientras espera, NO ocupa turno. */
+    suspend fun acquire(priority: ConnectionPriority) {
+        val waiter = synchronized(lock) {
+            if (canAdmit(priority)) {
+                inUse[priority.ordinal] += 1
+                null
+            } else {
+                Waiter(priority).also(waiters::addLast)
+            }
+        } ?: return
+        try {
+            waiter.granted.await()
+        } catch (cancelled: CancellationException) {
+            // Si ya se le había dado turno (carrera con la cancelación), se devuelve.
+            val wasGranted = synchronized(lock) { !waiters.remove(waiter) }
+            if (wasGranted) release(priority)
+            throw cancelled
+        }
+    }
+
+    fun release(priority: ConnectionPriority) {
+        val granted = synchronized(lock) {
+            inUse[priority.ordinal] = maxOf(0, inUse[priority.ordinal] - 1)
+            dispatchLocked()
+        }
+        granted.forEach { it.granted.complete(Unit) }
+    }
+
+    suspend fun <T> withPermit(priority: ConnectionPriority, block: suspend () -> T): T {
+        acquire(priority)
+        try {
+            return block()
+        } finally {
+            release(priority)
+        }
+    }
+
+    /**
+     * El servidor rechazó un canal con [activeCount] abiertos (contando el rechazado): el tope baja
+     * a uno menos y se recuerda para esta conexión. Devuelve el nuevo tope.
+     */
+    fun lowerLimitAfterRejection(): Int = synchronized(lock) {
+        val floor = minOf(limit, MINIMUM_ADAPTIVE_LIMIT)
+        val candidate = maxOf(floor, minOf(current, inUse.sum()) - 1)
+        if (candidate < current) current = candidate
+        current
+    }
+
+    /** Conexión nueva: se vuelve al tope de partida. */
+    fun resetLimit() {
+        val granted = synchronized(lock) {
+            current = limit
+            dispatchLocked()
+        }
+        granted.forEach { it.granted.complete(Unit) }
+    }
+
+    private fun canAdmit(priority: ConnectionPriority): Boolean {
+        if (inUse.sum() >= current) return false
+        return priority == ConnectionPriority.USER || inUse[ConnectionPriority.BACKGROUND.ordinal] < backgroundLimit
+    }
+
+    /** Entrega turnos libres: primero al usuario (en orden de llegada), luego al fondo. */
+    private fun dispatchLocked(): List<Waiter> {
+        val granted = mutableListOf<Waiter>()
+        while (true) {
+            val next = waiters.firstOrNull { it.priority == ConnectionPriority.USER && canAdmit(it.priority) }
+                ?: waiters.firstOrNull { it.priority == ConnectionPriority.BACKGROUND && canAdmit(it.priority) }
+                ?: break
+            waiters.remove(next)
+            inUse[next.priority.ordinal] += 1
+            granted += next
+        }
+        return granted
+    }
 
     companion object {
         /** Deja margen bajo `MaxSessions` para el SFTP persistente y los terminales. */
         const val SHARED_CONNECTION_LIMIT = 6
+
+        /** Hasta 1: con `MaxSessions 1` (configuración endurecida) es lo único que funciona. */
+        private const val MINIMUM_ADAPTIVE_LIMIT = 1
     }
 }
 
@@ -69,6 +167,12 @@ internal object CommandTimeouts {
 
     /** Sonda de salud de la conexión (volver a primer plano, cambio de red). */
     val PROBE: Duration = 4.seconds
+
+    /**
+     * Comandos vencidos cuyo canal sigue abierto a partir de los cuales se recicla la conexión
+     * compartida (antes de agotar `MaxSessions`).
+     */
+    const val ABANDONED_CHANNEL_LIMIT = 3
 }
 
 /**

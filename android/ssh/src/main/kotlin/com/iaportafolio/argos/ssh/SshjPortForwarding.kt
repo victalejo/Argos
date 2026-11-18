@@ -1,5 +1,6 @@
 package com.iaportafolio.argos.ssh
 
+import com.iaportafolio.argos.core.RemoteTimeout
 import com.iaportafolio.argos.core.ports.ActivePortForward
 import com.iaportafolio.argos.core.ports.ListeningPort
 import com.iaportafolio.argos.core.ports.ListeningPortParser
@@ -133,7 +134,7 @@ internal class SshjPortForwarding(
 
     /** Solicitudes pendientes (`argos-ports open`). Las caducadas se borran y no se devuelven. */
     override suspend fun pendingPortForwardRequests(): List<PortForwardRequest> =
-        PortForwardRequestParser.parse(connection.capture(PortForwardServerFiles.listRequestsCommand).stdout)
+        PortForwardRequestParser.parse(connection.capture(RemoteTimeout.wrap(PortForwardServerFiles.listRequestsCommand)).stdout)
 
     /** Retira una solicitud (aceptada o rechazada). Best-effort. */
     override suspend fun dismissPortForwardRequest(port: Int) {

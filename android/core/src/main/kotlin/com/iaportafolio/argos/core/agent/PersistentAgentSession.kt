@@ -44,16 +44,17 @@ data class PersistentAgentSessionState(
  * byte leído (incremental) y, si el flujo se corta con la vista abierta, reintenta solo.
  *
  * [scope] es del dueño (p. ej. `viewModelScope`): al cancelarlo se desengancha. [hibernation]
- * da el plazo de reposo vigente (preferencia del dispositivo) al lanzar o reanudar. Con
- * [autoReconnect] a `false` un corte deja `isAttached = false` y reintentar es cosa del dueño
- * (la vista de Android lleva su propia espera y su botón «Reconectar»).
+ * da el plazo de reposo vigente (preferencia del dispositivo) al lanzar o reanudar. Por defecto
+ * ([autoReconnect] `false`) un corte deja `isAttached = false` y reintentar es cosa del dueño (la
+ * vista de Android lleva su propia espera y su botón «Reconectar»); con `true` se reintenta solo
+ * con [AgentReconnectPolicy], como en Apple.
  */
 class PersistentAgentSession(
     private val service: SSHServicing,
     private val exec: AgentExecStreaming,
     info: PersistentAgentInfo,
     private val scope: CoroutineScope,
-    private val autoReconnect: Boolean = true,
+    private val autoReconnect: Boolean = false,
     private val hibernation: () -> PersistentAgentHibernation = { PersistentAgentHibernation.STANDARD },
 ) {
     val id: String = info.id
@@ -160,6 +161,9 @@ class PersistentAgentSession(
                 }
                 null
             } catch (cancelled: CancellationException) {
+                // Lo cancelamos nosotros (reenganche, detach) tras cambiar la generación: no se
+                // toca nada. Si cancelan el scope del dueño, el enganche se da por terminado.
+                updateIfCurrent(current) { it.copy(isAttached = false, link = AgentLinkState.Detached) }
                 throw cancelled
             } catch (error: Exception) {
                 error
@@ -253,7 +257,7 @@ class PersistentAgentSession(
      * agente estaba hibernado, se reanuda solo (salvo en un modo que actúa sin preguntar, que pide
      * confirmación: ver [PersistentAgentMeta.resumeRequiresConfirmation]).
      */
-    suspend fun send(rawText: String, oauthToken: suspend () -> String?, confirmedResume: Boolean = false): AgentSendOutcome {
+    suspend fun send(rawText: String, oauthToken: suspend () -> String? = { null }, confirmedResume: Boolean = false): AgentSendOutcome {
         val text = SwiftText.trimWhitespaceAndNewlines(rawText)
         if (text.isEmpty()) return AgentSendOutcome.FAILED
         val before = mutableState.value
@@ -408,6 +412,7 @@ class PersistentAgentSession(
         private const val SEND_EXTRA_SECONDS = 30
         private const val LAUNCH_TIMEOUT_MILLIS = 60_000L
         private const val ERROR_TAIL_SHOWN = 600
+        private const val LAUNCH_FAILED_MESSAGE = "No se pudo arrancar el agente en el servidor."
 
         /** Lanza un agente nuevo en [workingDirectory] y devuelve su sesión, aún sin enganchar. */
         suspend fun launch(
@@ -443,13 +448,24 @@ class PersistentAgentSession(
             val invocation = ClaudeAgentCommand.persistent(claudePath, id, resume, meta.resolvedPermissionMode)
             val command = PersistentAgentScript.launch(id, meta, invocation, hibernation)
             // El token va por stdin (primera línea), nunca en la línea de comandos.
-            val reply = AgentStdinExchange.firstLine(
-                exec,
-                command,
-                ClaudeAgentCommand.tokenLine(oauthToken),
-                timeoutMillis = LAUNCH_TIMEOUT_MILLIS,
-                accept = PersistentAgentScript::isLaunchReply,
-            )
+            val reply = try {
+                AgentStdinExchange.firstLine(
+                    exec,
+                    command,
+                    ClaudeAgentCommand.tokenLine(oauthToken),
+                    timeoutMillis = LAUNCH_TIMEOUT_MILLIS,
+                    accept = PersistentAgentScript::isLaunchReply,
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (timeout: AgentExchangeTimeoutException) {
+                throw timeout
+            } catch (failure: AgentExecException) {
+                // Con detalle del servidor (stderr) se muestra; sin él, el mensaje del lanzador.
+                throw if (failure.detail == AgentStdinExchange.NO_REPLY) AgentExecException(LAUNCH_FAILED_MESSAGE) else failure
+            } catch (_: Exception) {
+                throw AgentExecException(LAUNCH_FAILED_MESSAGE)
+            }
             PersistentAgentScript.parseLaunchReply(reply)
         }
     }

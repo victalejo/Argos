@@ -263,9 +263,11 @@ class AgentHardeningShellTest {
             put("PATH", h.path)
         }
         val attach = builder.start()
-        Thread.sleep(1_000) // que el tail haya leído todo
+        // Que el tail haya leído todo (cabecera + log) antes de rotar.
+        assertTrue(waitUntil(10.0) { outFile.length() > original.size })
         h.sh(PersistentAgentShell.rotateOutputLog(PersistentAgentScript.directory(h.id), 200_000, 100_000))
-        Thread.sleep(3_000) // tail -F reabre el archivo nuevo y lo reenvía
+        // tail -F reabre el archivo nuevo y lo reenvía (con la máquina cargada puede tardar).
+        waitUntil(15.0) { outFile.length() > original.size + 50_000 }
         attach.outputStream.close()
         waitUntil(5.0) { !attach.isAlive }
         if (attach.isAlive) attach.destroy()

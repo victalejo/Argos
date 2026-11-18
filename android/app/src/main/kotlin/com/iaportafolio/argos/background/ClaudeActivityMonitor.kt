@@ -1,5 +1,6 @@
 package com.iaportafolio.argos.background
 
+import com.iaportafolio.argos.core.ConnectionPriority
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.status.ClaudeActivityReading
@@ -115,12 +116,14 @@ class ClaudeActivityMonitor(
     }
 
     /** Una pasada por los servidores con conexión abierta, en paralelo. */
-    suspend fun pollOnce() = coroutineScope {
-        servers.servers.value.mapNotNull { server ->
-            val service = live(server) ?: return@mapNotNull null
-            val reader = service as? ClaudeActivityReading ?: return@mapNotNull null
-            async { poll(server, service, reader) }
-        }.awaitAll()
+    suspend fun pollOnce() = ConnectionPriority.background {
+        coroutineScope {
+            servers.servers.value.mapNotNull { server ->
+                val service = live(server) ?: return@mapNotNull null
+                val reader = service as? ClaudeActivityReading ?: return@mapNotNull null
+                async { poll(server, service, reader) }
+            }.awaitAll()
+        }
         Unit
     }
 

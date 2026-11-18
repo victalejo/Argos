@@ -1,5 +1,6 @@
 package com.iaportafolio.argos.ssh
 
+import com.iaportafolio.argos.core.RemoteTimeout
 import com.iaportafolio.argos.core.ConnectionHealthProbing
 import com.iaportafolio.argos.core.ConnectionProbeResult
 import com.iaportafolio.argos.core.SSHServiceError
@@ -140,7 +141,7 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     // MARK: Sesiones
 
     override suspend fun listSessions(): List<TmuxSession> {
-        val result = connection.capture(TmuxCommands.LIST_SESSIONS)
+        val result = connection.capture(RemoteTimeout.wrap(TmuxCommands.LIST_SESSIONS))
         return TmuxOutputParser.parseListSessions(result.stdout, result.stderr, result.exitCode)
     }
 
@@ -260,7 +261,7 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
         ServerResourceParser.parse(connection.capture(ServerResourceCommands.COMMAND).stdout)
 
     override suspend fun claudeActivity(): ClaudeActivitySnapshot {
-        val result = connection.capture(ClaudeStatusCommands.CLAUDE_ACTIVITY_COMMAND)
+        val result = connection.capture(RemoteTimeout.wrap(ClaudeStatusCommands.CLAUDE_ACTIVITY_COMMAND))
         return ClaudeStatusCommands.parseActivity(result.exitCode, result.stdout)
     }
 

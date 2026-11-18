@@ -1,5 +1,6 @@
 package com.iaportafolio.argos.background
 
+import com.iaportafolio.argos.core.ConnectionPriority
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHConnector
 import com.iaportafolio.argos.core.SSHServicing
@@ -85,7 +86,13 @@ class AgentNotifier(
     suspend fun check(trigger: CheckTrigger = CheckTrigger.BACKGROUND, liveOnly: Boolean = false): AgentCheckOutcome {
         if (!checking.tryLock()) return AgentCheckOutcome.BUSY
         return try {
-            val (outcome, results) = runCheck(liveOnly, trigger)
+            // Lo que no pidió el usuario es fondo: no insiste contra un servidor caído ni con
+            // credenciales rechazadas (ver `ConnectionHealth`).
+            val (outcome, results) = if (trigger == CheckTrigger.MANUAL) {
+                runCheck(liveOnly, trigger)
+            } else {
+                ConnectionPriority.background { runCheck(liveOnly, trigger) }
+            }
             if (!(liveOnly && results.isEmpty())) {
                 diagnostics?.record(CheckRecord(clock(), trigger, outcome, results.groupingBy { it }.eachCount()))
             }

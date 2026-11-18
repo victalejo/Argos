@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.background.AgentAttentionTracker
+import com.iaportafolio.argos.core.ConnectionPriority
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.agent.AgentLinkState
 import com.iaportafolio.argos.core.agent.AgentPermissionDecision
@@ -265,7 +266,7 @@ class AgentChatViewModel(
         val ssh = service ?: return
         while (true) {
             agentFailures("No se pudo comprobar el agente $agentId") {
-                withContext(io) { PersistentAgentSession.list(ssh) }
+                withContext(io) { ConnectionPriority.background { PersistentAgentSession.list(ssh) } }
             }.onSuccess { agents ->
                 val info = agents.firstOrNull { it.id == agentId }
                 if (info == null) {
