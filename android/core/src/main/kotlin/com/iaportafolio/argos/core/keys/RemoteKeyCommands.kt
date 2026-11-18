@@ -10,11 +10,14 @@ object AuthorizedKeysCommands {
 
     /**
      * Añade [line] al final de `authorized_keys` (crea `~/.ssh` con permisos 0700 y el
-     * archivo con 0600 si no existen).
+     * archivo con 0600 si no existen). Si el archivo no acaba en salto de línea (editado a
+     * mano), lo añade antes: si no, la clave nueva quedaría pegada a la última y ninguna de
+     * las dos valdría. `$(tail -c 1 …)` queda vacío justo cuando el último byte es `\n`.
      */
     fun authorizeKey(line: String): String =
-        "umask 077 && mkdir -p \"\$HOME/.ssh\" && " +
-            "printf '%s\\n' ${ShellQuoting.singleQuoted(line)} >> \"\$HOME/.ssh/authorized_keys\""
+        "umask 077 && mkdir -p \"\$HOME/.ssh\" && f=\"\$HOME/.ssh/authorized_keys\" && " +
+            "{ [ ! -s \"\$f\" ] || [ -z \"\$(tail -c 1 \"\$f\")\" ] || printf '\\n' >> \"\$f\"; } && " +
+            "printf '%s\\n' ${ShellQuoting.singleQuoted(line)} >> \"\$f\""
 
     /**
      * Reescribe `authorized_keys` sin las líneas que contienen ` <comment>`. Solo

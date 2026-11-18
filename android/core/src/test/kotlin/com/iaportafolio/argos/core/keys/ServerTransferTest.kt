@@ -1,5 +1,11 @@
 package com.iaportafolio.argos.core.keys
 
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.time.Instant
@@ -183,9 +189,38 @@ class ServerTransferTest {
     @Test
     fun `autorizar anade la linea entrecomillada a authorized_keys`() {
         assertEquals(
-            "umask 077 && mkdir -p \"\$HOME/.ssh\" && printf '%s\\n' 'ssh-ed25519 AAAA argos-iphone-x' >> \"\$HOME/.ssh/authorized_keys\"",
+            "umask 077 && mkdir -p \"\$HOME/.ssh\" && f=\"\$HOME/.ssh/authorized_keys\" && " +
+                "{ [ ! -s \"\$f\" ] || [ -z \"\$(tail -c 1 \"\$f\")\" ] || printf '\\n' >> \"\$f\"; } && " +
+                "printf '%s\\n' 'ssh-ed25519 AAAA argos-iphone-x' >> \"\$f\"",
             AuthorizedKeysCommands.authorizeKey("ssh-ed25519 AAAA argos-iphone-x"),
         )
+    }
+
+    /** Se ejecuta de verdad con `/bin/sh` en un `HOME` temporal. */
+    @Test
+    fun `autorizar no pega la clave a una ultima linea sin salto final`(@TempDir home: Path) {
+        val file = home.resolve(".ssh").createDirectories().resolve("authorized_keys")
+        file.writeText("ssh-ed25519 AAAA vieja")
+        runInHome(home, AuthorizedKeysCommands.authorizeKey("ssh-ed25519 BBBB nueva"))
+        assertEquals("ssh-ed25519 AAAA vieja\nssh-ed25519 BBBB nueva\n", file.readText())
+
+        // Con salto final no se añade una línea en blanco; sin archivo, se crea.
+        runInHome(home, AuthorizedKeysCommands.authorizeKey("ssh-ed25519 CCCC otra"))
+        assertEquals("ssh-ed25519 AAAA vieja\nssh-ed25519 BBBB nueva\nssh-ed25519 CCCC otra\n", file.readText())
+        file.deleteIfExists()
+        runInHome(home, AuthorizedKeysCommands.authorizeKey("ssh-ed25519 DDDD primera"))
+        assertEquals("ssh-ed25519 DDDD primera\n", file.readText())
+        file.writeText("")
+        runInHome(home, AuthorizedKeysCommands.authorizeKey("ssh-ed25519 EEEE vacio"))
+        assertEquals("ssh-ed25519 EEEE vacio\n", file.readText())
+    }
+
+    private fun runInHome(home: Path, command: String) {
+        val process = ProcessBuilder("/bin/sh", "-c", command).redirectErrorStream(true)
+            .apply { environment()["HOME"] = home.toString() }
+            .start()
+        val output = process.inputStream.bufferedReader().readText()
+        assertEquals(0, process.waitFor(), output)
     }
 
     @Test
