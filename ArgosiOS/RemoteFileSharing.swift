@@ -31,12 +31,14 @@ struct DownloadedFile: Identifiable {
 }
 
 enum RemoteFileDownload {
-    /// Descarga `entry` completo a una carpeta temporal propia, con su nombre original.
+    /// Descarga `entry` completo a una carpeta temporal propia, con su nombre original
+    /// LIMPIO: el nombre lo manda el servidor y no debe poder sacar la escritura de la
+    /// carpeta (`SafeLocalFile`).
     static func download(_ entry: RemoteFileEntry, root: String, service: any SSHServicing) async throws -> DownloadedFile {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let url = folder.appendingPathComponent(entry.name)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         do {
+            let url = try SafeLocalFile.url(for: entry.name, in: folder)
             try await service.downloadRemoteFile(entry.path, root: root, to: url)
             try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path)
             return DownloadedFile(url: url)

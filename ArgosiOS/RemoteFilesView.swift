@@ -293,8 +293,9 @@ struct FilePreviewScreen: View {
     /// Copia temporal con el nombre original para la hoja de compartir (se borra al salir).
     private func temporaryCopy(of data: Data) throws -> URL {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let url = folder.appendingPathComponent(entry.name)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        // El nombre viene del servidor: limpio y sin salir de la carpeta.
+        let url = try SafeLocalFile.url(for: entry.name, in: folder)
         try data.write(to: url, options: [.atomic, .completeFileProtection])
         return url
     }
