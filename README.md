@@ -258,7 +258,7 @@ xcodebuild test -project Argos.xcodeproj -scheme Argos -destination 'platform=ma
   CODE_SIGNING_ALLOWED=NO \
   -only-testing:ArgosTests/IntegrationSSHDTests \
   -only-testing:ArgosTests/IntegrationServerSuites
-scripts/sshd-test-stop.sh      # para el sshd y lo que dejaron las sesiones
+scripts/sshd-test-stop.sh "$TEST_RUNNER_ARGOS_E2E_SSHD_DIR"   # para el sshd y lo que dejaron las sesiones
 ```
 
 ### Utilidades de `scripts/`

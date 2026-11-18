@@ -63,13 +63,13 @@ Pruebas y puertas de la CI que conviene conocer:
   `HOME` aislados e instala un `claude` simulado (`scripts/argos-fake-claude`: no es el real;
   lo que no reproduce queda sin probar); imprime `ARGOS_E2E_SSH_*`, `ARGOS_E2E_SSHD_DIR` y
   `ARGOS_E2E_SERVER_OS`, que `xcodebuild` solo pasa a los tests con el prefijo
-  `TEST_RUNNER_`. Hace falta `tmux` local. Para pararlo: `scripts/sshd-test-stop.sh [--keep]`.
+  `TEST_RUNNER_`. Hace falta `tmux` local. Para pararlo: `scripts/sshd-test-stop.sh [--keep] <dir>`.
   ```bash
   eval "$(scripts/sshd-test-start.sh --max-sessions 4 | sed 's/^/export TEST_RUNNER_/')"
   xcodebuild test -scheme Argos -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO \
     -only-testing:ArgosTests/IntegrationSSHDTests \
     -only-testing:ArgosTests/IntegrationServerSuites
-  scripts/sshd-test-stop.sh
+  scripts/sshd-test-stop.sh "$TEST_RUNNER_ARGOS_E2E_SSHD_DIR"
   ```
 - **Goldens de paridad con Android**: `GoldenParityTests` compara cada archivo de
   `android/core/src/test/resources/swift-golden/` con lo que genera el Swift real
