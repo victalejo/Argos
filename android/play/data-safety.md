@@ -57,9 +57,10 @@ dispositivos.
 | `INTERNET` | app | Conexiones SSH a los servidores del usuario |
 | `CAMERA` | app | Solo para leer el QR de «Enviar al iPhone…» del Mac; se pide en el momento; opcional (`uses-feature required=false`) |
 | `POST_NOTIFICATIONS` | app | Avisos «el agente terminó / espera tu permiso» y la notificación del terminal en segundo plano |
-| `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_SPECIAL_USE` | app | Mantener conectados los terminales abiertos en segundo plano (ver `foreground-service.md`) |
+| `ACCESS_LOCAL_NETWORK` | app | Android 17+: conectar por SSH con servidores de la red local (Wi-Fi) del usuario. Se pide al abrir un servidor con IP privada o `.local`; es del grupo «Dispositivos cercanos». No se busca ni se descubre nada en la red |
+| `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_SPECIAL_USE` | app | Mantener conectados en segundo plano los terminales y los reenvíos de puertos abiertos (ver `foreground-service.md`) |
 | `WAKE_LOCK` | WorkManager | Lo usa WorkManager internamente al ejecutar la comprobación periódica de agentes. Argos no toma WakeLocks propios |
-| `ACCESS_NETWORK_STATE` | WorkManager | Restricción «solo con red» de la comprobación periódica |
+| `ACCESS_NETWORK_STATE` | app + WorkManager | Saber cuándo cambia la red (Wi-Fi → datos) para descartar conexiones muertas, y restricción «solo con red» de la comprobación periódica |
 | `RECEIVE_BOOT_COMPLETED` | WorkManager | Reprogramar la comprobación periódica tras reiniciar el dispositivo |
 | `com.iaportafolio.argos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | AndroidX Core | Permiso interno de firma para receptores no exportados; no es visible al usuario |
 
