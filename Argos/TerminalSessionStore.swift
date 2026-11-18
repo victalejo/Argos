@@ -107,6 +107,13 @@ final class TerminalSessionStore {
         }
     }
 
+    /// Desengancha todos los terminales (al salir de la app). tmux no se toca.
+    func closeAll() {
+        for handle in Array(controllers.keys) {
+            close(handle)
+        }
+    }
+
     /// Fuerza una reconexión limpia (cierra y recrea).
     @discardableResult
     func reconnect(

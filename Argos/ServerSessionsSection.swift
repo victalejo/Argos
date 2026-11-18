@@ -16,7 +16,8 @@ struct ServerSessionsSection: View {
     let server: Server
     let vm: SessionsViewModel
     let terminalStore: TerminalSessionStore
-    let filter: String
+    /// Lo que se ve tras la búsqueda, el filtro y los plegados (`VisibleProjectListing`).
+    let listing: VisibleProjectListing
     var statusFilter: ProjectStatusFilter = .all
     @Binding var renameTarget: SessionAction?
     @Binding var killTarget: SessionAction?
@@ -31,6 +32,8 @@ struct ServerSessionsSection: View {
     @State private var syncCenter = ProjectSyncCenter.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var sshGrantError: String?
+    @State private var confirmsRestore = false
+    @State private var confirmsForgetHostKey = false
 
     var body: some View {
         switch vm.state {
@@ -112,14 +115,25 @@ struct ServerSessionsSection: View {
                     // Resuelve el caso legítimo (reinstalación del servidor): olvida la
                     // huella ANCLADA y reintenta, re-confiando en la nueva. La acción vive
                     // aquí (junto al error) en vez de en el menú contextual de otra columna.
-                    Button("Olvidar host key y reintentar") {
-                        TOFUHostKeyValidator.forgetExplicitly(host: server.host, port: server.port)
-                        Task { await vm.load() }
-                    }
-                    .font(.caption)
-                    .buttonStyle(.borderless)
+                    Button("Olvidar host key y reintentar…") { confirmsForgetHostKey = true }
+                        .font(.caption)
+                        .buttonStyle(.borderless)
                     Spacer()
                 }
+            }
+            .confirmationDialog(
+                "¿Olvidar la host key de «\(server.name)»?",
+                isPresented: $confirmsForgetHostKey,
+                titleVisibility: .visible
+            ) {
+                Button("Olvidar y reconectar", role: .destructive) {
+                    TOFUHostKeyValidator.forgetExplicitly(host: server.host, port: server.port)
+                    Task { await vm.load() }
+                }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Hazlo solo si sabes que el servidor se reinstaló o cambió de clave: Argos confiará "
+                     + "en la huella que presente ahora.")
             }
             .padding(12)
             .background(Color.red.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
@@ -187,53 +201,15 @@ struct ServerSessionsSection: View {
 
     // MARK: - Proyectos
 
-    /// Nombre del grupo de las sesiones que no pertenecen a ningún proyecto.
-    private static let looseGroupName = "Sesiones sueltas"
-
     @ViewBuilder
     private var projectList: some View {
-        let listing = vm.projectListing
-        let entries = Self.matching(listing.entries, filter: filter).filter {
-            statusFilter.includes(terminalStore.status(of: $0, serverID: server.id))
-        }
-        let loose = Self.matching(listing.looseSessions, filter: filter).filter {
-            statusFilter.includes(terminalStore.status(of: $0, serverID: server.id))
-        }
-        // Con búsqueda o filtro de estado, los grupos se muestran desplegados.
-        let isFiltering = !filter.isEmpty || statusFilter != .all
-        let groups = ProjectListing.groups(entries)
-        // Sin grupos reales ni sueltas, los encabezados solo añadirían ruido.
-        let showHeaders = groups.count > 1 || !loose.isEmpty
-            || (groups.first.map { $0.name != SessionGrouping.ungroupedName } ?? false)
-
         if let error = vm.projectsError {
-            Label(error, systemImage: "exclamationmark.triangle")
-                .font(.caption)
-                .foregroundStyle(.orange)
-                .lineLimit(3)
-                .selectionDisabled()
+            projectsErrorRow(error)
         }
 
-        if listing.entries.isEmpty && listing.looseSessions.isEmpty {
-            VStack(alignment: .leading, spacing: 11) {
-                Image(systemName: "folder.badge.plus")
-                    .font(.system(size: 24, weight: .light))
-                    .foregroundStyle(Color.accentColor)
-                Text("Tu próximo proyecto empieza aquí")
-                    .font(.system(size: 12, weight: .semibold))
-                Text("Organiza una carpeta del servidor y vuelve a ella con un clic.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Crear primer proyecto") { projectForm = .new(server) }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-            }
-            .padding(15)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.accentColor.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
-            .selectionDisabled()
-        } else if entries.isEmpty && loose.isEmpty {
+        if listing.isSourceEmpty {
+            firstProjectPrompt
+        } else if listing.hasNoMatches {
             VStack(alignment: .leading, spacing: 4) {
                 Label("Sin coincidencias", systemImage: "magnifyingglass")
                     .font(.system(size: 12, weight: .medium))
@@ -247,33 +223,90 @@ struct ServerSessionsSection: View {
             .selectionDisabled()
         }
 
-        if filter.isEmpty && !listing.looseSessions.isEmpty {
-            importBanner(count: listing.looseSessions.count)
+        let looseCount = vm.projectListing.looseSessions.count
+        if !listing.isFiltering && looseCount > 0 {
+            importBanner(count: looseCount)
         }
 
-        ForEach(groups) { group in
-            if showHeaders {
-                groupHeader(
-                    name: group.name,
-                    count: group.entries.count,
-                    sessionNames: group.entries.map(\.project.sessionName)
-                )
+        ForEach(listing.groups) { group in
+            if listing.showsGroupHeaders {
+                groupHeader(name: group.name, count: group.entries.count, sessionNames: group.sessionNames)
             }
-            let isCollapsed = showHeaders && !isFiltering
-                && collapsedGroups.isCollapsed(serverID: server.id, group: group.name)
-            ForEach(isCollapsed ? [] : group.entries) { entry in
+            ForEach(group.visibleEntries) { entry in
                 projectRow(entry)
             }
         }
 
-        if !loose.isEmpty {
-            groupHeader(name: Self.looseGroupName, count: loose.count, sessionNames: loose.map(\.name))
-            let isCollapsed = !isFiltering
-                && collapsedGroups.isCollapsed(serverID: server.id, group: Self.looseGroupName)
-            ForEach(isCollapsed ? [] : loose) { session in
+        if !listing.looseSessions.isEmpty {
+            groupHeader(
+                name: VisibleProjectListing.looseGroupName,
+                count: listing.looseSessions.count,
+                sessionNames: listing.looseSessions.map(\.name)
+            )
+            ForEach(listing.visibleLooseSessions) { session in
                 sessionRow(session, displayName: nil)
             }
         }
+    }
+
+    /// Aviso de projects.json; si está dañado, ofrece restaurar la copia anterior.
+    private func projectsErrorRow(_ error: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(error, systemImage: "exclamationmark.triangle")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .lineLimit(4)
+            if vm.isProjectsFileDamaged {
+                Button("Restaurar copia anterior…") { confirmsRestore = true }
+                    .font(.caption)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+        }
+        .selectionDisabled()
+        .confirmationDialog(
+            "¿Restaurar la copia anterior de los proyectos?",
+            isPresented: $confirmsRestore,
+            titleVisibility: .visible
+        ) {
+            Button("Restaurar") { restoreProjectsBackup() }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Se sustituirá ~/.config/argos/projects.json de \(server.name) por su copia "
+                 + "projects.json.argos-backup. El archivo dañado se guarda como projects.json.argos-damaged.")
+        }
+    }
+
+    private func restoreProjectsBackup() {
+        Task {
+            do {
+                try await vm.restoreProjectsBackup()
+            } catch {
+                Log.store.error("Restaurar projects.json: \(error.userMessage, privacy: .public)")
+                vm.operationError = error.userMessage
+            }
+        }
+    }
+
+    private var firstProjectPrompt: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            Image(systemName: "folder.badge.plus")
+                .font(.system(size: 24, weight: .light))
+                .foregroundStyle(Color.accentColor)
+            Text("Tu próximo proyecto empieza aquí")
+                .font(.system(size: 12, weight: .semibold))
+            Text("Organiza una carpeta del servidor y vuelve a ella con un clic.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Crear primer proyecto") { projectForm = .new(server) }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+        }
+        .padding(15)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+        .selectionDisabled()
     }
 
     private func importBanner(count: Int) -> some View {
@@ -452,26 +485,6 @@ struct ServerSessionsSection: View {
     private static func copyToClipboard(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-    }
-
-    /// Filtra proyectos por nombre, grupo o carpeta (case/diacritic-insensitive).
-    private static func matching(_ entries: [ProjectEntry], filter: String) -> [ProjectEntry] {
-        let query = filter.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return entries }
-        return entries.filter { entry in
-            [entry.project.sessionName, entry.project.path].contains {
-                $0.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
-            }
-        }
-    }
-
-    /// Filtra por subcadena (case/diacritic-insensitive). Filtro vacío = todas.
-    private static func matching(_ sessions: [TmuxSession], filter: String) -> [TmuxSession] {
-        let query = filter.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return sessions }
-        return sessions.filter {
-            $0.name.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
-        }
     }
 
     @ViewBuilder

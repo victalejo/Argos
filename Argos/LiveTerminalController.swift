@@ -35,6 +35,8 @@ final class LiveTerminalController: TerminalViewDelegate {
 
     /// Estado de la conexión (para feedback en la UI).
     private(set) var status: LiveTerminalStatus = .connecting
+    /// Error del último fallo (para decidir si se reintenta solo, `ReconnectPolicy`).
+    private(set) var lastError: Error?
 
     /// `true` mientras se sube una imagen pegada por SFTP (feedback en la UI).
     private(set) var isUploading = false
@@ -294,6 +296,7 @@ final class LiveTerminalController: TerminalViewDelegate {
         guard !isStopping else { return }
         if let error {
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            lastError = error
             status = .failed(message)
         } else {
             status = .ended

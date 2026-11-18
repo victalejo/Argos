@@ -1,0 +1,143 @@
+//
+//  ServerSheets.swift
+//  Argos
+//
+//  Hojas y confirmaciones de los servidores: formulario, importar de ~/.ssh/config,
+//  enviar al iPhone, dispositivos autorizados, Doctor; eliminar, olvidar host key e
+//  indicador de Claude Code.
+//
+
+import SwiftUI
+
+/// Hojas de servidor.
+struct ServerSheets: ViewModifier {
+    @Bindable var model: ArgosAppModel
+    @Binding var serverFormMode: ServerFormSheet.Mode?
+    @Binding var transferServer: ServerSheetTarget?
+    @Binding var devicesServer: ServerSheetTarget?
+    @Binding var showSSHConfig: Bool
+    @Binding var saveError: String?
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: $serverFormMode) { mode in
+                ServerFormSheet(mode: mode) { server, secret in save(server, secret: secret) }
+            }
+            .sheet(item: $transferServer) { target in
+                ServerTransferSheet(server: target.server, service: target.service) { transferServer = nil }
+            }
+            .sheet(item: $devicesServer) { target in
+                AuthorizedDevicesSheet(server: target.server, service: target.service) { devicesServer = nil }
+            }
+            .sheet(item: $model.doctorTarget) { target in
+                DoctorSheet(service: target.service, serverName: target.server.name, knownServers: model.store.servers)
+            }
+            .sheet(isPresented: $showSSHConfig) {
+                SSHConfigSheet(
+                    existingServers: model.store.servers,
+                    onImport: { host in
+                        do { try model.importHost(host) } catch { report(error) }
+                    },
+                    onClose: { showSSHConfig = false }
+                )
+            }
+    }
+
+    private func save(_ server: Server, secret: String?) {
+        do {
+            try model.save(server, secret: secret)
+        } catch {
+            report(error)
+        }
+    }
+
+    private func report(_ error: Error) {
+        Log.store.error("Guardar servidor: \(error.userMessage, privacy: .public)")
+        saveError = "No se guardó el servidor porque el Llavero no aceptó la contraseña o la "
+            + "passphrase: \(error.userMessage)"
+    }
+}
+
+/// Confirmaciones y alertas de servidor.
+struct ServerDialogs: ViewModifier {
+    let model: ArgosAppModel
+    @Binding var serverToDelete: Server?
+    @Binding var hostKeyToForget: Server?
+    @Binding var claudeHooksServer: Server?
+    @Binding var claudeHooksResult: String?
+    @Binding var saveError: String?
+
+    func body(content: Content) -> some View {
+        content
+            .confirmationDialog(
+                serverToDelete.map { "¿Eliminar el servidor '\($0.name)'?" } ?? "",
+                isPresented: presence($serverToDelete),
+                titleVisibility: .visible,
+                presenting: serverToDelete
+            ) { server in
+                Button("Eliminar", role: .destructive) { model.delete(server) }
+                Button("Cancelar", role: .cancel) {}
+            } message: { _ in
+                Text("Se borrará su configuración y su passphrase del Keychain. No afecta al servidor remoto.")
+            }
+            .confirmationDialog(
+                hostKeyToForget.map { "¿Olvidar la host key de '\($0.name)'?" } ?? "",
+                isPresented: presence($hostKeyToForget),
+                titleVisibility: .visible,
+                presenting: hostKeyToForget
+            ) { server in
+                Button("Olvidar y reconectar", role: .destructive) { model.forgetHostKey(of: server) }
+                Button("Cancelar", role: .cancel) {}
+            } message: { server in
+                Text("Argos confiará en la huella que presente \(server.host) en la próxima conexión. "
+                     + "Hazlo solo si sabes que el servidor se reinstaló o cambió de clave: si no, "
+                     + "podría tratarse de un ataque (alguien suplantando al servidor).")
+            }
+            .confirmationDialog(
+                claudeHooksServer.map { "¿Activar el indicador de Claude Code en '\($0.name)'?" } ?? "",
+                isPresented: presence($claudeHooksServer),
+                titleVisibility: .visible,
+                presenting: claudeHooksServer
+            ) { server in
+                Button("Activar") { installClaudeHooks(on: server) }
+                Button("Cancelar", role: .cancel) {}
+            } message: { _ in
+                Text("Se añadirán hooks a ~/.claude/settings.json del servidor (con copia en "
+                     + "settings.json.argos-backup; tus hooks actuales se conservan). Avisan a Argos "
+                     + "cuando Claude trabaja, termina o espera tu respuesta. Las sesiones de Claude "
+                     + "ya abiertas deben reiniciarse para usarlos.")
+            }
+            .alert("Indicador de Claude Code", isPresented: presence($claudeHooksResult), presenting: claudeHooksResult) { _ in
+                Button("OK", role: .cancel) {}
+            } message: { message in
+                Text(message)
+            }
+            .alert("No se pudo guardar el servidor", isPresented: presence($saveError), presenting: saveError) { _ in
+                Button("OK", role: .cancel) {}
+            } message: { message in
+                Text(message)
+            }
+    }
+
+    private func presence<T>(_ value: Binding<T?>) -> Binding<Bool> {
+        Binding(get: { value.wrappedValue != nil }, set: { if !$0 { value.wrappedValue = nil } })
+    }
+
+    private func installClaudeHooks(on server: Server) {
+        guard let vm = model.vms[server.id] else { return }
+        Task {
+            do {
+                if try await vm.service.claudeHooksInstalled() {
+                    claudeHooksResult = "El indicador ya estaba activo en \(server.name)."
+                    return
+                }
+                try await vm.service.installClaudeHooks()
+                claudeHooksResult = "Indicador activado en \(server.name). Reinicia las sesiones de "
+                    + "Claude Code que ya estuvieran abiertas para que empiecen a reportar su estado."
+            } catch {
+                Log.ssh.error("Instalar hooks de Claude: \(error.userMessage, privacy: .public)")
+                claudeHooksResult = "No se pudo activar el indicador: \(error.userMessage)"
+            }
+        }
+    }
+}

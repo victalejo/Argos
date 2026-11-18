@@ -13,6 +13,8 @@ import SwiftUI
 
 @main
 struct ArgosApp: App {
+    /// Dueño del modelo único de la app (ver `ArgosAppDelegate`).
+    @NSApplicationDelegateAdaptor(ArgosAppDelegate.self) private var appDelegate
     @AppStorage("appearance") private var appearance = "system"
 
     private var colorScheme: ColorScheme? {
@@ -40,8 +42,10 @@ struct ArgosApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        // Ventana ÚNICA: el estado vive en `ArgosAppModel` (del delegado), no en la
+        // ventana. Cerrarla no cierra la app; el Dock o el menú Ventana la reabren tal cual.
+        Window("Argos", id: "main") {
+            ContentView(model: appDelegate.model)
                 .preferredColorScheme(colorScheme)
                 .tint(ArgosTheme.controlAccent)
         }
@@ -49,8 +53,7 @@ struct ArgosApp: App {
         .commands {
             // Menú «Pestañas»: ⌘T nueva ventana/conversación, ⌘W cerrar, ⌘1…⌘9,
             // ⌘⇧[ ⌘⇧] y ⌘⌥1…3 para lanzar agentes. También quita "Nueva ventana" (⌘N)
-            // por defecto: la app es de una sola ventana (cada ventana crearía su propio
-            // ServerStore aislado, confuso) y ⌘N es "Nuevo proyecto".
+            // por defecto (⌘N es "Nuevo proyecto").
             TabCommands()
 
             // Menú de la app: "Acerca de Argos" propio (panel nativo con icono/enlaces)
@@ -71,6 +74,8 @@ struct ArgosApp: App {
                     Self.open(URL(string: "https://github.com/victalejo/Argos/releases")!)
                 }
                 Divider()
+                Button("Doctor del servidor…") { appDelegate.model.presentDoctor() }
+                    .disabled(appDelegate.model.selectedServerID == nil)
                 Button("Reportar un problema…") {
                     Self.open(URL(string: "https://github.com/victalejo/Argos/issues/new")!)
                 }

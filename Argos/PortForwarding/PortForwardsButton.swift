@@ -15,15 +15,8 @@ struct PortForwardsButton: View {
 
     @State private var isPresented = false
     @State private var activeCount = 0
-    /// Solicitudes de Claude («argos-ports open»): se vigilan mientras el botón está visible.
-    @State private var requests: PortForwardRequestsModel
-    @Environment(\.openURL) private var openURL
-
-    init(service: any SSHServicing, serverName: String) {
-        self.service = service
-        self.serverName = serverName
-        _requests = State(initialValue: PortForwardRequestsModel(service: service))
-    }
+    // Las solicitudes de Claude («argos-ports open») ya no se vigilan aquí: las lee el
+    // sondeador de la app para TODOS los servidores (ver `PortRequestAlert`).
 
     var body: some View {
         Button { isPresented.toggle() } label: {
@@ -43,33 +36,6 @@ struct PortForwardsButton: View {
                 activeCount = await ConnectionPriority.background { await service.activePortForwards().count }
                 try? await Task.sleep(for: .seconds(isPresented ? 2 : 10))
             }
-        }
-        .task { await requests.pollWhileVisible() }
-        .alert(
-            requests.current.map(PortForwardRequestsModel.title(for:)) ?? "",
-            isPresented: Binding(get: { requests.current != nil && !isPresented }, set: { _ in }),
-            presenting: requests.current
-        ) { _ in
-            Button("Abrir") {
-                Task {
-                    if let url = await requests.accept() {
-                        openURL(url)
-                        activeCount = await service.activePortForwards().count
-                    }
-                }
-            }
-            .keyboardShortcut(.defaultAction)
-            Button("Ahora no", role: .cancel) { Task { await requests.decline() } }
-        } message: { request in
-            Text(verbatim: PortForwardRequestPrompt.message(for: request, serverName: serverName))
-        }
-        .alert("No se pudo abrir el puerto", isPresented: Binding(
-            get: { requests.errorMessage != nil },
-            set: { if !$0 { requests.errorMessage = nil } }
-        )) {
-            Button("Aceptar", role: .cancel) {}
-        } message: {
-            Text(requests.errorMessage ?? "")
         }
     }
 }

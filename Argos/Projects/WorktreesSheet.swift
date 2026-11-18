@@ -14,8 +14,10 @@ struct WorktreesSheet: View {
     @State private var model: WorktreesModel
     @State private var settings = ProjectSettings.shared
     @State private var pendingRemoval: GitWorktree?
+    private let service: any SSHServicing
 
     init(project: Project, vm: SessionsViewModel) {
+        service = vm.service
         _model = State(initialValue: WorktreesModel(parent: project, viewModel: vm))
     }
 
@@ -65,7 +67,13 @@ struct WorktreesSheet: View {
             } description: {
                 Text(message)
             } actions: {
-                Button("Reintentar") { Task { await model.load() } }
+                Button("Reintentar") {
+                    Task {
+                        // Acción explícita: levanta el bloqueo de la conexión antes de reintentar.
+                        await service.resetConnectionHealth()
+                        await model.load()
+                    }
+                }
             }
         case .loaded(let listing):
             Form {
