@@ -218,6 +218,47 @@ class SshjTmuxIntegrationTest {
     }
 
     @Test
+    fun `guardar reaplica el cambio sobre lo que escribió otro dispositivo y conserva lo desconocido`() = runBlocking<Unit> {
+        val file = Files.createDirectories(server.home.resolve(".config/argos")).resolve("projects.json")
+        val mac = """{"id":"6F1C2A3B-0000-4000-8000-000000000001","name":"mac","path":"/m","createdAt":"2026-01-01T00:00:00Z","color":"rojo"}"""
+        val ipad = """{"id":"6F1C2A3B-0000-4000-8000-000000000002","name":"ipad","path":"/i","createdAt":"2026-01-01T00:00:00Z"}"""
+        val broken = """{"id":"roto"}"""
+        file.writeText("""{"version":1,"futuro":true,"projects":[$mac,$broken]}""")
+        try {
+            val loaded = service.loadProjects()
+            assertEquals(listOf("mac"), loaded.map { it.name })
+            // Otro dispositivo añade un proyecto después de que la app leyera.
+            file.writeText("""{"version":1,"futuro":true,"projects":[$mac,$broken,$ipad]}""")
+            val web = Project(name = "web", path = "/w", createdAt = Instant.parse("2026-01-02T00:00:00Z"))
+            service.saveProjects(loaded + web)
+
+            assertEquals(listOf("mac", "web", "ipad"), service.loadProjects().map { it.name })
+            val text = file.readText()
+            assertContains(text, "\"futuro\" : true")
+            assertContains(text, "\"color\" : \"rojo\"")
+            assertContains(text, "\"id\" : \"roto\"")
+        } finally {
+            file.deleteIfExists()
+        }
+    }
+
+    @Test
+    fun `no reescribe projects json de una versión más nueva`() = runBlocking<Unit> {
+        val file = Files.createDirectories(server.home.resolve(".config/argos")).resolve("projects.json")
+        val original = """{"version":2,"projects":[]}"""
+        file.writeText(original)
+        try {
+            assertEquals(emptyList(), service.loadProjects())
+            assertFailsWith<ProjectError.UnsupportedVersion> {
+                service.saveProjects(listOf(Project(name = "web", path = "/w")))
+            }
+            assertEquals(original, file.readText())
+        } finally {
+            file.deleteIfExists()
+        }
+    }
+
+    @Test
     fun `si projects json existe y no se puede leer, falla en vez de parecer vacío`() = runBlocking<Unit> {
         // Un directorio en su lugar: `cat` falla con el archivo presente.
         Files.createDirectories(server.home.resolve(".config/argos/projects.json"))

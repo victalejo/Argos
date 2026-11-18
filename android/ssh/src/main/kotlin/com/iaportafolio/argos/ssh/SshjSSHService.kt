@@ -21,7 +21,6 @@ import com.iaportafolio.argos.core.keys.RemoteHomeFileCommands
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectCommands
 import com.iaportafolio.argos.core.projects.ProjectListing
-import com.iaportafolio.argos.core.projects.ProjectsFile
 import com.iaportafolio.argos.core.status.ClaudeHookInstaller
 import com.iaportafolio.argos.core.status.ClaudeStatusCommands
 import com.iaportafolio.argos.core.tmux.CodingAgent
@@ -75,6 +74,7 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     private val files = SshjFileBrowser(connection)
     private val agentExec = SshjAgentExec(connection)
     private val ports = SshjPortForwarding(connection)
+    private val projectsStore = SshjProjectsStore(connection)
 
     // MARK: Canal exec del agente
 
@@ -244,13 +244,14 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
 
     // MARK: Proyectos
 
-    override suspend fun loadProjects(): List<Project> =
-        ProjectsFile.decode(readHomeFile(ProjectCommands.PROJECTS_RELATIVE_PATH)).projects
+    /** Un proyecto ilegible no invalida el resto (ver [SshjProjectsStore]). */
+    override suspend fun loadProjects(): List<Project> = projectsStore.load()
 
-    override suspend fun saveProjects(projects: List<Project>) {
-        val data = ProjectsFile(projects = projects).encoded()
-        writeHomeFilePrivately(data, ProjectCommands.PROJECTS_RELATIVE_PATH, backup = true)
-    }
+    /**
+     * Conserva lo desconocido, se niega con un formato más nuevo y, si otro dispositivo cambió el
+     * archivo entretanto, reaplica solo lo que cambió la app (ver [SshjProjectsStore]).
+     */
+    override suspend fun saveProjects(projects: List<Project>) = projectsStore.save(projects)
 
     override suspend fun sessionFirstPanePaths(): Map<String, String> {
         val result = connection.capture(ProjectCommands.FIRST_PANE_PATHS)

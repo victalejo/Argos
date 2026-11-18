@@ -73,4 +73,16 @@ sealed class ProjectError(message: String) : Exception(message, null, false, fal
 
     data object InvalidPath :
         ProjectError("La carpeta debe ser una ruta absoluta del servidor (empieza por '/').")
+
+    /** `projects.json` lo escribió una versión de Argos más nueva: reescribirlo perdería datos. */
+    data class UnsupportedVersion(val version: Int) : ProjectError(
+        "Los proyectos de este servidor los guardó una versión más nueva de Argos (formato $version). " +
+            "Actualiza Argos en este dispositivo para poder modificarlos.",
+    )
+
+    /** Otro dispositivo cambió `projects.json` una y otra vez mientras se guardaba. */
+    data object ConcurrentModification : ProjectError(
+        "Los proyectos de este servidor cambiaron desde otro dispositivo mientras se guardaban. " +
+            "Vuelve a intentarlo.",
+    )
 }
