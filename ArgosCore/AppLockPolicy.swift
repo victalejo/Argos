@@ -43,6 +43,54 @@ enum AppLockPolicy {
         enabled && isLocked
     }
 
+    // MARK: - Atajos, Siri y Spotlight
+
+    /// Resultado de pedir la autenticación desde un atajo (fuera de la interfaz de la app).
+    enum ExternalAuthentication: Equatable, Sendable {
+        case succeeded
+        /// El usuario la canceló o falló.
+        case refused
+        /// No se puede pedir aquí (atajo en segundo plano, sin interfaz): hay que abrir la app.
+        case notPossibleHere
+        /// El dispositivo no tiene código ni biometría: como en la app, no se bloquea.
+        case unavailable
+    }
+
+    enum ExternalAccessDecision: Equatable, Sendable {
+        case proceed
+        case refuse
+        /// Abrir Argos para desbloquear allí.
+        case continueInApp
+    }
+
+    /// Un atajo que conecta con un servidor (y puede mandar trabajo a un agente) exige la
+    /// MISMA autenticación que abrir la app. «Permitir atajos sin confirmar» no lo cambia:
+    /// confirmar el modo y desbloquear Argos son cosas distintas.
+    static func shortcutRequiresAuthentication(enabled: Bool) -> Bool {
+        enabled
+    }
+
+    static func shortcutDecision(enabled: Bool, authentication: ExternalAuthentication) -> ExternalAccessDecision {
+        guard enabled else { return .proceed }
+        switch authentication {
+        case .succeeded, .unavailable: return .proceed
+        case .refused: return .refuse
+        case .notPossibleHere: return .continueInApp
+        }
+    }
+
+    /// Mostrar los nombres de proyectos en Spotlight y en las sugerencias de Siri/Atajos con
+    /// el bloqueo activo (desactivado por defecto).
+    static let exposesProjectsWhenLockedKey = "security.appLock.exposesProjects"
+
+    /// ¿Se publican nombres de proyecto fuera de la app (Spotlight, sugerencias)? Con el
+    /// bloqueo activo, solo si el usuario lo permite. Los atajos ya creados siguen
+    /// funcionando (se resuelven por su identificador) y buscar por nombre en Atajos
+    /// también, porque eso lo pide el usuario a propósito.
+    static func exposesProjectNames(enabled: Bool, exposesWhenLocked: Bool) -> Bool {
+        !enabled || exposesWhenLocked
+    }
+
     /// Lo encolado mientras estaba bloqueada: solo el ÚLTIMO destino (abrir varios
     /// seguidos al desbloquear sería confuso). `nil` si se puede atender ya.
     static func deferring<Item>(_ item: Item, enabled: Bool, isLocked: Bool) -> Item? {

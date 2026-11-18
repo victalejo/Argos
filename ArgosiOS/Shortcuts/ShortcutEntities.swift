@@ -6,6 +6,12 @@
 //  caché del dispositivo (`ProjectShortcutCache`): se listan sin red ni conexión SSH, con
 //  los últimos conocidos de cada servidor. Nada de secretos: solo nombres y carpetas.
 //
+//  Qué se ve con el bloqueo de Argos activo: los atajos ya creados se siguen resolviendo
+//  (por identificador) y buscar escribiendo en Atajos encuentra proyectos por nombre,
+//  pero las SUGERENCIAS (listas que el sistema muestra solo, frases de Siri con nombre de
+//  proyecto) quedan vacías salvo que el usuario active «Mostrar proyectos en Spotlight y
+//  Siri» en Ajustes. Nunca se expone más que el nombre del servidor y del proyecto.
+//
 
 import AppIntents
 import Foundation
@@ -41,6 +47,7 @@ struct ServerEntityQuery: EntityStringQuery {
     @MainActor
     func entities(matching string: String) async throws -> [ServerEntity] {
         let needle = ProjectShortcutCache.folded(string)
+        guard !needle.isEmpty || ShortcutExposure.showsSuggestions else { return [] }
         return ServerStore().servers
             .filter { needle.isEmpty || ProjectShortcutCache.folded($0.name).contains(needle) }
             .map(ServerEntity.init)
@@ -48,7 +55,8 @@ struct ServerEntityQuery: EntityStringQuery {
 
     @MainActor
     func suggestedEntities() async throws -> [ServerEntity] {
-        ServerStore().servers.map(ServerEntity.init)
+        guard ShortcutExposure.showsSuggestions else { return [] }
+        return ServerStore().servers.map(ServerEntity.init)
     }
 }
 
@@ -85,12 +93,14 @@ struct ProjectEntityQuery: EntityStringQuery {
 
     @MainActor
     func entities(matching string: String) async throws -> [ProjectEntity] {
-        entities(ProjectShortcutCacheStore().load().matching(string))
+        guard !ProjectShortcutCache.folded(string).isEmpty || ShortcutExposure.showsSuggestions else { return [] }
+        return entities(ProjectShortcutCacheStore().load().matching(string))
     }
 
     @MainActor
     func suggestedEntities() async throws -> [ProjectEntity] {
-        entities(ProjectShortcutCacheStore().load().suggested())
+        guard ShortcutExposure.showsSuggestions else { return [] }
+        return entities(ProjectShortcutCacheStore().load().suggested())
     }
 
     /// Solo los de servidores que siguen en Argos (con su nombre actual).
@@ -100,6 +110,19 @@ struct ProjectEntityQuery: EntityStringQuery {
         return projects.compactMap { project in
             names[project.serverID].map { ProjectEntity(project, serverName: $0) }
         }
+    }
+}
+
+// MARK: - Exposición con el bloqueo activo
+
+enum ShortcutExposure {
+    /// Sugerencias de Atajos/Siri y Spotlight (ver `AppLockPolicy.exposesProjectNames`).
+    static var showsSuggestions: Bool {
+        let defaults = UserDefaults.standard
+        return AppLockPolicy.exposesProjectNames(
+            enabled: defaults.bool(forKey: AppLockPolicy.enabledKey),
+            exposesWhenLocked: defaults.bool(forKey: AppLockPolicy.exposesProjectsWhenLockedKey)
+        )
     }
 }
 

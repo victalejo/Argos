@@ -7,7 +7,9 @@
 //  servidor; su aviso de «terminó / espera tu permiso» llega como siempre.
 //
 //  Seguridad:
-//  - Exige el dispositivo desbloqueado (`authenticationPolicy`).
+//  - Exige el dispositivo desbloqueado (`authenticationPolicy`) y, si Argos tiene activo
+//    su bloqueo con Face ID, la misma autenticación que la app antes de conectar
+//    (`ShortcutAuthenticator`); sin interfaz para pedirla, se niega y propone abrir Argos.
 //  - Antes de mandar trabajo a un agente que actúa sin preguntar o que acepta ediciones
 //    solo, pide confirmación con servidor, proyecto y modo, salvo que el usuario active
 //    «Permitir atajos sin confirmar» en Ajustes (desactivado por defecto).
@@ -18,7 +20,7 @@
 import AppIntents
 import Foundation
 
-struct AskClaudeIntent: AppIntent {
+struct AskClaudeIntent: ForegroundContinuableIntent {
     static let title: LocalizedStringResource = "Pedir a Claude"
     static let description: IntentDescription? = IntentDescription(
         "Manda un encargo al agente de Claude Code de un proyecto de Argos sin abrir la app. El agente trabaja en el servidor y Argos te avisa cuando termine o necesite permiso.",
@@ -44,6 +46,8 @@ struct AskClaudeIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let text = try ShortcutTask.validated(task)
+        // Antes de tocar la red: el bloqueo de la app manda (no lo salta «sin confirmar»).
+        try await ShortcutAuthenticator.requireUnlock(for: self)
         let target = try ShortcutAgentSender.target(forProjectID: project.id)
         let prepared = try await ShortcutAgentSender.prepare(target)
         let mode = prepared.plan.permissionMode
