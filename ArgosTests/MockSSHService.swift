@@ -298,23 +298,48 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
 
     /// Ruta que devuelve `locateClaude` (nil simula "no instalado").
     var claudePath: String? = "/usr/bin/claude"
+    // Lo del agente SÍ se usa en paralelo: cada pestaña del panel ejecuta su `runAgentExec`
+    // en su propia tarea (fuera del hilo principal) y todas registran a la vez. Sin
+    // cerrojo, varias pestañas escribiendo en los mismos arrays era una carrera de datos
+    // que podía tumbar el test de forma intermitente.
+    private let agentLock = NSLock()
+    private var agentState = AgentRecording()
+
+    private struct AgentRecording {
+        var script: [String] = []
+        var stdinLines: [String] = []
+        var lastCommand: String?
+        var commands: [String] = []
+        var scripts: [String] = []
+        var killedPIDs: [Int32] = []
+    }
+
+    private func withAgentState<T>(_ body: (inout AgentRecording) -> T) -> T {
+        agentLock.lock()
+        defer { agentLock.unlock() }
+        return body(&agentState)
+    }
+
     /// Líneas NDJSON que `runAgentExec` emitirá por stdout al arrancar.
-    var agentScript: [String] = []
+    var agentScript: [String] {
+        get { withAgentState { $0.script } }
+        set { withAgentState { $0.script = newValue } }
+    }
     /// Líneas recibidas por stdin (prompts y control_response), para aserciones.
-    private(set) var agentStdinLines: [String] = []
+    var agentStdinLines: [String] { withAgentState { $0.stdinLines } }
     /// Último comando recibido por `runAgentExec`.
-    private(set) var lastAgentCommand: String?
+    var lastAgentCommand: String? { withAgentState { $0.lastCommand } }
     /// Todos los comandos recibidos por `runAgentExec`, en orden.
-    private(set) var agentCommands: [String] = []
+    var agentCommands: [String] { withAgentState { $0.commands } }
     /// Comandos del agente persistente recibidos y respuesta (stdout) a cada uno.
-    private(set) var agentScripts: [String] = []
+    var agentScripts: [String] { withAgentState { $0.scripts } }
     var agentScriptOutput: (String) throws -> String = { _ in "" }
 
     func locateClaude() async throws -> String? { claudePath }
 
     var availableMemory: Int? = 8_000_000
-    private(set) var killedAgentPIDs: [Int32] = []
-    func killAgentProcess(pid: Int32) async { killedAgentPIDs.append(pid) }
+    var killedAgentPIDs: [Int32] { withAgentState { $0.killedPIDs } }
+    func killAgentProcess(pid: Int32) async { withAgentState { $0.killedPIDs.append(pid) } }
     func availableMemoryKB() async throws -> Int? { availableMemory }
 
     /// Si el directorio remoto existe (por defecto sí).
@@ -370,24 +395,27 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         stdin: AsyncStream<[UInt8]>,
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws {
-        lastAgentCommand = command
-        agentCommands.append(command)
-        for line in agentScript {
+        let script = withAgentState { state -> [String] in
+            state.lastCommand = command
+            state.commands.append(command)
+            return state.script
+        }
+        for line in script {
             output.yield(Array((line + "\n").utf8))
         }
-        // Drena stdin (registrándolo) hasta que el llamador lo finalice con `stop()`.
+        // Drena stdin (registrándolo) hasta que el llamador lo finalice con `stop()`: la
+        // «ejecución» queda suspendida aquí, así que la sesión sigue viva hasta entonces.
         for await bytes in stdin {
             if let text = String(bytes: bytes, encoding: .utf8) {
-                agentStdinLines.append(
-                    contentsOf: text.split(whereSeparator: \.isNewline).map(String.init)
-                )
+                let lines = text.split(whereSeparator: \.isNewline).map(String.init)
+                withAgentState { $0.stdinLines.append(contentsOf: lines) }
             }
         }
         output.finish()
     }
 
     func runAgentScript(_ command: String) async throws -> String {
-        agentScripts.append(command)
+        withAgentState { $0.scripts.append(command) }
         return try agentScriptOutput(command)
     }
 
