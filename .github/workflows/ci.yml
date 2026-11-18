@@ -47,8 +47,9 @@ jobs:
   mac:
     name: Mac (build + test)
     runs-on: macos-15
-    # Un xcodebuild colgado no debe gastar las 6 h por defecto.
-    timeout-minutes: 30
+    # Un xcodebuild colgado no debe gastar las 6 h por defecto. Las suites de scripts
+    # remotos (IntegrationServerSuites) suman unos 8 min en serie.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -126,9 +127,13 @@ jobs:
 
       # Un sshd REAL y temporal (sin root, solo en 127.0.0.1, con MaxSessions bajo) para los
       # fallos que solo aparecen contra un servidor de verdad (agotamiento de canales,
-      # reconexión, SFTP en paralelo, túneles). El paso de parada va siempre.
+      # reconexión, SFTP en paralelo, túneles) y para los scripts remotos de Argos
+      # (projects.json, envío, git, agentes con un `claude` simulado, tmux, Doctor). El paso
+      # de parada va siempre. tmux hace falta para las suites de tmux y hooks de Claude.
       - name: Arrancar sshd temporal
-        run: scripts/sshd-test-start.sh --max-sessions "$SSHD_MAX_SESSIONS" > /dev/null
+        run: |
+          command -v tmux >/dev/null || brew install tmux
+          scripts/sshd-test-start.sh --max-sessions "$SSHD_MAX_SESSIONS" > /dev/null
 
       - name: Tests de integración SSH (sshd temporal)
         run: |
@@ -138,6 +143,7 @@ jobs:
             -destination 'platform=macOS' -clonedSourcePackagesDirPath .spm \
             -only-testing:ArgosTests/IntegrationSSHDTests \
             -only-testing:ArgosTests/IntegrationConnectionMonitorTests \
+            -only-testing:ArgosTests/IntegrationServerSuites \
             -resultBundlePath IntegrationResults.xcresult \
             CODE_SIGNING_ALLOWED=NO | xcbeautify
 
