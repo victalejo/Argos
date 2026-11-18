@@ -3,6 +3,9 @@ package com.iaportafolio.argos.ui.terminal
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.background.ClaudeActivitySource
+import com.iaportafolio.argos.background.ViewedWindow
+import com.iaportafolio.argos.core.status.ClaudeActivity
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.tmux.CodingAgent
 import com.iaportafolio.argos.core.tmux.TmuxWindow
@@ -20,6 +23,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -34,6 +39,8 @@ data class TerminalWindowsUiState(
     /** Ventana pendiente de confirmar su cierre (corre algo en ella). */
     val closing: TmuxWindow? = null,
     val message: UiText? = null,
+    /** Estado de Claude Code por índice de ventana (insignia de cada pestaña). */
+    val claudeWindows: Map<Int, ClaudeActivity> = emptyMap(),
 )
 
 /**
@@ -49,6 +56,7 @@ class TerminalWindowsViewModel(
     private val repository: ServerRepository,
     private val services: ServiceProvider,
     private val io: CoroutineDispatcher,
+    private val claude: ClaudeActivitySource = ClaudeActivitySource.None,
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(TerminalWindowsUiState())
@@ -59,6 +67,16 @@ class TerminalWindowsViewModel(
 
     /** Un solo intento por tanda de sondeo: no se abre un canal extra cada pocos segundos. */
     private var triedInstalledAgents = false
+
+    /** Lo último que se contó a [claude] como «en pantalla» (para no pisar a otro terminal al salir). */
+    private var viewed: ViewedWindow? = null
+
+    init {
+        viewModelScope.launch {
+            claude.activity.map { it[serverId]?.windows(sessionName).orEmpty() }.distinctUntilChanged()
+                .collect { windows -> mutableState.update { it.copy(claudeWindows = windows) } }
+        }
+    }
 
     private suspend fun service(): SSHServicing {
         val server = repository.server(serverId) ?: throw FileServerMissingException()
@@ -71,10 +89,30 @@ class TerminalWindowsViewModel(
      * reconexión del propio terminal.
      */
     suspend fun pollWhileVisible() {
-        var interval = POLL_INTERVAL_MILLIS
         triedInstalledAgents = false
+        try {
+            markViewing()
+            pollLoop(POLL_INTERVAL_MILLIS)
+        } finally {
+            // Ya no se ve: vuelve a avisarse de esta ventana (salvo que otro terminal la tenga delante).
+            viewed?.let { mine -> claude.clearViewing(mine) }
+            viewed = null
+        }
+    }
+
+    /** La ventana activa es la que se mira: de ella no se avisa y se retira su aviso. */
+    private fun markViewing() {
+        val window = ViewedWindow(serverId, sessionName, state.value.windows.firstOrNull { it.isActive }?.index)
+        if (window == viewed) return
+        viewed = window
+        claude.setViewing(window)
+    }
+
+    private suspend fun pollLoop(initial: Long) {
+        var interval = initial
         while (true) {
             val ok = refreshNow()
+            markViewing()
             if (ok && state.value.installedAgents == null && !triedInstalledAgents) {
                 triedInstalledAgents = true
                 loadInstalledAgents()
@@ -115,6 +153,7 @@ class TerminalWindowsViewModel(
     fun select(window: TmuxWindow) {
         // Respuesta inmediata; la lectura posterior confirma (o corrige) la pestaña activa.
         mutableState.update { state -> state.copy(windows = state.windows.map { it.copy(isActive = it.index == window.index) }) }
+        if (viewed != null) markViewing()
         run("cambiar a la ventana ${window.index}") { it.selectWindow(sessionName, window.index) }
     }
 

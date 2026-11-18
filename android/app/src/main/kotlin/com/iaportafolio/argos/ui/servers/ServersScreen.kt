@@ -86,6 +86,10 @@ fun ServersScreen(
     modifier: Modifier = Modifier,
     /** Diagnóstico de los avisos (desde «Avisos y segundo plano»). */
     diagnostics: @Composable (onDismiss: () -> Unit) -> Unit = {},
+    /** «Activar indicador de Claude» del menú de un servidor. */
+    onEnableClaude: (Server) -> Unit = {},
+    /** Ajustes globales extra del menú (p. ej. el comando de arranque). */
+    extraSettings: @Composable (closeMenu: () -> Unit) -> Unit = {},
 ) {
     val snackbar = remember { SnackbarHostState() }
     MessageEffect(state.message, snackbar, onMessageShown)
@@ -121,6 +125,7 @@ fun ServersScreen(
                                     editingBackground = true
                                 },
                             )
+                            extraSettings { menuOpen = false }
                             HorizontalDivider()
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.about_title)) },
@@ -188,6 +193,7 @@ fun ServersScreen(
                         onEdit = { onEdit(server) },
                         onDelete = { onRequestDelete(server) },
                         onForgetHostKey = { onForgetHostKey(server) },
+                        onEnableClaude = { onEnableClaude(server) },
                     )
                 }
             }
@@ -241,6 +247,7 @@ private fun ServerRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onForgetHostKey: () -> Unit,
+    onEnableClaude: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     ListItem(
@@ -272,6 +279,11 @@ private fun ServerRow(
                         text = { Text(stringResource(R.string.servers_forget_host_key)) },
                         leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
                         onClick = { menuOpen = false; onForgetHostKey() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.claude_hooks_menu)) },
+                        leadingIcon = { Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null) },
+                        onClick = { menuOpen = false; onEnableClaude() },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },

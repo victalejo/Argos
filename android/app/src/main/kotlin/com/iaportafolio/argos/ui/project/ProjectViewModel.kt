@@ -94,8 +94,9 @@ class ProjectViewModel(
         mutableState.update { it.copy(tab = tab, terminalOpened = it.terminalOpened || tab == ProjectTab.TERMINAL) }
     }
 
-    private fun restoredTab(): ProjectTab =
-        savedState.get<String>(KEY_TAB)?.let { name -> ProjectTab.entries.firstOrNull { it.name == name } } ?: ProjectTab.TERMINAL
+    /** La guardada; si no, la que pidió la navegación (argumento `tab` de la ruta); si no, Terminal. */
+    private fun restoredTab(): ProjectTab = (savedState.get<String>(KEY_TAB) ?: savedState.get<String>(ARG_TAB))
+        ?.let { name -> ProjectTab.entries.firstOrNull { it.name == name } } ?: ProjectTab.TERMINAL
 
     /** Relee el proyecto y si su sesión corre (al abrir y al volver a primer plano). */
     fun reload() {
@@ -153,6 +154,9 @@ class ProjectViewModel(
     companion object {
         private const val KEY_TAB = "project.tab"
         private const val KEY_TERMINAL_OPENED = "project.terminalOpened"
+
+        /** Argumento opcional de `ProjectRoute`. */
+        const val ARG_TAB = "tab"
 
         /** Recurso del título de cada pestaña (UI y accesibilidad). */
         fun titleOf(tab: ProjectTab): Int = when (tab) {

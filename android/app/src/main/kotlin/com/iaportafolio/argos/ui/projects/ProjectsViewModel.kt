@@ -2,7 +2,9 @@ package com.iaportafolio.argos.ui.projects
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.iaportafolio.argos.background.ClaudeActivitySource
 import com.iaportafolio.argos.core.HostKeyTrustStore
+import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.git.GitCommandException
@@ -37,6 +39,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -57,6 +61,7 @@ class ProjectsViewModel(
     private val hostKeys: HostKeyTrustStore,
     private val preferences: ProjectPreferencesStore,
     private val io: CoroutineDispatcher,
+    private val claude: ClaudeActivitySource = ClaudeActivitySource.None,
 ) : ViewModel(), ProjectsActions, SessionDialogActions {
 
     private val mutableState = MutableStateFlow(
@@ -85,6 +90,10 @@ class ProjectsViewModel(
         }
         viewModelScope.launch {
             preferences.preferences.collect { prefs -> mutableState.update { it.copy(preferences = prefs) } }
+        }
+        viewModelScope.launch {
+            claude.activity.map { it[serverId] ?: ClaudeActivitySnapshot.EMPTY }.distinctUntilChanged()
+                .collect { snapshot -> mutableState.update { it.copy(claudeActivity = snapshot) } }
         }
         load()
     }
@@ -199,6 +208,8 @@ class ProjectsViewModel(
     override fun setFilter(filter: ProjectStatusFilter) = preferences.setStatusFilter(filter)
 
     override fun toggleGroup(group: String) = preferences.toggleCollapsed(serverId, group)
+
+    override fun setQuery(query: String) = mutableState.update { it.copy(query = query) }
 
     // MARK: - Abrir / detener / quitar
 
@@ -536,6 +547,7 @@ interface ProjectsActions {
     fun messageShown()
     fun setFilter(filter: ProjectStatusFilter)
     fun toggleGroup(group: String)
+    fun setQuery(query: String)
     fun openProject(entry: ProjectEntry)
     fun openSession(session: TmuxSession)
     fun openWorktrees(project: Project)

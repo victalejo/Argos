@@ -71,6 +71,8 @@ import com.iaportafolio.argos.ui.git.GitSummaryBadge
 import com.iaportafolio.argos.core.projects.ProjectEntry
 import com.iaportafolio.argos.core.projects.ProjectStatusFilter
 import com.iaportafolio.argos.core.tmux.TmuxSession
+import com.iaportafolio.argos.core.status.ClaudeActivity
+import com.iaportafolio.argos.ui.claude.ClaudeActivityBadge
 import com.iaportafolio.argos.ui.common.MessageEffect
 import com.iaportafolio.argos.ui.common.ProgressMessage
 import com.iaportafolio.argos.ui.common.StatusMessage
@@ -94,16 +96,20 @@ fun ProjectsScreen(
     onOpenPorts: () -> Unit,
     folderPicker: @Composable (startPath: String, onPick: (String) -> Unit, onDismiss: () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
+    /** «Activar indicador de Claude» del menú (`null` = no se ofrece). */
+    onEnableClaude: (() -> Unit)? = null,
+    /** Sugerencia contextual sobre el indicador de Claude, encima de la lista. */
+    claudeHint: @Composable () -> Unit = {},
 ) {
     val snackbar = remember { SnackbarHostState() }
     MessageEffect(state.message, snackbar, actions::messageShown)
 
     Scaffold(
         modifier = modifier,
-        topBar = { ProjectsTopBar(state, actions, onBack, onOpenPorts) },
+        topBar = { ProjectsTopBar(state, actions, onBack, onOpenPorts, onEnableClaude) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) { ProjectsContent(state, actions) }
+        Box(Modifier.fillMaxSize().padding(padding)) { ProjectsContent(state, actions, claudeHint) }
     }
 
     SessionDialogs(state.sessionDialog, sessionActions)
@@ -112,7 +118,13 @@ fun ProjectsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProjectsTopBar(state: ProjectsUiState, actions: ProjectsActions, onBack: (() -> Unit)?, onOpenPorts: () -> Unit) {
+private fun ProjectsTopBar(
+    state: ProjectsUiState,
+    actions: ProjectsActions,
+    onBack: (() -> Unit)?,
+    onOpenPorts: () -> Unit,
+    onEnableClaude: (() -> Unit)?,
+) {
     var menuOpen by remember { mutableStateOf(false) }
     val ready = state.load == SessionsLoad.Loaded && !state.isBusy
     TopAppBar(
@@ -152,6 +164,13 @@ private fun ProjectsTopBar(state: ProjectsUiState, actions: ProjectsActions, onB
                         leadingIcon = { Icon(painterResource(R.drawable.ic_server), contentDescription = null) },
                         onClick = { menuOpen = false; onOpenPorts() },
                     )
+                    if (onEnableClaude != null) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.claude_hooks_menu)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null) },
+                            onClick = { menuOpen = false; onEnableClaude() },
+                        )
+                    }
                 }
             }
         },
@@ -159,7 +178,7 @@ private fun ProjectsTopBar(state: ProjectsUiState, actions: ProjectsActions, onB
 }
 
 @Composable
-private fun ProjectsContent(state: ProjectsUiState, actions: ProjectsActions) {
+private fun ProjectsContent(state: ProjectsUiState, actions: ProjectsActions, claudeHint: @Composable () -> Unit) {
     when (val load = state.load) {
         is SessionsLoad.Connecting -> ProgressMessage(
             when (load.step) {
@@ -197,7 +216,7 @@ private fun ProjectsContent(state: ProjectsUiState, actions: ProjectsActions) {
             isRefreshing = state.isRefreshing,
             onRefresh = actions::refresh,
             modifier = Modifier.fillMaxSize(),
-        ) { ProjectList(state, actions) }
+        ) { ProjectList(state, actions, claudeHint) }
     }
 }
 
@@ -207,9 +226,11 @@ private fun RetryButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun ProjectList(state: ProjectsUiState, actions: ProjectsActions) {
+private fun ProjectList(state: ProjectsUiState, actions: ProjectsActions, claudeHint: @Composable () -> Unit) {
     // Siempre desplazable: así el pull-to-refresh funciona también vacía.
     LazyColumn(Modifier.fillMaxSize()) {
+        item(key = "claude-hint") { claudeHint() }
+        if (!state.isEmpty) item(key = "search") { ProjectSearchField(state.query, actions::setQuery) }
         item(key = "filters") { FilterChips(state, actions::setFilter) }
         state.projectsError?.let { error -> item(key = "projects-error") { ProjectsErrorRow(error) } }
         if (state.isEmpty) {
@@ -220,6 +241,14 @@ private fun ProjectList(state: ProjectsUiState, actions: ProjectsActions) {
                     body = stringResource(R.string.projects_empty),
                     modifier = Modifier.fillParentMaxSize(),
                 ) { Button(onClick = actions::openNewProject) { Text(stringResource(R.string.projects_new)) } }
+            }
+        } else if (state.sections.isEmpty() && state.looseSessions.isEmpty() && state.query.isNotBlank()) {
+            item(key = "search-empty") {
+                StatusMessage(
+                    icon = painterResource(R.drawable.ic_folder),
+                    title = stringResource(R.string.projects_search_empty, state.query.trim()),
+                    modifier = Modifier.fillParentMaxSize(),
+                )
             }
         } else if (state.sections.isEmpty() && state.looseSessions.isEmpty()) {
             item(key = "filtered-empty") {
@@ -234,18 +263,24 @@ private fun ProjectList(state: ProjectsUiState, actions: ProjectsActions) {
         state.sections.forEach { section -> projectSection(section, state, actions) }
         if (state.looseSessions.isNotEmpty()) {
             stickyHeader(key = "loose-header") { SectionHeader(stringResource(R.string.projects_loose_sessions)) }
-            items(state.looseSessions, key = { "session:${it.name}" }) { session -> LooseSessionRow(session, actions) }
+            items(state.looseSessions, key = { "session:${it.name}" }) { session -> LooseSessionRow(session, state.claude(session), actions) }
         }
     }
 }
 
 private fun LazyListScope.projectSection(section: ProjectSection, state: ProjectsUiState, actions: ProjectsActions) {
     stickyHeader(key = "group:${section.name}") {
-        CollapsibleHeader(section, onToggle = { actions.toggleGroup(section.name) })
+        CollapsibleHeader(section, claude = if (section.isCollapsed) state.claude(section) else null, onToggle = { actions.toggleGroup(section.name) })
     }
     if (!section.isCollapsed) {
         items(section.entries, key = { "project:${it.id}" }) { entry ->
-            ProjectRow(entry, isBusy = state.busyProjectId == entry.id, git = state.gitSummaries[entry.project.path], actions = actions)
+            ProjectRow(
+                entry,
+                isBusy = state.busyProjectId == entry.id,
+                git = state.gitSummaries[entry.project.path],
+                claude = state.claude(entry),
+                actions = actions,
+            )
         }
     }
 }
@@ -295,7 +330,7 @@ private fun SectionHeader(name: String) {
 }
 
 @Composable
-private fun CollapsibleHeader(section: ProjectSection, onToggle: () -> Unit) {
+private fun CollapsibleHeader(section: ProjectSection, claude: ClaudeActivity?, onToggle: () -> Unit) {
     val stateText = stringResource(if (section.isCollapsed) R.string.projects_group_collapsed else R.string.projects_group_expanded)
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -314,6 +349,7 @@ private fun CollapsibleHeader(section: ProjectSection, onToggle: () -> Unit) {
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f),
             )
+            claude?.let { ClaudeActivityBadge(it, Modifier.padding(end = 8.dp)) }
             Icon(
                 if (section.isCollapsed) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
                 contentDescription = null,
@@ -326,7 +362,7 @@ private fun CollapsibleHeader(section: ProjectSection, onToggle: () -> Unit) {
 private val RUNNING_GREEN = Color(0xFF30B94D)
 
 @Composable
-private fun ProjectRow(entry: ProjectEntry, isBusy: Boolean, git: GitRepoSummary?, actions: ProjectsActions) {
+private fun ProjectRow(entry: ProjectEntry, isBusy: Boolean, git: GitRepoSummary?, claude: ClaudeActivity?, actions: ProjectsActions) {
     var menuOpen by remember { mutableStateOf(false) }
     val project = entry.project
     val session = entry.session
@@ -352,6 +388,7 @@ private fun ProjectRow(entry: ProjectEntry, isBusy: Boolean, git: GitRepoSummary
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                claude?.let { ClaudeActivityBadge(it, Modifier.padding(end = 8.dp), size = 18.dp) }
                 GitSummaryBadge(git, Modifier.padding(end = 8.dp))
                 when {
                     isBusy -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -406,7 +443,7 @@ private fun ProjectMenu(entry: ProjectEntry, expanded: Boolean, onDismiss: () ->
 }
 
 @Composable
-private fun LooseSessionRow(session: TmuxSession, actions: ProjectsActions) {
+private fun LooseSessionRow(session: TmuxSession, claude: ClaudeActivity?, actions: ProjectsActions) {
     var menuOpen by remember { mutableStateOf(false) }
     val windows = pluralStringResource(R.plurals.sessions_windows, session.windowCount, session.windowCount)
     val subtitle = if (session.isAttached) "$windows · ${stringResource(R.string.sessions_attached)}" else windows
@@ -422,26 +459,29 @@ private fun LooseSessionRow(session: TmuxSession, actions: ProjectsActions) {
         headlineContent = { Text(session.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(subtitle) },
         trailingContent = {
-            Box {
-                IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.sessions_more_for, session.name))
-                }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.projects_convert)) },
-                        leadingIcon = { Icon(painterResource(R.drawable.ic_folder), contentDescription = null) },
-                        onClick = { menuOpen = false; actions.openConvert(session) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.sessions_rename)) },
-                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                        onClick = { menuOpen = false; actions.openRenameSession(session) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.sessions_kill), color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = { Icon(Icons.Filled.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                        onClick = { menuOpen = false; actions.requestKillSession(session) },
-                    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                claude?.let { ClaudeActivityBadge(it, Modifier.padding(end = 8.dp), size = 18.dp) }
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.sessions_more_for, session.name))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.projects_convert)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_folder), contentDescription = null) },
+                            onClick = { menuOpen = false; actions.openConvert(session) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sessions_rename)) },
+                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                            onClick = { menuOpen = false; actions.openRenameSession(session) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sessions_kill), color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Filled.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            onClick = { menuOpen = false; actions.requestKillSession(session) },
+                        )
+                    }
                 }
             }
         },

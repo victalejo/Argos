@@ -67,6 +67,8 @@ class AgentNotifier(
     private val live: (Server) -> SSHServicing? = { null },
     private val localNetwork: LocalNetworkGate = LocalNetworkGate.NotRequired,
     private val diagnostics: BackgroundDiagnosticsStore? = null,
+    /** Claude Code en las ventanas tmux de los servidores donde se vio (solo en segundo plano). */
+    private val claude: ClaudeBackgroundCheck? = null,
 ) : AgentAttentionTracker {
 
     private val trust = ReadOnlyHostKeyTrustStore(hostKeys)
@@ -83,7 +85,7 @@ class AgentNotifier(
     suspend fun check(trigger: CheckTrigger = CheckTrigger.BACKGROUND, liveOnly: Boolean = false): AgentCheckOutcome {
         if (!checking.tryLock()) return AgentCheckOutcome.BUSY
         return try {
-            val (outcome, results) = runCheck(liveOnly)
+            val (outcome, results) = runCheck(liveOnly, trigger)
             if (!(liveOnly && results.isEmpty())) {
                 diagnostics?.record(CheckRecord(clock(), trigger, outcome, results.groupingBy { it }.eachCount()))
             }
@@ -93,23 +95,28 @@ class AgentNotifier(
         }
     }
 
-    /** ¿Hay algo que revisar? (avisos activados y algún servidor apuntado). */
-    fun hasWatchedServers(): Boolean = store.notificationsEnabled.value && store.watchedServers().isNotEmpty()
+    /** ¿Hay algo que revisar? (avisos activados y algún servidor apuntado, por agentes o por Claude en tmux). */
+    fun hasWatchedServers(): Boolean =
+        store.notificationsEnabled.value && (store.watchedServers().isNotEmpty() || claude?.hasWatched() == true)
 
-    private suspend fun runCheck(liveOnly: Boolean): Pair<AgentCheckOutcome, List<ServerCheckResult>> {
+    private suspend fun runCheck(liveOnly: Boolean, trigger: CheckTrigger): Pair<AgentCheckOutcome, List<ServerCheckResult>> {
         if (!store.notificationsEnabled.value) return AgentCheckOutcome.DISABLED to emptyList()
         if (!alerts.canNotify()) return AgentCheckOutcome.BLOCKED to emptyList()
         val configured = servers.servers.value
         val watched = store.watchedServers()
         // Se limpia aquí también por si se borró un servidor con la app a medias.
-        (watched - configured.map { it.id }.toSet()).forEach(::serverDeleted)
-        val targets = configured.filter { it.id in watched && (!liveOnly || live(it) != null) }
+        val existing = configured.map { it.id }.toSet()
+        (watched - existing).forEach(::serverDeleted)
+        claude?.let { check -> (check.allWatched() - existing).forEach(check::serverDeleted) }
+        // Con la app a la vista, Claude en tmux lo sondea `ClaudeActivityMonitor` (sin abrir conexiones).
+        val claudeIds = if (trigger == CheckTrigger.FOREGROUND) emptySet() else claude?.watchedServers().orEmpty()
+        val targets = configured.filter { (it.id in watched || it.id in claudeIds) && (!liveOnly || live(it) != null) }
         if (targets.isEmpty()) return AgentCheckOutcome.CHECKED to emptyList()
         val redactor = SecretRedactor(readToken())
-        val results = targets.map { checkServer(it, redactor) }
+        val results = targets.map { checkServer(it, redactor, ServerChecks(agents = it.id in watched, claude = it.id in claudeIds)) }
         // Si ya no queda ninguno que revisar, se cancela el trabajo periódico. Al final: hacerlo
         // a mitad cortaría los servidores que faltan.
-        if (store.watchedServers().isEmpty()) scheduler.cancel()
+        if (!hasWatchedServers()) scheduler.cancel()
         return AgentCheckOutcome.CHECKED to results
     }
 
@@ -123,11 +130,14 @@ class AgentNotifier(
         null
     }
 
-    private suspend fun checkServer(server: Server, redactor: SecretRedactor): ServerCheckResult = try {
+    /** Qué se revisa en un servidor. */
+    private data class ServerChecks(val agents: Boolean, val claude: Boolean)
+
+    private suspend fun checkServer(server: Server, redactor: SecretRedactor, checks: ServerChecks): ServerCheckResult = try {
         withContext(io) {
             val shared = live(server)
             when {
-                shared != null -> readAndNotify(server, shared, redactor)
+                shared != null -> readAndNotify(server, shared, redactor, checks)
                 localNetwork.blocks(server.host) -> {
                     log("Servidor ${server.id} en la red local sin permiso: no se revisa")
                     ServerCheckResult.LOCAL_NETWORK_BLOCKED
@@ -139,7 +149,7 @@ class AgentNotifier(
                 else -> {
                     val service = connector.service(server, secrets.credentials(server), trust)
                     try {
-                        readAndNotify(server, service, redactor)
+                        readAndNotify(server, service, redactor, checks)
                     } finally {
                         disconnect(server, service)
                     }
@@ -153,7 +163,16 @@ class AgentNotifier(
         ServerCheckResult.FAILED
     }
 
-    private suspend fun readAndNotify(server: Server, service: SSHServicing, redactor: SecretRedactor): ServerCheckResult {
+    private suspend fun readAndNotify(server: Server, service: SSHServicing, redactor: SecretRedactor, checks: ServerChecks): ServerCheckResult {
+        val agents = if (checks.agents) readAgentsAndNotify(server, service, redactor) else ServerCheckResult.CHECKED
+        if (checks.claude && claude?.check(server, service) == false) {
+            log("El servidor ${server.id} no respondió a tiempo (Claude en tmux)")
+            return ServerCheckResult.NO_RESPONSE
+        }
+        return agents
+    }
+
+    private suspend fun readAgentsAndNotify(server: Server, service: SSHServicing, redactor: SecretRedactor): ServerCheckResult {
         val mark = store.watchMark()
         val output = withTimeoutOrNull(serverTimeoutMillis) { service.runAgentScript(PersistentAgentScript.snapshots()) }
         if (output == null) {
@@ -217,6 +236,7 @@ class AgentNotifier(
 
     override fun serverDeleted(serverId: String) {
         store.unwatch(serverId).forEach { alerts.cancel(serverId, it) }
+        claude?.serverDeleted(serverId)
         syncSchedule()
     }
 
@@ -232,7 +252,7 @@ class AgentNotifier(
         synchronized(shownChats) { (serverId to agentId) in shownChats }
 
     private fun syncSchedule() {
-        if (store.notificationsEnabled.value && store.watchedServers().isNotEmpty()) scheduler.schedule() else scheduler.cancel()
+        if (hasWatchedServers()) scheduler.schedule() else scheduler.cancel()
     }
 
     private companion object {

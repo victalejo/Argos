@@ -31,6 +31,9 @@ import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.background.AgentChatTarget
 import com.iaportafolio.argos.background.CheckTrigger
+import com.iaportafolio.argos.background.ClaudeTarget
+import com.iaportafolio.argos.ui.claude.ClaudeHooksDialogs
+import com.iaportafolio.argos.ui.claude.ClaudeHooksHint
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.ui.about.AboutScreen
 import com.iaportafolio.argos.ui.about.LicensesScreen
@@ -77,8 +80,9 @@ data class ServerFormRoute(val serverId: String? = null)
 @Serializable
 data class ProjectsRoute(val serverId: String)
 
+/** [tab]: pestaña con la que abrir (`ProjectTab.name`; la eligen los avisos de Claude). */
 @Serializable
-data class ProjectRoute(val serverId: String, val projectId: String)
+data class ProjectRoute(val serverId: String, val projectId: String, val tab: String? = null)
 
 @Serializable
 data class PortsRoute(val serverId: String)
@@ -124,6 +128,9 @@ fun ArgosNavHost(
     /** Enlace `argos://add-server` de un deep link (ya filtrado); [onImportLinkConsumed] al atenderlo. */
     importLink: String? = null,
     onImportLinkConsumed: () -> Unit = {},
+    /** Ventana con Claude que pidió abrir un aviso (ya validada); [onClaudeTargetConsumed] al atenderla. */
+    claudeTarget: ClaudeTarget? = null,
+    onClaudeTargetConsumed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     // Solo en memoria (no `rememberSaveable`): lleva la semilla de la clave.
@@ -245,6 +252,12 @@ fun ArgosNavHost(
             onChatTargetConsumed()
         }
     }
+    LaunchedEffect(claudeTarget) {
+        claudeTarget?.let { target ->
+            onClaudeTargetConsumed()
+            navController.openClaudeWindow(target, container.servers, container.services, container.io)
+        }
+    }
     LaunchedEffect(importLink) {
         importLink?.let {
             pendingImportLink = it
@@ -281,6 +294,8 @@ private fun ServersDestination(
     val viewModel = serversViewModel(container)
     val state by viewModel.state.collectAsStateWithLifecycle()
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var claudeHooksFor by rememberSaveable { mutableStateOf<String?>(null) }
+    claudeHooksFor?.let { id -> ClaudeHooksHost(container, id, onDone = { claudeHooksFor = null }) }
     // Un servidor borrado deja de estar seleccionado.
     val selected = selectedId?.takeIf { id -> state.servers.any { it.id == id } }
 
@@ -313,6 +328,7 @@ private fun ServersDestination(
                 onMessageShown = viewModel::messageShown,
                 modifier = modifier,
                 diagnostics = { onDismiss -> DiagnosticsDestination(container, onDismiss) },
+                onEnableClaude = { server -> claudeHooksFor = server.id },
             )
         }
         if (!twoPane) {
@@ -375,12 +391,19 @@ private fun ProjectsDestination(
         onPauseOrDispose { }
     }
     val picker = folderPickerViewModel(container, serverId)
+    val hooks = claudeHooksViewModel(container, serverId)
+    val hooksState by hooks.state.collectAsStateWithLifecycle()
+    // Con la conexión ya abierta: ¿tiene Claude pero no el indicador?
+    LaunchedEffect(hooks, state.load) { if (state.load == SessionsLoad.Loaded) hooks.checkHint() }
+    ClaudeHooksDialogs(hooksState, hooks)
     ProjectsScreen(
         state = state,
         actions = viewModel,
         sessionActions = viewModel,
         onBack = onBack,
         onOpenPorts = onOpenPorts,
+        onEnableClaude = hooks::requestInstall,
+        claudeHint = { if (hooksState.showHint) ClaudeHooksHint(onEnable = hooks::requestInstall, onDismiss = hooks::dismissHint) },
         folderPicker = { startPath, onPick, onDismiss ->
             val pickerState by picker.state.collectAsStateWithLifecycle()
             LaunchedEffect(Unit) { picker.start(startPath) }
@@ -538,6 +561,23 @@ private fun AgentsDestination(
             )
         }
     }
+}
+
+/** «Activar indicador de Claude» pedido desde el menú de un servidor: confirma, instala y avisa. */
+@Composable
+private fun ClaudeHooksHost(container: AppContainer, serverId: String, onDone: () -> Unit) {
+    val hooks = claudeHooksViewModel(container, serverId)
+    val state by hooks.state.collectAsStateWithLifecycle()
+    var asked by rememberSaveable(serverId) { mutableStateOf(false) }
+    LaunchedEffect(hooks) {
+        if (!asked) {
+            asked = true
+            hooks.requestInstall()
+        }
+    }
+    ClaudeHooksDialogs(state, hooks)
+    // Cerrado el diálogo (cancelado o con el resultado ya leído), se suelta.
+    if (asked && !state.confirming && !state.isInstalling && state.result == null) LaunchedEffect(Unit) { onDone() }
 }
 
 /** Diagnóstico de avisos (Ajustes → Avisos y segundo plano). */

@@ -677,4 +677,21 @@
     <string name="ports_request_later">Ahora no</string>
     <string name="ports_request_failed">No se pudo abrir el puerto</string>
     <string name="ports_idle_hint">Sin uso = ninguna conexión abierta. Claude ve los túneles con la skill «argos-puertos» del servidor.</string>
+    <!-- Indicador de Claude Code en tmux -->
+    <string name="notification_claude_public">Claude Code necesita tu atención</string>
+    <string name="claude_hooks_title">Indicador de Claude Code</string>
+    <string name="claude_hooks_menu">Activar indicador de Claude…</string>
+    <string name="claude_hooks_enable">Activar</string>
+    <string name="claude_hooks_not_now">Ahora no</string>
+    <string name="claude_hooks_hint">Activa el indicador de Claude Code para ver aquí cuándo trabaja, termina o espera tu respuesta, y recibir avisos.</string>
+    <string name="claude_hooks_confirm_title">¿Activar el indicador de Claude Code en «%1$s»?</string>
+    <string name="claude_hooks_confirm_body">Se añadirán hooks a ~/.claude/settings.json del servidor (con copia en settings.json.argos-backup; tus hooks actuales se conservan). Avisan a Argos cuando Claude trabaja, termina o espera tu respuesta. Las sesiones de Claude ya abiertas deben reiniciarse para usarlos.</string>
+    <string name="claude_hooks_installed">Indicador activado en %1$s. Reinicia las sesiones de Claude Code que ya estuvieran abiertas para que empiecen a reportar su estado.</string>
+    <string name="claude_hooks_already">El indicador ya estaba activo en %1$s.</string>
+    <string name="claude_hooks_failed">No se pudo activar el indicador: %1$s</string>
+
+    <!-- Búsqueda de proyectos -->
+    <string name="projects_search">Buscar proyectos y sesiones</string>
+    <string name="projects_search_clear">Borrar la búsqueda</string>
+    <string name="projects_search_empty">Nada coincide con «%1$s»</string>
 </resources>

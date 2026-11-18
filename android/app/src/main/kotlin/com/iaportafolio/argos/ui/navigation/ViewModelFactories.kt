@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.ui.agents.AgentChatViewModel
+import com.iaportafolio.argos.ui.claude.ClaudeHooksViewModel
 import com.iaportafolio.argos.ui.agents.AgentListViewModel
 import com.iaportafolio.argos.ui.agents.AgentLoginViewModel
 import com.iaportafolio.argos.ui.files.RemoteFilesViewModel
@@ -60,7 +61,26 @@ internal fun projectsViewModel(container: AppContainer, serverId: String): Proje
     key = "projects:$serverId",
     factory = viewModelFactory {
         initializer {
-            ProjectsViewModel(serverId, container.servers, container.services, container.hostKeys, container.projectPreferences, container.io)
+            ProjectsViewModel(
+                serverId,
+                container.servers,
+                container.services,
+                container.hostKeys,
+                container.projectPreferences,
+                container.io,
+                container.claudeActivity,
+            )
+        }
+    },
+)
+
+/** «Activar indicador de Claude» de un servidor (lista de proyectos y menú del servidor). */
+@Composable
+internal fun claudeHooksViewModel(container: AppContainer, serverId: String): ClaudeHooksViewModel = viewModel(
+    key = "claude-hooks:$serverId",
+    factory = viewModelFactory {
+        initializer {
+            ClaudeHooksViewModel(serverId, container.servers, container.services, container.claudeWatch, container.claudeActivity, container.io)
         }
     },
 )
@@ -195,7 +215,7 @@ internal fun terminalWindowsViewModel(
     key = "terminal-windows:$serverId:$sessionName:${projectPath.orEmpty()}",
     factory = viewModelFactory {
         initializer {
-            TerminalWindowsViewModel(serverId, sessionName, projectPath, container.servers, container.services, container.io)
+            TerminalWindowsViewModel(serverId, sessionName, projectPath, container.servers, container.services, container.io, container.claudeActivity)
         }
     },
 )

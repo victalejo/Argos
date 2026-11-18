@@ -1,6 +1,7 @@
 package com.iaportafolio.argos.core.status
 
 import com.iaportafolio.argos.core.agent.SwiftText
+import kotlinx.serialization.Serializable
 
 /*
  * Estado de Claude Code dentro de los paneles de tmux (port de
@@ -55,7 +56,8 @@ enum class ClaudeScreenSignal(val rawValue: String) {
 /** Paso a un estado que merece aviso (esperando o terminó) en una ventana. */
 data class ClaudeTransition(val session: String, val window: Int, val activity: ClaudeActivity)
 
-/** Estado de Claude en un panel, ya corregido con la pantalla. */
+/** Estado de Claude en un panel, ya corregido con la pantalla. Serializable para guardar la última lectura. */
+@Serializable
 data class ClaudePaneActivity(
     val paneId: String,
     val session: String,
@@ -78,6 +80,7 @@ data class ClaudePaneActivity(
 }
 
 /** Estado de Claude en todas las sesiones de un servidor (un elemento por panel con estado). */
+@Serializable
 data class ClaudeActivitySnapshot(val panes: List<ClaudePaneActivity>) {
 
     /** Estado agregado de la sesión (el de mayor prioridad entre sus paneles). */

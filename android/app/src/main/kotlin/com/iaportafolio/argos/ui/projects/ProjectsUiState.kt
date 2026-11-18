@@ -6,6 +6,9 @@ import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectConfirmation
 import com.iaportafolio.argos.core.projects.ProjectEntry
 import com.iaportafolio.argos.core.projects.ProjectListing
+import com.iaportafolio.argos.core.projects.ProjectSearch
+import com.iaportafolio.argos.core.status.ClaudeActivity
+import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.projects.ProjectStatus
 import com.iaportafolio.argos.core.projects.ProjectStatusFilter
 import com.iaportafolio.argos.core.tmux.TmuxSession
@@ -71,16 +74,32 @@ data class ProjectsUiState(
     val sessionDialog: SessionDialog? = null,
     val dialog: ProjectsDialog? = null,
     val message: UiText? = null,
+    /** Estado de Claude Code en las ventanas tmux del servidor (insignias de la lista). */
+    val claudeActivity: ClaudeActivitySnapshot = ClaudeActivitySnapshot.EMPTY,
+    /** Búsqueda por texto (vacía = sin filtrar). */
+    val query: String = "",
 ) {
     val listing: ProjectListing.Listing = ProjectListing.build(projects, sessions)
 
     val filter: ProjectStatusFilter get() = preferences.statusFilter
 
     /** Grupos visibles con el filtro actual (los colapsados conservan la cabecera). */
-    val sections: List<ProjectSection> = ProjectListing.groups(listing.entries.filter { filter.includes(status(it)) })
-        .map { group -> ProjectSection(group.name, group.entries, preferences.collapsed.isCollapsed(serverId, group.name)) }
+    val sections: List<ProjectSection> = ProjectListing.groups(
+        listing.entries.filter { filter.includes(status(it)) && ProjectSearch.matches(query, it.project) },
+    ).map { group ->
+        // Buscando, los grupos se abren: si no, un resultado quedaría escondido bajo su cabecera.
+        ProjectSection(group.name, group.entries, query.isBlank() && preferences.collapsed.isCollapsed(serverId, group.name))
+    }
 
-    val looseSessions: List<TmuxSession> = listing.looseSessions.filter { filter.includes(status(it)) }
+    val looseSessions: List<TmuxSession> =
+        listing.looseSessions.filter { filter.includes(status(it)) && ProjectSearch.matches(query, it) }
+
+    /** Estado de Claude de un proyecto (su sesión) o de un grupo colapsado (el más urgente). */
+    fun claude(entry: ProjectEntry): ClaudeActivity? = claudeActivity.activity(entry.project.sessionName)
+
+    fun claude(section: ProjectSection): ClaudeActivity? = claudeActivity.activity(section.entries.map { it.project.sessionName })
+
+    fun claude(session: TmuxSession): ClaudeActivity? = claudeActivity.activity(session.name)
 
     /** Cuántos proyectos y sesiones caen en cada filtro (etiquetas de los chips). */
     val filterCounts: Map<ProjectStatusFilter, Int> = run {

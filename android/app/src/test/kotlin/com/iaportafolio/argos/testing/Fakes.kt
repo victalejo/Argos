@@ -4,6 +4,9 @@ import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.projects.Project
+import com.iaportafolio.argos.core.status.ClaudeActivityReading
+import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
+import com.iaportafolio.argos.core.status.ClaudeHookMaintenance
 import com.iaportafolio.argos.core.tmux.CodingAgent
 import com.iaportafolio.argos.core.tmux.TmuxPaneDirection
 import com.iaportafolio.argos.core.tmux.TmuxSession
@@ -139,8 +142,38 @@ class FakeServiceProvider(var service: FakeSSHService = FakeSSHService()) : Serv
     }
 }
 
-/** Doble de [SSHServicing] para tmux y proyectos; el resto no se usa todavía. */
-class FakeSSHService : SSHServicing {
+/** Doble de [SSHServicing] para tmux, proyectos y el indicador de Claude; el resto no se usa todavía. */
+open class FakeSSHService : SSHServicing, ClaudeActivityReading, ClaudeHookMaintenance {
+    /** Estado de Claude que devuelve [claudeActivity]. */
+    var claudeSnapshot: ClaudeActivitySnapshot = ClaudeActivitySnapshot.EMPTY
+    var claudeActivityError: Exception? = null
+    var claudeActivityReads = 0
+    var hooksInstalled = false
+    var hooksError: Exception? = null
+    var hookUpgrades = 0
+
+    override suspend fun claudeActivity(): ClaudeActivitySnapshot {
+        claudeActivityReads++
+        claudeActivityError?.let { throw it }
+        return claudeSnapshot
+    }
+
+    override suspend fun upgradeClaudeHooksIfOutdated(): Boolean {
+        hookUpgrades++
+        return false
+    }
+
+    override suspend fun claudeHooksInstalled(): Boolean {
+        hooksError?.let { throw it }
+        return hooksInstalled
+    }
+
+    override suspend fun installClaudeHooks() {
+        calls += "installHooks"
+        hooksError?.let { throw it }
+        hooksInstalled = true
+    }
+
     var tmuxInstalled = true
     var canSudo = false
     var configExists = true
@@ -302,8 +335,6 @@ class FakeSSHService : SSHServicing {
     override suspend fun zoomPane(session: String) = unused()
     override suspend fun killPane(session: String) = unused()
     override suspend fun sendKeys(session: String, keys: String, enter: Boolean) = unused()
-    override suspend fun claudeHooksInstalled(): Boolean = unused()
-    override suspend fun installClaudeHooks() = unused()
     override suspend fun uploadPastedFile(data: ByteArray, fileExtension: String): String = unused()
     override suspend fun uploadDroppedFile(data: ByteArray, originalName: String): String = unused()
     override suspend fun locateClaude(): String? = unused()

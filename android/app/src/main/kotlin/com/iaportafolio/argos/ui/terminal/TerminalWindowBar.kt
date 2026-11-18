@@ -50,7 +50,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.core.status.ClaudeActivity
 import com.iaportafolio.argos.core.tmux.CodingAgent
+import com.iaportafolio.argos.ui.claude.ClaudeActivityBadge
 import com.iaportafolio.argos.core.tmux.TmuxWindow
 import com.iaportafolio.argos.core.tmux.WindowTabs
 
@@ -68,7 +70,9 @@ fun TerminalWindowBar(
     onClose: (TmuxWindow) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val repeated = remember(state.windows) { WindowTabs.repeatedAgents(state.windows, claudeReported = emptySet()) }
+    val repeated = remember(state.windows, state.claudeWindows) {
+        WindowTabs.repeatedAgents(state.windows, claudeReported = state.claudeWindows.keys)
+    }
     Row(modifier.fillMaxWidth().background(TerminalColors.Bar), verticalAlignment = Alignment.CenterVertically) {
         Row(
             Modifier
@@ -78,7 +82,14 @@ fun TerminalWindowBar(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             state.windows.forEach { window ->
-                WindowTab(window, repeated, canClose = state.windows.size > 1, onSelect = onSelect, onClose = onClose)
+                WindowTab(
+                    window,
+                    repeated,
+                    claude = state.claudeWindows[window.index],
+                    canClose = state.windows.size > 1,
+                    onSelect = onSelect,
+                    onClose = onClose,
+                )
             }
         }
         AddMenu(state.installedAgents, onNew, onNewAgent)
@@ -90,12 +101,14 @@ fun TerminalWindowBar(
 private fun WindowTab(
     window: TmuxWindow,
     repeatedAgents: Set<CodingAgent>,
+    claude: ClaudeActivity?,
     canClose: Boolean,
     onSelect: (TmuxWindow) -> Unit,
     onClose: (TmuxWindow) -> Unit,
 ) {
-    val agent = WindowTabs.agent(window, claudeReported = false)
+    val agent = WindowTabs.agent(window, claudeReported = claude != null)
     val title = WindowTabs.title(window, agent)
+    // La insignia de Claude añade su estado al leerse la pestaña (descendiente fusionado).
     val description = stringResource(R.string.terminal_window_description, window.index, title ?: window.name)
     val closeLabel = stringResource(R.string.terminal_window_close)
     val content = if (window.isActive) TerminalColors.OnBar else TerminalColors.OnBarSecondary
@@ -151,6 +164,7 @@ private fun WindowTab(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            claude?.let { ClaudeActivityBadge(it, size = 12.dp) }
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(

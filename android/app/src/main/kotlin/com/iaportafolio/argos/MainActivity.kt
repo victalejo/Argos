@@ -11,6 +11,8 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.iaportafolio.argos.background.AgentChatLink
 import com.iaportafolio.argos.background.AgentChatTarget
+import com.iaportafolio.argos.background.ClaudeLink
+import com.iaportafolio.argos.background.ClaudeTarget
 import com.iaportafolio.argos.data.ArgosLog
 import com.iaportafolio.argos.ui.importer.ImportLink
 import com.iaportafolio.argos.ui.navigation.ArgosNavHost
@@ -26,6 +28,9 @@ class MainActivity : ComponentActivity() {
 
     /** Enlace `argos://add-server` de un deep link, hasta que la navegación abre la confirmación. */
     private val importLink = MutableStateFlow<String?>(null)
+
+    /** Ventana con Claude que pidió abrir un aviso, hasta que la navegación la atiende. */
+    private val claudeTarget = MutableStateFlow<ClaudeTarget?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +48,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val target by chatTarget.collectAsStateWithLifecycle()
             val link by importLink.collectAsStateWithLifecycle()
+            val claude by claudeTarget.collectAsStateWithLifecycle()
             ArgosTheme {
                 ArgosNavHost(
                     container,
@@ -50,6 +56,8 @@ class MainActivity : ComponentActivity() {
                     onChatTargetConsumed = { chatTarget.value = null },
                     importLink = link,
                     onImportLinkConsumed = { importLink.value = null },
+                    claudeTarget = claude,
+                    onClaudeTargetConsumed = { claudeTarget.value = null },
                 )
             }
         }
@@ -62,7 +70,27 @@ class MainActivity : ComponentActivity() {
 
     private fun handle(intent: Intent) {
         openChatFrom(intent)
+        openClaudeFrom(intent)
         openImportFrom(intent)
+    }
+
+    private fun openClaudeFrom(intent: Intent) {
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+        if (intent.action != ClaudeLink.ACTION_OPEN_WINDOW) return
+        // Otra app puede lanzarnos con un Bundle malformado: leerlo puede lanzar, y se ignora.
+        val target = try {
+            ClaudeLink.parse(
+                intent.action,
+                intent.getStringExtra(ClaudeLink.EXTRA_SERVER_ID),
+                intent.getStringExtra(ClaudeLink.EXTRA_SESSION),
+                intent.getIntExtra(ClaudeLink.EXTRA_WINDOW, -1),
+                container.servers,
+            )
+        } catch (error: RuntimeException) {
+            ArgosLog.warn(ArgosLog.TAG_UI, "Intent de aviso de Claude ilegible (${error::class.java.simpleName})")
+            null
+        }
+        if (target != null) claudeTarget.value = target
     }
 
     /** Deep link del QR del Mac: solo abre la confirmación (nunca importa por su cuenta). */

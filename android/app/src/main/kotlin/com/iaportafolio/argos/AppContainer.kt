@@ -15,10 +15,15 @@ import com.iaportafolio.argos.background.SystemNetworkMonitor
 import com.iaportafolio.argos.background.AgentNotifier
 import com.iaportafolio.argos.background.AgentWatchStore
 import com.iaportafolio.argos.background.CIWatchService
+import com.iaportafolio.argos.background.ClaudeActivityMonitor
+import com.iaportafolio.argos.background.ClaudeBackgroundCheck
+import com.iaportafolio.argos.background.ClaudeWatchStore
+import com.iaportafolio.argos.background.SystemClaudeAlerts
 import com.iaportafolio.argos.background.SharedPreferencesAgentWatch
 import com.iaportafolio.argos.background.SystemAgentAlerts
 import com.iaportafolio.argos.background.SystemCIAlerts
 import com.iaportafolio.argos.background.TerminalKeepAliveService
+import com.iaportafolio.argos.background.VisibilityTimings
 import com.iaportafolio.argos.background.WorkManagerAgentCheckScheduler
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHConnector
@@ -51,6 +56,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
@@ -125,6 +131,25 @@ class AppContainer(
             live = { server -> hub.cached(server) },
             localNetwork = localNetwork,
             diagnostics = diagnostics,
+            claude = ClaudeBackgroundCheck(claudeWatch, claudeAlerts, isAppVisible = { visibility.visible.value }),
+        )
+    }
+
+    /** Claude Code en las ventanas tmux: servidores donde se vio y su última lectura. */
+    val claudeWatch: ClaudeWatchStore by lazy { ClaudeWatchStore(watchBackend) }
+
+    private val claudeAlerts by lazy { SystemClaudeAlerts(appContext) }
+
+    /** Insignias y avisos de Claude con la app a la vista (solo conexiones ya abiertas). */
+    val claudeActivity: ClaudeActivityMonitor by lazy {
+        ClaudeActivityMonitor(
+            servers = servers,
+            live = { server -> hub.cached(server) },
+            store = claudeWatch,
+            alerts = claudeAlerts,
+            notificationsEnabled = { agentNotifier.notificationsEnabled.value },
+            io = io,
+            onServerWatched = { backgroundSchedule.sync() },
         )
     }
 
@@ -178,7 +203,10 @@ class AppContainer(
     /** Al arrancar el proceso: primer plano y cambios de red. */
     fun startMonitors() {
         visibility.start()
-        SystemNetworkMonitor(appContext) { appScope.launch { hub.closeAll() } }.start()
+        appScope.launch { visibility.visible.collectLatest { visible -> if (visible) claudeActivity.runWhileVisible() } }
+        // Red nueva: se sondean las conexiones (las que siguen vivas, p. ej. con VPN, conservan
+        // terminales y túneles); las muertas se sueltan y los terminales reenganchan solos.
+        SystemNetworkMonitor(appContext) { appScope.launch { hub.probeAll(VisibilityTimings().probeTimeoutMillis) } }.start()
     }
 
     private companion object {
