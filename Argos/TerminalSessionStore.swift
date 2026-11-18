@@ -107,6 +107,11 @@ final class TerminalSessionStore {
         }
     }
 
+    /// Hay algún terminal de ese servidor en el pool (enganchado o conectando).
+    func hasTerminals(forServer serverID: Server.ID) -> Bool {
+        controllers.keys.contains { $0.serverID == serverID }
+    }
+
     /// Desengancha todos los terminales (al salir de la app). tmux no se toca.
     func closeAll() {
         for handle in Array(controllers.keys) {

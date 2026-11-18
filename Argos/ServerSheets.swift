@@ -21,7 +21,11 @@ struct ServerSheets: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(item: $serverFormMode) { mode in
-                ServerFormSheet(mode: mode) { server, secret in save(server, secret: secret) }
+                // El error (Llavero, servidor borrado en otro dispositivo) se muestra en el
+                // propio formulario, que solo se cierra si el guardado sale bien.
+                ServerFormSheet(mode: mode) { server, secret in
+                    try model.save(server, secret: secret, isNew: mode.isAdd)
+                }
             }
             .sheet(item: $transferServer) { target in
                 ServerTransferSheet(server: target.server, service: target.service) { transferServer = nil }
@@ -36,25 +40,29 @@ struct ServerSheets: ViewModifier {
                 SSHConfigSheet(
                     existingServers: model.store.servers,
                     onImport: { host in
-                        do { try model.importHost(host) } catch { report(error) }
+                        do {
+                            try model.importHost(host)
+                        } catch {
+                            Log.store.error("Importar servidor: \(error.userMessage, privacy: .public)")
+                            saveError = "No se importó «\(host.alias)»: \(error.userMessage)"
+                        }
                     },
                     onClose: { showSSHConfig = false }
                 )
             }
+            .onChange(of: model.connectionEpochs) { old, new in closeStaleSheets(old: old, new: new) }
     }
 
-    private func save(_ server: Server, secret: String?) {
-        do {
-            try model.save(server, secret: secret)
-        } catch {
-            report(error)
+    /// Cierra las hojas cuyo servidor se borró o cambió de conexión: su servicio está
+    /// retirado y guardar el formulario resucitaría un servidor borrado en otro dispositivo.
+    private func closeStaleSheets(old: [Server.ID: Int], new: [Server.ID: Int]) {
+        func changed(_ id: Server.ID) -> Bool { old[id] != new[id] }
+        if let target = transferServer, changed(target.id) { transferServer = nil }
+        if let target = devicesServer, changed(target.id) { devicesServer = nil }
+        if let target = model.doctorTarget, changed(target.id) { model.doctorTarget = nil }
+        if case .edit(let server) = serverFormMode, model.store.server(withID: server.id) == nil {
+            serverFormMode = nil
         }
-    }
-
-    private func report(_ error: Error) {
-        Log.store.error("Guardar servidor: \(error.userMessage, privacy: .public)")
-        saveError = "No se guardó el servidor porque el Llavero no aceptó la contraseña o la "
-            + "passphrase: \(error.userMessage)"
     }
 }
 
@@ -112,7 +120,7 @@ struct ServerDialogs: ViewModifier {
             } message: { message in
                 Text(message)
             }
-            .alert("No se pudo guardar el servidor", isPresented: presence($saveError), presenting: saveError) { _ in
+            .alert("No se pudo importar el servidor", isPresented: presence($saveError), presenting: saveError) { _ in
                 Button("OK", role: .cancel) {}
             } message: { message in
                 Text(message)

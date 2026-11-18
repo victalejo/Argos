@@ -76,7 +76,10 @@ struct ServerTransferSheet: View {
                     .font(.callout)
                     .multilineTextAlignment(.center)
                     .textSelection(.enabled)
-                Button("Reintentar") { Task { await prepare() } }
+                Button("Reintentar") {
+                    // Acción explícita: levanta antes el bloqueo de la conexión.
+                    Task { await service.resetConnectionHealth(); await prepare() }
+                }
             }
         case .ready(let transfer):
             TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -272,7 +275,9 @@ struct AuthorizedDevicesSheet: View {
             } description: {
                 Text(message)
             } actions: {
-                Button("Reintentar") { Task { await load() } }
+                Button("Reintentar") {
+                    Task { await service.resetConnectionHealth(); await load() }
+                }
             }
         case .loaded(let keys) where keys.isEmpty:
             ContentUnavailableView {

@@ -34,7 +34,7 @@ struct ServerFormSheet: View {
     let mode: Mode
     /// Devuelve el servidor resultante y la passphrase a guardar en Keychain
     /// (`nil` = sin passphrase). El llamador persiste ambos.
-    let onSave: (Server, String?) -> Void
+    let onSave: (Server, String?) throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -68,7 +68,7 @@ struct ServerFormSheet: View {
         case failure(String)
     }
 
-    init(mode: Mode, onSave: @escaping (Server, String?) -> Void) {
+    init(mode: Mode, onSave: @escaping (Server, String?) throws -> Void) {
         self.mode = mode
         self.onSave = onSave
         switch mode {
@@ -374,8 +374,13 @@ struct ServerFormSheet: View {
     private func save() {
         guard canSave, let portValue = Int(port) else { return }
         let (server, secret) = buildServerAndSecret(portValue: portValue)
-        onSave(server, secret)
-        dismiss()
+        do {
+            try onSave(server, secret)
+            dismiss()
+        } catch {
+            // Se queda abierta con lo tecleado (p. ej. el Llavero no aceptó el secreto).
+            testState = .failure(error.userMessage)
+        }
     }
 
     /// Prueba la conexión SSH con los datos del formulario (sin guardar): conecta,

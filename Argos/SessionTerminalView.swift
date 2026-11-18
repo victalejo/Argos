@@ -153,7 +153,9 @@ struct SessionTerminalView: View {
         }
         .task(id: handle) { await loadAgentsAndBranch() }
         .onChange(of: windows) { Task { await refreshBranch() } }
-        .onChange(of: controller?.status) { _, status in handleStatusChange(status) }
+        // Con la identidad del controlador: un reintento que falla AL INSTANTE con el mismo
+        // mensaje deja el estado igual (`.failed(msg)`), y solo por el estado no se vería.
+        .onChange(of: StatusKey(controller: controller)) { _, key in handleStatusChange(key.status) }
         .onChange(of: sleepMonitor.isAsleep) { _, asleep in handleSleepChange(asleep: asleep) }
         .onDisappear { reconnect.cancel() }
     }
@@ -316,5 +318,17 @@ struct SessionTerminalView: View {
             await service.resetConnectionHealth()
             reconnectNow()
         }
+    }
+}
+
+/// Estado del terminal junto con QUÉ controlador lo tiene (ver `onChange` del estado).
+private struct StatusKey: Equatable {
+    let controllerID: ObjectIdentifier?
+    let status: LiveTerminalStatus?
+
+    @MainActor
+    init(controller: LiveTerminalController?) {
+        controllerID = controller.map(ObjectIdentifier.init)
+        status = controller?.status
     }
 }

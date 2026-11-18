@@ -15,6 +15,13 @@ struct PortForwardsButton: View {
 
     @State private var isPresented = false
     @State private var activeCount = 0
+    @State private var uiState = PortForwardsUIState.shared
+
+    /// Se relee el recuento al abrir/cerrar el popover y cuando el aviso abre un túnel.
+    private struct TaskKey: Hashable {
+        let isPresented: Bool
+        let revision: Int
+    }
     // Las solicitudes de Claude («argos-ports open») ya no se vigilan aquí: las lee el
     // sondeador de la app para TODOS los servidores (ver `PortRequestAlert`).
 
@@ -30,7 +37,9 @@ struct PortForwardsButton: View {
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             PortForwardsPanel(service: service, serverName: serverName)
         }
-        .task(id: isPresented) {
+        .onChange(of: isPresented) { _, open in uiState.popover(isOpen: open) }
+        .onDisappear { if isPresented { uiState.popover(isOpen: false) } }
+        .task(id: TaskKey(isPresented: isPresented, revision: uiState.tunnelsRevision)) {
             // El recuento es una consulta local al actor (sin red salvo para reabrir túneles caídos).
             while !Task.isCancelled {
                 activeCount = await ConnectionPriority.background { await service.activePortForwards().count }

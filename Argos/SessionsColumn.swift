@@ -44,6 +44,9 @@ struct SessionsColumn: View {
                             terminalStore: terminalStore,
                             listing: listing(for: server, vm: vm),
                             statusFilter: statusFilter,
+                            isSearching: isSearching,
+                            remoteChangePending: model.pendingRemoteChanges.contains(server.id),
+                            onApplyRemoteChange: { model.applyRemoteChange(for: server.id) },
                             renameTarget: $renameTarget,
                             killTarget: $killTarget,
                             projectForm: $projectForm,
@@ -76,6 +79,7 @@ struct SessionsColumn: View {
                 .hidden()
         }
         .onChange(of: model.selectedSession) { _, handle in revealSelection(handle) }
+        .onChange(of: model.connectionEpochs) { old, new in closeStaleSheets(old: old, new: new) }
         .navigationTitle("Proyectos")
         .navigationSplitViewColumnWidth(min: 280, ideal: 330)
         .toolbar { toolbarContent }
@@ -163,7 +167,24 @@ struct SessionsColumn: View {
 
     /// Un servidor plegado oculta su contenido, salvo mientras se busca o filtra.
     private func isServerHidden(_ server: Server) -> Bool {
-        searchText.isEmpty && statusFilter == .all && collapsedGroups.isServerCollapsed(server.id)
+        !isSearching && statusFilter == .all && collapsedGroups.isServerCollapsed(server.id)
+    }
+
+    /// Hay texto de búsqueda (solo espacios no cuenta, como en `VisibleProjectListing`).
+    private var isSearching: Bool {
+        !VisibleProjectListing.normalized(searchText).isEmpty
+    }
+
+    /// Cierra las hojas de un servidor borrado o con conexión nueva (su view model ya no es
+    /// el actual: guardar en ellas usaría el servicio retirado).
+    private func closeStaleSheets(old: [Server.ID: Int], new: [Server.ID: Int]) {
+        func changed(_ id: Server.ID) -> Bool { old[id] != new[id] }
+        if let request = projectForm, changed(request.server.id) { projectForm = nil }
+        if let request = projectSync, changed(request.server.id) { projectSync = nil }
+        if let server = importServer, changed(server.id) { importServer = nil }
+        if let action = renameTarget, changed(action.server.id) { renameTarget = nil }
+        if let action = killTarget, changed(action.server.id) { killTarget = nil }
+        if let confirmation = projectConfirmation, changed(confirmation.server.id) { projectConfirmation = nil }
     }
 
     // MARK: - Barra de herramientas

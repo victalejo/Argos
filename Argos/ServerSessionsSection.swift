@@ -19,6 +19,11 @@ struct ServerSessionsSection: View {
     /// Lo que se ve tras la búsqueda, el filtro y los plegados (`VisibleProjectListing`).
     let listing: VisibleProjectListing
     var statusFilter: ProjectStatusFilter = .all
+    /// Hay texto de búsqueda (el filtro de estado no oculta el aviso de importar).
+    var isSearching = false
+    /// La conexión cambió en otro dispositivo y hay algo abierto: se ofrece reconectar.
+    var remoteChangePending = false
+    var onApplyRemoteChange: () -> Void = {}
     @Binding var renameTarget: SessionAction?
     @Binding var killTarget: SessionAction?
     @Binding var projectForm: ProjectFormRequest?
@@ -203,6 +208,9 @@ struct ServerSessionsSection: View {
 
     @ViewBuilder
     private var projectList: some View {
+        if remoteChangePending {
+            RemoteChangeBanner(serverName: server.name, onReconnect: onApplyRemoteChange)
+        }
         if let error = vm.projectsError {
             projectsErrorRow(error)
         }
@@ -224,7 +232,7 @@ struct ServerSessionsSection: View {
         }
 
         let looseCount = vm.projectListing.looseSessions.count
-        if !listing.isFiltering && looseCount > 0 {
+        if !isSearching && looseCount > 0 {
             importBanner(count: looseCount)
         }
 
@@ -504,5 +512,33 @@ struct ServerSessionsSection: View {
         .padding(12)
         .background(Color.accentColor.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
         .selectionDisabled()
+    }
+}
+
+/// «Este servidor cambió en otro dispositivo · Reconectar» (cambio llegado por iCloud con
+/// terminales o agentes abiertos: reconectar los cerraría, así que lo decide el usuario).
+private struct RemoteChangeBanner: View {
+    let serverName: String
+    let onReconnect: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "icloud.and.arrow.down")
+                .foregroundStyle(Color.accentColor)
+                .accessibilityHidden(true)
+            Text("Este servidor cambió en otro dispositivo")
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            Button("Reconectar", action: onReconnect)
+                .font(.caption)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Cierra los terminales y agentes de \(serverName) y conecta con los datos nuevos")
+        }
+        .padding(10)
+        .background(Color.accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+        .selectionDisabled()
+        .accessibilityElement(children: .combine)
     }
 }

@@ -44,13 +44,18 @@ struct ArgosApp: App {
     var body: some Scene {
         // Ventana ÚNICA: el estado vive en `ArgosAppModel` (del delegado), no en la
         // ventana. Cerrarla no cierra la app; el Dock o el menú Ventana la reabren tal cual.
-        Window("Argos", id: "main") {
+        Window("Argos", id: ArgosAppModel.mainWindowID) {
             ContentView(model: appDelegate.model)
                 .preferredColorScheme(colorScheme)
                 .tint(ArgosTheme.controlAccent)
         }
         .defaultSize(width: 1380, height: 860)
+        // Al lanzar siempre hay ventana (aunque se cerrara antes de salir).
+        .defaultLaunchBehavior(.presented)
         .commands {
+            // Menú Ventana → «Mostrar la ventana de Argos» (y el abridor para el modelo).
+            WindowCommands(model: appDelegate.model)
+
             // Menú «Pestañas»: ⌘T nueva ventana/conversación, ⌘W cerrar, ⌘1…⌘9,
             // ⌘⇧[ ⌘⇧] y ⌘⌥1…3 para lanzar agentes. También quita "Nueva ventana" (⌘N)
             // por defecto (⌘N es "Nuevo proyecto").
@@ -84,7 +89,7 @@ struct ArgosApp: App {
             // Cambiador rápido de sesión (⌘K) y zoom de fuente del terminal, en el
             // menú Visualización.
             CommandGroup(after: .sidebar) {
-                Button("Cambiar de sesión…") { QuickSwitcher.shared.present() }
+                Button("Cambiar de sesión…") { appDelegate.model.presentQuickSwitcher() }
                     .keyboardShortcut("k", modifiers: .command)
                 Divider()
                 Button("Aumentar tamaño de fuente") { TerminalSettings.shared.increaseFontSize() }

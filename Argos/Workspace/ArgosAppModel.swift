@@ -10,9 +10,12 @@
 //  vivos sin interfaz. Ahora vive en el delegado de la app y la ventana solo lo observa.
 //
 //  Al cerrar la ventana la app sigue viva con todo su estado (terminales enganchados,
-//  agentes, túneles y avisos); reabrirla desde el Dock o el menú Ventana lo muestra tal
-//  cual. Al salir (⌘Q) se detienen los agentes, se cierran los túneles y se desenganchan
-//  los terminales (ver `ArgosAppDelegate`). Nunca se mata nada que corra en tmux.
+//  agentes, túneles y avisos); reabrirla lo muestra tal cual. Al salir (⌘Q) se detienen
+//  los agentes, se cierran los túneles y se desenganchan los terminales (ver
+//  `ArgosAppDelegate`). Nunca se mata nada que corra en tmux.
+//
+//  Ventana y entradas externas (avisos, barra de menús): `ArgosAppModel+Window.swift`.
+//  Altas, ediciones y bajas: `ArgosAppModel+Servers.swift`.
 //
 
 import AppKit
@@ -20,7 +23,8 @@ import Foundation
 import Observation
 
 /// Servidor + servicio SSH para las hojas que operan sobre él («Enviar al iPhone»,
-/// «Dispositivos autorizados», «Doctor»). El servicio se fija al abrir la hoja.
+/// «Dispositivos autorizados», «Doctor»). El servicio se fija al abrir la hoja; si el
+/// servidor se borra o cambia de conexión, la hoja se cierra (`connectionEpochs`).
 struct ServerSheetTarget: Identifiable {
     let server: Server
     let service: any SSHServicing
@@ -40,6 +44,12 @@ final class ArgosAppModel {
     let store: ServerStore
     /// Un view model por servidor (se crea al añadir, se rehace si cambia la conexión).
     private(set) var vms: [Server.ID: SessionsViewModel] = [:]
+    /// Sube cada vez que el view model de un servidor se crea, se rehace o se quita: las
+    /// hojas abiertas con el servicio anterior se cierran al verlo cambiar.
+    private(set) var connectionEpochs: [Server.ID: Int] = [:]
+    /// Servidores cuya conexión cambió en OTRO dispositivo (iCloud) con terminales o agentes
+    /// abiertos aquí: no se reconectan solos; la interfaz ofrece «Reconectar».
+    private(set) var pendingRemoteChanges: Set<Server.ID> = []
     /// Pool persistente de terminales en vivo.
     let terminalStore: TerminalSessionStore
     /// Pool de agentes de Claude Code del panel «Agente».
@@ -54,14 +64,20 @@ final class ArgosAppModel {
     /// Hoja del Doctor pedida desde un menú (contextual o Ayuda).
     var doctorTarget: ServerSheetTarget?
 
+    @ObservationIgnored let secrets: any ServerSecretStoring
+    @ObservationIgnored private let makeService: @MainActor (Server) -> any SSHServicing
     /// Servidor con el que se construyó cada view model (para saber si hay que rehacerlo).
     @ObservationIgnored private var connectedAs: [Server.ID: Server] = [:]
-    @ObservationIgnored private var poller: WorkspacePoller?
+    @ObservationIgnored private(set) var poller: WorkspacePoller?
     @ObservationIgnored private let heartbeatSleep = HeartbeatSleepCoordinator()
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var napActivity: NSObjectProtocol?
     @ObservationIgnored private var hasStarted = false
     @ObservationIgnored private(set) var isShuttingDown = false
+    /// Solo para tests: sustituye la comprobación de terminales y agentes abiertos.
+    @ObservationIgnored var liveWorkProbe: (@MainActor (Server.ID) -> Bool)?
+    /// Abre la ventana principal (lo registra un `Commands` con `openWindow`).
+    @ObservationIgnored var windowOpener: (@MainActor () -> Void)?
     #if APPSTORE
     /// Servidores y huellas con iPhone/iPad por iCloud (solo el canal App Store).
     @ObservationIgnored private var cloudSync: CloudServerSync?
@@ -70,16 +86,20 @@ final class ArgosAppModel {
     init(
         store: ServerStore = ServerStore(),
         terminalStore: TerminalSessionStore = TerminalSessionStore(),
-        agentStore: AgentSessionStore = AgentSessionStore()
+        agentStore: AgentSessionStore = AgentSessionStore(),
+        secrets: any ServerSecretStoring = KeychainServerSecrets(),
+        makeService: @escaping @MainActor (Server) -> any SSHServicing = { $0.makeService() }
     ) {
         self.store = store
         self.terminalStore = terminalStore
         self.agentStore = agentStore
+        self.secrets = secrets
+        self.makeService = makeService
     }
 
     // MARK: - Arranque
 
-    /// Idempotente: la ventana lo llama al aparecer (también al reabrirla).
+    /// Idempotente: lo llama el delegado al terminar de arrancar (y la ventana al aparecer).
     func start() {
         guard !hasStarted else { return }
         hasStarted = true
@@ -91,6 +111,7 @@ final class ArgosAppModel {
         observeSleep()
         observeActivation()
         startPolling()
+        connectNotificationRoutes()
     }
 
     private func startPolling() {
@@ -152,8 +173,9 @@ final class ArgosAppModel {
 
     // MARK: - View models
 
-    /// Mantiene `vms` al día con `store.servers`: crea los de servidores nuevos, quita los
-    /// de borrados y rehace los que cambiaron a dónde o cómo se conectan.
+    /// Mantiene `vms` al día con `store.servers`. Lo que llega aquí sin pasar por `save`
+    /// viene de otro dispositivo (iCloud): si cambió a dónde o cómo se conecta y hay
+    /// terminales o agentes abiertos, NO se cierran sin avisar (`pendingRemoteChanges`).
     func syncVMs() {
         let ids = Set(store.servers.map(\.id))
         for id in vms.keys where !ids.contains(id) {
@@ -162,38 +184,69 @@ final class ArgosAppModel {
         // Arranque perezoso: solo se CREAN. La carga se dispara para el servidor
         // seleccionado (`loadSelectedIfNeeded`) o al pulsar «Conectar».
         for server in store.servers {
-            if vms[server.id] == nil {
-                installViewModel(for: server)
-            } else if let previous = connectedAs[server.id],
-                      ServerEditImpact.requiresNewConnection(previous: previous, updated: server, secretChanged: false) {
+            guard vms[server.id] != nil, let previous = connectedAs[server.id] else {
+                installViewModel(for: server, replacing: nil)
+                continue
+            }
+            let changed = ServerEditImpact.requiresNewConnection(previous: previous, updated: server, secretChanged: false)
+            if !changed {
+                pendingRemoteChanges.remove(server.id)
+            } else if hasLiveWork(on: server.id) {
+                pendingRemoteChanges.insert(server.id)
+            } else {
                 rebuildConnection(for: server)
             }
         }
         poller?.reconcile()
     }
 
+    /// Hay algo abierto que una conexión nueva cerraría (terminal o agente).
+    func hasLiveWork(on serverID: Server.ID) -> Bool {
+        if let liveWorkProbe { return liveWorkProbe(serverID) }
+        return terminalStore.hasTerminals(forServer: serverID)
+            || agentStore.allTabs.contains { $0.handle.serverID == serverID && $0.tab.session.isRunning }
+    }
+
+    /// «Reconectar» tras un cambio llegado de otro dispositivo.
+    func applyRemoteChange(for serverID: Server.ID) {
+        guard let server = store.server(withID: serverID) else { return }
+        rebuildConnection(for: server)
+    }
+
     /// Conexión nueva para `server`: cierra sus terminales y agentes (deben engancharse
-    /// con el servicio nuevo) y carga el view model nuevo.
+    /// con el servicio nuevo), retira el servicio viejo y carga el view model nuevo.
     func rebuildConnection(for server: Server) {
+        pendingRemoteChanges.remove(server.id)
         terminalStore.closeAll(forServer: server.id)
         agentStore.closeAll(forServer: server.id)
         let old = vms[server.id]
-        installViewModel(for: server)
-        if let old { Task { await old.service.disconnect() } }
+        installViewModel(for: server, replacing: old)
+        if let old { Task { await old.service.retire() } }
         if let vm = vms[server.id] { Task { await vm.load() } }
         poller?.reconcile()
     }
 
-    private func installViewModel(for server: Server) {
-        vms[server.id] = SessionsViewModel(service: server.makeService())
+    private func installViewModel(for server: Server, replacing old: SessionsViewModel?) {
+        let vm = SessionsViewModel(service: makeService(server))
+        // Mismo servidor (otras credenciales): un «terminó» que caiga en la reconstrucción
+        // no se pierde por ser el primer sondeo del view model nuevo.
+        if let old, let previous = connectedAs[server.id], previous.host == server.host, previous.port == server.port {
+            vm.seedClaudeBaseline(from: old)
+        }
+        vms[server.id] = vm
         connectedAs[server.id] = server
-        portRequests[server.id] = nil
+        connectionEpochs[server.id, default: 0] += 1
+        // Lo ya respondido no reaparece aunque su borrado remoto fallara.
+        let handled = portRequests[server.id]?.handledPorts ?? []
+        portRequests[server.id] = PortForwardRequestsModel(service: vm.service, handled: handled)
     }
 
     private func dropViewModel(for id: Server.ID) {
-        if let old = vms.removeValue(forKey: id) { Task { await old.service.disconnect() } }
+        if let old = vms.removeValue(forKey: id) { Task { await old.service.retire() } }
         connectedAs[id] = nil
+        connectionEpochs[id, default: 0] += 1
         portRequests[id] = nil
+        pendingRemoteChanges.remove(id)
     }
 
     /// Carga el servidor seleccionado si aún no se cargó (`.idle`).
@@ -211,24 +264,24 @@ final class ArgosAppModel {
     private func handle(_ round: WorkspacePoller.Round) {
         let server = round.server
         let vm = round.viewModel
+        // De un view model ya descartado solo cuentan los avisos de Claude que trae (el
+        // nuevo parte de su estado y no los repetiría); un servidor borrado, nada.
+        guard store.server(withID: server.id) != nil else { return }
+        let isCurrent = vms[server.id] === vm
         let notifier = ClaudeActivityNotifier.shared
         if vm.claudeActivity != .empty { notifier.requestAuthorizationIfNeeded() }
-        let viewing = selectedSession?.serverID == server.id ? selectedSession?.sessionID : nil
+        let viewing = NoticeViewing.viewingSession(
+            selected: selectedSession, serverID: server.id, activity: AppActivityProbe.current()
+        )
         notifier.notify(
             serverID: server.id, serverName: server.name, transitions: round.result.transitions,
             viewing: viewing, gitSummary: { vm.gitSummary(forSession: $0) }
         )
+        guard isCurrent else { return }
         notifier.notifyCI(round.result.ciResults, serverID: server.id, serverName: server.name)
         if let pending = round.result.portRequests {
-            portRequestsModel(for: server.id, service: vm.service).absorb(pending)
+            portRequests[server.id]?.absorb(pending)
         }
-    }
-
-    private func portRequestsModel(for id: Server.ID, service: any SSHServicing) -> PortForwardRequestsModel {
-        if let existing = portRequests[id] { return existing }
-        let model = PortForwardRequestsModel(service: service)
-        portRequests[id] = model
-        return model
     }
 
     /// La solicitud de puerto más antigua de cualquier servidor conectado.
@@ -257,11 +310,9 @@ final class ArgosAppModel {
         guard !isShuttingDown else { return }
         isShuttingDown = true
         poller?.stop()
-        let finished = await Deadline.succeeds(within: timeout) { [weak self] in
+        await ShutdownRunner.run(within: timeout) { [weak self] in
             await self?.performShutdown()
-            return true
         }
-        if !finished { Log.store.notice("Salida: el cierre ordenado no terminó a tiempo.") }
         if let napActivity { ProcessInfo.processInfo.endActivity(napActivity) }
     }
 
@@ -271,7 +322,7 @@ final class ArgosAppModel {
         let services = vms.values.map(\.service)
         await withTaskGroup(of: Void.self) { group in
             for service in services {
-                group.addTask { await service.disconnect() }
+                group.addTask { await service.retire() }
             }
         }
     }

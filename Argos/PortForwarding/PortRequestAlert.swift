@@ -18,12 +18,17 @@ private struct PortRequestAlert: ViewModifier {
         content
             .alert(
                 pending.map { PortForwardRequestsModel.title(for: $0.request) } ?? "",
-                isPresented: Binding(get: { model.pendingPortRequest != nil }, set: { _ in }),
+                // Con el popover de «Puertos» abierto, espera (no se pinta encima).
+                isPresented: Binding(
+                    get: { model.pendingPortRequest != nil && !PortForwardsUIState.shared.isPopoverOpen },
+                    set: { _ in }
+                ),
                 presenting: pending
             ) { pending in
                 Button("Abrir") {
                     Task {
                         if let url = await pending.model.accept() { openURL(url) }
+                        PortForwardsUIState.shared.tunnelsChanged()
                     }
                 }
                 .keyboardShortcut(.defaultAction)

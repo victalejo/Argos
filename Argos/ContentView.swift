@@ -66,10 +66,6 @@ struct ContentView: View {
             }
             model.loadSelectedIfNeeded()
         }
-        .openingNotificationRoutes(
-            serverID: $model.selectedServerID, session: $model.selectedSession, modes: $model.detailModes,
-            serverExists: { model.store.server(withID: $0) != nil }, service: { model.vms[$0]?.service }
-        )
         .onChange(of: model.selectedServerID) { _, newValue in
             persistedServerID = newValue?.uuidString ?? ""
             model.loadSelectedIfNeeded()
@@ -155,6 +151,11 @@ extension ServerFormSheet.Mode: Identifiable {
         case .add: return "add"
         case .edit(let server): return "edit-\(server.id.uuidString)"
         }
+    }
+
+    var isAdd: Bool {
+        if case .add = self { return true }
+        return false
     }
 }
 

@@ -17,15 +17,13 @@ final class ClaudeActivityNotifier: NSObject {
 
     private var hasRequestedAuthorization = false
 
-    /// Aviso tocado que aún no se ha abierto (la ventana puede no existir todavía si el
-    /// toque lanzó la app). Lo recoge `ContentView` con `takePendingRoute()`.
+    /// Quien abre el destino de un aviso tocado (el modelo de la app, que abre la ventana
+    /// aunque esté cerrada). Hasta que lo fija, el toque espera en `pendingRoute`.
+    var routeHandler: ((NotificationRoute) -> Void)?
+    /// Aviso tocado antes de que hubiera `routeHandler` (el toque lanzó la app).
     private var pendingRoute: (route: NotificationRoute, requestedAt: Date)?
-    /// Pasado este tiempo sin ventana que lo abra, el toque se olvida (si no, navegaría
-    /// al abrir la siguiente ventana, quizá horas después).
+    /// Pasado este tiempo sin nadie que lo abra, el toque se olvida.
     private static let routeLifetime: TimeInterval = 60
-
-    /// Se publica al tocar un aviso, para que la ventana abra su proyecto.
-    static let routeRequested = Notification.Name("ArgosNotificationRouteRequested")
 
     func takePendingRoute(now: Date = Date()) -> NotificationRoute? {
         defer { pendingRoute = nil }
@@ -39,9 +37,11 @@ final class ClaudeActivityNotifier: NSObject {
     func activate() {}
 
     private func open(_ route: NotificationRoute) {
-        pendingRoute = (route, Date())
-        NSApp.activate(ignoringOtherApps: true)
-        NotificationCenter.default.post(name: Self.routeRequested, object: nil)
+        if let routeHandler {
+            routeHandler(route)
+        } else {
+            pendingRoute = (route, Date())
+        }
     }
 
     private override init() {

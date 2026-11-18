@@ -15,15 +15,19 @@ struct FilesPanelView: View {
     @State private var model: FileBrowserModel
     @State private var isQuickOpenPresented = false
 
+    /// Para «Reintentar» (acción explícita: levanta antes el bloqueo de la conexión).
+    private let service: any SSHServicing
+
     init(root: String, service: any SSHServicing) {
+        self.service = service
         _model = State(initialValue: FileBrowserModel(root: root, service: service))
     }
 
     var body: some View {
         HSplitView {
-            FileTreeView(model: model, onQuickOpen: { isQuickOpenPresented = true })
+            FileTreeView(model: model, service: service, onQuickOpen: { isQuickOpenPresented = true })
                 .frame(minWidth: 180, idealWidth: 260, maxWidth: 420)
-            FileViewer(model: model)
+            FileViewer(model: model, service: service)
                 .frame(minWidth: 260, maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .bottom) { FileDownloadBanner(model: model) }
         }
@@ -45,6 +49,7 @@ struct FilesPanelView: View {
 
 private struct FileTreeView: View {
     let model: FileBrowserModel
+    let service: any SSHServicing
     let onQuickOpen: () -> Void
 
     var body: some View {
@@ -73,7 +78,7 @@ private struct FileTreeView: View {
                 } description: {
                     Text(error)
                 } actions: {
-                    Button("Reintentar") { Task { await model.refresh() } }
+                    Button("Reintentar") { Task { await service.resetConnectionHealth(); await model.refresh() } }
                 }
             } else if model.loadingDirectories.contains(model.root) && model.rows.isEmpty {
                 ProgressView("Cargando archivos…")
@@ -200,6 +205,7 @@ private struct FileTreeRowView: View {
 
 private struct FileViewer: View {
     let model: FileBrowserModel
+    let service: any SSHServicing
     @State private var showSource = false
     /// Visor HTML: JavaScript y recursos externos (se vuelve a bloquear al cambiar de archivo).
     @State private var allowsRemoteHTML = false
@@ -256,7 +262,7 @@ private struct FileViewer: View {
                 } description: {
                     Text(message)
                 } actions: {
-                    Button("Reintentar") { Task { await model.open(entry) } }
+                    Button("Reintentar") { Task { await service.resetConnectionHealth(); await model.open(entry) } }
                 }
             }
         case .loaded(let entry, let content, let kind):
