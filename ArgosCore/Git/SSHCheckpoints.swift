@@ -84,4 +84,21 @@ extension SessionsViewModel {
         let sessions = projects.filter { $0.path == path }.map(\.sessionName)
         return claudeActivity.activity(forSessions: sessions)
     }
+
+    /// Interrumpe a Claude (Esc) en los paneles del proyecto donde está trabajando.
+    func interruptClaude(forProjectPath path: String) async throws {
+        let sessions = Set(projects.filter { $0.path == path }.map(\.sessionName))
+        let panes = claudeActivity.panes
+            .filter { sessions.contains($0.session) && $0.activity == .working }
+            .map(\.paneID)
+        guard !panes.isEmpty else { return }
+        let output = try await service.runCheckpointCommand(Self.interruptClaudeCommand(panes: panes))
+        guard output.exitCode == 0 else {
+            throw CheckpointError.failed("no se pudo interrumpir a Claude en tmux")
+        }
+    }
+
+    nonisolated static func interruptClaudeCommand(panes: [String]) -> String {
+        panes.map { "tmux send-keys -t \(ShellQuoting.singleQuoted($0)) Escape" }.joined(separator: " && ")
+    }
 }

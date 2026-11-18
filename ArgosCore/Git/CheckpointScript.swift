@@ -6,20 +6,20 @@
 //  servidor (`~/.config/argos/claude-checkpoint-v1.sh`, que ejecuta el hook
 //  `UserPromptSubmit` de Claude Code) y viaja entero en cada comando de la app
 //  (`sh -c '<script>' argos-checkpoint <modo> …`). Se ejecuta de verdad con /bin/sh y
-//  dash en `CheckpointScriptTests` / `CheckpointSafetyTests`.
+//  dash en `CheckpointScriptTests`, `CheckpointSafetyTests` y `CheckpointHardeningTests`.
 //
 //  Almacenamiento: un repositorio bare APARTE dentro del directorio git del worktree
-//  (`<gitdir>/argos-checkpoints.git`) que lee los objetos del principal por `alternates`
-//  y escribe los suyos en su propia carpeta (`GIT_OBJECT_DIRECTORY`). Así nada queda en
-//  `refs/` ni en `objects/` del repositorio: ni `push --mirror`, ni `log --all`, ni `gc`,
-//  ni «Enviar al Mac» (lista blanca de `.git`) lo alcanzan. Un worktree enlazado guarda
-//  los suyos en `.git/worktrees/<nombre>/`, que git borra al quitar el worktree.
+//  (`<gitdir>/argos-checkpoints.git`). Nada va a `refs/` ni a `objects/` del repositorio:
+//  ni `push --mirror`, ni `log --all`, ni `gc`, ni «Enviar al Mac» lo alcanzan. Los puntos
+//  son commits SIN padre (el HEAD de entonces va en `Argos-Head:`) y, tras crearlos, se
+//  «sellan»: se empaquetan en el almacén los objetos que solo estaban en el principal, así
+//  que un `gc` del principal no los daña (y si un punto no está sellado y le falta algo, se
+//  marca como dañado en vez de restaurarlo a medias).
 //
-//  Garantías: solo captura en repositorios activados (`argos.checkpoints=true`); nunca toca
-//  el árbol ni el índice real al capturar; en modo hook no escribe en stdout (Claude lo
-//  tomaría como contexto), tiene plazo propio y se rinde ante archivos grandes. Al
-//  restaurar, nada se sobrescribe ni se borra si su contenido actual no está en la copia
-//  previa, y se aborta ante carpetas, repositorios anidados o enlaces en el camino.
+//  Regla central al restaurar: nada se sobrescribe ni se borra si su contenido actual no
+//  coincide (por hash) con el de la copia previa. Se comprueba todo antes de empezar y otra
+//  vez justo antes de cada escritura o borrado; lo que no cuadre no se toca.
+//
 //  Android debe portar este texto byte a byte (golden `checkpoint-script`).
 //
 
@@ -51,25 +51,35 @@ enum CheckpointScript {
 # Solo captura en repositorios con: git config argos.checkpoints true
 # Los puntos viven en <gitdir>/argos-checkpoints.git (fuera de refs/ y objects/).
 LC_ALL=C; export LC_ALL
-unset GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE GIT_PREFIX GIT_QUARANTINE_PATH
 cp_max=30
 cp_untracked_max=1000
 cp_changed_max=2000
 cp_file_max=20971520
 cp_total_max=52428800
-cp_limit=4
+cp_budget=6
 cp_backoff=600
 cp_wait=${ARGOS_CP_LOCK_WAIT:-30}
+cp_deadline=
 cp_reason=
 cp_locked=
 cp_tmp=
+cp_scratch=
 
 cp_git() { git --literal-pathspecs -c core.quotepath=off "$@"; }
 cp_side() { git --git-dir="$cp_store" "$@"; }
 
-# Ejecuta un programa externo con plazo de $1 segundos (sin depender de `timeout`).
+# Segundos que quedan del plazo global (sin plazo: 3600).
+cp_left() {
+  [ -n "$cp_deadline" ] || { echo 3600; return; }
+  echo $(( cp_deadline - $(date +%s) ))
+}
+
+# Ejecuta un programa externo con plazo: el menor entre $1 y lo que quede del global.
 cp_limited() {
-  cp_secs=$1; shift
+  cp_secs=$(cp_left); [ "$1" -lt "$cp_secs" ] && cp_secs=$1; shift
+  [ "$cp_secs" -gt 0 ] || { cp_expired=1; return 124; }
   "$@" & cp_job=$!
   ( sleep "$cp_secs"; kill "$cp_job" 2>/dev/null ) >/dev/null 2>&1 &
   cp_killer=$!
@@ -80,12 +90,21 @@ cp_limited() {
 }
 
 cp_cleanup() {
-  [ -n "$cp_tmp" ] && rm -f "$cp_tmp" "$cp_tmp.lock" "$cp_tmp.list" "$cp_tmp.mod"
+  [ -n "$cp_tmp" ] && rm -f "$cp_tmp" "$cp_tmp".*
+  [ -n "$cp_scratch" ] && rm -rf "$cp_scratch"
   [ "$cp_locked" = 1 ] && rm -rf "$cp_store/lock"
   cp_locked=
 }
 trap cp_cleanup EXIT
 trap 'exit 1' INT TERM HUP
+
+# git >= 2.20 (rev-list --missing, update-index --no-skip-worktree).
+cp_git_ok() {
+  set -- $(git version 2>/dev/null)
+  cp_v=$3; cp_major=${cp_v%%.*}; cp_minor=${cp_v#*.}; cp_minor=${cp_minor%%.*}
+  case "$cp_major$cp_minor" in *[!0-9]*|'') return 1 ;; esac
+  [ "$cp_major" -gt 2 ] || { [ "$cp_major" -eq 2 ] && [ "$cp_minor" -ge 20 ]; }
+}
 
 # Entra en la raiz del repositorio de $1 y fija rutas. No escribe nada.
 cp_enter() {
@@ -98,10 +117,26 @@ cp_enter() {
   case $cp_realindex in /*) ;; *) cp_realindex="$cp_top/$cp_realindex" ;; esac
   cp_store="$cp_gitdir/argos-checkpoints.git"
   cp_tmp="$cp_store/tmp.$$"
+  case "$cp_store$cp_objects" in *[:\"\\]*) return 1 ;; esac
 }
 
 cp_enabled() { [ "$(git config --bool argos.checkpoints 2>/dev/null)" = true ]; }
 cp_has_store() { [ -f "$cp_store/HEAD" ]; }
+cp_lfs() { [ -n "$(git config --get filter.lfs.process)$(git config --get filter.lfs.clean)" ]; }
+
+# Objetos: escribe en $1 y lee tambien de los demas (almacen y principal).
+cp_objenv() {
+  GIT_OBJECT_DIRECTORY=$1; GIT_ALTERNATE_OBJECT_DIRECTORIES=$2
+  export GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+}
+cp_use_store() { cp_objenv "$cp_store/objects" "$cp_objects"; }
+
+# Carpeta de objetos desechable (vistas: arbol actual para comparar) que se borra al salir.
+cp_use_scratch() {
+  cp_scratch="$cp_store/scratch.$$"
+  mkdir -p "$cp_scratch" || return 1
+  cp_objenv "$cp_scratch" "$cp_store/objects:$cp_objects"
+}
 
 # Crea el repositorio de puntos (privado) si falta y pasa a usarlo.
 cp_init_store() {
@@ -109,13 +144,7 @@ cp_init_store() {
     ( umask 077; mkdir -p "$cp_store" && git init -q --bare "$cp_store" >/dev/null 2>&1 ) || return 1
     printf '%s\n' "$cp_objects" > "$cp_store/objects/info/alternates" || return 1
   fi
-  cp_use_store
-}
-
-# A partir de aqui, git escribe objetos en el repositorio de puntos y lee los del principal.
-cp_use_store() {
-  GIT_OBJECT_DIRECTORY="$cp_store/objects"; GIT_ALTERNATE_OBJECT_DIRECTORIES=$cp_objects
-  export GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+  mkdir -p "$cp_store/sealed" && cp_use_store
 }
 
 # Cerrojo: carpeta con el PID dentro; se rompe solo si ese proceso ya no existe.
@@ -131,6 +160,18 @@ cp_lock() {
     sleep 1
   done
   echo $$ > "$cp_store/lock/pid"; cp_locked=1
+  cp_tidy
+}
+
+# Restos de procesos muertos (kill -9): copias del indice y carpetas desechables.
+cp_tidy() {
+  for cp_f in "$cp_store"/tmp.* "$cp_store"/scratch.* "$cp_store"/seal.*; do
+    [ -e "$cp_f" ] || continue
+    cp_p=${cp_f##*/}; cp_p=${cp_p#*.}; cp_p=${cp_p%%.*}
+    case $cp_p in ''|*[!0-9]*) continue ;; esac
+    [ "$cp_p" = $$ ] && continue
+    kill -0 "$cp_p" 2>/dev/null || rm -rf "$cp_f"
+  done
 }
 
 # Operacion de git a medias (rebase, merge, cherry-pick, revert, bisect): imprime cual.
@@ -141,41 +182,64 @@ cp_busy() {
   return 1
 }
 
-# Tamano de los archivos de la lista $1 (uno por linea): falla si alguno o el total se pasan.
-cp_sizes() {
-  cp_over=$(while IFS= read -r cp_p; do
-    [ -f "$cp_p" ] && [ ! -L "$cp_p" ] || continue
-    set -- $(wc -c < "$cp_p" 2>/dev/null)
-    [ "${1:-0}" -gt "$cp_file_max" ] && { printf 'archivo de mas de 20 MB: %s' "$cp_p"; break; }
-    cp_sum=$(( ${cp_sum:-0} + ${1:-0} ))
-    [ "$cp_sum" -gt "$cp_total_max" ] && { printf 'mas de 50 MB de cambios en un turno'; break; }
-  done < "$1")
-  [ -z "$cp_over" ] || { cp_reason=$cp_over; return 1; }
+# Las marcas assume-unchanged / skip-worktree harian que `git add` no viera el disco: en la
+# copia del indice, cada archivo marcado que exista se quita la marca y se guarda su
+# contenido tal cual esta en disco (sin fiarse de la cache de stat). Los de sparse checkout
+# que no estan en disco conservan la suya y cuentan como sin cambios.
+cp_unflag() {
+  git ls-files -v -z > "$cp_tmp.flags" || return 1
+  xargs -0 sh -c '
+    for e; do
+      case $e in "H "*) continue ;; esac
+      p=${e#??}
+      [ -e "$p" ] || [ -L "$p" ] || continue
+      if [ -L "$p" ]; then m=120000; sha=$(printf "%s" "$(readlink "$p")" | git hash-object -w --stdin)
+      elif [ -f "$p" ]; then
+        if [ -x "$p" ]; then m=100755; else m=100644; fi
+        sha=$(git hash-object -w -- "$p")
+      else continue; fi
+      [ -n "$sha" ] || exit 255
+      git update-index --no-skip-worktree --no-assume-unchanged -- "$p" && git update-index --cacheinfo "$m,$sha,$p" || exit 255
+    done' x < "$cp_tmp.flags"
 }
 
-# Limites de la captura con el indice $1: nuevos y modificados (numero y tamano), con plazo.
+# Limites de la captura (indice ya en GIT_INDEX_FILE): numero y tamano de nuevos y
+# modificados, con listas -z y sin un proceso por archivo.
 cp_guard() {
-  cp_limited "$cp_limit" git -c core.quotepath=off ls-files -o --exclude-standard > "$cp_tmp.list" 2>/dev/null \
+  cp_limited 3 git ls-files -z -o --exclude-standard > "$cp_tmp.list" 2>/dev/null \
     || { cp_reason="la lista de archivos nuevos tardo demasiado"; return 1; }
-  cp_limited "$cp_limit" git -c core.quotepath=off diff-files --name-only > "$cp_tmp.mod" 2>/dev/null \
+  cp_limited 3 git diff-files -z --name-only > "$cp_tmp.mod" 2>/dev/null \
     || { cp_reason="la lista de archivos modificados tardo demasiado"; return 1; }
-  set -- $(wc -l < "$cp_tmp.list") $(wc -l < "$cp_tmp.mod")
+  set -- $(tr -cd '\000' < "$cp_tmp.list" | wc -c) $(tr -cd '\000' < "$cp_tmp.mod" | wc -c)
   [ "$1" -gt "$cp_untracked_max" ] && { cp_reason="mas de $cp_untracked_max archivos nuevos sin ignorar"; return 1; }
   [ "$2" -gt "$cp_changed_max" ] && { cp_reason="mas de $cp_changed_max archivos modificados"; return 1; }
   cat "$cp_tmp.mod" >> "$cp_tmp.list"
-  cp_sizes "$cp_tmp.list"
+  [ -s "$cp_tmp.list" ] || return 0
+  if stat -c %s . >/dev/null 2>&1; then cp_fmt=%s; cp_opt=-c; else cp_fmt=%z; cp_opt=-f; fi
+  cp_over=$(xargs -0 stat "$cp_opt" "$cp_fmt" -- < "$cp_tmp.list" 2>/dev/null | awk -v f="$cp_file_max" -v t="$cp_total_max" '
+    $1 + 0 > f { print "un archivo de mas de 20 MB"; exit }
+    { s += $1 } s > t { print "mas de 50 MB de cambios en un turno"; exit }')
+  [ -z "$cp_over" ] || { cp_reason=$cp_over; return 1; }
 }
 
-# Arbol del arbol de trabajo en cp_tree: copia del indice real + `git add -A` (respeta
-# .gitignore). $1 = guard (limites) | full; $2 = timed | untimed.
+# Arbol del arbol de trabajo en cp_tree: copia del indice real (conservando su fecha, para
+# que git detecte los cambios del mismo segundo), sin marcas, refrescada y `git add -A`.
+# $1 = guard (limites) | full; $2 = segundos para `git add`.
 cp_write_tree() {
   cp_expired=
   rm -f "$cp_tmp" "$cp_tmp.lock"
-  if [ -f "$cp_realindex" ]; then cp "$cp_realindex" "$cp_tmp" 2>/dev/null || { cp_reason="no se pudo leer el indice"; return 1; }; fi
+  if [ -f "$cp_realindex" ]; then cp -p "$cp_realindex" "$cp_tmp" 2>/dev/null || { cp_reason="no se pudo leer el indice"; return 1; }; fi
   GIT_INDEX_FILE=$cp_tmp; export GIT_INDEX_FILE
+  cp_unflag || { unset GIT_INDEX_FILE; cp_reason="no se pudieron quitar las marcas del indice"; return 1; }
+  cp_limited 3 git update-index -q --really-refresh >/dev/null 2>&1
+  [ -z "$cp_expired" ] || { unset GIT_INDEX_FILE; cp_reason="git update-index no termino a tiempo"; return 1; }
   if [ "$1" = guard ] && ! cp_guard; then unset GIT_INDEX_FILE; return 1; fi
-  if [ "$2" = timed ]; then cp_limited "$cp_limit" git add -A >/dev/null 2>&1
-  else git add -A >/dev/null 2>&1; fi || { unset GIT_INDEX_FILE; cp_reason="git add no termino a tiempo o fallo"; return 1; }
+  if ! cp_limited "$2" git -c core.fsmonitor=false add -A >/dev/null 2>"$cp_tmp.err"; then
+    unset GIT_INDEX_FILE
+    if [ -n "$cp_expired" ]; then cp_reason="git add no termino a tiempo"
+    else cp_reason="git add: $(tail -n 1 "$cp_tmp.err" | cut -c1-200)"; fi
+    return 1
+  fi
   cp_tree=$(git write-tree 2>/dev/null); unset GIT_INDEX_FILE
   [ -n "$cp_tree" ] || { cp_reason="git write-tree fallo"; return 1; }
 }
@@ -186,39 +250,79 @@ cp_note_skip() {
   [ -n "$cp_expired" ] && echo $(( $(date +%s) + cp_backoff )) > "$cp_store/backoff"
 }
 
-# Crea el punto: $1 tipo, $2 etiqueta, $3 sesion, $4 guard|full, $5 timed|untimed.
-# Deja cp_commit y cp_tree; imprime ARGOS_CP_NEW / ARGOS_CP_SAME / ARGOS_CP_SKIP.
+# Siguiente nombre de punto: contador (no la hora: un reloj que retrocede no lo desordena).
+cp_next_ref() {
+  cp_seq=$(cat "$cp_store/seq" 2>/dev/null | tr -cd 0-9)
+  if [ -z "$cp_seq" ]; then
+    cp_seq=$(cp_side for-each-ref --sort=-refname --count=1 --format='%(refname)' refs/checkpoints/)
+    cp_seq=${cp_seq##*/}; cp_seq=$(printf '%s' "${cp_seq%%-*}" | tr -cd 0-9)
+  fi
+  cp_seq=$(( ${cp_seq:-0} + 1 ))
+  echo "$cp_seq" > "$cp_store/seq"
+  cp_ref=$(printf 'refs/checkpoints/%010d' "$cp_seq")
+}
+
+# Crea el punto (con el cerrojo): $1 tipo, $2 etiqueta, $3 sesion, $4 guard|full,
+# $5 segundos. Deja cp_commit y cp_tree; imprime ARGOS_CP_NEW / SAME / SKIP.
 cp_capture() {
-  if ! cp_write_tree "$4" "$5"; then cp_note_skip; printf 'ARGOS_CP_SKIP %s\n' "$cp_reason"; return 1; fi
-  set -- "$@" $(cp_side for-each-ref --sort=-refname --count=1 --format='%(refname) %(objectname)' refs/checkpoints/ 2>/dev/null)
-  if [ -n "$7" ] && [ "$(git rev-parse -q --verify "$7^{tree}" 2>/dev/null)" = "$cp_tree" ]; then
-    cp_commit=$7; printf 'ARGOS_CP_SAME %s\n' "$cp_commit"; return 0
+  cp_use_store
+  if ! cp_write_tree "$4" "$5"; then
+    # Lo que `git add` dejo a medias se borra (solo quien tiene el cerrojo escribe aqui).
+    cp_side prune --expire=now >/dev/null 2>&1
+    cp_note_skip; printf 'ARGOS_CP_SKIP %s\n' "$cp_reason"; return 1
+  fi
+  set -- "$@" $(cp_side for-each-ref --sort=-refname --count=1 --format='%(objectname)' refs/checkpoints/ 2>/dev/null)
+  if [ -n "$6" ] && [ "$(git rev-parse -q --verify "$6^{tree}" 2>/dev/null)" = "$cp_tree" ]; then
+    cp_commit=$6; printf 'ARGOS_CP_SAME %s\n' "$cp_commit"; return 0
   fi
   cp_head=$(git rev-parse -q --verify HEAD 2>/dev/null)
-  cp_msg=$(printf '%s\n\nArgos-Checkpoint: 1\nArgos-Kind: %s\nArgos-Session: %s' "${2:-(sin mensaje)}" "$1" "${3:--}")
+  cp_msg=$(printf '%s\n\nArgos-Checkpoint: 1\nArgos-Kind: %s\nArgos-Session: %s\nArgos-Head: %s' \
+    "${2:-(sin mensaje)}" "$1" "${3:--}" "${cp_head:--}")
   export GIT_AUTHOR_NAME=Argos GIT_AUTHOR_EMAIL=argos@localhost GIT_COMMITTER_NAME=Argos GIT_COMMITTER_EMAIL=argos@localhost
-  if [ -n "$cp_head" ]; then
-    cp_commit=$(printf '%s\n' "$cp_msg" | git -c commit.gpgsign=false commit-tree "$cp_tree" -p "$cp_head" 2>/dev/null)
-  else
-    cp_commit=$(printf '%s\n' "$cp_msg" | git -c commit.gpgsign=false commit-tree "$cp_tree" 2>/dev/null)
-  fi
+  cp_commit=$(printf '%s\n' "$cp_msg" | git -c commit.gpgsign=false commit-tree "$cp_tree" 2>/dev/null)
   [ -n "$cp_commit" ] || { cp_reason="git commit-tree fallo"; printf 'ARGOS_CP_SKIP %s\n' "$cp_reason"; return 1; }
-  cp_base="refs/checkpoints/$(date +%s)"; cp_ref=$cp_base; cp_i=1
-  while ! cp_side update-ref "$cp_ref" "$cp_commit" "" 2>/dev/null; do
-    [ "$cp_i" -gt 20 ] && { cp_reason="git update-ref fallo"; printf 'ARGOS_CP_SKIP %s\n' "$cp_reason"; return 1; }
-    cp_ref="$cp_base-$(printf '%02d' "$cp_i")"; cp_i=$((cp_i + 1))
-  done
+  cp_next_ref
+  cp_side update-ref "$cp_ref" "$cp_commit" "" 2>/dev/null \
+    || { cp_reason="git update-ref fallo"; printf 'ARGOS_CP_SKIP %s\n' "$cp_reason"; return 1; }
   cp_prune
   printf 'ARGOS_CP_NEW %s\n' "$cp_commit"
 }
 
-# Conserva los cp_max puntos mas recientes; una vez al dia, borra los objetos sueltos.
+# Sella el punto $1: empaqueta en el almacen sus objetos que no esten en el ultimo punto
+# sellado (que ya los tiene), asi no depende del principal.
+cp_seal() {
+  [ -e "$cp_store/sealed/$1" ] && return 0
+  [ -z "$ARGOS_CP_TEST_NO_SEAL" ] || return 1
+  cp_prev=
+  for cp_c in $(cp_side for-each-ref --sort=-refname --format='%(objectname)' refs/checkpoints/); do
+    [ "$cp_c" != "$1" ] && [ -e "$cp_store/sealed/$cp_c" ] && { cp_prev=$cp_c; break; }
+  done
+  if [ -n "$cp_prev" ]; then git rev-list --objects "$1" --not "$cp_prev" > "$cp_store/seal.$$"
+  else git rev-list --objects "$1" > "$cp_store/seal.$$"; fi || { rm -f "$cp_store/seal.$$"; return 1; }
+  git pack-objects -q "$cp_store/objects/pack/pack" < "$cp_store/seal.$$" >/dev/null \
+    && : > "$cp_store/sealed/$1"
+  cp_rc=$?; rm -f "$cp_store/seal.$$"; return $cp_rc
+}
+
+# ¿Estan todos los objetos del punto $1? (sellado, o comprobado uno a uno).
+cp_intact() {
+  [ -e "$cp_store/sealed/$1" ] && return 0
+  cp_missing=$(git rev-list --objects --missing=print "$1" 2>/dev/null) || return 1
+  case "$cp_missing" in "?"*|*"
+?"*) return 1 ;; esac
+  return 0
+}
+
+# Conserva los cp_max puntos mas recientes; una vez al dia, compacta el almacen.
 cp_prune() {
-  cp_side for-each-ref --sort=-refname --format='%(refname)' refs/checkpoints/ | sed -n "$((cp_max + 1)),\$p" \
-    | while IFS= read -r cp_r; do cp_side update-ref -d "$cp_r" 2>/dev/null; done
+  cp_side for-each-ref --sort=-refname --format='%(refname) %(objectname)' refs/checkpoints/ \
+    | sed -n "$((cp_max + 1)),\$p" | while read -r cp_r cp_c; do
+      cp_side update-ref -d "$cp_r" 2>/dev/null; rm -f "$cp_store/sealed/$cp_c"
+    done
   if [ -z "$(find "$cp_store/pruned" -mmin -1440 2>/dev/null)" ]; then
     : > "$cp_store/pruned"
     cp_side prune --expire=1.hour.ago >/dev/null 2>&1
+    cp_side repack -a -d -l -q >/dev/null 2>&1
   fi
 }
 
@@ -266,14 +370,16 @@ END {
 }'
 
 cp_hook() {
-  cp_input=$(awk "$cp_awk" 2>/dev/null)
   exec >/dev/null 2>&1
-  cp_enter . || exit 0
-  cp_enabled || exit 0
+  cp_deadline=$(( $(date +%s) + cp_budget ))
+  cp_enter . && cp_enabled || { cat >/dev/null; exit 0; }
+  cp_input=$(head -c 262144 | awk "$cp_awk" 2>/dev/null); cat >/dev/null
   cp_busy && exit 0
+  cp_git_ok || exit 0
   cp_init_store || exit 0
+  if cp_lfs; then cp_reason="el repositorio usa Git LFS"; cp_note_skip; exit 0; fi
   cp_until=$(cat "$cp_store/backoff" 2>/dev/null | tr -cd 0-9)
-  [ -n "$cp_until" ] && [ "$(date +%s)" -lt "$cp_until" ] 2>/dev/null && exit 0
+  [ -n "$cp_until" ] && [ "$(date +%s)" -lt "$cp_until" ] && exit 0
   cp_lock 2 || exit 0
   cp_turn=$(cat "$cp_store/turns" 2>/dev/null | tr -cd 0-9); cp_turn=$(( ${cp_turn:-0} + 1 ))
   echo "$cp_turn" > "$cp_store/turns"
@@ -282,44 +388,40 @@ cp_hook() {
   if [ "$(git config --bool argos.checkpointsPrompt 2>/dev/null)" = true ] && [ -n "${cp_input#*"$cp_tab"}" ]; then
     cp_label=${cp_input#*"$cp_tab"}
   fi
-  cp_capture prompt "$cp_label" "${cp_input%%"$cp_tab"*}" guard timed
+  cp_capture prompt "$cp_label" "${cp_input%%"$cp_tab"*}" guard 4 || exit 0
+  # Sellar puede tardar la primera vez: en segundo plano, sin hacer esperar a Claude.
+  ( trap - EXIT; cp_tmp=; cp_seal "$cp_commit" ) </dev/null >/dev/null 2>&1 &
   exit 0
 }
 
 cp_require() {
   command -v git >/dev/null 2>&1 || { echo ARGOS_CP_NOGIT; exit 0; }
+  cp_git_ok || { echo ARGOS_CP_GITOLD; exit 0; }
   cp_enter "$1" || { echo ARGOS_CP_NOREPO; exit 0; }
   if cp_has_store; then cp_use_store; fi
 }
 
-# Arboles de $1 y $2 en cp_a y cp_b ("-" = el arbol de trabajo actual, con limites: si
-# costaria mucho, ARGOS_CP_HEAVY).
-cp_pair() {
-  cp_a=; cp_b=
-  for cp_x in "$1" "$2"; do
-    if [ "$cp_x" = - ]; then
-      cp_has_store || { echo ARGOS_CP_BADREF; exit 4; }
-      cp_write_tree guard untimed || { echo "ARGOS_CP_HEAVY $cp_reason"; exit 0; }
-      cp_y=$cp_tree
-    else
-      cp_y=$(git rev-parse -q --verify "$cp_x^{tree}" 2>/dev/null) || { echo ARGOS_CP_BADREF; exit 4; }
-    fi
-    if [ -z "$cp_a" ]; then cp_a=$cp_y; else cp_b=$cp_y; fi
-  done
+# Arbol actual (con limites si $1 = guard) en cp_tree, con objetos desechables.
+cp_current() {
+  cp_has_store && cp_use_scratch && cp_write_tree "${1:-guard}" 3600
 }
 
 cp_list() {
-  echo "ARGOS_CP_LIST 2"
+  echo "ARGOS_CP_LIST 3"
   if cp_enabled; then echo "ARGOS_CP_STATE on"; else echo "ARGOS_CP_STATE off"; fi
   if [ "$(git config --bool argos.checkpointsPrompt 2>/dev/null)" = true ]; then echo "ARGOS_CP_PROMPTS on"; else echo "ARGOS_CP_PROMPTS off"; fi
+  cp_lfs && echo "ARGOS_CP_LFS"
   echo "ARGOS_CP_ROOT $cp_top"
   echo "ARGOS_CP_HEAD $(git rev-parse -q --verify HEAD 2>/dev/null || echo -)"
   cp_has_store || { echo "ARGOS_CP_META"; return 0; }
   sed 's/^/ARGOS_CP_SKIPLOG /' "$cp_store/skips" 2>/dev/null
-  if cp_write_tree guard untimed; then cp_newer=$cp_tree; else cp_newer=; echo "ARGOS_CP_CURRENT_SKIPPED $cp_reason"; fi
+  for cp_c in $(cp_side for-each-ref --format='%(objectname)' refs/checkpoints/); do
+    cp_intact "$cp_c" || echo "ARGOS_CP_DAMAGED $cp_c"
+  done
+  if cp_current guard; then cp_newer=$cp_tree; else cp_newer=; echo "ARGOS_CP_CURRENT_SKIPPED $cp_reason"; fi
   cp_side for-each-ref --sort=-refname --format='%(objectname)' refs/checkpoints/ | while IFS= read -r cp_c; do
-    if [ -n "$cp_newer" ]; then
-      printf 'ARGOS_CP_COUNT %s %s\n' "$cp_c" "$(git diff-tree -r -z --no-renames --name-only "$cp_c" "$cp_newer" | tr -cd '\000' | wc -c | tr -d ' ')"
+    if [ -n "$cp_newer" ] && git diff-tree -r -z --no-renames --name-only "$cp_c" "$cp_newer" > "$cp_tmp.count" 2>/dev/null; then
+      printf 'ARGOS_CP_COUNT %s %s\n' "$cp_c" "$(tr -cd '\000' < "$cp_tmp.count" | wc -c | tr -d ' ')"
     fi
     cp_newer=$cp_c
   done
@@ -328,52 +430,93 @@ cp_list() {
     --format='%(refname)%1f%(objectname)%1f%(parent)%1f%(committerdate:unix)%1f%(contents)%1e' refs/checkpoints/
 }
 
+# Arboles de $1 y $2 en cp_a y cp_b ("-" = el arbol de trabajo actual, con limites).
+cp_pair() {
+  cp_a=; cp_b=
+  for cp_x in "$1" "$2"; do
+    if [ "$cp_x" = - ]; then
+      cp_current guard || { echo "ARGOS_CP_HEAVY ${cp_reason:-sin puntos}"; exit 0; }
+      cp_y=$cp_tree
+    else
+      cp_y=$(git rev-parse -q --verify "$cp_x^{tree}" 2>/dev/null) || { echo ARGOS_CP_BADREF; exit 4; }
+    fi
+    if [ -z "$cp_a" ]; then cp_a=$cp_y; else cp_b=$cp_y; fi
+  done
+}
+
 cp_files() {
   cp_pair "$1" "$2"
+  git diff-tree -r -z --no-renames --name-status "$cp_a" "$cp_b" > "$cp_tmp.files" 2>/dev/null \
+    || { echo ARGOS_CP_DAMAGED; exit 5; }
   echo "ARGOS_CP_TREES $cp_a $cp_b"
   echo ARGOS_CP_FILES
-  git diff-tree -r -z --no-renames --name-status "$cp_a" "$cp_b"
+  cat "$cp_tmp.files"
 }
 
 cp_diff() {
   cp_pair "$1" "$2"
-  cp_git diff --no-color --no-ext-diff --no-renames "$cp_a" "$cp_b" -- "$3" | head -c "$4"
+  cp_git diff --no-color --no-ext-diff --no-renames "$cp_a" "$cp_b" -- "$3" > "$cp_tmp.diff" 2>/dev/null \
+    || { echo ARGOS_CP_DAMAGED; exit 5; }
+  head -c "$4" "$cp_tmp.diff"
 }
 
-# Comprobacion de cada ruta que se va a escribir desde CP_S (con CP_B = estado actual):
-# D = hoy es una carpeta; R = hay un repositorio anidado en el camino; F = en el camino hay
-# un archivo o enlace que no esta en la copia; M = falta su contenido en el punto;
-# I = existe y no esta en la copia (p. ej. ignorado): no se toca. CP_MODE: ok = rutas que
-# se pueden escribir; conflicts = "tipo\0ruta\0" de D/R/F/M; report = de todas las demas.
+# Comprobacion (y, con CP_ACT=1, ejecucion) de cada ruta. CP_OP=write: se escribe desde
+# CP_S; CP_OP=delete: se borra. CP_B = copia previa (estado actual). Tipos:
+#   D hoy es una carpeta; R hay un repositorio (.git, o HEAD + objects) en el camino;
+#   F en el camino hay un archivo o enlace que no esta en la copia; M falta en el punto;
+#   C su contenido no coincide con la copia (cambio o la copia no lo vio); P sus permisos
+#   no se pueden guardar en la copia; I existe y no esta en la copia; N repositorio anidado.
+# Imprime "tipo\0ruta\0" de las que no se tocan (con CP_ACT=1, tras hacer las demas).
 cp_chk='
+hash() { if [ -L "$1" ]; then printf "%s" "$(readlink "$1")" | git hash-object --stdin; else git hash-object -- "$1"; fi; }
 for p; do
   t=K; d=$p; behind=
   while :; do
     case $d in */*) d=${d%/*} ;; *) break ;; esac
     if [ -L "$d" ] || { [ -e "$d" ] && [ ! -d "$d" ]; }; then
       behind=1; git cat-file -e "$CP_B:$d" 2>/dev/null || t=F
-    elif [ -e "$d/.git" ]; then t=R
+    elif [ -e "$d/.git" ] || { [ -f "$d/HEAD" ] && [ -d "$d/objects" ]; }; then t=R
     fi
   done
-  if [ "$t" = K ] && [ -z "$behind" ]; then
-    if [ -d "$p" ] && [ ! -L "$p" ]; then t=D
-    elif { [ -e "$p" ] || [ -L "$p" ]; } && ! git cat-file -e "$CP_B:$p" 2>/dev/null; then t=I
+  exists=; [ -z "$behind" ] && { [ -e "$p" ] || [ -L "$p" ]; } && exists=1
+  if [ "$t" = K ] && [ -n "$exists" ]; then
+    if [ -d "$p" ] && [ ! -L "$p" ]; then
+      if [ "$CP_OP" = delete ]; then t=N; else t=D; fi
+    elif want=$(git rev-parse -q --verify "$CP_B:$p" 2>/dev/null); then
+      [ "$(hash "$p" 2>/dev/null)" = "$want" ] || t=C
+      [ "$t" = K ] && [ ! -L "$p" ] && [ -n "$(find "./$p" -prune -type f ! -perm -044 2>/dev/null)" ] && t=P
+    else
+      t=I
     fi
   fi
-  [ "$t" = K ] && ! git cat-file -e "$CP_S:$p" 2>/dev/null && t=M
-  case $CP_MODE in
-    ok) [ "$t" = K ] && printf "%s\000" "$p" ;;
-    conflicts) case $t in D|R|F|M) printf "%s\000%s\000" "$t" "$p" ;; esac ;;
-    *) [ "$t" = K ] || printf "%s\000%s\000" "$t" "$p" ;;
-  esac
+  [ "$t" = K ] && [ "$CP_OP" = write ] && ! git cat-file -e "$CP_S:$p" 2>/dev/null && t=M
+  [ "$t" = K ] && [ "$CP_OP" = delete ] && [ -z "$exists" ] && continue
+  if [ "$t" = K ]; then
+    [ "$CP_ACT" = 1 ] || continue
+    if [ "$CP_OP" = delete ]; then rm -f -- "./$p" || printf "E\000%s\000" "$p"
+    else git checkout-index -f -- "$p" || printf "E\000%s\000" "$p"; fi
+  else
+    printf "%s\000%s\000" "$t" "$p"
+  fi
 done'
 
-# Rutas (NUL) que cambian de $1 (actual) a $2 (punto) y hay que escribir desde el punto.
-cp_writes() { git diff-tree -r -z --no-renames --name-only --diff-filter=AMT "$1" "$2"; }
+# Rutas (NUL) de $1 (actual) a $2 (punto): escribir (A/M/T) o borrar (D).
+cp_lists() {
+  git diff-tree -r -z --no-renames --name-only --diff-filter=AMT "$1" "$2" > "$cp_tmp.w" 2>/dev/null \
+    && git diff-tree -r -z --no-renames --name-only --diff-filter=D "$1" "$2" > "$cp_tmp.d" 2>/dev/null
+}
 
-cp_check() {  # $1 = actual, $2 = punto, $3 = report | conflicts | ok
-  CP_B=$1; CP_S=$2; CP_MODE=$3; export CP_B CP_S CP_MODE
-  cp_writes "$1" "$2" | xargs -0 sh -c "$cp_chk" cp_chk
+# $1 = actual, $2 = punto, $3 = 0 (comprobar) | 1 (hacer). Primero borra, luego escribe.
+cp_run_chk() {
+  CP_B=$1; CP_S=$2; CP_ACT=$3; export CP_B CP_S CP_ACT
+  CP_OP=delete; export CP_OP; xargs -0 sh -c "$cp_chk" cp_chk < "$cp_tmp.d"
+  CP_OP=write; export CP_OP; xargs -0 sh -c "$cp_chk" cp_chk < "$cp_tmp.w"
+}
+
+# Hay algun bloqueo (no I/N) en los registros "tipo\0ruta\0" de $1.
+cp_blocking() {
+  [ -s "$1" ] || return 1
+  ! xargs -0 -n 2 sh -c 'case $1 in I|N) ;; *) exit 255 ;; esac' x < "$1" 2>/dev/null
 }
 
 # Que cambiaria al restaurar $1 respecto al arbol actual. $2 = guard: si hacer la copia
@@ -381,18 +524,21 @@ cp_check() {  # $1 = actual, $2 = punto, $3 = report | conflicts | ok
 cp_preview() {
   cp_op=$(cp_busy) && { echo "ARGOS_CP_BUSY $cp_op"; exit 0; }
   cp_s=$(git rev-parse -q --verify "$1^{commit}" 2>/dev/null) || { echo ARGOS_CP_BADREF; exit 4; }
-  if ! cp_write_tree "${2:-guard}" untimed; then
+  cp_intact "$cp_s" || { echo ARGOS_CP_DAMAGED; exit 0; }
+  if cp_lfs; then echo "ARGOS_CP_FAILED el repositorio usa Git LFS"; exit 5; fi
+  if ! cp_current "${2:-guard}"; then
     [ "${2:-guard}" = guard ] && { echo "ARGOS_CP_HEAVY $cp_reason"; exit 0; }
     echo "ARGOS_CP_FAILED $cp_reason"; exit 5
   fi
+  cp_lists "$cp_tree" "$cp_s" || { echo ARGOS_CP_DAMAGED; exit 0; }
   echo "ARGOS_CP_CURRENT $cp_tree"
-  cp_parent=$(git rev-parse -q --verify "$cp_s^" 2>/dev/null)
+  cp_then=$(git cat-file commit "$cp_s" | sed -n 's/^Argos-Head: //p' | head -n 1)
   cp_head=$(git rev-parse -q --verify HEAD 2>/dev/null)
-  if [ -n "$cp_parent" ] && [ -n "$cp_head" ] && [ "$cp_parent" != "$cp_head" ]; then
-    echo "ARGOS_CP_HEADMOVED $(git rev-list --count "$cp_parent..$cp_head" 2>/dev/null || echo 0)"
+  if [ -n "$cp_then" ] && [ "$cp_then" != - ] && [ -n "$cp_head" ] && [ "$cp_then" != "$cp_head" ]; then
+    echo "ARGOS_CP_HEADMOVED $(git rev-list --count "$cp_then..$cp_head" 2>/dev/null || echo 1)"
   fi
   echo ARGOS_CP_CHECK
-  cp_check "$cp_tree" "$cp_s" report
+  cp_run_chk "$cp_tree" "$cp_s" 0
   printf 'END\000\000\n'
   echo ARGOS_CP_FILES
   git diff-tree -r -z --no-renames --name-status "$cp_tree" "$cp_s"
@@ -405,52 +551,49 @@ cp_valid_path() {
   return 0
 }
 
-# Restaura un archivo $2 del punto $1 (con la copia $3 ya hecha).
-cp_restore_one() {
-  if git cat-file -e "$1:$2" 2>/dev/null; then
-    CP_B=$3; CP_S=$1; CP_MODE=report; export CP_B CP_S CP_MODE
-    cp_bad=$(sh -c "$cp_chk" cp_chk "$2" | tr '\000' ' ')
-    [ -z "$cp_bad" ] || { echo "ARGOS_CP_NOOP ${cp_bad%% *}"; exit 0; }
-    GIT_INDEX_FILE=$cp_tmp; export GIT_INDEX_FILE
-    git read-tree "$1" && git checkout-index -f -- "$2" || { echo ARGOS_CP_FAILED checkout-index; exit 5; }
-  elif git cat-file -e "$3:$2" 2>/dev/null; then
-    CP_B=$3; CP_S=$3; CP_MODE=report; export CP_B CP_S CP_MODE
-    cp_bad=$(sh -c "$cp_chk" cp_chk "$2" | tr '\000' ' ')
-    [ -z "$cp_bad" ] || { echo "ARGOS_CP_NOOP ${cp_bad%% *}"; exit 0; }
-    rm -f -- "./$2" || { echo ARGOS_CP_FAILED rm; exit 5; }
-  elif [ -e "$2" ] || [ -L "$2" ]; then
-    echo "ARGOS_CP_NOOP I"; exit 0
-  else
-    echo "ARGOS_CP_NOOP absent"; exit 0
-  fi
-  echo ARGOS_CP_DONE
-}
-
-# Restaura el punto $1 (todo, o solo la ruta $3). $2 = arbol visto en la vista previa ("-"
-# = sin comprobar). Antes crea otro punto con el estado actual (deshacer lo deshecho).
+# Restaura el punto $1 (todo, o solo la ruta $3 si $4 = una). $2 = arbol visto en la vista
+# previa ("-" = sin comprobar). Antes crea otro punto con el estado actual.
 cp_restore() {
   cp_op=$(cp_busy) && { echo "ARGOS_CP_BUSY $cp_op"; exit 0; }
-  [ -z "$3" ] || cp_valid_path "$3" || { echo "ARGOS_CP_NOOP invalid"; exit 0; }
+  if [ "$4" = one ]; then cp_valid_path "$3" || { echo "ARGOS_CP_NOOP invalid"; exit 0; }; fi
   cp_s=$(git rev-parse -q --verify "$1^{commit}" 2>/dev/null) || { echo ARGOS_CP_BADREF; exit 4; }
+  if cp_lfs; then echo "ARGOS_CP_FAILED el repositorio usa Git LFS"; exit 5; fi
   cp_init_store && cp_lock "$cp_wait" || { echo "ARGOS_CP_FAILED otra restauracion en curso"; exit 5; }
-  cp_label="Antes de restaurar: $(git log -1 --format=%s "$cp_s" 2>/dev/null | cut -c1-120)"
-  cp_capture restore "$cp_label" - full untimed || { echo "ARGOS_CP_FAILED no se pudo crear la copia previa: $cp_reason"; exit 5; }
+  cp_intact "$cp_s" || { echo ARGOS_CP_DAMAGED; exit 0; }
+  cp_label="Antes de restaurar: $(git cat-file commit "$cp_s" | sed -n '/^$/{n;p;q;}' | cut -c1-120)"
+  cp_capture restore "$cp_label" - full 3600 || { echo "ARGOS_CP_FAILED no se pudo crear la copia previa: $cp_reason"; exit 5; }
   cp_backup=$cp_commit
+  cp_seal "$cp_backup" || { echo "ARGOS_CP_FAILED no se pudo guardar la copia previa"; exit 5; }
   if [ "$2" != - ] && [ "$cp_tree" != "$2" ]; then echo ARGOS_CP_CHANGED; exit 0; fi
-  [ -n "$3" ] && cp_restore_one "$cp_s" "$3" "$cp_backup" && exit 0
-  if [ -n "$(cp_check "$cp_backup" "$cp_s" conflicts | head -c 1)" ]; then
-    echo ARGOS_CP_CONFLICT; cp_check "$cp_backup" "$cp_s" conflicts; printf 'END\000\000\n'; exit 0
+  if [ "$4" = one ]; then
+    : > "$cp_tmp.w"; : > "$cp_tmp.d"
+    if git cat-file -e "$cp_s:$3" 2>/dev/null; then printf '%s\000' "$3" > "$cp_tmp.w"
+    elif git cat-file -e "$cp_backup:$3" 2>/dev/null; then printf '%s\000' "$3" > "$cp_tmp.d"
+    elif [ -e "$3" ] || [ -L "$3" ]; then echo "ARGOS_CP_NOOP I"; exit 0
+    else echo "ARGOS_CP_NOOP absent"; exit 0; fi
+  else
+    cp_lists "$cp_backup" "$cp_s" || { echo ARGOS_CP_DAMAGED; exit 0; }
   fi
+  # 1) Comprobacion completa antes de tocar nada.
+  cp_run_chk "$cp_backup" "$cp_s" 0 > "$cp_tmp.check"
+  if cp_blocking "$cp_tmp.check"; then
+    if [ "$4" = one ]; then echo "ARGOS_CP_NOOP $(head -c 1 "$cp_tmp.check")"; exit 0; fi
+    echo ARGOS_CP_CONFLICT; cat "$cp_tmp.check"; printf 'END\000\000\n'; exit 0
+  fi
+  [ -n "$ARGOS_CP_TEST_BEFORE_WRITE" ] && sh -c "$ARGOS_CP_TEST_BEFORE_WRITE"
+  # 2) Se hace, volviendo a comprobar cada ruta justo antes de tocarla.
   GIT_INDEX_FILE=$cp_tmp; export GIT_INDEX_FILE
   git read-tree "$cp_s" || { echo ARGOS_CP_FAILED read-tree; exit 5; }
-  # Primero se borra lo que no existia (solo lo no ignorado, que esta en la copia; nunca los
-  # repositorios anidados) y luego se escribe lo que se pudo comprobar.
-  git clean -f -d -q >/dev/null 2>&1 || { echo ARGOS_CP_FAILED clean; exit 5; }
-  cp_check "$cp_backup" "$cp_s" ok | git checkout-index -f -z --stdin || { echo ARGOS_CP_FAILED checkout-index; exit 5; }
+  cp_run_chk "$cp_backup" "$cp_s" 1 > "$cp_tmp.done"
   unset GIT_INDEX_FILE
+  if [ "$4" = one ]; then
+    if [ -s "$cp_tmp.done" ]; then echo "ARGOS_CP_NOOP $(head -c 1 "$cp_tmp.done")"; else echo ARGOS_CP_DONE; fi
+    exit 0
+  fi
   cp_want=$(git rev-parse "$cp_s^{tree}")
-  if cp_write_tree full untimed && [ "$cp_tree" = "$cp_want" ]; then echo ARGOS_CP_DONE
-  else echo ARGOS_CP_PARTIAL; fi
+  cp_use_scratch
+  if [ ! -s "$cp_tmp.done" ] && cp_write_tree full 3600 && [ "$cp_tree" = "$cp_want" ]; then echo ARGOS_CP_DONE
+  else echo ARGOS_CP_PARTIAL; echo ARGOS_CP_SKIPPED; cat "$cp_tmp.done"; printf 'END\000\000\n'; fi
 }
 
 cp_purge() {
@@ -467,11 +610,12 @@ cp_main() {
     list) cp_require "$1"; cp_list ;;
     snapshot) cp_require "$1"; cp_op=$(cp_busy) && { echo "ARGOS_CP_BUSY $cp_op"; exit 0; }
       cp_init_store && cp_lock "$cp_wait" || { echo "ARGOS_CP_FAILED los puntos estan en uso"; exit 5; }
-      cp_capture manual "$2" - full untimed ;;
+      cp_capture manual "$2" - full 3600 && cp_seal "$cp_commit" ;;
     files) cp_require "$1"; cp_files "$2" "$3" ;;
     diff) cp_require "$1"; cp_diff "$2" "$3" "$4" "$5" ;;
     preview) cp_require "$1"; cp_preview "$2" "$3" ;;
-    restore) cp_require "$1"; cp_restore "$2" "$3" "$4" ;;
+    restore) cp_require "$1"
+      if [ $# -ge 4 ]; then cp_restore "$2" "$3" "$4" one; else cp_restore "$2" "$3" "" all; fi ;;
     enable) cp_require "$1"; git config argos.checkpoints true && cp_init_store && echo ARGOS_CP_OK ;;
     disable) cp_require "$1"; git config argos.checkpoints false && cp_purge ;;
     purge) cp_require "$1"; cp_purge ;;

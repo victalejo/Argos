@@ -78,12 +78,14 @@ enum CheckpointParser {
     static func parseList(_ output: String) throws -> CheckpointListResult {
         let lines = output.components(separatedBy: "\n")
         if lines.contains("ARGOS_CP_NOGIT") { return .gitMissing }
+        if lines.contains("ARGOS_CP_GITOLD") { throw CheckpointError.gitTooOld }
         if lines.contains("ARGOS_CP_NOREPO") { return .notRepository }
-        guard let start = lines.firstIndex(of: "ARGOS_CP_LIST 2"),
+        guard let start = lines.firstIndex(of: "ARGOS_CP_LIST 3"),
               let metaIndex = lines[start...].firstIndex(of: "ARGOS_CP_META")
         else { throw CheckpointError.unexpectedOutput("") }
 
-        var enabled = false, prompts = false
+        var enabled = false, prompts = false, lfs = false
+        var damaged = Set<String>()
         var root = ""
         var head: String?
         var skips: [CheckpointSkip] = []
@@ -94,6 +96,10 @@ enum CheckpointParser {
                 enabled = value == "on"
             } else if let value = line.value(after: "ARGOS_CP_PROMPTS ") {
                 prompts = value == "on"
+            } else if line == "ARGOS_CP_LFS" {
+                lfs = true
+            } else if let value = line.value(after: "ARGOS_CP_DAMAGED ") {
+                damaged.insert(value)
             } else if let value = line.value(after: "ARGOS_CP_ROOT ") {
                 root = value
             } else if let value = line.value(after: "ARGOS_CP_HEAD ") {
@@ -108,9 +114,13 @@ enum CheckpointParser {
             }
         }
         let meta = lines[(metaIndex + 1)...].joined(separator: "\n")
-        let checkpoints = parseRecords(meta, counts: counts)
+        let checkpoints = parseRecords(meta, counts: counts).map { point -> Checkpoint in
+            var copy = point
+            copy.isDamaged = damaged.contains(point.commit)
+            return copy
+        }
         return .listing(CheckpointListing(
-            root: root, isEnabled: enabled, storesPrompts: prompts, headCommit: head,
+            root: root, isEnabled: enabled, storesPrompts: prompts, usesLFS: lfs, headCommit: head,
             checkpoints: checkpoints, skips: skips, currentSkipReason: currentSkip
         ))
     }
@@ -128,8 +138,8 @@ enum CheckpointParser {
                   let epoch = TimeInterval(fields[3])
             else { return nil }
             let commit = String(fields[1])
-            let parent = fields[2].split(separator: " ").first.map(String.init)
             let message = parseMessage(String(fields[4]))
+            let parent = message.head ?? fields[2].split(separator: " ").first.map(String.init)
             return Checkpoint(
                 ref: String(fields[0]), commit: commit, parent: parent,
                 date: Date(timeIntervalSince1970: epoch), kind: message.kind,
@@ -139,16 +149,18 @@ enum CheckpointParser {
     }
 
     /// Asunto (el extracto) y metadatos `Argos-Kind` / `Argos-Session` del mensaje.
-    static func parseMessage(_ message: String) -> (subject: String, kind: CheckpointKind, session: String?) {
+    static func parseMessage(_ message: String) -> (subject: String, kind: CheckpointKind, session: String?, head: String?) {
         let lines = message.components(separatedBy: "\n")
         let subject = cleanLabel(lines.first ?? "")
         var kind = CheckpointKind.unknown
         var session: String?
+        var head: String?
         for line in lines.dropFirst() {
             if let value = line.value(after: "Argos-Kind: ") { kind = CheckpointKind(rawValue: value) ?? .unknown }
             if let value = line.value(after: "Argos-Session: "), value != "-", !value.isEmpty { session = value }
+            if let value = line.value(after: "Argos-Head: "), value != "-", !value.isEmpty { head = value }
         }
-        return (subject, kind, session)
+        return (subject, kind, session, head)
     }
 
     /// El script recorta por bytes: un carácter multibyte cortado llega como U+FFFD.
@@ -255,7 +267,9 @@ enum CheckpointParser {
         if let reason = lines.lazy.compactMap({ $0.value(after: "ARGOS_CP_NOOP ") }).first {
             return .nothing(noopText(reason))
         }
-        if lines.contains("ARGOS_CP_PARTIAL") { return .partial(backup: backup) }
+        if lines.contains("ARGOS_CP_PARTIAL") {
+            return .partial(backup: backup, skipped: parseIssues(output, after: "ARGOS_CP_SKIPPED\n"))
+        }
         if lines.contains("ARGOS_CP_DONE") { return .done(backup: backup) }
         throw CheckpointError.unexpectedOutput("")
     }
@@ -291,6 +305,8 @@ enum CheckpointParser {
             if let operation = line.value(after: "ARGOS_CP_BUSY ") { throw CheckpointError.busy(operation) }
             if let reason = line.value(after: "ARGOS_CP_HEAVY "), !allowHeavy { throw CheckpointError.heavy(reason) }
             if line == "ARGOS_CP_BADREF" { throw CheckpointError.badReference }
+            if line == "ARGOS_CP_DAMAGED" { throw CheckpointError.damaged }
+            if line == "ARGOS_CP_GITOLD" { throw CheckpointError.gitTooOld }
             if let detail = line.value(after: "ARGOS_CP_FAILED ") { throw CheckpointError.failed(detail) }
             if line == "ARGOS_CP_NOREPO" {
                 throw CheckpointError.unexpectedOutput("La carpeta ya no es un repositorio git.")

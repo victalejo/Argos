@@ -24,7 +24,8 @@ enum CheckpointKind: String, Sendable, Hashable {
 struct Checkpoint: Identifiable, Hashable, Sendable {
     let ref: String
     let commit: String
-    /// `HEAD` cuando se creó (`nil` en un repo sin commits).
+    /// `HEAD` cuando se creó (`nil` en un repo sin commits). Va en `Argos-Head:`: los
+    /// puntos son commits sin padre para no depender de la historia del principal.
     let parent: String?
     let date: Date
     let kind: CheckpointKind
@@ -34,6 +35,8 @@ struct Checkpoint: Identifiable, Hashable, Sendable {
     /// Archivos que cambian hasta el punto siguiente (o hasta ahora, en el más reciente).
     /// `nil` si no se pudo calcular.
     let changedFiles: Int?
+    /// Le faltan objetos (p. ej. un `gc` del principal antes de sellarlo): no se restaura.
+    var isDamaged: Bool = false
 
     var id: String { ref }
 
@@ -51,6 +54,8 @@ struct CheckpointListing: Sendable, Equatable {
     let isEnabled: Bool
     /// `git config argos.checkpointsPrompt true`: se guarda un extracto de cada mensaje.
     let storesPrompts: Bool
+    /// El repositorio usa Git LFS: no se capturan puntos.
+    var usesLFS: Bool = false
     let headCommit: String?
     /// Del más reciente al más antiguo.
     let checkpoints: [Checkpoint]
@@ -112,15 +117,23 @@ struct CheckpointIssue: Hashable, Sendable {
         case blockedPath = "F"
         /// Falta el contenido en el punto (objetos borrados).
         case missingContent = "M"
+        /// Su contenido en disco no coincide con la copia previa: no se toca nada.
+        case changedOnDisk = "C"
+        /// Sus permisos (p. ej. 0600) no se guardan en la copia.
+        case permissions = "P"
+        /// No se pudo escribir o borrar al restaurar.
+        case writeFailed = "E"
         /// Existe y no está en la copia (p. ej. ignorado por git): no se toca.
         case unprotected = "I"
+        /// Repositorio anidado: no se toca.
+        case nestedUntouched = "N"
     }
 
     let kind: Kind
     let path: String
 
     /// Bloquea la restauración entera (el resto solo se salta).
-    var isConflict: Bool { kind != .unprotected }
+    var isConflict: Bool { kind != .unprotected && kind != .nestedUntouched }
 
     var explanation: String {
         switch kind {
@@ -128,7 +141,11 @@ struct CheckpointIssue: Hashable, Sendable {
         case .nestedRepository: return "está dentro de un repositorio git anidado"
         case .blockedPath: return "en su camino hay un archivo o enlace que git ignora"
         case .missingContent: return "falta su contenido en el punto"
+        case .changedOnDisk: return "cambió y la copia previa no lo tiene"
+        case .permissions: return "tiene permisos restringidos que la copia no guarda"
+        case .writeFailed: return "no se pudo escribir o borrar"
         case .unprotected: return "existe y git lo ignora: no se toca"
+        case .nestedUntouched: return "es un repositorio anidado: no se toca"
         }
     }
 }
@@ -152,6 +169,11 @@ struct CheckpointRestorePreview: Sendable, Equatable {
     var untouched: [String] { issues.filter { !$0.isConflict }.map(\.path) }
     var canRestore: Bool { conflicts.isEmpty }
     var isEmpty: Bool { toModify.isEmpty && toDelete.isEmpty && toRecreate.isEmpty }
+
+    /// Lo que de verdad se hará: sin lo que se deja como está.
+    var modifies: [String] { toModify.filter { !untouched.contains($0) } }
+    var deletes: [String] { toDelete.filter { !untouched.contains($0) } }
+    var recreates: [String] { toRecreate.filter { !untouched.contains($0) } }
 }
 
 enum CheckpointPreviewResult: Sendable, Equatable {
@@ -163,8 +185,9 @@ enum CheckpointPreviewResult: Sendable, Equatable {
 enum CheckpointRestoreOutcome: Sendable, Equatable {
     /// Hecho; `backup` es el punto creado (o reutilizado) con el estado anterior.
     case done(backup: String?)
-    /// Se restauró, pero el árbol no quedó idéntico (p. ej. quedan archivos ignorados).
-    case partial(backup: String?)
+    /// Se restauró, pero el árbol no quedó idéntico (p. ej. quedan archivos ignorados o
+    /// alguno cambió durante la restauración y no se tocó).
+    case partial(backup: String?, skipped: [CheckpointIssue])
     /// Los archivos cambiaron desde la vista previa: no se tocó nada.
     case changed
     /// Hay rutas que no se pueden escribir sin perder datos: no se tocó nada.
@@ -179,6 +202,10 @@ enum CheckpointError: LocalizedError, Equatable {
     case failed(String)
     case unexpectedOutput(String)
     case unavailable
+    /// Al punto le faltan objetos.
+    case damaged
+    /// git del servidor anterior a 2.20.
+    case gitTooOld
     /// Comparar con el estado actual costaría mucho.
     case heavy(String)
 
@@ -197,6 +224,10 @@ enum CheckpointError: LocalizedError, Equatable {
                 : detail
         case .unavailable:
             return "Los puntos de restauración no están disponibles en esta conexión."
+        case .damaged:
+            return "A este punto le faltan datos (git los borró antes de guardarlos aparte). No se puede restaurar."
+        case .gitTooOld:
+            return "Los puntos de restauración necesitan git 2.20 o posterior en el servidor."
         case .heavy(let reason):
             return "Comparar con el estado actual costaría mucho (\(reason)). Compara entre puntos o ignora esos archivos en git."
         }

@@ -101,14 +101,15 @@ final class CheckpointRepo {
 
     /// Simula el hook `UserPromptSubmit`: el script en `$HOME` y la entrada JSON por stdin.
     @discardableResult
-    func hook(prompt: String = "Arregla el bug", session: String = "sesion-1", cwd: URL? = nil) throws -> ShellRun {
+    func hook(prompt: String = "Arregla el bug", session: String = "sesion-1", cwd: URL? = nil,
+              extraEnvironment: [String: String] = [:]) throws -> ShellRun {
         try installScript()
         let json = try String(decoding: JSONSerialization.data(withJSONObject: [
             "session_id": session, "transcript_path": "/x/t.jsonl", "cwd": (cwd ?? repo).path,
             "permission_mode": "default", "hook_event_name": "UserPromptSubmit", "prompt": prompt,
         ], options: [.sortedKeys]), as: UTF8.self)
         let script = home.appendingPathComponent(CheckpointScript.installedRelativePath).path
-        return try exec(shell, [script, "hook"], stdin: json, cwd: cwd)
+        return try exec(shell, [script, "hook"], stdin: json, cwd: cwd, extraEnvironment: extraEnvironment)
     }
 
     /// Duración del hook en segundos.
@@ -168,11 +169,24 @@ final class CheckpointRepo {
 
     /// Vista previa + restauración completa, como hace la app.
     @discardableResult
-    func restore(_ point: String) throws -> String {
+    func restore(_ point: String, extraEnvironment: [String: String] = [:]) throws -> String {
         let preview = try checkpoint(["preview", repo.path, point, "full"]).stdout
         let tree = preview.components(separatedBy: "\n").first { $0.hasPrefix("ARGOS_CP_CURRENT ") }
             .map { String($0.dropFirst("ARGOS_CP_CURRENT ".count)) } ?? "-"
-        return try checkpoint(["restore", repo.path, point, tree]).stdout
+        return try checkpoint(["restore", repo.path, point, tree], extraEnvironment: extraEnvironment).stdout
+    }
+
+    /// Espera a que el sellado en segundo plano del hook termine (o a que pase `seconds`).
+    func waitForSeal(_ point: String, seconds: Double = 10) {
+        let marker = store.appendingPathComponent("sealed/\(point)").path
+        let deadline = Date().addingTimeInterval(seconds)
+        while !FileManager.default.fileExists(atPath: marker), Date() < deadline { usleep(100_000) }
+    }
+
+    /// Contenido de `path` en el punto más reciente (la copia previa tras restaurar).
+    func inLatest(_ path: String) throws -> String? {
+        guard let point = try points().first else { return nil }
+        return try? show(point, path)
     }
 
     /// Runner del modelo: ejecuta el comando tal como iría por SSH, con /bin/sh.

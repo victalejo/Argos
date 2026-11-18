@@ -49,7 +49,10 @@ struct CheckpointScriptTests {
         #expect(message.subject == "Turno 1", "sin activar los extractos no se guarda el mensaje")
         #expect(message.kind == .prompt)
         #expect(message.session == "sesion-1")
-        #expect(try repo.storeGit("rev-parse \(points[0])^").stdout == repo.git("rev-parse HEAD").stdout)
+        // Sin padre: el HEAD de entonces va en el mensaje (no depende de la historia del principal).
+        #expect(try repo.storeGit("rev-list --parents -n 1 \(points[0])").stdout.split(separator: " ").count == 1)
+        let head = try repo.git("rev-parse HEAD").stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(message.head == head)
         #expect(try repo.git("rev-list --count HEAD").stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "1")
     }
 

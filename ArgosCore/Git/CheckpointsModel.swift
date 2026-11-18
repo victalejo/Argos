@@ -76,6 +76,8 @@ final class CheckpointsModel {
     private let run: CheckpointRunner
     private let hooks: CheckpointHookControl
     private let activity: @MainActor () -> ClaudeActivity?
+    /// Interrumpe a Claude en la sesión del proyecto (Esc en sus paneles).
+    private let stopClaude: (@MainActor () async throws -> Void)?
 
     private(set) var state: CheckpointPanelState = .loading
     private(set) var selectedID: String?
@@ -98,17 +100,20 @@ final class CheckpointsModel {
     private var diffRequest = 0
 
     init(path: String, run: @escaping CheckpointRunner, hooks: CheckpointHookControl,
-         activity: @escaping @MainActor () -> ClaudeActivity? = { nil }) {
+         activity: @escaping @MainActor () -> ClaudeActivity? = { nil },
+         stopClaude: (@MainActor () async throws -> Void)? = nil) {
         self.path = path
         self.run = run
         self.hooks = hooks
         self.activity = activity
+        self.stopClaude = stopClaude
     }
 
     convenience init(path: String, service: any SSHServicing,
-                     activity: @escaping @MainActor () -> ClaudeActivity? = { nil }) {
+                     activity: @escaping @MainActor () -> ClaudeActivity? = { nil },
+                     stopClaude: (@MainActor () async throws -> Void)? = nil) {
         self.init(path: path, run: { try await service.runCheckpointCommand($0) },
-                  hooks: .service(service), activity: activity)
+                  hooks: .service(service), activity: activity, stopClaude: stopClaude)
     }
 
     // MARK: - Derivados
@@ -122,8 +127,14 @@ final class CheckpointsModel {
     var selected: Checkpoint? { checkpoints.first { $0.id == selectedID } }
     var isEnabled: Bool { listing?.isEnabled ?? false }
 
-    /// Claude está trabajando en el proyecto: restaurar pide una confirmación más.
+    /// Claude está trabajando en el proyecto: no se restaura hasta que pare.
     var claudeIsWorking: Bool { activity() == .working }
+
+    /// Se puede ofrecer «Detener a Claude y restaurar».
+    var canStopClaude: Bool { stopClaude != nil }
+
+    /// Plazo para que Claude deje de trabajar tras interrumpirlo.
+    nonisolated static let stopTimeout: Duration = .seconds(20)
 
     /// Solo en «Hasta ahora» lo que se ve (punto → ahora) es lo que hace restaurar un archivo.
     var canRestoreFile: Bool { comparison == .sinceThen && operation == nil }
@@ -262,11 +273,14 @@ final class CheckpointsModel {
     func cancelHeavy() { pendingHeavy = nil }
     func cancelRestore() { pendingRestore = nil }
 
-    /// Restaura el punto confirmado. Si Claude trabaja, exige `acknowledgingWork`. Si los
-    /// archivos cambiaron desde la vista previa, no toca nada y la vuelve a calcular.
-    func confirmRestore(acknowledgingWork: Bool = false) async {
+    /// Restaura el punto confirmado (nunca con Claude trabajando). Si los archivos
+    /// cambiaron desde la vista previa, no toca nada y la vuelve a calcular.
+    func confirmRestore() async {
         guard let preview = pendingRestore, let listing, preview.canRestore else { return }
-        guard !claudeIsWorking || acknowledgingWork else { return }
+        guard !claudeIsWorking else {
+            errorMessage = CheckpointTexts.workingWarning
+            return
+        }
         pendingRestore = nil
         let command = CheckpointCommands.restore(
             root: listing.root, commit: preview.checkpoint.commit, expectedTree: preview.currentTree, path: nil
@@ -275,21 +289,50 @@ final class CheckpointsModel {
         if outcome == .changed {
             errorMessage = "Los archivos cambiaron mientras revisabas la lista (¿sigue trabajando Claude?). "
                 + "No se tocó nada: revisa la nueva lista."
-            await prepareRestore(preview.checkpoint, force: true)
+            await prepareRestore(preview.checkpoint)
         }
     }
 
     /// Deja un archivo como estaba en el punto elegido, solo en «Hasta ahora» (lo que se ve
     /// es lo que se hace) y si nada cambió desde que se listó.
-    func restoreFile(_ path: String, acknowledgingWork: Bool = false) async {
+    func restoreFile(_ path: String) async {
         guard canRestoreFile, let listing, let checkpoint = selected else { return }
-        guard !claudeIsWorking || acknowledgingWork else { return }
+        guard !claudeIsWorking else {
+            errorMessage = CheckpointTexts.workingWarning
+            return
+        }
         let command = CheckpointCommands.restore(
             root: listing.root, commit: checkpoint.commit, expectedTree: currentTree, path: path
         )
         if await perform(.restoreFile(path), command) == .changed {
             errorMessage = "Los archivos cambiaron desde que los miraste: revisa el diff y vuelve a intentarlo."
         }
+    }
+
+    /// «Detener a Claude y restaurar»: lo interrumpe, espera a que pare y restaura.
+    func stopClaudeAndRestore(file path: String? = nil) async {
+        guard await stopClaudeAndWait() else { return }
+        if let path { await restoreFile(path) } else { await confirmRestore() }
+    }
+
+    private func stopClaudeAndWait() async -> Bool {
+        guard let stopClaude else { return !claudeIsWorking }
+        do {
+            try await stopClaude()
+        } catch {
+            report(error, "Detener a Claude")
+            return false
+        }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: Self.stopTimeout)
+        while claudeIsWorking, clock.now < deadline {
+            try? await Task.sleep(for: .seconds(1))
+        }
+        if claudeIsWorking {
+            errorMessage = "Claude sigue trabajando. Espera a que termine o detenlo en su terminal y vuelve a intentarlo."
+            return false
+        }
+        return true
     }
 
     private func perform(_ op: CheckpointOperation, _ command: String) async -> CheckpointRestoreOutcome? {
@@ -315,6 +358,8 @@ final class CheckpointsModel {
             } else {
                 notice = "Restaurado. Si te arrepientes, restaura el punto «Antes de restaurar…»."
             }
+        case .partial(_, let skipped) where skipped.contains(where: \.isConflict):
+            errorMessage = CheckpointTexts.partialMessage(skipped)
         case .partial:
             notice = "Restaurado, salvo archivos que git ignora o repositorios anidados, que nunca se tocan."
         case .conflict(let issues):

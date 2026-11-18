@@ -117,20 +117,27 @@ struct CheckpointsModelTests {
         #expect(model.errorMessage != nil)
     }
 
-    @Test("Con Claude trabajando, restaurar exige confirmarlo expresamente")
-    func workingNeedsAcknowledgement() async throws {
+    @Test("Con Claude trabajando no se restaura; «Detener a Claude y restaurar» lo para y restaura")
+    func workingBlocksUntilStopped() async throws {
         let repo = try makeRepo()
         try repo.hook()
         try repo.write("a.txt", "cambio\n")
-        let model = model(repo, activity: .working)
+        final class Box { var activity: ClaudeActivity? = .working; var stops = 0 }
+        let box = Box()
+        let model = CheckpointsModel(
+            path: repo.repo.path, run: repo.runner, hooks: FakeCheckpointHooks().control,
+            activity: { box.activity },
+            stopClaude: { box.stops += 1; box.activity = .done }
+        )
         await model.refresh()
-        let point = try #require(model.checkpoints.first)
-        await model.prepareRestore(point)
+        await model.prepareRestore(try #require(model.checkpoints.first))
         #expect(model.claudeIsWorking)
         await model.confirmRestore()
         #expect(repo.read("a.txt") == "cambio\n")
-        #expect(model.pendingRestore != nil)
-        await model.confirmRestore(acknowledgingWork: true)
+        #expect(model.errorMessage != nil)
+        model.errorMessage = nil
+        await model.stopClaudeAndRestore()
+        #expect(box.stops == 1)
         #expect(repo.read("a.txt") == "uno\n")
     }
 
@@ -197,9 +204,9 @@ struct CheckpointParserTests {
 
     @Test("Lista: ignora la basura del perfil y lee metadatos, recuentos y omisiones")
     func parsesList() throws {
-        let output = "Bienvenido al servidor\nARGOS_CP_LIST 2\nARGOS_CP_STATE on\nARGOS_CP_PROMPTS off\nARGOS_CP_ROOT /srv/app\n"
+        let output = "Bienvenido al servidor\nARGOS_CP_LIST 3\nARGOS_CP_STATE on\nARGOS_CP_PROMPTS off\nARGOS_CP_ROOT /srv/app\n"
             + "ARGOS_CP_HEAD abc\nARGOS_CP_SKIPLOG 1800000050 archivo de mas de 20 MB: data.bin\n"
-            + "ARGOS_CP_COUNT c2 3\nARGOS_CP_COUNT c1 1\nARGOS_CP_META\n"
+            + "ARGOS_CP_COUNT c2 3\nARGOS_CP_COUNT c1 1\nARGOS_CP_DAMAGED c1\nARGOS_CP_META\n"
             + "refs/checkpoints/1800000100\u{1f}c2\u{1f}abc\u{1f}1800000100\u{1f}Turno 2\n\nArgos-Checkpoint: 1\nArgos-Kind: prompt\nArgos-Session: s-1\n\u{1e}\n"
             + "refs/checkpoints/1800000000\u{1f}c1\u{1f}\u{1f}1800000000\u{1f}Antes de restaurar: x\n\nArgos-Kind: restore\nArgos-Session: -\n\u{1e}\n"
         guard case .listing(let listing) = try CheckpointParser.parseList(output) else {
@@ -213,6 +220,7 @@ struct CheckpointParserTests {
         #expect(listing.checkpoints[0].changedFiles == 3)
         #expect(listing.checkpoints[1].kind == .restore)
         #expect(listing.checkpoints[1].parent == nil)
+        #expect(listing.checkpoints[1].isDamaged && !listing.checkpoints[0].isDamaged)
         #expect(listing.skips(duringTurnAt: 1).map(\.reason) == ["archivo de mas de 20 MB: data.bin"])
         #expect(listing.skips(duringTurnAt: 0).isEmpty)
     }
@@ -224,6 +232,10 @@ struct CheckpointParserTests {
         #expect(throws: CheckpointError.busy("MERGE_HEAD")) { try CheckpointParser.parseRestore("ARGOS_CP_BUSY MERGE_HEAD\n") }
         #expect(throws: CheckpointError.badReference) { try CheckpointParser.parseFiles("ARGOS_CP_BADREF\n") }
         #expect(throws: CheckpointError.heavy("x")) { try CheckpointParser.parseFiles("ARGOS_CP_HEAVY x\n") }
+        #expect(throws: CheckpointError.damaged) { try CheckpointParser.parseRestore("ARGOS_CP_DAMAGED\n") }
+        #expect(throws: CheckpointError.gitTooOld) { try CheckpointParser.parseList("ARGOS_CP_GITOLD\n") }
+        let partial = try CheckpointParser.parseRestore("ARGOS_CP_NEW b\nARGOS_CP_PARTIAL\nARGOS_CP_SKIPPED\nC\0a.txt\0END\0\0\n")
+        #expect(partial == .partial(backup: "b", skipped: [CheckpointIssue(kind: .changedOnDisk, path: "a.txt")]))
         #expect(throws: CheckpointError.self) { try CheckpointParser.parseList("algo raro") }
         #expect(try CheckpointParser.parseRestore("ARGOS_CP_NOOP invalid\n") == .nothing(CheckpointParser.noopText("invalid")))
         let conflict = try CheckpointParser.parseRestore("ARGOS_CP_NEW abc\nARGOS_CP_CONFLICT\nD\0lib\0R\0v/x.c\0END\0\0\n")

@@ -22,10 +22,10 @@ enum CheckpointTexts {
 
     static let restoreFileOnlySinceThen = "Para restaurar un archivo, compara «Hasta ahora»: es exactamente lo que se deshará."
 
-    static let workingWarning = "Claude está trabajando en este proyecto ahora mismo: podría seguir cambiando "
-        + "archivos mientras restauras. Mejor detenlo antes."
+    static let workingWarning = "Claude está trabajando en este proyecto: no se restaura mientras pueda seguir "
+        + "cambiando archivos. Espera a que termine o detenlo."
 
-    static let workingAcknowledgement = "Restaurar aunque Claude esté trabajando"
+    static let stopAndRestore = "Detener a Claude y restaurar"
 
     static let enableFootnote = "Guarda una instantánea del proyecto cada vez que envías un mensaje a Claude Code, "
         + "en una carpeta privada dentro de .git que no viaja con push ni con «Enviar al Mac». "
@@ -64,6 +64,11 @@ enum CheckpointTexts {
         let listed = issues.prefix(5).map { "«\($0.path)» \($0.explanation)" }.joined(separator: "; ")
         let more = issues.count > 5 ? " y \(issues.count - 5) más" : ""
         return "No se restauró nada para no perder datos: \(listed)\(more). Muévelos o resuélvelos a mano y vuelve a intentarlo."
+    }
+
+    static func partialMessage(_ skipped: [CheckpointIssue]) -> String {
+        let listed = skipped.filter(\.isConflict).prefix(5).map { "«\($0.path)» \($0.explanation)" }.joined(separator: "; ")
+        return "Restaurado en parte. No se tocaron: \(listed). La copia previa tiene el estado anterior."
     }
 
     static func heavyMessage(_ reason: String) -> String {
