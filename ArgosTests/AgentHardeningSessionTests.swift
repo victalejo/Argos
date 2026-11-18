@@ -195,7 +195,7 @@ struct AgentPanelHardeningTests {
         let closed = try #require(store.closedConversations(for: handle).first)
         #expect(closed.sessionID == "aaaa-1" && closed.permissionMode == .plan && closed.title == "explica el proyecto")
 
-        let reopened = store.reopen(closed, for: handle, service: mock, command: "claude --resume aaaa-1", oauthToken: nil)
+        let reopened = await store.reopen(closed, for: handle, service: mock, command: "claude --resume aaaa-1", oauthToken: nil)
         #expect(reopened.session.sessionID == "aaaa-1")
         #expect(reopened.session.state.items.map(\.kind) == [.userText("explica el proyecto")])
         #expect(store.closedConversations(for: handle).isEmpty)
@@ -210,7 +210,8 @@ struct AgentPanelHardeningTests {
         let tab = store.newTab(for: handle, service: mock, command: "c", workingDirectory: "/", oauthToken: nil, permissionMode: .default)
         try await waitUntil { tab.session.remotePID == 4321 }
         await store.stopAll()
-        #expect(mock.killedAgentPIDs == [4321])
+        // Se mata por su id de sesión (comprobado en cada señal), no por un PID a ciegas.
+        #expect(mock.agentScripts.contains { $0.contains(tab.session.sessionID) && $0.contains("kill -s TERM") })
         #expect(!tab.session.isRunning)
     }
 
@@ -227,7 +228,7 @@ struct AgentPanelHardeningTests {
         }
         await store.cleanUpOrphans(serverID: handle.serverID, service: mock)
         let kill = try #require(mock.agentScripts.last)
-        #expect(kill.contains("kill -TERM 777"))
+        #expect(kill.contains("777:\(orphan)") && kill.contains("kill -s TERM"))
         #expect(!kill.contains("778"))
         // Throttle: una segunda llamada inmediata no vuelve a ir al servidor.
         let count = mock.agentScripts.count

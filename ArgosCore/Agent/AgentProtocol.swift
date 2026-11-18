@@ -208,6 +208,16 @@ enum AgentProtocol {
         ]))
     }
 
+    /// ¿Es `line` el `control_response` a la petición `requestID`?
+    static func isControlResponse(_ line: String, to requestID: String) -> Bool {
+        guard line.contains(requestID), line.contains("control_response"),
+              let data = line.data(using: .utf8),
+              let value = try? decoder.decode(JSONValue.self, from: data),
+              value["type"]?.stringValue == "control_response"
+        else { return false }
+        return value["response"]?["request_id"]?.stringValue == requestID
+    }
+
     /// Petición de control `interrupt` del protocolo stream-json (la que manda
     /// `interrupt()` del Agent SDK): corta el turno en curso sin cerrar la sesión; el CLI
     /// responde con un `control_response` y cierra el turno con un `result`.

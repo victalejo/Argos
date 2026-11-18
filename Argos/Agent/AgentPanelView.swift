@@ -41,9 +41,17 @@ struct AgentPanelView: View {
     @State private var showTokenSheet = false
     @State private var isStartingTab = false
     /// Pestaña que se va a cerrar estando ocupada (se pide confirmación).
-    @State private var closeCandidate: AgentTab?
+    @State private var closeCandidate: AgentTabEntry?
     /// Tope de conversaciones alcanzado: hay que elegir cuál cerrar.
     @State private var isChoosingEviction = false
+    /// Lo que se quería abrir cuando se llegó al tope (se hace al cerrar otra).
+    @State private var pendingOpen: PendingOpen?
+
+    private enum PendingOpen {
+        case newConversation
+        case resume(UUID)
+        case reopen(ClosedAgentConversation)
+    }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Por debajo de esto no se arranca un agente sin confirmación (KB).
@@ -78,13 +86,16 @@ struct AgentPanelView: View {
             isPresented: Binding(get: { closeCandidate != nil }, set: { if !$0 { closeCandidate = nil } }),
             titleVisibility: .visible,
             presenting: closeCandidate
-        ) { tab in
-            Button("Cerrar y detener Claude", role: .destructive) { store.closeTab(tab.id, for: handle) }
-            Button("Cancelar", role: .cancel) {}
-        } message: { tab in
-            Text(tab.session.state.pendingPermission != nil
-                 ? "Claude espera tu permiso en «\(tab.title)». Si la cierras, se detiene sin terminar."
-                 : "Claude está trabajando en «\(tab.title)». Si la cierras, se detiene a medias.")
+        ) { entry in
+            Button("Cerrar y detener Claude", role: .destructive) {
+                store.closeTab(entry.tab.id, for: entry.handle)
+                runPendingOpen()
+            }
+            Button("Cancelar", role: .cancel) { pendingOpen = nil }
+        } message: { entry in
+            Text(entry.tab.session.state.pendingPermission != nil
+                 ? "Claude espera tu permiso en «\(entry.tab.title)». Si la cierras, se detiene sin terminar."
+                 : "Claude está trabajando en «\(entry.tab.title)». Si la cierras, se detiene a medias.")
         }
         .confirmationDialog(
             "Ya hay \(AgentSessionStore.maxLiveSessions) conversaciones abiertas",
@@ -93,22 +104,46 @@ struct AgentPanelView: View {
         ) {
             ForEach(store.allTabs.filter { $0.tab.session.isRunning }) { entry in
                 Button("Cerrar «\(entry.tab.title)» (\(entry.handle.sessionID))", role: .destructive) {
-                    store.closeTab(entry.tab.id, for: entry.handle)
-                    Task { await newConversation(force: false) }
+                    requestClose(entry)
                 }
             }
-            Button("Cancelar", role: .cancel) {}
+            Button("Cancelar", role: .cancel) { pendingOpen = nil }
         } message: {
             Text("Cada una es un Claude en el servidor (~0,5 GB). Elige cuál cerrar para abrir otra; podrás reanudarla después.")
         }
     }
 
-    /// Cierra la pestaña, pidiendo confirmación si está trabajando o espera un permiso.
-    private func requestClose(_ tab: AgentTab) {
-        if tab.session.isBusy {
-            closeCandidate = tab
+    /// Cierra la pestaña, pidiendo confirmación si está trabajando o espera un permiso;
+    /// después hace lo que estuviera pendiente de abrir (si se llegó al tope).
+    private func requestClose(_ entry: AgentTabEntry) {
+        if entry.tab.session.isBusy {
+            closeCandidate = entry
         } else {
-            store.closeTab(tab.id, for: handle)
+            store.closeTab(entry.tab.id, for: entry.handle)
+            runPendingOpen()
+        }
+    }
+
+    private func requestClose(_ tab: AgentTab) {
+        requestClose(AgentTabEntry(handle: handle, tab: tab))
+    }
+
+    /// Tope alcanzado: se pregunta qué cerrar y luego se abre `open`.
+    private func askEviction(then open: PendingOpen) {
+        pendingOpen = open
+        isChoosingEviction = true
+    }
+
+    private func runPendingOpen() {
+        guard let open = pendingOpen else { return }
+        pendingOpen = nil
+        switch open {
+        case .newConversation:
+            Task { await newConversation(force: false) }
+        case .resume(let tabID):
+            if let tab = store.tabs(for: handle).first(where: { $0.id == tabID }) { resume(tab) }
+        case .reopen(let conversation):
+            reopen(conversation)
         }
     }
 
@@ -347,22 +382,24 @@ struct AgentPanelView: View {
     /// Reanuda en su pestaña una conversación que terminó (p. ej. se cortó la conexión).
     private func resume(_ tab: AgentTab) {
         guard let claudePath else { return }
-        guard store.capacity == .available else { isChoosingEviction = true; return }
+        guard store.capacity == .available else { askEviction(then: .resume(tab.id)); return }
         let command = ClaudeAgentCommand.build(
             claudePath: claudePath, workingDirectory: tab.session.workingDirectory,
             sessionID: tab.session.sessionID, permissionMode: tab.permissionMode, resume: true
         )
-        store.resumeTab(tab.id, for: handle, service: service, command: command, oauthToken: oauthTokenForLaunch)
+        let token = oauthTokenForLaunch
+        Task { await store.resumeTab(tab.id, for: handle, service: service, command: command, oauthToken: token) }
     }
 
     private func reopen(_ conversation: ClosedAgentConversation) {
         guard let claudePath else { return }
-        guard store.capacity == .available else { isChoosingEviction = true; return }
+        guard store.capacity == .available else { askEviction(then: .reopen(conversation)); return }
         let command = ClaudeAgentCommand.build(
             claudePath: claudePath, workingDirectory: conversation.workingDirectory,
             sessionID: conversation.sessionID, permissionMode: conversation.permissionMode, resume: true
         )
-        store.reopen(conversation, for: handle, service: service, command: command, oauthToken: oauthTokenForLaunch)
+        let token = oauthTokenForLaunch
+        Task { await store.reopen(conversation, for: handle, service: service, command: command, oauthToken: token) }
     }
 
     /// Con sesión en el servidor el token sobra: no se toca el llavero (evita su aviso).
@@ -396,7 +433,7 @@ struct AgentPanelView: View {
             try await verify(showsInstantly: showsInstantly)
         } catch {
             if showsInstantly && !tabs.isEmpty {
-                Log.agent.notice("No se pudo verificar Claude: \(error.localizedDescription, privacy: .public)")
+                Log.agent.notice("No se pudo verificar Claude: \(error.localizedDescription, privacy: .private)")
             } else {
                 readiness = .failed(error.userMessage)
             }
@@ -441,7 +478,7 @@ struct AgentPanelView: View {
     private func newConversation(force: Bool) async {
         guard let folder, let claudePath, !isStartingTab else { return }
         guard store.capacity == .available else {
-            isChoosingEviction = true
+            askEviction(then: .newConversation)
             return
         }
         isStartingTab = true

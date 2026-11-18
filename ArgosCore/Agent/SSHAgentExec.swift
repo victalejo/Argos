@@ -248,7 +248,7 @@ extension SSHService {
                                     ), let text = String(bytes: bytes, encoding: .utf8),
                                        !text.isEmpty {
                                         stderrBox.withLockedValue { $0 += text }
-                                        Log.agent.debug("claude stderr: \(text, privacy: .public)")
+                                        Log.agent.debug("claude stderr (\(text.utf8.count, privacy: .public) bytes): \(text, privacy: .private)")
                                     }
                                 }
                             }
@@ -263,7 +263,7 @@ extension SSHService {
                             } catch is CancellationError {
                                 // Parada normal.
                             } catch {
-                                Log.agent.debug("Fin de escritura a claude: \(String(describing: error), privacy: .public)")
+                                Log.agent.debug("Fin de escritura a claude: \(String(describing: error), privacy: .private)")
                             }
                         }
 

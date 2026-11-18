@@ -22,8 +22,11 @@ final class ClaudeAgentSession {
     /// Estado observable de la conversación (transcript, status, permiso pendiente).
     private(set) var state: AgentConversationState
 
-    /// Se pidió interrumpir el turno y aún no llegó su `result`.
+    /// Se pidió interrumpir el turno y aún no llegó su respuesta.
     private(set) var isInterrupting = false
+    /// `request_id` del `interrupt` en curso: su `control_response` lo da por atendido
+    /// (sin turno activo el CLI responde pero no manda ningún `result`).
+    private var interruptRequestID: String?
 
     /// Directorio de trabajo remoto donde corre el agente (informativo para la UI).
     let workingDirectory: String
@@ -91,6 +94,7 @@ final class ClaudeAgentSession {
     func sendUserText(_ rawText: String) {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        clearInterrupt()
         AgentReducer.userSent(text: text, to: &state)
         writeLine(AgentProtocol.encodeUserMessage(text: text))
     }
@@ -119,10 +123,17 @@ final class ClaudeAgentSession {
     /// conversación sigue abierta (el CLI cierra el turno con un `result`).
     func interrupt() {
         guard isRunning, state.status == .working || state.pendingPermission != nil else { return }
+        let requestID = "argos-interrupt-\(UUID().uuidString.lowercased())"
         isInterrupting = true
-        writeLine(AgentProtocol.encodeInterrupt(requestID: "argos-interrupt-\(UUID().uuidString.lowercased())"))
+        interruptRequestID = requestID
+        writeLine(AgentProtocol.encodeInterrupt(requestID: requestID))
         // Un permiso pendiente queda sin sentido: el CLI lo cancela al interrumpir.
         state.pendingPermission = nil
+    }
+
+    private func clearInterrupt() {
+        isInterrupting = false
+        interruptRequestID = nil
     }
 
     private func writeLine(_ line: String) {
@@ -169,13 +180,18 @@ final class ClaudeAgentSession {
         }
     }
 
-    private func handle(line: String) {
+    /// Procesa una línea de stdout del CLI (interno para los tests).
+    func handle(line: String) {
         if let pid = ClaudeAgentCommand.announcedPID(in: line) {
             remotePID = pid
             return
         }
+        if let requestID = interruptRequestID, AgentProtocol.isControlResponse(line, to: requestID) {
+            clearInterrupt()
+            return
+        }
         guard let event = AgentProtocol.decode(line: line) else { return }
-        if case .result = event { isInterrupting = false }
+        if case .result = event { clearInterrupt() }
         AgentReducer.apply(event, to: &state)
     }
 
@@ -186,31 +202,48 @@ final class ClaudeAgentSession {
     /// por si el proceso no saliera solo (p. ej. bloqueado en un hook), lo mata por PID.
     /// Así no quedan `claude` huérfanos consumiendo memoria en el servidor.
     func stop() {
-        guard let pid = beginStop() else { return }
-        let service = self.service
-        Task.detached { await service.killAgentProcess(pid: pid) }
+        guard let kill = beginStop() else { return }
+        Task.detached { await kill() }
     }
 
-    /// Como `stop()`, pero ESPERA a que el proceso remoto se mate (p. ej. al salir de la
-    /// app, que no puede dejar tareas sueltas).
+    /// Como `stop()`, pero ESPERA a que el proceso remoto se mate (al salir de la app, o
+    /// antes de reanudar la conversación: nunca dos claude con el mismo id).
     func stopAndWait() async {
-        guard let pid = beginStop() else { return }
-        await service.killAgentProcess(pid: pid)
+        guard let kill = beginStop() else { return }
+        await kill()
     }
 
-    private func beginStop() -> Int32? {
+    /// Corta el canal y devuelve cómo matar el proceso remoto. Con id de sesión se busca
+    /// por su línea de comandos (`stopPanelSessions`, que comprueba el id en cada señal):
+    /// sirve aunque el PID se desconozca (conexión cortada) o se haya reutilizado.
+    private func beginStop() -> (@Sendable () async -> Void)? {
         isStopping = true
-        isInterrupting = false
+        clearInterrupt()
         stdinContinuation.finish()
         task?.cancel()
         task = nil
         if isRunning { AgentReducer.finished(error: nil, to: &state) }
-        defer { remotePID = nil }
-        return remotePID
+        let service = self.service
+        let pid = remotePID
+        remotePID = nil
+        if UUID(uuidString: sessionID) != nil {
+            let script = ServerAgentInventory.stopPanelSessions([sessionID])
+            return {
+                do {
+                    _ = try await service.runAgentScript(script)
+                } catch {
+                    Log.agent.error("No se pudo parar el claude del panel: \(error.localizedDescription, privacy: .private)")
+                }
+            }
+        }
+        guard let pid else { return nil }
+        return { await service.killAgentProcess(pid: pid) }
     }
 
     private func finish(error: Error?) {
-        isInterrupting = false
+        clearInterrupt()
+        // El proceso terminó (o se perdió el canal): su PID ya no es de fiar.
+        remotePID = nil
         guard !isStopping else { return }
         AgentReducer.finished(error: error?.userMessage, to: &state)
     }

@@ -82,6 +82,7 @@ final class AgentSessionStore {
     /// las pestañas al instante y se verifica en segundo plano.
     var readinessCache: [Server.ID: AgentServerReadiness] = [:]
     @ObservationIgnored private var lastCleanup: [Server.ID: Date] = [:]
+    @ObservationIgnored private var resuming: Set<UUID> = []
     @ObservationIgnored private let registry: AgentPanelRegistry
 
     /// Tope de agentes vivos a la vez EN TOTAL (cada uno es un `claude` remoto que ocupa
@@ -153,10 +154,16 @@ final class AgentSessionStore {
 
     /// Reanuda en la MISMA pestaña una conversación terminada (`--resume`), conservando lo
     /// que ya se veía. `command` debe ser `ClaudeAgentCommand.build(…, resume: true)`.
-    func resumeTab(_ tabID: UUID, for handle: SessionHandle, service: any SSHServicing, command: String, oauthToken: String?) {
-        guard var tabs = tabsByHandle[handle], let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
-        let old = tabs[index]
-        guard !old.session.isRunning else { return }
+    /// Antes mata y ESPERA al claude anterior con ese id (tras un corte de SSH puede seguir
+    /// vivo): nunca dos procesos sobre la misma conversación.
+    func resumeTab(_ tabID: UUID, for handle: SessionHandle, service: any SSHServicing, command: String, oauthToken: String?) async {
+        guard let old = tabs(for: handle).first(where: { $0.id == tabID }), !old.session.isRunning,
+              !resuming.contains(tabID) else { return }
+        resuming.insert(tabID)
+        defer { resuming.remove(tabID) }
+        await old.session.stopAndWait()
+        guard var tabs = tabsByHandle[handle], let index = tabs.firstIndex(where: { $0.id == tabID }),
+              tabs[index].session === old.session else { return }
         let session = ClaudeAgentSession(
             service: service, command: command, workingDirectory: old.session.workingDirectory,
             oauthToken: oauthToken, sessionID: old.session.sessionID, initialState: old.session.state
@@ -166,7 +173,8 @@ final class AgentSessionStore {
         registry.record(old.session.sessionID, serverID: handle.serverID)
     }
 
-    /// Reabre una conversación cerrada en una pestaña nueva (`--resume`).
+    /// Reabre una conversación cerrada en una pestaña nueva (`--resume`), tras asegurarse
+    /// de que no queda ningún claude anterior con ese id.
     @discardableResult
     func reopen(
         _ closed: ClosedAgentConversation,
@@ -174,8 +182,13 @@ final class AgentSessionStore {
         service: any SSHServicing,
         command: String,
         oauthToken: String?
-    ) -> AgentTab {
+    ) async -> AgentTab {
         closedByHandle[handle]?.removeAll { $0.sessionID == closed.sessionID }
+        do {
+            _ = try await service.runAgentScript(ServerAgentInventory.stopPanelSessions([closed.sessionID]))
+        } catch {
+            Log.agent.error("No se pudo comprobar el claude anterior: \(error.localizedDescription, privacy: .private)")
+        }
         return newTab(
             for: handle, service: service, command: command, workingDirectory: closed.workingDirectory,
             oauthToken: oauthToken, permissionMode: closed.permissionMode,
@@ -259,7 +272,10 @@ final class AgentSessionStore {
             let live = Set(allTabs.filter { $0.handle.serverID == serverID && $0.tab.session.isRunning }
                 .map(\.tab.session.sessionID))
             let plan = AgentPanelOrphans.plan(inventory: inventory, registered: registered, liveTabSessionIDs: live)
-            registry.replace(plan.registry, serverID: serverID)
+            // Relee el registro: los ids añadidos mientras se leía el inventario (una
+            // pestaña nueva) no estaban en la instantánea y deben conservarse.
+            let added = registry.sessionIDs(serverID: serverID).filter { !registered.contains($0) }
+            registry.replace(plan.registry + added, serverID: serverID)
             let targets = plan.orphans.compactMap { agent -> (pid: Int32, sessionID: String)? in
                 if case .panel(let pid) = agent.kind { return (pid, agent.sessionID) }
                 return nil
@@ -268,7 +284,7 @@ final class AgentSessionStore {
             Log.agent.notice("Limpiando \(targets.count, privacy: .public) agentes huérfanos del panel.")
             _ = try await service.runAgentScript(ServerAgentInventory.stopPanel(targets))
         } catch {
-            Log.agent.error("No se pudieron limpiar los agentes huérfanos: \(error.localizedDescription, privacy: .public)")
+            Log.agent.error("No se pudieron limpiar los agentes huérfanos: \(error.localizedDescription, privacy: .private)")
         }
     }
 }
