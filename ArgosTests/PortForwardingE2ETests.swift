@@ -5,7 +5,7 @@
 //  Prueba REAL del túnel contra un servidor SSH. Desactivada salvo que se pasen las
 //  variables (con xcodebuild, prefijadas con TEST_RUNNER_):
 //    ARGOS_E2E_SSH_HOST, ARGOS_E2E_SSH_USER, ARGOS_E2E_SSH_KEY (ruta a clave Ed25519
-//    sin passphrase). Levanta un `python3 -m http.server` temporal en 127.0.0.1 del
+//    sin passphrase) y, opcional, ARGOS_E2E_SSH_PORT. Levanta un `python3 -m http.server` temporal en 127.0.0.1 del
 //    servidor, lo pide por el túnel (en paralelo y un archivo grande) y lo limpia.
 //
 
@@ -20,7 +20,7 @@ private enum E2E {
 
     static func service() -> SSHService {
         let server = Server(
-            name: "e2e", host: host ?? "", username: env["ARGOS_E2E_SSH_USER"] ?? "",
+            name: "e2e", host: host ?? "", port: Int(env["ARGOS_E2E_SSH_PORT"] ?? "") ?? 22, username: env["ARGOS_E2E_SSH_USER"] ?? "",
             privateKeyPath: env["ARGOS_E2E_SSH_KEY"] ?? ""
         )
         return SSHService(configuration: .init(server: server))
