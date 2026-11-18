@@ -69,9 +69,9 @@ struct ProjectStoppedView: View {
                             .font(.system(size: 10, weight: .semibold)).tracking(1)
                             .foregroundStyle(.secondary)
                     }
-                    detailRow("Carpeta", value: project.path, icon: "folder")
+                    detailRow(String(localized: "Carpeta"), value: project.path, icon: "folder")
                     Divider()
-                    detailRow("Al abrir", value: commandDescription, icon: "terminal")
+                    detailRow(String(localized: "Al abrir"), value: commandDescription, icon: "terminal")
                 }
                 .padding(22)
                 .background(ArgosTheme.surface, in: RoundedRectangle(cornerRadius: 18))
@@ -92,7 +92,7 @@ struct ProjectStoppedView: View {
     }
 
     private var commandDescription: String {
-        project.resolvedStartupCommand(default: settings.defaultStartupCommand) ?? "Solo abrir la terminal"
+        project.resolvedStartupCommand(default: settings.defaultStartupCommand) ?? String(localized: "Solo abrir la terminal")
     }
 
     private func detailRow(_ label: String, value: String, icon: String) -> some View {

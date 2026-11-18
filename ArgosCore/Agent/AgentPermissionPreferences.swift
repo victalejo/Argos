@@ -13,19 +13,19 @@ import Foundation
 extension ClaudeAgentCommand.PermissionMode {
     var title: String {
         switch self {
-        case .bypassPermissions: return "Todos los permisos"
-        case .acceptEdits: return "Aceptar ediciones"
-        case .default: return "Preguntar siempre"
-        case .plan: return "Solo planificar"
+        case .bypassPermissions: return String(localized: "Todos los permisos")
+        case .acceptEdits: return String(localized: "Aceptar ediciones")
+        case .default: return String(localized: "Preguntar siempre")
+        case .plan: return String(localized: "Solo planificar")
         }
     }
 
     var detail: String {
         switch self {
-        case .bypassPermissions: return "Ejecuta cualquier acción sin preguntar. Si el usuario del servidor es root, Claude no lo permite y se pregunta cada acción."
-        case .acceptEdits: return "Edita archivos sin preguntar y pide permiso para lo demás."
-        case .default: return "Pide permiso antes de cada acción que no esté aprobada."
-        case .plan: return "Explora y propone cambios sin modificar nada."
+        case .bypassPermissions: return String(localized: "Ejecuta cualquier acción sin preguntar. Si el usuario del servidor es root, Claude no lo permite y se pregunta cada acción.")
+        case .acceptEdits: return String(localized: "Edita archivos sin preguntar y pide permiso para lo demás.")
+        case .default: return String(localized: "Pide permiso antes de cada acción que no esté aprobada.")
+        case .plan: return String(localized: "Explora y propone cambios sin modificar nada.")
         }
     }
 

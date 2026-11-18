@@ -133,7 +133,7 @@ enum LocalTerminalLauncher {
     @MainActor
     private static func openFolderOnly(_ folder: URL, fallback: Outcome) -> Outcome {
         guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: terminalBundleID) else {
-            return .failed("No se encontró la app Terminal.")
+            return .failed(String(localized: "No se encontró la app Terminal."))
         }
         NSWorkspace.shared.open([folder], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
         return fallback
@@ -145,11 +145,9 @@ enum LocalTerminalLauncher {
         case .launched:
             return nil
         case .openedFolderOnly:
-            return "Terminal se abrió en la carpeta, pero Argos no tiene permiso para escribir en él. "
-                + "Escribe «claude --resume», o actívalo en Ajustes del Sistema → Privacidad y seguridad → Automatización."
+            return String(localized: "Terminal se abrió en la carpeta, pero Argos no tiene permiso para escribir en él. Escribe «claude --resume», o actívalo en Ajustes del Sistema → Privacidad y seguridad → Automatización.")
         case .needsScriptInstall:
-            return "Terminal se abrió en la carpeta. Para que Argos arranque Claude Code por ti, "
-                + "instala el script de Terminal en Ajustes → Permisos (una sola vez)."
+            return String(localized: "Terminal se abrió en la carpeta. Para que Argos arranque Claude Code por ti, instala el script de Terminal en Ajustes → Permisos (una sola vez).")
         case .failed(let message):
             return message
         }

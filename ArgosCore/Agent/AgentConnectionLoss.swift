@@ -13,13 +13,11 @@ import Foundation
 enum AgentConnectionLoss {
     /// Conversación del panel cortada: el `claude` remoto murió con el canal.
     static let conversation =
-        "Se perdió la conexión con el servidor (¿cambio de red o reposo?) y Claude se detuvo. "
-        + "Pulsa «Reanudar conversación» para retomarla donde iba."
+        String(localized: "Se perdió la conexión con el servidor (¿cambio de red o reposo?) y Claude se detuvo. Pulsa «Reanudar conversación» para retomarla donde iba.")
 
     /// Login guiado cortado a medias.
     static let login =
-        "Se perdió la conexión con el servidor durante el inicio de sesión. "
-        + "Vuelve a intentarlo cuando la red se recupere."
+        String(localized: "Se perdió la conexión con el servidor durante el inicio de sesión. Vuelve a intentarlo cuando la red se recupere.")
 
     /// `true` si el error es la conexión dedicada dada por perdida.
     static func isConnectionLost(_ error: Error?) -> Bool {

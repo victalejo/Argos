@@ -324,9 +324,8 @@ extension SyncPath {
 enum SyncSummaryText {
     static func toMac(fileCount: Int, kilobytes: String) -> String {
         switch fileCount {
-        case 0: return "La carpeta del servidor está vacía: se creará vacía en el Mac."
-        case 1: return "1 archivo · \(kilobytes)"
-        default: return "\(fileCount) archivos · \(kilobytes)"
+        case 0: return String(localized: "La carpeta del servidor está vacía: se creará vacía en el Mac.")
+        default: return "\(String(localized: "\(fileCount) archivos")) · \(kilobytes)"
         }
     }
 }

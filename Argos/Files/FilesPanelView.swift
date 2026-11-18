@@ -193,7 +193,7 @@ private struct FileTreeRowView: View {
             }
         }
         .help(RemotePath.relative(entry.path, to: model.root))
-        .accessibilityLabel(entry.isDirectory ? "Carpeta \(entry.name), \(isExpanded ? "expandida" : "contraída")" : entry.name)
+        .accessibilityLabel(entry.isDirectory ? String(localized: "Carpeta \(entry.name), \(isExpanded ? "expandida" : "contraída")") : entry.name)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .onHover { isHovering = $0 }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: isHovering)

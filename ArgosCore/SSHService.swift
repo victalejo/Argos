@@ -83,26 +83,25 @@ actor SSHService {
             switch self {
             case .keyUnreadable(let path, _):
                 #if os(iOS)
-                return "No se pudo leer la clave privada de este servidor. " + ImportedKeyStore.missingKeyHint
+                return String(localized: "No se pudo leer la clave privada de este servidor. ") + ImportedKeyStore.missingKeyHint
                 #else
                 let hint = SSHDirectoryAccess.unreadableKeyHint(path: path, hasGrant: SSHDirectoryAccess.hasGrant())
-                return ["No se pudo leer la clave privada en \(path).", hint].compactMap { $0 }.joined(separator: " ")
+                return [String(localized: "No se pudo leer la clave privada en \(path)."), hint].compactMap { $0 }.joined(separator: " ")
                 #endif
             case .keyParseFailed:
-                return "No se pudo cargar la clave Ed25519. Verifica que esté en formato OpenSSH "
-                     + "y, si tiene passphrase, que se haya inyectado correctamente."
+                return String(localized: "No se pudo cargar la clave Ed25519. Verifica que esté en formato OpenSSH y, si tiene passphrase, que se haya inyectado correctamente.")
             case .commandFailed(let exitCode, let message):
-                return "El comando remoto falló (código \(exitCode)): \(message)"
+                return String(localized: "El comando remoto falló (código \(String(exitCode))): \(message)")
             case .tmuxNotInstalled:
-                return "tmux no está instalado en el servidor."
+                return String(localized: "tmux no está instalado en el servidor.")
             case .installFailed(let message):
-                return "No se pudo instalar tmux. \(message)"
+                return String(localized: "No se pudo instalar tmux. \(message)")
             case .configFailed(let message):
-                return "No se pudo crear ~/.tmux.conf. \(message)"
+                return String(localized: "No se pudo crear ~/.tmux.conf. \(message)")
             case .uploadFailed(let message):
-                return "No se pudo subir el archivo al servidor. \(message)"
+                return String(localized: "No se pudo subir el archivo al servidor. \(message)")
             case .credentialUnavailable:
-                return "No hay contraseña guardada para este servidor. Edítalo y vuelve a escribirla."
+                return String(localized: "No hay contraseña guardada para este servidor. Edítalo y vuelve a escribirla.")
             }
         }
     }
@@ -110,8 +109,7 @@ actor SSHService {
     /// Mensaje accionable cuando tmux falta y no hay sudo sin contraseña: lo resuelve
     /// el usuario fuera de la app (la app NUNCA pide ni guarda la contraseña de sudo).
     static let manualInstallInstruction =
-        "tmux no está instalado y tu usuario no tiene sudo sin contraseña. "
-        + "Instálalo con: sudo apt install tmux"
+        String(localized: "tmux no está instalado y tu usuario no tiene sudo sin contraseña. Instálalo con: sudo apt install tmux")
 
     // MARK: - Estado
 
@@ -228,7 +226,7 @@ actor SSHService {
             let message = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.commandFailed(
                 exitCode: result.exitCode,
-                message: message.isEmpty ? "tmux list-sessions no devolvió detalles." : message
+                message: message.isEmpty ? String(localized: "tmux list-sessions no devolvió detalles.") : message
             )
         }
 
@@ -356,7 +354,7 @@ actor SSHService {
         guard check.exitCode == 0 else {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.installFailed(
-                detail.isEmpty ? "apt terminó con código \(result.exitCode)." : detail
+                detail.isEmpty ? String(localized: "apt terminó con código \(String(result.exitCode)).") : detail
             )
         }
     }
@@ -408,7 +406,7 @@ actor SSHService {
         if result.exitCode != 0 {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.configFailed(
-                detail.isEmpty ? "Código de salida \(result.exitCode)." : detail
+                detail.isEmpty ? String(localized: "Código de salida \(String(result.exitCode)).") : detail
             )
         }
     }

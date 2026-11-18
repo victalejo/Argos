@@ -157,7 +157,7 @@ enum AgentTranscriptLimits {
         guard text.count > maxToolResultCharacters else { return text }
         let omitted = text.count - keptHeadCharacters - keptTailCharacters
         return String(text.prefix(keptHeadCharacters))
-            + "\n\n… [recortado: \(omitted) caracteres omitidos] …\n\n"
+            + String(localized: "\n\n… [recortado: \(String(omitted)) caracteres omitidos] …\n\n")
             + String(text.suffix(keptTailCharacters))
     }
 }

@@ -27,16 +27,14 @@ enum AgentLaunchGuard {
     static func assess(freeMemoryKB: Int?, liveAgents: Int) -> Assessment {
         if let free = freeMemoryKB, free < minimumFreeMemoryKB {
             return .warning(
-                title: "Poca memoria libre en el servidor",
-                message: "Quedan \(ResourceFormat.kilobytes(free)) libres y cada agente de Claude ocupa unos 0,5 GB. "
-                    + "Detén o hiberna agentes que no uses para liberar memoria."
+                title: String(localized: "Poca memoria libre en el servidor"),
+                message: String(localized: "Quedan \(ResourceFormat.kilobytes(free)) libres y cada agente de Claude ocupa unos \(ResourceFormat.gigabytes(0.5)). Detén o hiberna agentes que no uses para liberar memoria.")
             )
         }
         if liveAgents >= maxLiveAgents {
             return .warning(
-                title: "Ya hay \(liveAgents) agentes en marcha",
-                message: "Cada agente de Claude ocupa unos 0,5 GB en el servidor. "
-                    + "Detén o hiberna alguno antes de abrir otro, o continúa si sabes que hay memoria."
+                title: String(localized: "Ya hay \(liveAgents) agentes en marcha"),
+                message: String(localized: "Cada agente de Claude ocupa unos \(ResourceFormat.gigabytes(0.5)) en el servidor. Detén o hiberna alguno antes de abrir otro, o continúa si sabes que hay memoria.")
             )
         }
         return .ok

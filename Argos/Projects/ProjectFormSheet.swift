@@ -109,10 +109,10 @@ struct ProjectFormSheet: View {
 
     private var title: String {
         switch request {
-        case .new: return "Nuevo proyecto"
-        case .edit: return "Editar proyecto"
-        case .convert: return "Convertir en proyecto"
-        case .worktrees: return "Ramas en paralelo"
+        case .new: return String(localized: "Nuevo proyecto")
+        case .edit: return String(localized: "Editar proyecto")
+        case .convert: return String(localized: "Convertir en proyecto")
+        case .worktrees: return String(localized: "Ramas en paralelo")
         }
     }
 
@@ -120,7 +120,7 @@ struct ProjectFormSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             ArgosSheetHeader(
                 title: title,
-                subtitle: "Organiza tu trabajo en \(request.server.name).",
+                subtitle: String(localized: "Organiza tu trabajo en \(request.server.name)."),
                 symbol: "folder.badge.plus"
             )
             .padding(24)
@@ -229,8 +229,8 @@ struct ProjectFormSheet: View {
     }
 
     private var submitLabel: String {
-        if case .edit = request { return "Guardar" }
-        return source == .clone ? "Clonar y crear" : "Crear proyecto"
+        if case .edit = request { return String(localized: "Guardar") }
+        return source == .clone ? String(localized: "Clonar y crear") : String(localized: "Crear proyecto")
     }
 
     private var formHeight: CGFloat {

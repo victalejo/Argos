@@ -77,7 +77,7 @@ final class TerminalWindowsModel {
             windows = fresh
             return fresh
         } catch {
-            report(error, while: "leer las ventanas")
+            report(error, while: String(localized: "leer las ventanas"))
             return nil
         }
     }
@@ -85,45 +85,45 @@ final class TerminalWindowsModel {
     // MARK: - Ventanas
 
     func select(_ window: TmuxWindow) async {
-        await perform("cambiar de ventana") { try await $0.selectWindow(session: $1, index: window.index) }
+        await perform(String(localized: "cambiar de ventana")) { try await $0.selectWindow(session: $1, index: window.index) }
     }
 
     func newWindow() async {
-        await perform("abrir una ventana") { try await $0.newWindow(session: $1) }
+        await perform(String(localized: "abrir una ventana")) { try await $0.newWindow(session: $1) }
     }
 
     func newAgentWindow(_ agent: CodingAgent, directory: String?) async {
-        await perform("lanzar \(agent.displayName)") {
+        await perform(String(localized: "lanzar \(agent.displayName)")) {
             try await $0.newAgentWindow(session: $1, agent: agent, directory: directory)
         }
     }
 
     func setColor(_ color: WindowColor?, for window: TmuxWindow) async {
-        await perform("cambiar el color de la ventana") {
+        await perform(String(localized: "cambiar el color de la ventana")) {
             try await $0.setWindowColor(session: $1, index: window.index, color: color)
         }
     }
 
     func close(_ window: TmuxWindow) async {
-        await perform("cerrar la ventana") { try await $0.killWindow(session: $1, index: window.index) }
+        await perform(String(localized: "cerrar la ventana")) { try await $0.killWindow(session: $1, index: window.index) }
     }
 
     // MARK: - Paneles
 
     func splitPane(vertical: Bool) async {
-        await perform("dividir el panel") { try await $0.splitPane(session: $1, vertical: vertical) }
+        await perform(String(localized: "dividir el panel")) { try await $0.splitPane(session: $1, vertical: vertical) }
     }
 
     func selectPane(_ direction: TmuxPaneDirection) async {
-        await perform("cambiar de panel", refreshing: false) { try await $0.selectPane(session: $1, direction: direction) }
+        await perform(String(localized: "cambiar de panel"), refreshing: false) { try await $0.selectPane(session: $1, direction: direction) }
     }
 
     func zoomPane() async {
-        await perform("hacer zoom del panel", refreshing: false) { try await $0.zoomPane(session: $1) }
+        await perform(String(localized: "hacer zoom del panel"), refreshing: false) { try await $0.zoomPane(session: $1) }
     }
 
     func killPane() async {
-        await perform("cerrar el panel") { try await $0.killPane(session: $1) }
+        await perform(String(localized: "cerrar el panel")) { try await $0.killPane(session: $1) }
     }
 
     // MARK: - Utilidades
@@ -143,6 +143,6 @@ final class TerminalWindowsModel {
 
     private func report(_ error: Error, while action: String) {
         Log.terminal.error("No se pudo \(action, privacy: .public): \(error.userMessage, privacy: .public)")
-        actionError = "No se pudo \(action): \(error.userMessage)"
+        actionError = String(localized: "No se pudo \(action): \(error.userMessage)")
     }
 }

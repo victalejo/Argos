@@ -18,7 +18,7 @@ struct ProjectDetailView: View {
 
     private var session: TmuxSession? { vm.session(withID: handle.sessionID) }
     private var project: Project? { vm.project(forSession: handle.sessionID) }
-    private var serverName: String { model.store.server(withID: handle.serverID)?.name ?? "el servidor" }
+    private var serverName: String { model.store.server(withID: handle.serverID)?.name ?? String(localized: "el servidor") }
     private var mode: DetailMode { model.detailModes[handle] ?? .terminal }
 
     var body: some View {
@@ -58,7 +58,7 @@ struct ProjectDetailView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .lineLimit(1).truncationMode(.middle)
                     .help(project?.name ?? handle.sessionID)
-                Label(model.store.server(withID: handle.serverID)?.name ?? "Servidor", systemImage: "server.rack")
+                Label(model.store.server(withID: handle.serverID)?.name ?? String(localized: "Servidor"), systemImage: "server.rack")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

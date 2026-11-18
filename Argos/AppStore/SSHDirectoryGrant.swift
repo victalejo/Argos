@@ -22,10 +22,9 @@ enum SSHDirectoryGrant {
     static func request() -> Outcome {
         let directory = URL(fileURLWithPath: SSHDirectoryAccess.directoryPath(), isDirectory: true)
         let panel = NSOpenPanel()
-        panel.title = "Dar acceso a ~/.ssh"
-        panel.message = "Argos lee tu ~/.ssh/config y las claves que referencia. "
-            + "Pulsa «Conceder acceso» con la carpeta .ssh abierta. Solo se pide una vez y es de solo lectura."
-        panel.prompt = "Conceder acceso"
+        panel.title = String(localized: "Dar acceso a ~/.ssh")
+        panel.message = String(localized: "Argos lee tu ~/.ssh/config y las claves que referencia. Pulsa «Conceder acceso» con la carpeta .ssh abierta. Solo se pide una vez y es de solo lectura.")
+        panel.prompt = String(localized: "Conceder acceso")
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
@@ -34,7 +33,7 @@ enum SSHDirectoryGrant {
 
         guard panel.runModal() == .OK, let url = panel.url else { return .cancelled }
         guard url.standardizedFileURL.path == directory.standardizedFileURL.path else {
-            return .failed("Elige la carpeta .ssh de tu usuario (\(directory.path)).")
+            return .failed(String(localized: "Elige la carpeta .ssh de tu usuario (\(directory.path))."))
         }
         do {
             try SSHDirectoryAccess.storeGrant(for: url)

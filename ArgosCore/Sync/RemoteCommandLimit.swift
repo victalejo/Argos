@@ -54,8 +54,7 @@ enum RemoteCommandError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .tooLong(let bytes):
-            return "La orden para el servidor es demasiado larga (\(bytes / 1024) KiB; Linux admite unos 128 KiB). "
-                + "Hazlo con menos archivos a la vez."
+            return String(localized: "La orden para el servidor es demasiado larga (\(bytes / 1024) KiB; Linux admite unos 128 KiB). Hazlo con menos archivos a la vez.")
         }
     }
 }

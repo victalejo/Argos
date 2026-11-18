@@ -49,10 +49,10 @@ enum SafeLinkPolicy {
     @MainActor
     static func confirm(_ url: URL) -> Bool {
         let alert = NSAlert()
-        alert.messageText = "¿Abrir este enlace?"
+        alert.messageText = String(localized: "¿Abrir este enlace?")
         alert.informativeText = url.absoluteString
-        alert.addButton(withTitle: "Abrir")
-        alert.addButton(withTitle: "Cancelar")
+        alert.addButton(withTitle: String(localized: "Abrir"))
+        alert.addButton(withTitle: String(localized: "Cancelar"))
         return alert.runModal() == .alertFirstButtonReturn
     }
 }
@@ -61,7 +61,7 @@ enum SafeLinkPolicy {
 private struct BlockedImageProvider: ImageProvider {
     func makeImage(url: URL?) -> some View {
         Label {
-            Text("Imagen no cargada" + (url.map { ": \($0.absoluteString)" } ?? ""))
+            Text(url.map { String(localized: "Imagen no cargada: \($0.absoluteString)") } ?? String(localized: "Imagen no cargada"))
                 .lineLimit(1)
                 .truncationMode(.middle)
         } icon: {

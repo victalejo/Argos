@@ -108,7 +108,7 @@ struct PortForwardsPanel: View {
 
     private var forwardedSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("Reenviados")
+            sectionTitle(String(localized: "Reenviados"))
             ForEach(model.forwards) { forward in
                 HStack(spacing: 8) {
                     Image(systemName: "circle.fill").font(.system(size: 7))
@@ -117,8 +117,8 @@ struct PortForwardsPanel: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(forward.localAddress).font(.callout.monospaced().weight(.medium))
                         Text(verbatim: forward.isReconnecting
-                             ? "Reconectando con el puerto \(forward.remotePort)…"
-                             : "→ puerto \(forward.remotePort) del servidor")
+                             ? String(localized: "Reconectando con el puerto \(String(forward.remotePort))…")
+                             : String(localized: "→ puerto \(String(forward.remotePort)) del servidor"))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -132,7 +132,7 @@ struct PortForwardsPanel: View {
                         Image(systemName: "stop.fill")
                     }
                     .help("Dejar de reenviar")
-                    .accessibilityLabel(Text(verbatim: "Dejar de reenviar el puerto \(forward.remotePort)"))
+                    .accessibilityLabel(Text("Dejar de reenviar el puerto \(String(forward.remotePort))"))
                     .disabled(model.busyPorts.contains(forward.remotePort))
                 }
                 .controlSize(.small)
@@ -145,7 +145,7 @@ struct PortForwardsPanel: View {
     @ViewBuilder
     private var listeningSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("En escucha en el servidor")
+            sectionTitle(String(localized: "En escucha en el servidor"))
             if !model.hasLoaded {
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity)
             } else if let error = model.listError {
@@ -193,7 +193,7 @@ struct PortForwardsPanel: View {
 
     private var manualSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionTitle("Otro puerto")
+            sectionTitle(String(localized: "Otro puerto"))
             HStack {
                 TextField("p. ej. 8080", text: $manualPort)
                     .textFieldStyle(.roundedBorder)
@@ -213,7 +213,7 @@ struct PortForwardsPanel: View {
 
     private var idleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionTitle("Cierre automático")
+            sectionTitle(String(localized: "Cierre automático"))
             Picker("Cerrar los túneles sin uso tras", selection: $model.idleMinutes) {
                 ForEach(PortForwardIdlePolicy.options, id: \.self) { minutes in
                     Text(PortForwardIdlePolicy.label(minutes: minutes)).tag(minutes)

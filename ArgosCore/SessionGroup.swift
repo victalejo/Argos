@@ -30,8 +30,16 @@ enum SessionGrouping {
     /// Separador de grupo dentro del nombre de la sesión.
     static let separator: Character = "/"
 
-    /// Grupo al que van las sesiones sin separador.
+    /// Grupo al que van las sesiones sin separador. Es un IDENTIFICADOR estable (clave del
+    /// plegado guardado en `CollapsedSessionGroups`): no se traduce. Lo que se ve en
+    /// pantalla es `displayName(_:)`.
     static let ungroupedName = "General"
+
+    /// Nombre de un grupo para mostrar: el de las sesiones sin grupo se traduce; los demás
+    /// son prefijos de sesiones de tmux (datos del usuario) y se muestran tal cual.
+    static func displayName(_ name: String) -> String {
+        name == ungroupedName ? String(localized: "General", comment: "Grupo de las sesiones sin prefijo «grupo/»") : name
+    }
 
     /// Descompone un nombre completo en `(grupo, nombreCorto)`.
     ///

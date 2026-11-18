@@ -28,11 +28,11 @@ enum GitHubCheckState: String, Sendable, Hashable, Comparable {
 
     var label: String {
         switch self {
-        case .pending: return "En curso"
-        case .success: return "Pasó"
-        case .failure: return "Falló"
-        case .cancelled: return "Cancelado"
-        case .skipped: return "Omitido"
+        case .pending: return String(localized: "En curso")
+        case .success: return String(localized: "Pasó")
+        case .failure: return String(localized: "Falló")
+        case .cancelled: return String(localized: "Cancelado")
+        case .skipped: return String(localized: "Omitido")
         }
     }
 
@@ -95,17 +95,17 @@ struct GitHubPullRequest: Hashable, Sendable {
 
     var stateLabel: String {
         switch state {
-        case .merged: return "Fusionado"
-        case .closed: return "Cerrado"
-        case .open: return isDraft ? "Borrador" : "Abierto"
+        case .merged: return String(localized: "Fusionado")
+        case .closed: return String(localized: "Cerrado")
+        case .open: return isDraft ? String(localized: "Borrador") : String(localized: "Abierto")
         }
     }
 
     var reviewLabel: String? {
         switch review {
-        case .approved: return "Aprobado"
-        case .changesRequested: return "Piden cambios"
-        case .required: return "Revisión pendiente"
+        case .approved: return String(localized: "Aprobado")
+        case .changesRequested: return String(localized: "Piden cambios")
+        case .required: return String(localized: "Revisión pendiente")
         case nil: return nil
         }
     }

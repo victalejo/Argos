@@ -19,23 +19,23 @@ struct SessionNameSheet: View {
 
         var title: String {
             switch self {
-            case .create: return "Nueva sesión"
-            case .rename: return "Renombrar sesión"
-            case .renameWindow: return "Renombrar ventana"
+            case .create: return String(localized: "Nueva sesión")
+            case .rename: return String(localized: "Renombrar sesión")
+            case .renameWindow: return String(localized: "Renombrar ventana")
             }
         }
 
         var actionLabel: String {
             switch self {
-            case .create: return "Crear"
-            case .rename, .renameWindow: return "Renombrar"
+            case .create: return String(localized: "Crear")
+            case .rename, .renameWindow: return String(localized: "Renombrar")
             }
         }
 
         var fieldLabel: String {
             switch self {
-            case .create: return "Nombre de la sesión"
-            case .rename, .renameWindow: return "Nuevo nombre"
+            case .create: return String(localized: "Nombre de la sesión")
+            case .rename, .renameWindow: return String(localized: "Nuevo nombre")
             }
         }
 
@@ -49,11 +49,11 @@ struct SessionNameSheet: View {
         var hint: String {
             switch self {
             case .create:
-                return "Escribe \"grupo/nombre\" para agruparla, p. ej. \"magic-agents/backend\"."
+                return String(localized: "Escribe \"grupo/nombre\" para agruparla, p. ej. \"magic-agents/backend\".")
             case .rename:
-                return "Usa \"grupo/nombre\" para moverla de grupo, p. ej. \"magic-agents/backend\"."
+                return String(localized: "Usa \"grupo/nombre\" para moverla de grupo, p. ej. \"magic-agents/backend\".")
             case .renameWindow:
-                return "tmux dejará de renombrarla automáticamente según el comando en curso."
+                return String(localized: "tmux dejará de renombrarla automáticamente según el comando en curso.")
             }
         }
 
@@ -158,9 +158,9 @@ struct SessionNameSheet: View {
 
     private var subtitle: String {
         switch mode {
-        case .create: return "Abre un nuevo espacio para trabajar en tu servidor."
-        case .rename: return "Un nombre claro hace más fácil encontrar tu trabajo."
-        case .renameWindow: return "Identifica esta ventana de un vistazo."
+        case .create: return String(localized: "Abre un nuevo espacio para trabajar en tu servidor.")
+        case .rename: return String(localized: "Un nombre claro hace más fácil encontrar tu trabajo.")
+        case .renameWindow: return String(localized: "Identifica esta ventana de un vistazo.")
         }
     }
 

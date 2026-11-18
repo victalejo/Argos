@@ -19,14 +19,14 @@ struct ServerFormSheet: View {
 
         var title: String {
             switch self {
-            case .add: return "Nuevo servidor"
-            case .edit: return "Editar servidor"
+            case .add: return String(localized: "Nuevo servidor")
+            case .edit: return String(localized: "Editar servidor")
             }
         }
         var actionLabel: String {
             switch self {
-            case .add: return "Añadir"
-            case .edit: return "Guardar"
+            case .add: return String(localized: "Añadir")
+            case .edit: return String(localized: "Guardar")
             }
         }
     }
@@ -101,7 +101,7 @@ struct ServerFormSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             ArgosSheetHeader(
                 title: mode.title,
-                subtitle: "Tu espacio de trabajo empieza con una conexión SSH.",
+                subtitle: String(localized: "Tu espacio de trabajo empieza con una conexión SSH."),
                 symbol: "server.rack"
             )
             .padding(24)
@@ -242,7 +242,7 @@ struct ServerFormSheet: View {
 
     private var passphrasePrompt: String {
         if case .supported(true, _) = keyInspection { return "Passphrase" }
-        return passphraseApplies ? "Passphrase (opcional)" : "Passphrase (la clave no tiene)"
+        return passphraseApplies ? String(localized: "Passphrase (opcional)") : String(localized: "Passphrase (la clave no tiene)")
     }
 
     /// Lee y examina la clave del archivo elegido (el panel ya concedió el acceso).
@@ -334,7 +334,7 @@ struct ServerFormSheet: View {
                 Log.store.info("Bookmark de clave SSH creado: \(url.path, privacy: .public)")
             } catch {
                 keyBookmark = nil
-                bookmarkError = "No se pudo crear el acceso al archivo: \(error.localizedDescription)"
+                bookmarkError = String(localized: "No se pudo crear el acceso al archivo: \(error.localizedDescription)")
                 Log.store.error("Fallo al crear bookmark SSH: \(error)")
             }
         }
@@ -398,7 +398,7 @@ struct ServerFormSheet: View {
             do {
                 let who = try await service.testConnection()
                 await service.disconnect()
-                testState = .success(who.isEmpty ? "Conexión correcta." : "Conectado como “\(who)”.")
+                testState = .success(who.isEmpty ? String(localized: "Conexión correcta.") : String(localized: "Conectado como “\(who)”."))
             } catch {
                 await service.disconnect()
                 // Una clave que Argos no admite falla con jerga de Citadel: se explica el porqué.

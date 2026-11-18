@@ -260,7 +260,7 @@ struct ServerFormView: View {
             let service = SSHService(configuration: config)
             do {
                 let who = try await service.testConnection()
-                testState = .success(who.isEmpty ? "Conexión correcta." : "Conectado como «\(who)».")
+                testState = .success(who.isEmpty ? String(localized: "Conexión correcta.") : String(localized: "Conectado como «\(who)»."))
             } catch {
                 testState = .failure(error.userMessage)
             }

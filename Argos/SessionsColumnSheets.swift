@@ -84,7 +84,7 @@ struct SessionsColumnProjectSheets: ViewModifier {
                     }
                     let failed = await vm.stopSessions(named: projects.map(\.sessionName))
                     if !failed.isEmpty {
-                        vm.operationError = "No se pudieron detener: \(failed.joined(separator: ", "))"
+                        vm.operationError = String(localized: "No se pudieron detener: \(failed.joined(separator: ", "))")
                     }
                 }
             } catch {

@@ -110,9 +110,7 @@ struct DoctorScreen: View {
         } header: {
             Text("Informe para un issue")
         } footer: {
-            Text("Por defecto los servidores, usuarios e IPs se sustituyen por marcadores como «servidor-1». "
-                 + "Argos oculta los secretos que reconoce, pero no puede garantizar que no se escape alguno: "
-                 + "revisa el texto antes de publicarlo. El detalle técnico (depuración y agente) puede contener texto del servidor.")
+            Text(String(localized: "Por defecto los servidores, usuarios e IPs se sustituyen por marcadores como «servidor-1». Argos oculta los secretos que reconoce, pero no puede garantizar que no se escape alguno: revisa el texto antes de publicarlo. El detalle técnico (depuración y agente) puede contener texto del servidor."))
         }
     }
 

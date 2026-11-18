@@ -14,7 +14,7 @@ enum TerminalAttachment {
     static let maxBytes = 100 * 1024 * 1024
 
     static func tooLargeMessage(fileName: String) -> String {
-        "«\(fileName)» pesa más de \(maxBytes / (1024 * 1024)) MB: súbelo de otra forma."
+        String(localized: "«\(fileName)» pesa más de \(maxBytes / (1024 * 1024)) MB: súbelo de otra forma.")
     }
 
     /// Nombre para una foto de la fototeca (no trae nombre de archivo): `foto-AAAAMMDD-HHMMSS.ext`.

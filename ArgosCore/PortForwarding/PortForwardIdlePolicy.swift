@@ -35,7 +35,7 @@ enum PortForwardIdlePolicy {
 
     /// Texto del selector.
     static func label(minutes: Int) -> String {
-        minutes == 0 ? "Nunca" : "\(minutes) min"
+        minutes == 0 ? String(localized: "Nunca") : "\(minutes) min"
     }
 }
 

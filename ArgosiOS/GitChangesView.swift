@@ -140,7 +140,7 @@ private struct GitChangesList: View {
     private var branchSection: some View {
         Section {
             HStack {
-                Label(status.branch.name ?? "HEAD desacoplado", systemImage: "arrow.triangle.branch")
+                Label(status.branch.name ?? String(localized: "HEAD desacoplado"), systemImage: "arrow.triangle.branch")
                     .lineLimit(1)
                 Spacer()
                 Text(trackingText).font(.caption).foregroundStyle(.secondary)
@@ -201,7 +201,7 @@ private struct GitChangesList: View {
             }
         } header: {
             HStack {
-                Text("\(status.changes.count) archivo\(status.changes.count == 1 ? "" : "s")")
+                Text("\(status.changes.count) archivos")
                 Spacer()
                 Button(model.includedCount == status.changes.count ? "Ninguno" : "Todos") {
                     model.setAllIncluded(model.includedCount != status.changes.count)
@@ -232,7 +232,7 @@ private struct GitChangesList: View {
                 Task { await model.commit() }
             } label: {
                 HStack {
-                    Text("Commit de \(model.includedCount) archivo\(model.includedCount == 1 ? "" : "s")")
+                    Text(String(localized: "Commit de \(model.includedCount) archivos"))
                     Spacer()
                     if model.operation == .commit { ProgressView() }
                 }
@@ -245,10 +245,10 @@ private struct GitChangesList: View {
 
     private var trackingText: String {
         let branch = status.branch
-        if !branch.hasCommits { return "sin commits" }
-        guard branch.upstream != nil else { return "sin rama remota" }
-        if branch.upstreamGone { return "remota borrada" }
-        if branch.ahead == 0 && branch.behind == 0 { return "al día" }
+        if !branch.hasCommits { return String(localized: "sin commits") }
+        guard branch.upstream != nil else { return String(localized: "sin rama remota") }
+        if branch.upstreamGone { return String(localized: "remota borrada") }
+        if branch.ahead == 0 && branch.behind == 0 { return String(localized: "al día") }
         return [branch.ahead > 0 ? "↑\(branch.ahead)" : nil, branch.behind > 0 ? "↓\(branch.behind)" : nil]
             .compactMap { $0 }.joined(separator: " ")
     }

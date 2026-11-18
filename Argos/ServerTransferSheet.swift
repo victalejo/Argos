@@ -168,7 +168,7 @@ struct ServerTransferSheet: View {
             }
         } catch {
             Log.ssh.error("No se pudo autorizar la clave del iPhone: \(error.userMessage, privacy: .public)")
-            phase = .failed("No se pudo autorizar la clave en el servidor: \(error.userMessage)")
+            phase = .failed(String(localized: "No se pudo autorizar la clave en el servidor: \(error.userMessage)"))
             return
         }
         phase = .ready(ServerTransfer(
@@ -192,8 +192,7 @@ struct ServerTransferSheet: View {
             onClose()
         } catch {
             Log.ssh.error("No se pudo retirar la clave del iPhone (\(comment, privacy: .public)): \(error.userMessage, privacy: .public)")
-            phase = .failed("No se pudo retirar la clave del servidor: \(error.userMessage)\n"
-                + "Pulsa «Cancelar» para reintentarlo o borra a mano la línea «\(comment)» de ~/.ssh/authorized_keys.")
+            phase = .failed(String(localized: "No se pudo retirar la clave del servidor: \(error.userMessage)\nPulsa «Cancelar» para reintentarlo o borra a mano la línea «\(comment)» de ~/.ssh/authorized_keys."))
         }
     }
 }
@@ -322,8 +321,8 @@ struct AuthorizedDevicesSheet: View {
     }
 
     private func title(for key: AuthorizedDeviceKey) -> String {
-        guard let date = key.authorizedOn else { return "Dispositivo (fecha desconocida)" }
-        return "Autorizado el \(date.formatted(date: .long, time: .omitted))"
+        guard let date = key.authorizedOn else { return String(localized: "Dispositivo (fecha desconocida)") }
+        return String(localized: "Autorizado el \(date.formatted(date: .long, time: .omitted))")
     }
 
     // MARK: - Acciones
@@ -347,7 +346,7 @@ struct AuthorizedDevicesSheet: View {
             Log.ssh.notice("Clave de dispositivo revocada: \(key.comment, privacy: .public)")
         } catch {
             Log.ssh.error("No se pudo revocar \(key.comment, privacy: .public): \(error.userMessage, privacy: .public)")
-            revokeError = "No se pudo revocar: \(error.userMessage)"
+            revokeError = String(localized: "No se pudo revocar: \(error.userMessage)")
         }
         await load()
     }

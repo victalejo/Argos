@@ -104,23 +104,21 @@ enum ProjectError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidFile:
-            return "~/.config/argos/projects.json del servidor está dañado (no es JSON válido) y Argos no lo ha modificado. "
-                + "Restaura la copia anterior (projects.json.argos-backup) desde Argos o corrige el archivo en el servidor."
+            return String(localized: "~/.config/argos/projects.json del servidor está dañado (no es JSON válido) y Argos no lo ha modificado. Restaura la copia anterior (projects.json.argos-backup) desde Argos o corrige el archivo en el servidor.")
         case .duplicateName(let name):
-            return "Ya existe un proyecto o sesión llamado '\(name)' en este servidor."
+            return String(localized: "Ya existe un proyecto o sesión llamado '\(name)' en este servidor.")
         case .missingFolder(let path):
-            return "La carpeta '\(path)' ya no existe en el servidor. Edita el proyecto para elegir otra."
+            return String(localized: "La carpeta '\(path)' ya no existe en el servidor. Edita el proyecto para elegir otra.")
         case .invalidPath:
-            return "La carpeta debe ser una ruta absoluta del servidor (empieza por '/')."
+            return String(localized: "La carpeta debe ser una ruta absoluta del servidor (empieza por '/').")
         case .newerFormat(let version):
-            return "Los proyectos de este servidor los guardó una versión más nueva de Argos (formato \(version)). "
-                + "Actualiza Argos en este dispositivo para poder modificarlos."
+            return String(localized: "Los proyectos de este servidor los guardó una versión más nueva de Argos (formato \(version)). Actualiza Argos en este dispositivo para poder modificarlos.")
         case .writeConflict:
-            return "Otro dispositivo está cambiando los proyectos de este servidor a la vez. Vuelve a intentarlo en unos segundos."
+            return String(localized: "Otro dispositivo está cambiando los proyectos de este servidor a la vez. Vuelve a intentarlo en unos segundos.")
         case .noBackup:
-            return "No hay copia anterior de los proyectos (projects.json.argos-backup) en este servidor."
+            return String(localized: "No hay copia anterior de los proyectos (projects.json.argos-backup) en este servidor.")
         case .invalidBackup:
-            return "La copia anterior de los proyectos también está dañada; no se ha restaurado. Corrige el archivo en el servidor."
+            return String(localized: "La copia anterior de los proyectos también está dañada; no se ha restaurado. Corrige el archivo en el servidor.")
         }
     }
 }

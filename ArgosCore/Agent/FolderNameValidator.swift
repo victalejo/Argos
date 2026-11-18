@@ -17,11 +17,11 @@ enum FolderNameValidator {
 
         var errorDescription: String? {
             switch self {
-            case .empty: return "Escribe un nombre para la carpeta."
-            case .reserved: return "«.» y «..» no son nombres válidos."
-            case .containsSlash: return "El nombre no puede llevar «/». Crea una carpeta cada vez."
-            case .controlCharacter: return "El nombre tiene caracteres no válidos."
-            case .tooLong: return "El nombre es demasiado largo (máximo 255 bytes)."
+            case .empty: return String(localized: "Escribe un nombre para la carpeta.")
+            case .reserved: return String(localized: "«.» y «..» no son nombres válidos.")
+            case .containsSlash: return String(localized: "El nombre no puede llevar «/». Crea una carpeta cada vez.")
+            case .controlCharacter: return String(localized: "El nombre tiene caracteres no válidos.")
+            case .tooLong: return String(localized: "El nombre es demasiado largo (máximo 255 bytes).")
             }
         }
     }

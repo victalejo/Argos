@@ -30,7 +30,7 @@ struct TerminalStatusBar: View {
             if agentCount > 0 {
                 HStack(spacing: 5) {
                     Circle().fill(Color.teal).frame(width: 6, height: 6)
-                    Text("\(agentCount) \(agentCount == 1 ? "agente" : "agentes")")
+                    Text("\(agentCount) agentes")
                 }
             }
             HStack(spacing: 5) {

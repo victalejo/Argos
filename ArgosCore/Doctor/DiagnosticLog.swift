@@ -57,7 +57,7 @@ enum DiagnosticLogFormatter {
 
     /// Recorta una línea YA redactada (cortar antes podría dejar media clave a la vista).
     static func clip(_ line: String, to limit: Int) -> String {
-        line.count <= limit ? line : String(line.prefix(limit)) + "… [recortado]"
+        line.count <= limit ? line : String(line.prefix(limit)) + String(localized: "… [recortado]")
     }
 
     /// Conserva las líneas MÁS RECIENTES que quepan en `maxBytes` (en el orden recibido).

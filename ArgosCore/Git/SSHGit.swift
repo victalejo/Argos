@@ -19,7 +19,7 @@ struct GitCommandError: LocalizedError, Equatable {
         let text = [stderr, stdout]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty }
-        guard let text else { return GitCommandError(message: "git terminó con código \(exitCode).") }
+        guard let text else { return GitCommandError(message: String(localized: "git terminó con código \(String(exitCode)).")) }
         let lines = text.split(whereSeparator: \.isNewline).suffix(8).joined(separator: "\n")
         return GitCommandError(message: lines)
     }
@@ -99,7 +99,7 @@ extension SSHService {
             throw GitCommandError.from(stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode)
         }
         guard let path = GitWorktreeParser.addedPath(result.stdout) else {
-            throw GitCommandError(message: "git creó el worktree pero no se encontró su carpeta.")
+            throw GitCommandError(message: String(localized: "git creó el worktree pero no se encontró su carpeta."))
         }
         return path
     }

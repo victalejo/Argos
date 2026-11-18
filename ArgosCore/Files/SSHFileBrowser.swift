@@ -27,7 +27,7 @@ enum FileBrowserError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .outsideProject(let path):
-            return "'\(path)' está fuera de la carpeta del proyecto (¿un enlace simbólico?)."
+            return String(localized: "'\(path)' está fuera de la carpeta del proyecto (¿un enlace simbólico?).")
         }
     }
 }

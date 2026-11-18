@@ -61,8 +61,8 @@ struct PortForwardsSheet: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(forward.localAddress).font(.body.monospaced())
                             Text(verbatim: forward.isReconnecting
-                                 ? "Reconectando con el puerto \(forward.remotePort)…"
-                                 : "→ puerto \(forward.remotePort) de \(serverName)")
+                                 ? String(localized: "Reconectando con el puerto \(String(forward.remotePort))…")
+                                 : String(localized: "→ puerto \(String(forward.remotePort)) de \(serverName)"))
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()

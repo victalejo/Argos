@@ -60,8 +60,7 @@ struct PermissionsSettingsView: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 } footer: {
-                    Text("Un pequeño AppleScript que guardas tú en la carpeta de scripts de Argos. "
-                         + "macOS te pedirá además permiso para que Argos controle Terminal.")
+                    Text(String(localized: "Un pequeño AppleScript que guardas tú en la carpeta de scripts de Argos. macOS te pedirá además permiso para que Argos controle Terminal."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
@@ -76,9 +75,9 @@ struct PermissionsSettingsView: View {
 
     private var sshDescription: String {
         switch sshStatus {
-        case .granted: return "Acceso concedido"
-        case .implicit: return "Accesible"
-        case .needsGrant: return "Sin acceso"
+        case .granted: return String(localized: "Acceso concedido")
+        case .implicit: return String(localized: "Accesible")
+        case .needsGrant: return String(localized: "Sin acceso")
         }
     }
 

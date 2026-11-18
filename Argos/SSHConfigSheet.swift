@@ -24,17 +24,17 @@ struct SSHConfigSheet: View {
 
             switch result {
             case .noFile:
-                message("No se encontró ~/.ssh/config",
-                        detail: "Crea hosts con `Host alias` en ese archivo y aparecerán aquí.",
+                message(String(localized: "No se encontró ~/.ssh/config"),
+                        detail: String(localized: "Crea hosts con `Host alias` en ese archivo y aparecerán aquí."),
                         icon: "doc.questionmark")
             case .needsAccess:
                 needsAccessView
             case .failed(let error):
-                message("No se pudo leer ~/.ssh/config", detail: error, icon: "exclamationmark.triangle")
+                message(String(localized: "No se pudo leer ~/.ssh/config"), detail: error, icon: "exclamationmark.triangle")
             case .hosts(let all):
                 let hosts = all.filter { !$0.isWildcard }
                 if hosts.isEmpty {
-                    message("Sin hosts", detail: "El archivo no define hosts concretos.", icon: "tray")
+                    message(String(localized: "Sin hosts"), detail: String(localized: "El archivo no define hosts concretos."), icon: "tray")
                 } else {
                     List(hosts) { host in
                         row(host)

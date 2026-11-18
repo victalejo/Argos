@@ -44,7 +44,7 @@ struct ServerSheets: ViewModifier {
                             try model.importHost(host)
                         } catch {
                             Log.store.error("Importar servidor: \(error.userMessage, privacy: .public)")
-                            saveError = "No se importó «\(host.alias)»: \(error.userMessage)"
+                            saveError = String(localized: "No se importó «\(host.alias)»: \(error.userMessage)")
                         }
                     },
                     onClose: { showSSHConfig = false }
@@ -97,9 +97,7 @@ struct ServerDialogs: ViewModifier {
                 Button("Olvidar y reconectar", role: .destructive) { model.forgetHostKey(of: server) }
                 Button("Cancelar", role: .cancel) {}
             } message: { server in
-                Text("Argos confiará en la huella que presente \(server.host) en la próxima conexión. "
-                     + "Hazlo solo si sabes que el servidor se reinstaló o cambió de clave: si no, "
-                     + "podría tratarse de un ataque (alguien suplantando al servidor).")
+                Text(String(localized: "Argos confiará en la huella que presente \(server.host) en la próxima conexión. Hazlo solo si sabes que el servidor se reinstaló o cambió de clave: si no, podría tratarse de un ataque (alguien suplantando al servidor)."))
             }
             .confirmationDialog(
                 claudeHooksServer.map { "¿Activar el indicador de Claude Code en '\($0.name)'?" } ?? "",
@@ -110,10 +108,7 @@ struct ServerDialogs: ViewModifier {
                 Button("Activar") { installClaudeHooks(on: server) }
                 Button("Cancelar", role: .cancel) {}
             } message: { _ in
-                Text("Se añadirán hooks a ~/.claude/settings.json del servidor (con copia en "
-                     + "settings.json.argos-backup; tus hooks actuales se conservan). Avisan a Argos "
-                     + "cuando Claude trabaja, termina o espera tu respuesta. Las sesiones de Claude "
-                     + "ya abiertas deben reiniciarse para usarlos.")
+                Text(String(localized: "Se añadirán hooks a ~/.claude/settings.json del servidor (con copia en settings.json.argos-backup; tus hooks actuales se conservan). Avisan a Argos cuando Claude trabaja, termina o espera tu respuesta. Las sesiones de Claude ya abiertas deben reiniciarse para usarlos."))
             }
             .alert("Indicador de Claude Code", isPresented: presence($claudeHooksResult), presenting: claudeHooksResult) { _ in
                 Button("OK", role: .cancel) {}
@@ -136,15 +131,14 @@ struct ServerDialogs: ViewModifier {
         Task {
             do {
                 if try await vm.service.claudeHooksInstalled() {
-                    claudeHooksResult = "El indicador ya estaba activo en \(server.name)."
+                    claudeHooksResult = String(localized: "El indicador ya estaba activo en \(server.name).")
                     return
                 }
                 try await vm.service.installClaudeHooks()
-                claudeHooksResult = "Indicador activado en \(server.name). Reinicia las sesiones de "
-                    + "Claude Code que ya estuvieran abiertas para que empiecen a reportar su estado."
+                claudeHooksResult = String(localized: "Indicador activado en \(server.name). Reinicia las sesiones de Claude Code que ya estuvieran abiertas para que empiecen a reportar su estado.")
             } catch {
                 Log.ssh.error("Instalar hooks de Claude: \(error.userMessage, privacy: .public)")
-                claudeHooksResult = "No se pudo activar el indicador: \(error.userMessage)"
+                claudeHooksResult = String(localized: "No se pudo activar el indicador: \(error.userMessage)")
             }
         }
     }

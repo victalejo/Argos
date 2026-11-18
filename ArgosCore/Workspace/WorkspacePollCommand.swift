@@ -140,6 +140,6 @@ enum WorkspacePollCommand {
         }
         if SSHService.indicatesNoTmuxServer(stdout: "", stderr: stderr) { return .sessions([]) }
         if SSHService.indicatesTmuxNotInstalled(stdout: "", stderr: stderr, exitCode: code) { return .tmuxMissing }
-        return .failed(exitCode: code, message: stderr.isEmpty ? "tmux list-sessions no devolvió detalles." : stderr)
+        return .failed(exitCode: code, message: stderr.isEmpty ? String(localized: "tmux list-sessions no devolvió detalles.") : stderr)
     }
 }

@@ -136,9 +136,9 @@ struct TerminalWindowBar: View {
     }
 
     private func accessibilityLabel(_ window: TmuxWindow, title: String?) -> String {
-        var parts = ["Ventana \(window.index): \(title ?? window.name)"]
+        var parts = [String(localized: "Ventana \(window.index): \(title ?? window.name)")]
         if let activity = claudeActivity[window.index] { parts.append(activity.label) }
-        if let color = window.color { parts.append("color \(color.displayName.lowercased())") }
+        if let color = window.color { parts.append(String(localized: "color \(color.displayName.lowercased())")) }
         return parts.joined(separator: ", ")
     }
 

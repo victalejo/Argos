@@ -75,7 +75,7 @@ struct RemoteFilesView: View {
                 .refreshable { await load() }
             }
         }
-        .navigationTitle(path == root ? "Archivos" : (path as NSString).lastPathComponent)
+        .navigationTitle(path == root ? String(localized: "Archivos") : (path as NSString).lastPathComponent)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

@@ -182,20 +182,20 @@ struct ServerRow: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, 7)
-        .help("\(server.username)@\(server.host):\(server.port)")
+        .help("\(server.username)@\(server.host):\(String(server.port))")
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(server.name), \(server.username) en \(server.host) puerto \(server.port), \(accessibilityStateText)")
+        .accessibilityLabel("\(server.name), \(server.username) en \(server.host) puerto \(String(server.port)), \(accessibilityStateText)")
     }
 
     /// Estado de conexión en texto, para VoiceOver (refuerza el color del icono).
     private var accessibilityStateText: String {
         switch connectionState {
-        case .failed: return "error de conexión"
-        case .hostKeyChanged: return "identidad del servidor cambiada"
-        case .tmuxMissing: return "tmux no instalado"
-        case .loaded: return "conectado"
-        case .idle, nil: return "sin conectar"
-        case .some: return "conectando"
+        case .failed: return String(localized: "error de conexión")
+        case .hostKeyChanged: return String(localized: "identidad del servidor cambiada")
+        case .tmuxMissing: return String(localized: "tmux no instalado")
+        case .loaded: return String(localized: "conectado")
+        case .idle, nil: return String(localized: "sin conectar")
+        case .some: return String(localized: "conectando")
         }
     }
 

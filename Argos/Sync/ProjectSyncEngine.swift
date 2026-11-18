@@ -53,7 +53,7 @@ final class ProjectSyncEngine {
         var errorDescription: String? {
             switch self {
             case .destinationNotEmpty(let path):
-                return "Ya existe una carpeta con contenido en \(path). Elige otra carpeta destino o muévela."
+                return String(localized: "Ya existe una carpeta con contenido en \(path). Elige otra carpeta destino o muévela.")
             }
         }
     }

@@ -45,9 +45,9 @@ struct GitHubStatusSection: View {
                     Text("Consultando GitHub…").font(.caption).foregroundStyle(.secondary)
                 }
             case .ghMissing:
-                hint("Instala GitHub CLI (`gh`) en el servidor para ver el PR y el CI aquí.")
+                hint(String(localized: "Instala GitHub CLI (`gh`) en el servidor para ver el PR y el CI aquí."))
             case .notAuthenticated:
-                hint("`gh` no tiene sesión en el servidor. Ejecuta `gh auth login` en el terminal.")
+                hint(String(localized: "`gh` no tiene sesión en el servidor. Ejecuta `gh auth login` en el terminal."))
             case .notGitHub:
                 EmptyView()
             case .failed(let message):
@@ -75,7 +75,7 @@ struct GitHubStatusSection: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Image(systemName: prSymbol(pr)).foregroundStyle(prColor(pr))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("#\(pr.number) \(pr.title)").lineLimit(2).foregroundStyle(.primary)
+                        Text("#\(String(pr.number)) \(pr.title)").lineLimit(2).foregroundStyle(.primary)
                         Text([pr.stateLabel, pr.reviewLabel].compactMap { $0 }.joined(separator: " · "))
                             .font(.caption).foregroundStyle(.secondary)
                     }
@@ -84,7 +84,7 @@ struct GitHubStatusSection: View {
                     Image(systemName: "arrow.up.right.square").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .accessibilityLabel("Pull request \(pr.number): \(pr.title). \(pr.stateLabel). Abrir en GitHub")
+            .accessibilityLabel("Pull request \(String(pr.number)): \(pr.title). \(pr.stateLabel). Abrir en GitHub")
         } else if snapshot.branch != nil {
             HStack(spacing: 6) {
                 Image(systemName: "arrow.triangle.pull").foregroundStyle(.secondary)
@@ -103,9 +103,9 @@ struct GitHubStatusSection: View {
     }
 
     private var createHelp: String {
-        if branch.upstream == nil { return "Primero publica la rama (Push)." }
-        if branch.ahead > 0 { return "Sube antes los commits pendientes (Push)." }
-        return "Abre un PR con el título y la descripción de los commits."
+        if branch.upstream == nil { return String(localized: "Primero publica la rama (Push).") }
+        if branch.ahead > 0 { return String(localized: "Sube antes los commits pendientes (Push).") }
+        return String(localized: "Abre un PR con el título y la descripción de los commits.")
     }
 
     private func prSymbol(_ pr: GitHubPullRequest) -> String {

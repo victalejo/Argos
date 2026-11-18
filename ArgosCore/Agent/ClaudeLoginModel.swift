@@ -77,8 +77,8 @@ final class ClaudeLoginModel {
 
     /// Texto de «sesión iniciada»: plan y correo si el CLI los informa.
     static func connectedMessage(_ status: ClaudeAuthStatus) -> String {
-        var parts = ["Conectado"]
-        if let plan = status.subscriptionType, !plan.isEmpty { parts.append("plan \(plan.capitalized)") }
+        var parts = [String(localized: "Conectado")]
+        if let plan = status.subscriptionType, !plan.isEmpty { parts.append(String(localized: "plan \(plan.capitalized)")) }
         if let email = status.email, !email.isEmpty { parts.append(email) }
         return parts.joined(separator: " · ")
     }
@@ -117,7 +117,7 @@ final class ClaudeLoginModel {
         var failure: Error?
         do {
             guard let claudePath = try await service.locateClaude() else {
-                if generation == current { phase = .failed("Claude Code no está instalado en este servidor.") }
+                if generation == current { phase = .failed(String(localized: "Claude Code no está instalado en este servidor.")) }
                 return
             }
             guard generation == current, !Task.isCancelled else { return }
@@ -178,11 +178,11 @@ final class ClaudeLoginModel {
         } else if AgentConnectionLoss.isConnectionLost(error) {
             phase = .failed(AgentConnectionLoss.login)
         } else if wasVerifying {
-            phase = .failed("No se pudo confirmar la sesión. Revisa el código y vuelve a intentarlo.")
+            phase = .failed(String(localized: "No se pudo confirmar la sesión. Revisa el código y vuelve a intentarlo."))
         } else if let error, !(error is CancellationError) {
             phase = .failed(error.userMessage)
         } else {
-            phase = .failed("El inicio de sesión se cerró sin completarse.")
+            phase = .failed(String(localized: "El inicio de sesión se cerró sin completarse."))
         }
     }
 
@@ -217,7 +217,7 @@ final class ClaudeLoginModel {
                 }
             }
             guard let self, !Task.isCancelled, self.generation == current else { return }
-            self.phase = .failed("No se pudo confirmar la sesión. Revisa el código y vuelve a intentarlo.")
+            self.phase = .failed(String(localized: "No se pudo confirmar la sesión. Revisa el código y vuelve a intentarlo."))
         }
     }
 

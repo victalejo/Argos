@@ -50,7 +50,7 @@ extension SSHService {
     private func cleanStaleUploadsOnce() async {
         guard await RemoteUploadCleanup.shared.claim(ObjectIdentifier(self)) else { return }
         do {
-            _ = try await runChecked(RemoteUpload.staleCleanupCommand, failureMessage: "No se pudo limpiar /tmp.")
+            _ = try await runChecked(RemoteUpload.staleCleanupCommand, failureMessage: String(localized: "No se pudo limpiar /tmp."))
         } catch {
             Log.ssh.notice("Limpieza de subidas antiguas en /tmp: \(error.userMessage, privacy: .public)")
         }

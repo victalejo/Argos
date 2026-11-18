@@ -166,9 +166,7 @@ struct ProjectsLoadReport: Equatable, Sendable {
     var warning: String? {
         var parts: [String] = []
         if skippedEntries > 0 {
-            parts.append(skippedEntries == 1
-                ? "Un proyecto de ~/.config/argos/projects.json no se pudo leer; se conserva en el archivo sin cambios."
-                : "\(skippedEntries) proyectos de ~/.config/argos/projects.json no se pudieron leer; se conservan en el archivo sin cambios.")
+            parts.append(String(localized: "\(skippedEntries) proyectos de ~/.config/argos/projects.json no se pudieron leer; se conservan en el archivo sin cambios."))
         }
         if fileVersion > ProjectsDocument.supportedVersion {
             parts.append(ProjectError.newerFormat(fileVersion).errorDescription ?? "")

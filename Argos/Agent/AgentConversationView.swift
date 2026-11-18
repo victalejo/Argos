@@ -105,7 +105,7 @@ private struct AgentConversationNotices: View {
         if let notice = session.connectionNotice {
             noticeLabel(notice.text, systemImage: "wifi.exclamationmark", color: .secondary)
         } else if session.phase == .resuming {
-            noticeLabel("Reanudando el agente en el servidor…", systemImage: "play.circle", color: .secondary)
+            noticeLabel(String(localized: "Reanudando el agente en el servidor…"), systemImage: "play.circle", color: .secondary)
         }
         if let error = session.lastError {
             noticeLabel(error, systemImage: "exclamationmark.triangle.fill", color: .orange)
@@ -139,8 +139,7 @@ private struct AgentEmptyHint: View {
             Text("¿En qué trabajamos en \(title)?")
                 .font(.system(size: 23, weight: .semibold, design: .rounded))
                 .multilineTextAlignment(.center)
-            Text("Claude lee y edita los archivos de la carpeta del proyecto. Te pedirá permiso antes de "
-                 + "ejecutar comandos o escribir.")
+            Text(String(localized: "Claude lee y edita los archivos de la carpeta del proyecto. Te pedirá permiso antes de ejecutar comandos o escribir."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -151,8 +150,8 @@ private struct AgentEmptyHint: View {
                 .lineLimit(2)
                 .truncationMode(.middle)
             VStack(spacing: 8) {
-                suggestion("Explícame cómo está organizado este proyecto", icon: "square.stack.3d.up")
-                suggestion("Revisa el código y encuentra posibles errores", icon: "ladybug")
+                suggestion(String(localized: "Explícame cómo está organizado este proyecto"), icon: "square.stack.3d.up")
+                suggestion(String(localized: "Revisa el código y encuentra posibles errores"), icon: "ladybug")
             }
             .padding(.top, 8)
             .frame(maxWidth: 420)
@@ -275,7 +274,7 @@ private struct ToolResultRow: View {
     var body: some View {
         let preview = lines.prefix(isExpanded ? lines.count : 3).joined(separator: "\n")
         VStack(alignment: .leading, spacing: 4) {
-            Text(preview.isEmpty ? "(sin salida)" : preview)
+            Text(preview.isEmpty ? String(localized: "(sin salida)") : preview)
                 .font(.caption.monospaced())
                 .foregroundStyle(isError ? .red : .secondary)
                 .textSelection(.enabled)

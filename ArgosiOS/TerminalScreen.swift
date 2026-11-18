@@ -165,7 +165,7 @@ struct TerminalScreen: View {
     }
 
     private func closeActivePane() {
-        paneAction("No se pudo cerrar el panel") { (service: any SSHServicing, session: String) in
+        paneAction(String(localized: "No se pudo cerrar el panel")) { (service: any SSHServicing, session: String) in
             try await service.killPane(session: session)
         }
     }
@@ -246,7 +246,7 @@ struct TerminalScreen: View {
         let agent = activeAgent
         let title = agent?.displayName
             ?? windows.first { $0.isActive }.flatMap { WindowTabs.title(for: $0, agent: nil) }
-            ?? "Terminal"
+            ?? String(localized: "Terminal")
         return HStack(spacing: 7) {
             if let agent {
                 CodingAgentIcon(agent: agent, size: 11)
@@ -289,7 +289,7 @@ struct TerminalScreen: View {
             if agents > 0 {
                 HStack(spacing: 5) {
                     Circle().fill(Color.teal).frame(width: 6, height: 6)
-                    Text("\(agents) \(agents == 1 ? "agente" : "agentes")")
+                    Text("\(agents) agentes")
                 }
             }
             Spacer(minLength: 8)
@@ -363,7 +363,7 @@ struct TerminalScreen: View {
             do {
                 try await service.selectWindow(session: sessionName, index: window.index)
             } catch {
-                report("No se pudo cambiar a la ventana \(window.index)", error)
+                report(String(localized: "No se pudo cambiar a la ventana \(window.index)"), error)
             }
             await refreshWindows()
         }
@@ -384,7 +384,7 @@ struct TerminalScreen: View {
             do {
                 try await service.newWindow(session: sessionName)
             } catch {
-                report("No se pudo abrir una ventana", error)
+                report(String(localized: "No se pudo abrir una ventana"), error)
             }
             await refreshWindows()
         }
@@ -396,7 +396,7 @@ struct TerminalScreen: View {
             do {
                 try await service.newAgentWindow(session: sessionName, agent: agent, directory: projectPath)
             } catch {
-                report("No se pudo lanzar \(agent.displayName)", error)
+                report(String(localized: "No se pudo lanzar \(agent.displayName)"), error)
             }
             await refreshWindows()
         }
@@ -411,7 +411,7 @@ struct TerminalScreen: View {
             do {
                 fresh = try await service.listWindows(session: sessionName)
             } catch {
-                report("No se pudieron leer las ventanas para cerrar", error)
+                report(String(localized: "No se pudieron leer las ventanas para cerrar"), error)
                 return
             }
             windows = fresh
@@ -430,7 +430,7 @@ struct TerminalScreen: View {
             do {
                 try await service.renameWindow(session: sessionName, index: window.index, to: name)
             } catch {
-                report("No se pudo renombrar la ventana \(window.index)", error)
+                report(String(localized: "No se pudo renombrar la ventana \(window.index)"), error)
             }
             await refreshWindows()
         }
@@ -441,7 +441,7 @@ struct TerminalScreen: View {
             do {
                 try await service.setWindowColor(session: sessionName, index: window.index, color: color)
             } catch {
-                report("No se pudo cambiar el color de la ventana \(window.index)", error)
+                report(String(localized: "No se pudo cambiar el color de la ventana \(window.index)"), error)
             }
             await refreshWindows()
         }
@@ -466,7 +466,7 @@ struct TerminalScreen: View {
             do {
                 try await service.killWindow(session: sessionName, index: window.index)
             } catch {
-                report("No se pudo cerrar la ventana \(window.index)", error)
+                report(String(localized: "No se pudo cerrar la ventana \(window.index)"), error)
             }
             await refreshWindows()
         }
@@ -515,12 +515,12 @@ struct TerminalScreen: View {
         case .connected:
             EmptyView()
         case .ended:
-            reconnectPanel(controller, title: "Desconectado", message: "La conexión con la sesión se cerró. La sesión sigue en el servidor.")
+            reconnectPanel(controller, title: String(localized: "Desconectado"), message: String(localized: "La conexión con la sesión se cerró. La sesión sigue en el servidor."))
         case .failed(let message):
             if let retry = controller.pendingRetry {
                 retryPanel(controller, retry: retry, message: message)
             } else {
-                reconnectPanel(controller, title: "Error de conexión", message: message)
+                reconnectPanel(controller, title: String(localized: "Error de conexión"), message: message)
             }
         }
     }
@@ -600,21 +600,21 @@ extension TerminalScreen {
         let panes = windows.first { $0.isActive }?.paneCount ?? 1
         Menu("Paneles", systemImage: "rectangle.split.2x1") {
             Button("Dividir a la derecha", systemImage: "rectangle.split.2x1") {
-                paneAction("No se pudo dividir el panel") { try await $0.splitPane(session: $1, vertical: false) }
+                paneAction(String(localized: "No se pudo dividir el panel")) { try await $0.splitPane(session: $1, vertical: false) }
             }
             Button("Dividir hacia abajo", systemImage: "rectangle.split.1x2") {
-                paneAction("No se pudo dividir el panel") { try await $0.splitPane(session: $1, vertical: true) }
+                paneAction(String(localized: "No se pudo dividir el panel")) { try await $0.splitPane(session: $1, vertical: true) }
             }
             if panes > 1 {
                 Section("Ir al panel") {
                     ForEach(TmuxPaneDirection.allCases, id: \.self) { direction in
                         Button(direction.title, systemImage: direction.symbolName) {
-                            paneAction("No se pudo cambiar de panel") { try await $0.selectPane(session: $1, direction: direction) }
+                            paneAction(String(localized: "No se pudo cambiar de panel")) { try await $0.selectPane(session: $1, direction: direction) }
                         }
                     }
                 }
                 Button("Ampliar / restaurar panel", systemImage: "arrow.up.left.and.arrow.down.right") {
-                    paneAction("No se pudo ampliar el panel") { try await $0.zoomPane(session: $1) }
+                    paneAction(String(localized: "No se pudo ampliar el panel")) { try await $0.zoomPane(session: $1) }
                 }
                 Button("Cerrar panel…", systemImage: "xmark.square", role: .destructive) { confirmingPaneClose = true }
             }
@@ -625,10 +625,10 @@ extension TerminalScreen {
 private extension TmuxPaneDirection {
     var title: String {
         switch self {
-        case .up: return "Arriba"
-        case .down: return "Abajo"
-        case .left: return "Izquierda"
-        case .right: return "Derecha"
+        case .up: return String(localized: "Arriba")
+        case .down: return String(localized: "Abajo")
+        case .left: return String(localized: "Izquierda")
+        case .right: return String(localized: "Derecha")
         }
     }
 

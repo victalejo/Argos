@@ -60,19 +60,25 @@ struct AskClaudeIntent: ForegroundContinuableIntent {
             }
         }
         try await ShortcutAgentSender.send(text, prepared: prepared)
-        let verb = prepared.plan.startsClaude ? "Claude arranca en" : "Enviado a Claude en"
-        return .result(dialog: IntentDialog(stringLiteral: "\(verb) «\(prepared.target.project.displayName)»."))
+        let name = prepared.target.project.displayName
+        let done = prepared.plan.startsClaude
+            ? String(localized: "Claude arranca en «\(name)».")
+            : String(localized: "Enviado a Claude en «\(name)».")
+        return .result(dialog: IntentDialog(stringLiteral: done))
     }
 
     private func confirmationText(_ prepared: ShortcutAgentSender.Prepared) -> String {
         let modeTitle = ShortcutAgentPlanner.modeTitle(prepared.plan.permissionMode)
-        let what: String
+        let project = prepared.target.project.displayName
+        let server = prepared.target.server.name
+        // Frases completas (no trozos concatenados): el orden cambia entre idiomas.
         switch prepared.plan {
-        case .reuse: what = "Se mandará al agente en marcha"
-        case .resume: what = "Se reanudará el último agente"
-        case .create: what = "Se creará un agente nuevo"
+        case .reuse:
+            return String(localized: "Se mandará al agente en marcha de «\(project)» en \(server), en modo «\(modeTitle)»: puede hacer cambios sin pedirte permiso. ¿Enviar el encargo?")
+        case .resume:
+            return String(localized: "Se reanudará el último agente de «\(project)» en \(server), en modo «\(modeTitle)»: puede hacer cambios sin pedirte permiso. ¿Enviar el encargo?")
+        case .create:
+            return String(localized: "Se creará un agente nuevo de «\(project)» en \(server), en modo «\(modeTitle)»: puede hacer cambios sin pedirte permiso. ¿Enviar el encargo?")
         }
-        return "\(what) de «\(prepared.target.project.displayName)» en \(prepared.target.server.name), "
-            + "en modo «\(modeTitle)»: puede hacer cambios sin pedirte permiso. ¿Enviar el encargo?"
     }
 }

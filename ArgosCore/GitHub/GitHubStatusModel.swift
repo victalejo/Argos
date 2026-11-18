@@ -106,14 +106,14 @@ final class GitHubStatusModel {
     func createPullRequest(draft: Bool = false) async {
         await perform(.createPullRequest) {
             let url = try await self.service.gitHubCreatePullRequest(root: self.root, draft: draft)
-            return url.map { "PR creado: \($0.absoluteString)" } ?? "PR creado."
+            return url.map { String(localized: "PR creado: \($0.absoluteString)") } ?? String(localized: "PR creado.")
         }
     }
 
     func rerunFailed(_ run: GitHubRun) async {
         await perform(.rerun(run.id)) {
             try await self.service.gitHubRerunFailed(root: self.root, runID: run.id)
-            return "Relanzados los jobs fallidos de «\(run.workflow)»."
+            return String(localized: "Relanzados los jobs fallidos de «\(run.workflow)».")
         }
     }
 

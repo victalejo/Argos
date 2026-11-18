@@ -45,7 +45,7 @@ final class AppLock {
         case .faceID: return "Face ID"
         case .touchID: return "Touch ID"
         case .opticID: return "Optic ID"
-        default: return "el código del dispositivo"
+        default: return String(localized: "el código del dispositivo")
         }
     }
 
@@ -74,7 +74,7 @@ final class AppLock {
         guard isLocked, !isAuthenticating else { return }
         isAuthenticating = true
         defer { isAuthenticating = false }
-        if await authenticate(reason: "Desbloquea Argos para ver tus servidores.") {
+        if await authenticate(reason: String(localized: "Desbloquea Argos para ver tus servidores.")) {
             isLocked = false
             lastError = nil
         }
@@ -83,7 +83,7 @@ final class AppLock {
     /// Activa o desactiva el ajuste confirmando la identidad (así no lo cambia otro).
     func setEnabled(_ enabled: Bool) async {
         guard enabled != isEnabled else { return }
-        let reason = enabled ? "Confirma para pedir \(Self.biometryName) al abrir Argos." : "Confirma para dejar de bloquear Argos."
+        let reason = enabled ? String(localized: "Confirma para pedir \(Self.biometryName) al abrir Argos.") : String(localized: "Confirma para dejar de bloquear Argos.")
         guard await authenticate(reason: reason) else { return }
         isEnabled = enabled
         isLocked = false
@@ -93,7 +93,7 @@ final class AppLock {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-            lastError = "Este dispositivo no tiene código ni \(Self.biometryName) configurado."
+            lastError = String(localized: "Este dispositivo no tiene código ni \(Self.biometryName) configurado.")
             Log.store.notice("Bloqueo de la app no disponible: \(error?.localizedDescription ?? "-", privacy: .public)")
             // Sin forma de autenticar no se deja la app inaccesible.
             if !isEnabled { return false }

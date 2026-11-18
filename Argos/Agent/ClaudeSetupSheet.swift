@@ -98,7 +98,7 @@ struct ClaudeSetupSheet: View {
     @ViewBuilder
     private var loginSteps: some View {
         VStack(alignment: .leading, spacing: 14) {
-            step(1, title: "Autoriza en el navegador", done: didOpenBrowser || isPastAuthorize) {
+            step(1, title: String(localized: "Autoriza en el navegador"), done: didOpenBrowser || isPastAuthorize) {
                 HStack(spacing: 8) {
                     Button {
                         openBrowser()
@@ -122,7 +122,7 @@ struct ClaudeSetupSheet: View {
                     }
                 }
             }
-            step(2, title: "Pega el código que te da la página", done: isPastAuthorize) {
+            step(2, title: String(localized: "Pega el código que te da la página"), done: isPastAuthorize) {
                 HStack(spacing: 8) {
                     TextField("Código de autorización", text: $code)
                         .textFieldStyle(.roundedBorder)
@@ -134,7 +134,7 @@ struct ClaudeSetupSheet: View {
                         .disabled(!parsed.isAwaitingCode || code.trimmingCharacters(in: .whitespaces).isEmpty || isPastAuthorize)
                 }
             }
-            step(3, title: "Listo", done: { if case .success = phase { return true } else { return false } }()) {
+            step(3, title: String(localized: "Listo"), done: { if case .success = phase { return true } else { return false } }()) {
                 resultLine
             }
         }
@@ -271,7 +271,7 @@ struct ClaudeSetupSheet: View {
                 return
             }
         }
-        phase = .failed("No se pudo confirmar la sesión. Revisa el código o abre los detalles técnicos.")
+        phase = .failed(String(localized: "No se pudo confirmar la sesión. Revisa el código o abre los detalles técnicos."))
         showDetails = true
     }
 
@@ -282,16 +282,16 @@ struct ClaudeSetupSheet: View {
         case .install:
             phase = .verifying
             if let path = try? await service.locateClaude() {
-                succeed("Claude Code instalado (\(path)).")
+                succeed(String(localized: "Claude Code instalado (\(path))."))
             } else {
-                phase = .failed("La instalación no terminó bien. Revisa la salida de arriba.")
+                phase = .failed(String(localized: "La instalación no terminó bien. Revisa la salida de arriba."))
             }
         case .login:
             if case .success = phase { return }
             if let status = try? await service.claudeAuthStatus(), status.loggedIn {
                 succeed(loginMessage(status))
             } else if phase != .verifying {
-                phase = .failed("El inicio de sesión se cerró sin completarse.")
+                phase = .failed(String(localized: "El inicio de sesión se cerró sin completarse."))
                 showDetails = true
             }
         }
@@ -307,8 +307,8 @@ struct ClaudeSetupSheet: View {
     }
 
     private func loginMessage(_ status: ClaudeAuthStatus) -> String {
-        var parts = ["Conectado"]
-        if let plan = status.subscriptionType, !plan.isEmpty { parts.append("plan \(plan.capitalized)") }
+        var parts = [String(localized: "Conectado")]
+        if let plan = status.subscriptionType, !plan.isEmpty { parts.append(String(localized: "plan \(plan.capitalized)")) }
         if let email = status.email { parts.append(email) }
         return parts.joined(separator: " · ")
     }

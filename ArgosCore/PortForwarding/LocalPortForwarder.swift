@@ -46,13 +46,13 @@ enum PortForwardError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidPort(let port):
-            return "El puerto \(port) no es válido (debe estar entre 1 y 65535)."
+            return String(localized: "El puerto \(String(port)) no es válido (debe estar entre 1 y 65535).")
         case .alreadyForwarded(let port):
-            return "El puerto \(port) ya se está reenviando."
+            return String(localized: "El puerto \(String(port)) ya se está reenviando.")
         case .bindFailed(let detail):
-            return "No se pudo abrir el puerto en este dispositivo: \(detail)"
+            return String(localized: "No se pudo abrir el puerto en este dispositivo: \(detail)")
         case .unsupportedEventLoop:
-            return "La conexión SSH no admite reenviar puertos."
+            return String(localized: "La conexión SSH no admite reenviar puertos.")
         }
     }
 }
@@ -107,7 +107,7 @@ enum LocalPortForwarder {
                 lastError = error
             }
         }
-        throw PortForwardError.bindFailed(lastError.map { "\($0)" } ?? "error desconocido")
+        throw PortForwardError.bindFailed(lastError.map { "\($0)" } ?? String(localized: "error desconocido"))
     }
 
     /// Conecta una conexión local entrante con un canal `direct-tcpip` nuevo.

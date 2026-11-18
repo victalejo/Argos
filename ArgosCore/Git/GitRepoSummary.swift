@@ -21,13 +21,13 @@ struct GitRepoSummary: Hashable, Sendable {
 
     /// Texto corto para tooltips y VoiceOver («rama main, 5 archivos cambiados, 2 por subir»).
     var label: String {
-        var parts = ["rama \(branch.name ?? "HEAD desacoplado")"]
+        var parts = [String(localized: "rama \(branch.name ?? "HEAD desacoplado")")]
         if changedCount > 0 {
-            parts.append("\(changedCount) archivo\(changedCount == 1 ? "" : "s") cambiado\(changedCount == 1 ? "" : "s")")
+            parts.append(String(localized: "\(changedCount) archivos cambiados"))
         }
-        if branch.ahead > 0 { parts.append("\(branch.ahead) commit\(branch.ahead == 1 ? "" : "s") por subir") }
-        if branch.behind > 0 { parts.append("\(branch.behind) commit\(branch.behind == 1 ? "" : "s") por traer") }
-        if !isNoteworthy { parts.append("sin cambios") }
+        if branch.ahead > 0 { parts.append(String(localized: "\(branch.ahead) commits por subir")) }
+        if branch.behind > 0 { parts.append(String(localized: "\(branch.behind) commits por traer")) }
+        if !isNoteworthy { parts.append(String(localized: "sin cambios")) }
         return parts.joined(separator: ", ")
     }
 }
@@ -88,8 +88,8 @@ enum GitSummaryParser {
 /// del proyecto si se conocen: así se sabe de un vistazo si hay algo que revisar.
 enum ClaudeDoneMessage {
     static func body(changedFiles: Int?) -> String {
-        guard let changedFiles, changedFiles > 0 else { return "Terminó de responder." }
-        let files = "\(changedFiles) archivo\(changedFiles == 1 ? "" : "s") cambiado\(changedFiles == 1 ? "" : "s")"
-        return "Terminó de responder · \(files). Revísalos en «Cambios»."
+        guard let changedFiles, changedFiles > 0 else { return String(localized: "Terminó de responder.") }
+        let files = String(localized: "\(changedFiles) archivos cambiados")
+        return String(localized: "Terminó de responder · \(files). Revísalos en «Cambios».")
     }
 }

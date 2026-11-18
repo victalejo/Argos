@@ -16,8 +16,7 @@ struct AgentTokenSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Token de suscripción").font(.title3.weight(.semibold))
-            Text("Alternativa a conectar el servidor: genera un token en tu Mac con `claude setup-token` "
-                 + "y pégalo aquí. Se guarda en el Llavero y usa tu plan, nunca la API de pago.")
+            Text(String(localized: "Alternativa a conectar el servidor: genera un token en tu Mac con `claude setup-token` y pégalo aquí. Se guarda en el Llavero y usa tu plan, nunca la API de pago."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

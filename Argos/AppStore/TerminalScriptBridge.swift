@@ -50,9 +50,9 @@ enum TerminalScriptBridge {
         var errorDescription: String? {
             switch self {
             case .wrongDestination:
-                return "El script debe guardarse en la carpeta que propone Argos y con su nombre original."
+                return String(localized: "El script debe guardarse en la carpeta que propone Argos y con su nombre original.")
             case .compileFailed(let detail):
-                return "No se pudo instalar el script de Terminal: \(detail)"
+                return String(localized: "No se pudo instalar el script de Terminal: \(detail)")
             }
         }
     }
@@ -107,10 +107,9 @@ enum TerminalScriptBridge {
     static func install(defaults: UserDefaults = .standard) throws -> Bool {
         let directory = try scriptsDirectory()
         let panel = NSSavePanel()
-        panel.title = "Instalar el script de Terminal"
-        panel.message = "Para abrir Terminal y arrancar Claude Code, Argos usa un pequeño AppleScript que "
-            + "solo tú puedes instalar. Guárdalo en esta carpeta, sin cambiarle el nombre."
-        panel.prompt = "Instalar"
+        panel.title = String(localized: "Instalar el script de Terminal")
+        panel.message = String(localized: "Para abrir Terminal y arrancar Claude Code, Argos usa un pequeño AppleScript que solo tú puedes instalar. Guárdalo en esta carpeta, sin cambiarle el nombre.")
+        panel.prompt = String(localized: "Instalar")
         panel.directoryURL = directory
         panel.nameFieldStringValue = scriptFileName
         panel.canCreateDirectories = false
@@ -120,7 +119,7 @@ enum TerminalScriptBridge {
         let script = OSAScript(source: scriptSource, language: OSALanguage(forName: "AppleScript"))
         var error: NSDictionary?
         guard script.compileAndReturnError(&error), script.write(to: url, ofType: "scpt", error: &error) else {
-            let detail = error?[OSAScriptErrorMessage] as? String ?? "error desconocido"
+            let detail = error?[OSAScriptErrorMessage] as? String ?? String(localized: "error desconocido")
             throw BridgeError.compileFailed(detail)
         }
         defaults.set(scriptVersion, forKey: installedVersionKey)

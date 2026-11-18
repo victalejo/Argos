@@ -48,12 +48,12 @@ enum ProjectStatusFilter: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .all: return "Todos"
-        case .open: return "Abiertas"
-        case .dormant: return "Dormidas"
-        case .stopped: return "Detenidas"
-        case .onMac: return "En el Mac"
-        case .background: return "Segundo plano"
+        case .all: return String(localized: "Todos")
+        case .open: return String(localized: "Abiertas")
+        case .dormant: return String(localized: "Dormidas")
+        case .stopped: return String(localized: "Detenidas")
+        case .onMac: return String(localized: "En el Mac")
+        case .background: return String(localized: "Segundo plano")
         }
     }
 
@@ -70,12 +70,12 @@ enum ProjectStatusFilter: String, CaseIterable, Identifiable, Sendable {
 
     var help: String {
         switch self {
-        case .all: return "Todos los proyectos"
-        case .open: return "Con el terminal abierto en Argos"
-        case .dormant: return "Corren en el servidor, pero nadie está conectado"
-        case .stopped: return "Sin sesión en el servidor: no consumen recursos"
-        case .onMac: return "Enviados al Mac"
-        case .background: return "Corren y están abiertas en otro cliente (otra terminal u otro Mac)"
+        case .all: return String(localized: "Todos los proyectos")
+        case .open: return String(localized: "Con el terminal abierto en Argos")
+        case .dormant: return String(localized: "Corren en el servidor, pero nadie está conectado")
+        case .stopped: return String(localized: "Sin sesión en el servidor: no consumen recursos")
+        case .onMac: return String(localized: "Enviados al Mac")
+        case .background: return String(localized: "Corren y están abiertas en otro cliente (otra terminal u otro Mac)")
         }
     }
 

@@ -22,8 +22,8 @@ struct DiagnosticAppInfo: Equatable, Sendable {
     static func current() -> DiagnosticAppInfo {
         let info = Bundle.main.infoDictionary
         return DiagnosticAppInfo(
-            version: info?["CFBundleShortVersionString"] as? String ?? "desconocida",
-            build: info?["CFBundleVersion"] as? String ?? "desconocida",
+            version: info?["CFBundleShortVersionString"] as? String ?? String(localized: "desconocida"),
+            build: info?["CFBundleVersion"] as? String ?? String(localized: "desconocida"),
             variant: variantName,
             system: "\(systemName) \(ProcessInfo.processInfo.operatingSystemVersionString)",
             deviceModel: modelIdentifier
@@ -54,7 +54,7 @@ struct DiagnosticAppInfo: Equatable, Sendable {
         #if os(macOS)
         var size = 0
         sysctlbyname("hw.model", nil, &size, nil, 0)
-        guard size > 0 else { return "desconocido" }
+        guard size > 0 else { return String(localized: "desconocido") }
         var buffer = [CChar](repeating: 0, count: size)
         sysctlbyname("hw.model", &buffer, &size, nil, 0)
         return String(cString: buffer)
@@ -90,22 +90,22 @@ enum DiagnosticReport {
         var sections: [String] = []
 
         sections.append([
-            "## Argos · diagnóstico",
-            "Versión: \(input.app.version) (build \(input.app.build))",
-            "Variante: \(input.app.variant)",
-            "Sistema: \(input.app.system)",
-            "Dispositivo: \(input.app.deviceModel)",
-            "Generado: \(timestamp(input.generatedAt))",
+            String(localized: "## Argos · diagnóstico"),
+            String(localized: "Versión: \(input.app.version) (build \(input.app.build))"),
+            String(localized: "Variante: \(input.app.variant)"),
+            String(localized: "Sistema: \(input.app.system)"),
+            String(localized: "Dispositivo: \(input.app.deviceModel)"),
+            String(localized: "Generado: \(timestamp(input.generatedAt))"),
             redactor.includesPersonalData
-                ? "Datos personales: incluidos a petición del usuario (los secretos que Argos reconoce se omiten siempre)."
-                : "Datos personales: ocultos (servidores, usuarios e IPs sustituidos por marcadores).",
+                ? String(localized: "Datos personales: incluidos a petición del usuario (los secretos que Argos reconoce se omiten siempre).")
+                : String(localized: "Datos personales: ocultos (servidores, usuarios e IPs sustituidos por marcadores)."),
         ].joined(separator: "\n"))
 
         if let doctor = input.doctor {
             let label = redactor.serverLabel(input.serverName ?? "servidor")
-            sections.append("## Doctor del servidor\n" + redactor.redact(doctor.plainText(serverLabel: label)))
+            sections.append(String(localized: "## Doctor del servidor\n") + redactor.redact(doctor.plainText(serverLabel: label)))
         } else {
-            sections.append("## Doctor del servidor\nSin servidor conectado: no se ejecutó.")
+            sections.append(String(localized: "## Doctor del servidor\nSin servidor conectado: no se ejecutó."))
         }
 
         sections.append(logSection(input.log, policy: policy, redactor: &redactor))
@@ -117,11 +117,10 @@ enum DiagnosticReport {
     private static func logSection(
         _ log: DiagnosticLogExcerpt, policy: DiagnosticLogPolicy, redactor: inout DiagnosticRedactor
     ) -> String {
-        let title = "## Registro de la app (últimos \(DiagnosticLogFormatter.defaultMinutes) min)"
+        let title = String(localized: "## Registro de la app (últimos \(DiagnosticLogFormatter.defaultMinutes) min)")
         switch log {
         case .unavailable(let reason):
-            return "## Registro de la app\nNo disponible en este dispositivo: \(redactor.redact(reason)). "
-                + "El resto del informe es válido."
+            return String(localized: "## Registro de la app\nNo disponible en este dispositivo: \(redactor.redact(reason)). El resto del informe es válido.")
         case .entries(let entries):
             let admitted = entries.filter(policy.admits)
             let omitted = entries.count - admitted.count
@@ -131,18 +130,17 @@ enum DiagnosticReport {
             }
             let (kept, truncated) = DiagnosticLogFormatter.newest(of: redacted, maxBytes: policy.maxBytes)
             var notes: [String] = []
-            if truncated { notes.append("recortado a lo más reciente") }
+            if truncated { notes.append(String(localized: "recortado a lo más reciente")) }
             if omitted > 0 {
-                notes.append("\(omitted) entradas de depuración o del agente omitidas: pueden contener texto del servidor")
+                notes.append(String(localized: "\(omitted) entradas de depuración o del agente omitidas: pueden contener texto del servidor"))
             }
             let header = title + (notes.isEmpty ? "" : " (\(notes.joined(separator: "; ")))")
-            return kept.isEmpty ? header + "\nSin entradas." : header + "\n" + kept.joined(separator: "\n")
+            return kept.isEmpty ? header + String(localized: "\nSin entradas.") : header + "\n" + kept.joined(separator: "\n")
         }
     }
 
     static let reviewReminder =
-        "Revisa este texto antes de publicarlo: Argos oculta los secretos y datos personales que reconoce, "
-        + "pero no puede garantizar que no se escape alguno."
+        String(localized: "Revisa este texto antes de publicarlo: Argos oculta los secretos y datos personales que reconoce, pero no puede garantizar que no se escape alguno.")
 
     private static func timestamp(_ date: Date) -> String {
         let formatter = ISO8601DateFormatter()

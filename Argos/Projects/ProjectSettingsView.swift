@@ -37,10 +37,7 @@ struct ProjectSettingsView: View {
             } header: {
                 Text("Al abrir un proyecto detenido")
             } footer: {
-                Text("Se teclea en la terminal del proyecto, ya situada en su carpeta, así que "
-                     + "funcionan tus alias (p. ej. cc). Con --continue Claude retoma la última "
-                     + "conversación de esa carpeta. Cada proyecto puede usar otro comando "
-                     + "desde \"Editar proyecto…\".")
+                Text(String(localized: "Se teclea en la terminal del proyecto, ya situada en su carpeta, así que funcionan tus alias (p. ej. cc). Con --continue Claude retoma la última conversación de esa carpeta. Cada proyecto puede usar otro comando desde \"Editar proyecto…\"."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

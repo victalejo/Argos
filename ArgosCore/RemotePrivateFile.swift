@@ -38,11 +38,11 @@ enum HomeFileError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .locked(let path):
-            return "Otro dispositivo está guardando ~/\(path) en el servidor. Vuelve a intentarlo en unos segundos."
+            return String(localized: "Otro dispositivo está guardando ~/\(path) en el servidor. Vuelve a intentarlo en unos segundos.")
         case .symlink(let path):
-            return "~/\(path) es un enlace simbólico y Argos no lo reemplaza. Sustitúyelo por un archivo normal en el servidor."
+            return String(localized: "~/\(path) es un enlace simbólico y Argos no lo reemplaza. Sustitúyelo por un archivo normal en el servidor.")
         case .unsafePath(let path):
-            return "Ruta de configuración no válida: \(path)."
+            return String(localized: "Ruta de configuración no válida: \(path).")
         }
     }
 }
@@ -125,7 +125,7 @@ extension SSHService {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.commandFailed(
                 exitCode: result.exitCode,
-                message: detail.isEmpty ? "No se pudo leer ~/\(relativePath)." : detail
+                message: detail.isEmpty ? String(localized: "No se pudo leer ~/\(relativePath).") : detail
             )
         }
         return result.stdout
@@ -150,14 +150,14 @@ extension SSHService {
         _ data: Data, to relativePath: String, expecting expectation: HomeFileExpectation, backupSuffix: String?
     ) async throws -> ProjectsWriteOutcome {
         guard HomeFileScripts.isSafe(relativePath) else { throw HomeFileError.unsafePath(relativePath) }
-        let failure = "No se pudo escribir ~/\(relativePath)."
+        let failure = String(localized: "No se pudo escribir ~/\(relativePath).")
         let token = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
 
         // 1) Prepara el temporal (600) y resuelve $HOME para la ruta SFTP absoluta.
         let home = try await runChecked(ShellQuoting.posixShell(HomeFileScripts.prepare(relativePath, token: token)), failureMessage: failure)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard home.hasPrefix("/") else {
-            throw SSHServiceError.commandFailed(exitCode: 0, message: "No se pudo resolver $HOME en el servidor.")
+            throw SSHServiceError.commandFailed(exitCode: 0, message: String(localized: "No se pudo resolver $HOME en el servidor."))
         }
         let temporary = "\(home)/\(relativePath)\(HomeFileScripts.temporarySuffix(token: token))"
         // 2) Contenido por SFTP sobre el temporal.

@@ -84,7 +84,7 @@ enum GitHubParser {
             || lower.contains("could not determine base repo") || lower.contains("no git remotes") {
             return .notGitHub
         }
-        if text.isEmpty { return .error("gh no devolvió nada.") }
+        if text.isEmpty { return .error(String(localized: "gh no devolvió nada.")) }
         return .error(String(text.prefix(400)))
     }
 
@@ -136,7 +136,7 @@ enum GitHubParser {
         guard let raw = try? JSONDecoder().decode(RawPullRequest.self, from: data) else { return nil }
         let checks = (raw.statusCheckRollup ?? []).map { item -> GitHubCheck in
             if item.__typename == "StatusContext" {
-                return GitHubCheck(name: item.context ?? "estado", workflow: "",
+                return GitHubCheck(name: item.context ?? String(localized: "estado"), workflow: "",
                                    state: .from(contextState: item.state), url: url(item.targetUrl))
             }
             return GitHubCheck(name: item.name ?? "check", workflow: item.workflowName ?? "",
@@ -188,11 +188,11 @@ enum GitHubParser {
     static func parseRepositories(_ output: String) -> RepositoriesResult {
         let fields = fields(output)
         if fields["missing"] != nil { return .ghMissing }
-        guard let raw = fields["repos"] else { return .failed("gh no devolvió la lista de repositorios.") }
+        guard let raw = fields["repos"] else { return .failed(String(localized: "gh no devolvió la lista de repositorios.")) }
         switch classify(raw) {
         case .json(let data):
             guard let repos = try? JSONDecoder().decode([RawRepository].self, from: data) else {
-                return .failed("Respuesta de gh no válida.")
+                return .failed(String(localized: "Respuesta de gh no válida."))
             }
             return .loaded(repos.map {
                 GitHubRepository(nameWithOwner: $0.nameWithOwner, description: $0.description ?? "",
@@ -212,8 +212,8 @@ enum GitHubParser {
     /// Por qué se negó el clonado (carpeta existente o padre inexistente).
     static func cloneRefusal(_ output: String) -> String? {
         let fields = fields(output)
-        if fields["exists"] != nil { return "Ya existe una carpeta con ese nombre. Elige otro." }
-        if fields["noparent"] != nil { return "La carpeta donde clonar no existe en el servidor." }
+        if fields["exists"] != nil { return String(localized: "Ya existe una carpeta con ese nombre. Elige otro.") }
+        if fields["noparent"] != nil { return String(localized: "La carpeta donde clonar no existe en el servidor.") }
         return nil
     }
 

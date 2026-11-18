@@ -118,7 +118,7 @@ final class WorktreesModel {
             let project = try await viewModel.createWorktreeProject(
                 from: namingParent, request: request, start: startsAgent, defaultStartupCommand: defaultStartupCommand
             )
-            notice = "Creado «\(project.name)» en la rama \(request.branch)."
+            notice = String(localized: "Creado «\(project.name)» en la rama \(request.branch).")
             pathEdited = false
             branch = ""
             await load()
@@ -137,7 +137,7 @@ final class WorktreesModel {
         defer { isWorking = false }
         do {
             try await viewModel.removeWorktree(worktree, repository: main.path, force: force)
-            notice = "Quitado el worktree de \(worktree.displayBranch). La rama se conserva."
+            notice = String(localized: "Quitado el worktree de \(worktree.displayBranch). La rama se conserva.")
         } catch {
             errorMessage = error.userMessage
         }
@@ -156,7 +156,7 @@ final class WorktreesModel {
         )
         do {
             try await viewModel.saveProject(project)
-            notice = "Añadido «\(project.name)» a tus proyectos."
+            notice = String(localized: "Añadido «\(project.name)» a tus proyectos.")
         } catch {
             errorMessage = error.userMessage
         }

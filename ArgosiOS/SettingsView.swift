@@ -147,10 +147,7 @@ struct SettingsView: View {
     }
 
     private var securityFooter: String {
-        "Argos da acceso a tus servidores. Con esto activado, pide "
-        + "\(AppLock.biometryName) al abrir la app y al volver tras más de un minuto fuera, oculta su contenido en "
-        + "el selector de apps y lo pide también al usar «Pedir a Claude». Sin «Mostrar proyectos», los nombres de "
-        + "tus proyectos no salen en Spotlight ni en las sugerencias de Siri (los atajos ya creados siguen funcionando)."
+        String(localized: "Argos da acceso a tus servidores. Con esto activado, pide \(AppLock.biometryName) al abrir la app y al volver tras más de un minuto fuera, oculta su contenido en el selector de apps y lo pide también al usar «Pedir a Claude». Sin «Mostrar proyectos», los nombres de tus proyectos no salen en Spotlight ni en las sugerencias de Siri (los atajos ya creados siguen funcionando).")
     }
 }
 
@@ -164,12 +161,10 @@ struct StartupCommandPicker: View {
     static let presets: [(label: String, command: String)] = [
         ("claude --continue", "claude --continue"),
         ("cc --continue (alias)", "cc --continue"),
-        ("Ninguno", ""),
+        (String(localized: "Ninguno"), ""),
     ]
 
-    static let explanation = "Se teclea en la sesión nueva del proyecto. «--continue» retoma la última "
-        + "conversación de Claude Code en esa carpeta. «cc» es un alias que muchos definen para «claude» "
-        + "en su ~/.bashrc o ~/.zshrc; Claude Code no lo instala: si tu servidor no lo tiene, elige «claude --continue»."
+    static let explanation = String(localized: "Se teclea en la sesión nueva del proyecto. «--continue» retoma la última conversación de Claude Code en esa carpeta. «cc» es un alias que muchos definen para «claude» en su ~/.bashrc o ~/.zshrc; Claude Code no lo instala: si tu servidor no lo tiene, elige «claude --continue».")
 
     private var selection: Binding<String> {
         Binding(

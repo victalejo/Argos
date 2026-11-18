@@ -159,7 +159,7 @@ enum GitWorktreeParser {
             return GitWorktreeRequest.ValidationError.invalidBranch.errorDescription
         }
         if output.contains("\(GitWorktreeCommands.marker)exists") {
-            return "Ya existe una carpeta en esa ruta. Elige otra."
+            return String(localized: "Ya existe una carpeta en esa ruta. Elige otra.")
         }
         return nil
     }

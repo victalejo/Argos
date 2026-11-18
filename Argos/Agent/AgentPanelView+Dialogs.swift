@@ -70,18 +70,16 @@ extension AgentPanelView {
                 }
                 Button("Cancelar", role: .cancel) { pendingOpen = nil }
             } message: {
-                Text("Cada una es un Claude en el servidor (~0,5 GB). Elige cuál cerrar para abrir otra; podrás reanudarla después. "
-                     + "Los agentes que siguen en el servidor no cuentan aquí.")
+                Text(String(localized: "Cada una es un Claude en el servidor (~\(ResourceFormat.gigabytes(0.5))). Elige cuál cerrar para abrir otra; podrás reanudarla después. Los agentes que siguen en el servidor no cuentan aquí."))
             }
             .modifier(AgentLaunchDialogs(panel: self))
     }
 
     private func closeMessage(_ entry: AgentTabEntry) -> String {
         if entry.tab.session.state.pendingPermission != nil {
-            return "Claude espera tu permiso en «\(entry.tab.title)». Si la cierras, se detiene sin terminar. "
-                + "Para que siga sin esta ventana, usa «Continuar en el servidor» cuando termine."
+            return String(localized: "Claude espera tu permiso en «\(entry.tab.title)». Si la cierras, se detiene sin terminar. Para que siga sin esta ventana, usa «Continuar en el servidor» cuando termine.")
         }
-        return "Claude está trabajando en «\(entry.tab.title)». Si la cierras, se detiene a medias."
+        return String(localized: "Claude está trabajando en «\(entry.tab.title)». Si la cierras, se detiene a medias.")
     }
 }
 
@@ -116,8 +114,7 @@ private struct AgentLaunchDialogs: ViewModifier {
                 }
                 Button("Cancelar", role: .cancel) {}
             } message: { tab in
-                Text("El servidor indica que este agente usa este modo. \(tab.session.meta.resolvedPermissionMode.detail) "
-                     + "Si no lo elegiste tú, no lo reanudes: abre otra conversación.")
+                Text(String(localized: "El servidor indica que este agente usa este modo. \(tab.session.meta.resolvedPermissionMode.detail) Si no lo elegiste tú, no lo reanudes: abre otra conversación."))
             }
     }
 }

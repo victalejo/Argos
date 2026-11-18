@@ -75,8 +75,7 @@ enum SSHDirectoryAccess {
     /// Pista para el error «no se pudo leer la clave» cuando falta conceder ~/.ssh.
     static func unreadableKeyHint(path: String, hasGrant: Bool, home: String = realHome) -> String? {
         guard !hasGrant, isInsideSSHDirectory(path, home: home) else { return nil }
-        return "Argos necesita permiso para leer tu carpeta ~/.ssh: concédelo en Ajustes → Permisos, "
-            + "o elige el archivo de la clave en el formulario del servidor."
+        return String(localized: "Argos necesita permiso para leer tu carpeta ~/.ssh: concédelo en Ajustes → Permisos, o elige el archivo de la clave en el formulario del servidor.")
     }
 
     /// ¿Conectar a este servidor depende de conceder ~/.ssh? No con contraseña ni con una

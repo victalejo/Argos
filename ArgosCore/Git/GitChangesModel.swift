@@ -232,7 +232,7 @@ final class GitChangesModel {
 
     func discard(_ change: GitFileChange) async {
         guard let status, status.branch.hasCommits || change.isUntracked else {
-            errorMessage = "No se puede descartar en un repositorio sin commits."
+            errorMessage = String(localized: "No se puede descartar en un repositorio sin commits.")
             return
         }
         await perform(.discard(change.path)) {
@@ -325,17 +325,17 @@ final class GitChangesModel {
         var parts: [String] = []
         let added = after.subtracting(before).count
         let removed = before.subtracting(after).count
-        if added > 0 { parts.append(added == 1 ? "hay 1 archivo nuevo" : "hay \(added) archivos nuevos") }
-        if removed > 0 { parts.append(removed == 1 ? "1 archivo ya no tiene cambios" : "\(removed) archivos ya no tienen cambios") }
-        if Set(shown) != Set(current), added == 0, removed == 0 { parts.append("cambió el estado de algún archivo") }
+        if added > 0 { parts.append(String(localized: "hay \(added) archivos nuevos")) }
+        if removed > 0 { parts.append(String(localized: "\(removed) archivos ya no tienen cambios")) }
+        if Set(shown) != Set(current), added == 0, removed == 0 { parts.append(String(localized: "cambió el estado de algún archivo")) }
         if !changedDiffs.isEmpty {
             let names = changedDiffs.prefix(3).map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")
-            let more = changedDiffs.count > 3 ? " y \(changedDiffs.count - 3) más" : ""
-            parts.append("cambió el contenido de \(names)\(more) desde que lo revisaste")
+            let more = changedDiffs.count > 3 ? String(localized: " y \(changedDiffs.count - 3) más") : ""
+            parts.append(String(localized: "cambió el contenido de \(names)\(more) desde que lo revisaste"))
         }
         guard !parts.isEmpty else { return nil }
-        return "Desde que miraste los cambios, " + parts.joined(separator: "; ")
-            + ". Revisa la lista antes de hacer el commit o hazlo igualmente."
+        let changes = parts.joined(separator: "; ")
+        return String(localized: "Desde que miraste los cambios, \(changes). Revisa la lista antes de hacer el commit o hazlo igualmente.")
     }
 
     private func performCommit() async {
@@ -344,7 +344,7 @@ final class GitChangesModel {
         let included = Self.includedChanges(status.changes, excluded: excludedPaths)
         let committed = await perform(.commit) {
             let summary = try await self.service.gitCommit(root: status.root, message: message, changes: included)
-            return Self.firstLine(summary) ?? "Commit hecho."
+            return Self.firstLine(summary) ?? String(localized: "Commit hecho.")
         }
         if committed {
             commitMessage = ""
@@ -356,7 +356,7 @@ final class GitChangesModel {
         guard canPush, let status else { return }
         let pushed = await perform(.push) {
             _ = try await self.service.gitPush(root: status.root, hasUpstream: status.branch.upstream != nil)
-            return "Cambios subidos a \(status.branch.upstream ?? "origin")."
+            return String(localized: "Cambios subidos a \(status.branch.upstream ?? "origin").")
         }
         if pushed { onPushed?(status.root) }
     }
@@ -365,7 +365,7 @@ final class GitChangesModel {
         guard canPull, let status else { return }
         await perform(.pull) {
             let output = try await self.service.gitPull(root: status.root)
-            return Self.firstLine(output) ?? "Rama actualizada."
+            return Self.firstLine(output) ?? String(localized: "Rama actualizada.")
         }
     }
 

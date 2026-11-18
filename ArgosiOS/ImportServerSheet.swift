@@ -50,7 +50,7 @@ struct ImportServerSheet: View {
             QRScannerView(onScan: handle)
                 .ignoresSafeArea(edges: .bottom)
                 .overlay(alignment: .bottom) {
-                    Text(scanError ?? "En el Mac, abre el menú del servidor y elige «Enviar al iPhone…». Apunta la cámara al código.")
+                    Text(scanError ?? String(localized: "En el Mac, abre el menú del servidor y elige «Enviar al iPhone…». Apunta la cámara al código."))
                         .font(.callout)
                         .multilineTextAlignment(.center)
                         .padding(14)
@@ -88,9 +88,9 @@ struct ImportServerSheet: View {
                     Text(verbatim: "\(transfer.username)@\(transfer.host)\(transfer.port == 22 ? "" : ":\(transfer.port)")")
                         .font(.callout.monospaced())
                 }
-                LabeledContent("Acceso", value: "Clave creada en el Mac solo para este dispositivo")
+                LabeledContent("Acceso", value: String(localized: "Clave creada en el Mac solo para este dispositivo"))
                 LabeledContent("Identidad del servidor") {
-                    Text(transfer.hostKeyFingerprint ?? "Se confiará en ella en la primera conexión")
+                    Text(transfer.hostKeyFingerprint ?? String(localized: "Se confiará en ella en la primera conexión"))
                         .font(.caption.monospaced())
                         .multilineTextAlignment(.trailing)
                 }
@@ -135,7 +135,7 @@ struct ImportServerSheet: View {
             onImported(server)
         } catch {
             Log.store.error("No se pudo añadir el servidor del QR: \(error.userMessage, privacy: .public)")
-            saveError = "No se pudo añadir el servidor: \(error.userMessage)"
+            saveError = String(localized: "No se pudo añadir el servidor: \(error.userMessage)")
         }
     }
 }

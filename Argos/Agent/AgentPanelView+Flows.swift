@@ -23,8 +23,8 @@ extension AgentPanelView {
         let slots = store.slots(for: handle)
         return TabActions(
             identity: AgentTabIdentity(handle: handle, tabIDs: slots.map(\.id), selectedID: store.selectedSlot(for: handle)?.id),
-            newTitle: "Nueva conversación",
-            closeTitle: "Cerrar conversación",
+            newTitle: String(localized: "Nueva conversación"),
+            closeTitle: String(localized: "Cerrar conversación"),
             newTab: { newConversationRequested(placement) },
             closeTab: {
                 if let slot = store.selectedSlot(for: handle) {
@@ -206,8 +206,7 @@ extension AgentPanelView {
                 try await store.continueOnServer(tab.id, for: handle, service: service, oauthToken: token, claudePath: path)
             } catch {
                 Log.agent.error("No se pudo pasar la conversación al servidor: \(error.localizedDescription, privacy: .private)")
-                actionError = "No se pudo continuar en el servidor: \(error.userMessage)\n"
-                    + "La conversación sigue aquí, detenida: puedes reanudarla en esta sesión."
+                actionError = String(localized: "No se pudo continuar en el servidor: \(error.userMessage)\nLa conversación sigue aquí, detenida: puedes reanudarla en esta sesión.")
             }
         }
     }

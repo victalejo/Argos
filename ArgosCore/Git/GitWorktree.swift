@@ -26,7 +26,7 @@ struct GitWorktree: Hashable, Sendable, Identifiable {
     var changedCount: Int?
 
     var id: String { path }
-    var displayBranch: String { branch ?? "HEAD desacoplado (\(head.prefix(7)))" }
+    var displayBranch: String { branch ?? String(localized: "HEAD desacoplado (\(head.prefix(7)))") }
 }
 
 /// Worktrees del repositorio y sus ramas locales (para elegir una existente).
@@ -92,11 +92,11 @@ struct GitWorktreeRequest: Hashable, Sendable {
 
         var errorDescription: String? {
             switch self {
-            case .invalidBranch: return "Ese nombre de rama no es válido (sin espacios, «..», «~», «^», «:» ni «-» al principio)."
-            case .branchExists: return "Esa rama ya existe: elige «Rama existente» para abrirla."
-            case .branchInUse: return "Esa rama ya está abierta en otro worktree: git no deja tenerla en dos a la vez."
-            case .invalidBase: return "Elige desde qué rama nace la nueva."
-            case .invalidPath: return "La carpeta debe ser una ruta completa que empiece por /."
+            case .invalidBranch: return String(localized: "Ese nombre de rama no es válido (sin espacios, «..», «~», «^», «:» ni «-» al principio).")
+            case .branchExists: return String(localized: "Esa rama ya existe: elige «Rama existente» para abrirla.")
+            case .branchInUse: return String(localized: "Esa rama ya está abierta en otro worktree: git no deja tenerla en dos a la vez.")
+            case .invalidBase: return String(localized: "Elige desde qué rama nace la nueva.")
+            case .invalidPath: return String(localized: "La carpeta debe ser una ruta completa que empiece por /.")
             }
         }
     }

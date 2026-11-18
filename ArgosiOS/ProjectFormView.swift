@@ -162,15 +162,15 @@ struct ProjectFormView: View {
 
     private var title: String {
         switch mode {
-        case .new: return "Nuevo proyecto"
-        case .edit: return "Editar proyecto"
-        case .convert: return "Convertir en proyecto"
+        case .new: return String(localized: "Nuevo proyecto")
+        case .edit: return String(localized: "Editar proyecto")
+        case .convert: return String(localized: "Convertir en proyecto")
         }
     }
 
     private var submitLabel: String {
-        if case .edit = mode { return "Guardar" }
-        return source == .clone ? "Clonar" : "Crear"
+        if case .edit = mode { return String(localized: "Guardar") }
+        return source == .clone ? String(localized: "Clonar") : String(localized: "Crear")
     }
 
     // MARK: - Secciones

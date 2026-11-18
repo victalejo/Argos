@@ -68,7 +68,7 @@ enum ServerResourceError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .unsupported:
-            return "No se pudieron leer los recursos: el monitor necesita un servidor Linux (/proc)."
+            return String(localized: "No se pudieron leer los recursos: el monitor necesita un servidor Linux (/proc).")
         }
     }
 }
@@ -177,10 +177,19 @@ enum ServerResourceParser {
     }
 }
 
-/// Formato legible (en español) de tamaños y duraciones.
+/// Formato legible de tamaños y duraciones en el idioma de la app.
 enum ResourceFormat {
 
-    private static let locale = Locale(identifier: "es_ES")
+    /// En español, siempre con coma decimal («0,5 GB», como hasta ahora aunque la región
+    /// sea otra); en inglés, con el separador de la región del usuario.
+    private static var locale: Locale {
+        Bundle.main.preferredLocalizations.first == "es" ? Locale(identifier: "es_ES") : .autoupdatingCurrent
+    }
+
+    /// Gigabytes con un decimal («0,5 GB» / «0.5 GB»).
+    static func gigabytes(_ value: Double) -> String {
+        "\(value.formatted(.number.precision(.fractionLength(1)).locale(locale))) GB"
+    }
 
     static func kilobytes(_ kb: Int) -> String {
         let units = ["KB", "MB", "GB", "TB"]
@@ -206,6 +215,6 @@ enum ResourceFormat {
     }
 
     static func percent(_ fraction: Double) -> String {
-        "\(Int((fraction * 100).rounded())) %"
+        String(localized: "\(Int((fraction * 100).rounded())) %", comment: "Porcentaje (en español con espacio: «42 %»)")
     }
 }

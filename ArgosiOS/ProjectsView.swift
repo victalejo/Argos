@@ -146,8 +146,7 @@ struct ProjectsView: View {
                 Button("Restaurar copia anterior") { restoreBackup() }
                 Button("Cancelar", role: .cancel) {}
             } message: {
-                Text("Se recupera projects.json.argos-backup de \(currentServer.name). El archivo dañado se guarda aparte "
-                     + "(projects.json.argos-damaged) por si lo necesitas; los cambios hechos después de esa copia se pierden.")
+                Text(String(localized: "Se recupera projects.json.argos-backup de \(currentServer.name). El archivo dañado se guarda aparte (projects.json.argos-damaged) por si lo necesitas; los cambios hechos después de esa copia se pierden."))
             }
             .alert("Algo salió mal", isPresented: errorBinding) {
                 Button("OK", role: .cancel) {}
@@ -366,7 +365,7 @@ struct ProjectsView: View {
                         .font(.caption2.weight(.bold))
                         .rotationEffect(.degrees(isCollapsed ? 0 : 90))
                 }
-                Text(name)
+                Text(VisibleProjectListing.displayName(ofGroup: name))
                 Text("\(count)").foregroundStyle(.secondary)
                 Spacer()
                 // Plegado, la insignia del grupo avisa de lo que hay dentro.
@@ -378,7 +377,7 @@ struct ProjectsView: View {
         }
         .buttonStyle(.plain)
         .disabled(!canCollapse)
-        .accessibilityLabel("Grupo \(name), \(count) elementos")
+        .accessibilityLabel("Grupo \(VisibleProjectListing.displayName(ofGroup: name)), \(count) elementos")
         .accessibilityValue(canCollapse ? (isCollapsed ? "plegado" : "desplegado") : "")
     }
 
@@ -452,7 +451,7 @@ struct ProjectsView: View {
                 Image(systemName: "terminal").foregroundStyle(.tint).frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(session.name).font(.body.weight(.medium))
-                    Text(session.windowCount == 1 ? "1 ventana" : "\(session.windowCount) ventanas")
+                    Text("\(session.windowCount) ventanas")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -477,8 +476,8 @@ struct ProjectsView: View {
     }
 
     private func subtitle(for entry: ProjectEntry) -> String {
-        guard let session = entry.session else { return "Detenido · \(entry.project.path)" }
-        let windows = session.windowCount == 1 ? "1 ventana" : "\(session.windowCount) ventanas"
+        guard let session = entry.session else { return String(localized: "Detenido · \(entry.project.path)") }
+        let windows = String(localized: "\(session.windowCount) ventanas")
         return "\(windows) · \(entry.project.path)"
     }
 
@@ -629,13 +628,13 @@ struct ProjectsView: View {
     }
 
     private var promptTitle: String {
-        if case .rename = sessionPrompt { return "Renombrar sesión" }
-        return "Nueva sesión"
+        if case .rename = sessionPrompt { return String(localized: "Renombrar sesión") }
+        return String(localized: "Nueva sesión")
     }
 
     private var promptAction: String {
-        if case .rename = sessionPrompt { return "Renombrar" }
-        return "Crear"
+        if case .rename = sessionPrompt { return String(localized: "Renombrar") }
+        return String(localized: "Crear")
     }
 
     private var promptBinding: Binding<Bool> {

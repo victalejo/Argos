@@ -85,18 +85,18 @@ struct ProjectRow: View {
     private var subtitle: String {
         let folder = Self.shortPath(entry.project.path)
         if let checkout = entry.project.macCheckout, entry.session == nil {
-            return "En el Mac «\(checkout.macName)»"
+            return String(localized: "En el Mac «\(checkout.macName)»")
         }
-        guard let session = entry.session else { return "Detenido · \(folder)" }
-        let windows = "\(session.windowCount) \(session.windowCount == 1 ? "ventana" : "ventanas")"
+        guard let session = entry.session else { return String(localized: "Detenido · \(folder)") }
+        let windows = String(localized: "\(session.windowCount) ventanas")
         return "\(windows) · \(folder)"
     }
 
     private var accessibilityText: String {
-        let state = connection?.label ?? "Detenido"
+        let state = connection?.label ?? String(localized: "Detenido")
         let claudeText = claude.map { ", \($0.label)" } ?? ""
         let gitText = git.map { ", git: \($0.label)" } ?? ""
-        return "Proyecto \(entry.project.name), \(state)\(claudeText)\(gitText), carpeta \(entry.project.path)"
+        return String(localized: "Proyecto \(entry.project.name), \(state)\(claudeText)\(gitText), carpeta \(entry.project.path)")
     }
 
     /// Últimos dos componentes de la ruta ("…/Desarrollo/coro") para que quepa.
@@ -138,16 +138,16 @@ private struct ProjectSyncBadge: View {
     }
 
     private var helpText: String {
-        let destination = job.isToMac ? "al Mac" : "al servidor"
+        let destination = job.isToMac ? String(localized: "al Mac") : String(localized: "al servidor")
         switch job.phase {
         case .running:
-            return "Enviando \(destination): \(job.engine.doneFiles) de \(job.engine.totalFiles) archivos. Clic para ver."
+            return String(localized: "Enviando \(destination): \(job.engine.doneFiles) de \(job.engine.totalFiles) archivos. Clic para ver.")
         case .done:
-            return "Envío \(destination) terminado. Clic para ver."
+            return String(localized: "Envío \(destination) terminado. Clic para ver.")
         case .failed:
-            return "El envío \(destination) falló. Clic para ver."
+            return String(localized: "El envío \(destination) falló. Clic para ver.")
         default:
-            return "Envío \(destination) pendiente. Clic para ver."
+            return String(localized: "Envío \(destination) pendiente. Clic para ver.")
         }
     }
 }

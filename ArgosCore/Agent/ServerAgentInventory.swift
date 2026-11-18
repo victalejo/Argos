@@ -38,7 +38,7 @@ struct ServerAgentProcess: Identifiable, Equatable, Sendable {
     var title: String {
         switch kind {
         case .persistent(let meta): return meta.title
-        case .panel: return "Conversación del Mac"
+        case .panel: return String(localized: "Conversación del Mac")
         }
     }
 }

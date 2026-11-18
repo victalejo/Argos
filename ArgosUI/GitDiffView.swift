@@ -119,9 +119,9 @@ private struct GitDiffLineRow: View {
 
     private var accessibilityText: String {
         switch line.kind {
-        case .added: return "Añadida, línea \(line.newNumber ?? 0): \(line.text)"
-        case .removed: return "Eliminada, línea \(line.oldNumber ?? 0): \(line.text)"
-        case .hunk: return "Bloque \(line.text)"
+        case .added: return String(localized: "Añadida, línea \(String(line.newNumber ?? 0)): \(line.text)")
+        case .removed: return String(localized: "Eliminada, línea \(String(line.oldNumber ?? 0)): \(line.text)")
+        case .hunk: return String(localized: "Bloque \(line.text)")
         default: return line.text
         }
     }

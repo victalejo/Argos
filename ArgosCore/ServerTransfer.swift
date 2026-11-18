@@ -40,8 +40,7 @@ struct ServerTransfer: Equatable, Sendable {
     struct HostKeyConflictError: LocalizedError {
         let endpoint: String
         var errorDescription: String? {
-            "La identidad de \(endpoint) del código no coincide con la que ya conoce este dispositivo. "
-                + "No se añadió el servidor. Si reinstalaste el servidor, usa «Olvidar host key» y vuelve a escanear."
+            String(localized: "La identidad de \(endpoint) del código no coincide con la que ya conoce este dispositivo. No se añadió el servidor. Si reinstalaste el servidor, usa «Olvidar host key» y vuelve a escanear.")
         }
     }
 
@@ -55,15 +54,15 @@ struct ServerTransfer: Equatable, Sendable {
         var errorDescription: String? {
             switch self {
             case .notArgosCode:
-                return "Este código QR no es de Argos. En el Mac, abre el menú del servidor y elige «Enviar al iPhone…»."
+                return String(localized: "Este código QR no es de Argos. En el Mac, abre el menú del servidor y elige «Enviar al iPhone…».")
             case .malformed:
-                return "El código QR está incompleto o dañado. Genera otro en el Mac."
+                return String(localized: "El código QR está incompleto o dañado. Genera otro en el Mac.")
             case .unsupportedVersion:
-                return "Este código lo generó otra versión de Argos. Actualiza Argos en el Mac y en el iPhone."
+                return String(localized: "Este código lo generó otra versión de Argos. Actualiza Argos en el Mac y en el iPhone.")
             case .expired:
-                return "El código QR caducó (dura 5 minutos). En el Mac, pulsa «Mostrar de nuevo»."
+                return String(localized: "El código QR caducó (dura 5 minutos). En el Mac, pulsa «Mostrar de nuevo».")
             case .invalidData:
-                return "El código QR contiene datos de servidor no válidos. Genera otro en el Mac."
+                return String(localized: "El código QR contiene datos de servidor no válidos. Genera otro en el Mac.")
             }
         }
     }

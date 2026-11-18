@@ -68,7 +68,7 @@ struct ServerAgentsSheet: View {
     }
 
     private func summary(_ inventory: ServerAgentInventory) -> some View {
-        let free = inventory.freeMemoryKB.map { " · \(ResourceFormat.kilobytes($0)) libres" } ?? ""
+        let free = inventory.freeMemoryKB.map { String(localized: " · \(ResourceFormat.kilobytes($0)) libres") } ?? ""
         return Text("\(inventory.liveAgents.count) en marcha · usan \(ResourceFormat.kilobytes(inventory.liveResidentKB))\(free)")
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -207,12 +207,12 @@ private struct ServerAgentRow: View {
     private var detail: String {
         var parts: [String] = []
         if case .persistent(let meta) = agent.kind { parts.append(ProjectRow.shortPath(meta.workingDirectory)) }
-        if agent.hasPendingPermission { parts.append("espera tu permiso") }
+        if agent.hasPendingPermission { parts.append(String(localized: "espera tu permiso")) }
         if let idle = agent.idleSeconds, agent.isAlive {
-            parts.append("inactivo \(Duration.seconds(idle).formatted(.units(allowed: [.days, .hours, .minutes], width: .narrow, maximumUnitCount: 2)))")
+            parts.append(String(localized: "inactivo \(Duration.seconds(idle).formatted(.units(allowed: [.days, .hours, .minutes], width: .narrow, maximumUnitCount: 2)))"))
         }
         if case .persistent(let meta) = agent.kind, !agent.isAlive {
-            parts.append(meta.isHibernated ? "en reposo" : "detenido")
+            parts.append(meta.isHibernated ? String(localized: "en reposo") : String(localized: "detenido"))
         }
         return parts.joined(separator: " · ")
     }

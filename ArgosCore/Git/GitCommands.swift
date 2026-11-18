@@ -96,8 +96,7 @@ enum GitCommands {
 
     /// Marcador de un git anterior a 2.26 (sin `--pathspec-from-file` en `commit`).
     static let gitTooOldMarker = "ARGOS_GIT_TOO_OLD"
-    static let gitTooOldMessage = "El git del servidor es anterior a 2.26 y no admite commits de tantos archivos a la vez. "
-        + "Actualiza git en el servidor o desmarca archivos y haz el commit en varias veces."
+    static let gitTooOldMessage = String(localized: "El git del servidor es anterior a 2.26 y no admite commits de tantos archivos a la vez. Actualiza git en el servidor o desmarca archivos y haz el commit en varias veces.")
 
     /// ¿Cabe el commit en un solo comando? Si no, `commitFromFiles`.
     static func commitFitsInline(root: String, message: String, changes: [GitFileChange]) -> Bool {

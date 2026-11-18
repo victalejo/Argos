@@ -37,9 +37,9 @@ enum ClaudeActivity: String, Sendable, CaseIterable, Codable {
 
     var label: String {
         switch self {
-        case .working: return "Claude trabajando"
-        case .waiting: return "Claude espera tu respuesta"
-        case .done: return "Claude terminó"
+        case .working: return String(localized: "Claude trabajando")
+        case .waiting: return String(localized: "Claude espera tu respuesta")
+        case .done: return String(localized: "Claude terminó")
         }
     }
 }

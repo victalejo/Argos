@@ -181,7 +181,7 @@ struct SessionTerminalView: View {
                     TerminalActionErrorBanner(message: error) { windowsModel.actionError = nil }
                 }
             } else {
-                TerminalConnectionProgress(title: "Abriendo sesión", sessionName: session.name)
+                TerminalConnectionProgress(title: String(localized: "Abriendo sesión"), sessionName: session.name)
             }
         }
     }
@@ -219,7 +219,7 @@ struct SessionTerminalView: View {
         let agent = activeAgent
         let title = agent?.displayName
             ?? windowsModel.activeWindow.flatMap { WindowTabs.title(for: $0, agent: nil) }
-            ?? "Terminal"
+            ?? String(localized: "Terminal")
         return HStack(spacing: 8) {
             if let agent {
                 CodingAgentIcon(agent: agent, size: 12)
@@ -251,12 +251,12 @@ struct SessionTerminalView: View {
     }
 
     private var terminalStatusText: String {
-        guard let status = controller?.status else { return "Preparando terminal" }
+        guard let status = controller?.status else { return String(localized: "Preparando terminal") }
         switch status {
-        case .connecting: return "Conectando por SSH…"
-        case .connected: return "Conexión segura · SSH"
-        case .ended: return "Terminal desconectado"
-        case .failed: return reconnect.isReconnecting ? "Reconectando…" : "Error de conexión"
+        case .connecting: return String(localized: "Conectando por SSH…")
+        case .connected: return String(localized: "Conexión segura · SSH")
+        case .ended: return String(localized: "Terminal desconectado")
+        case .failed: return reconnect.isReconnecting ? String(localized: "Reconectando…") : String(localized: "Error de conexión")
         }
     }
 

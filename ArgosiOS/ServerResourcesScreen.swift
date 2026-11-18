@@ -52,12 +52,12 @@ struct ServerResourcesScreen: View {
                 }
                 Section {
                     ResourceMetricRow(title: "CPU", fraction: cpuUsage,
-                                      detail: "\(sample.cores) núcleos · carga \(loadText(sample))")
-                    ResourceMetricRow(title: "Memoria", fraction: sample.memory.fraction, detail: usageText(sample.memory))
+                                      detail: String(localized: "\(sample.cores) núcleos · carga \(loadText(sample))"))
+                    ResourceMetricRow(title: String(localized: "Memoria"), fraction: sample.memory.fraction, detail: usageText(sample.memory))
                     if sample.swap.totalKB > 0 {
                         ResourceMetricRow(title: "Swap", fraction: sample.swap.fraction, detail: usageText(sample.swap))
                     }
-                    ResourceMetricRow(title: "Disco /", fraction: sample.disk.fraction, detail: usageText(sample.disk))
+                    ResourceMetricRow(title: String(localized: "Disco /"), fraction: sample.disk.fraction, detail: usageText(sample.disk))
                 } header: {
                     Text("Encendido \(ResourceFormat.uptime(sample.uptimeSeconds)) · cada 3 s")
                 }
@@ -68,7 +68,7 @@ struct ServerResourcesScreen: View {
                 } header: {
                     Text("Procesos con más CPU")
                 } footer: {
-                    Text("%CPU es el promedio desde que arrancó cada proceso (puede superar 100 con varios núcleos).")
+                    Text(String(localized: "%CPU es el promedio desde que arrancó cada proceso (puede superar 100 con varios núcleos)."))
                 }
             }
         } else if let errorMessage {
@@ -93,7 +93,7 @@ struct ServerResourcesScreen: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(process.command).lineLimit(1).truncationMode(.tail)
-                Text("PID \(process.pid)").font(.caption).foregroundStyle(.secondary)
+                Text("PID \(String(process.pid))").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
@@ -113,7 +113,7 @@ struct ServerResourcesScreen: View {
     }
 
     private func usageText(_ usage: ResourceUsage) -> String {
-        "\(ResourceFormat.kilobytes(usage.usedKB)) de \(ResourceFormat.kilobytes(usage.totalKB))"
+        String(localized: "\(ResourceFormat.kilobytes(usage.usedKB)) de \(ResourceFormat.kilobytes(usage.totalKB))")
     }
 
     // MARK: - Sondeo

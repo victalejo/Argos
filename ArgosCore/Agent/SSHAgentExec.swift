@@ -23,7 +23,7 @@ import NIOConcurrencyHelpers   // NIOLockedValueBox
 struct AgentExecError: LocalizedError {
     let message: String
     var errorDescription: String? {
-        "El agente de Claude se cerró. Detalle del servidor:\n\(message)"
+        String(localized: "El agente de Claude se cerró. Detalle del servidor:\n\(message)")
     }
 }
 
@@ -42,20 +42,20 @@ enum PersistentAgentError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .notRunning:
-            return "El agente ya no está en marcha en el servidor. Reanúdalo para seguir la conversación."
+            return String(localized: "El agente ya no está en marcha en el servidor. Reanúdalo para seguir la conversación.")
         case .claudeMissing:
-            return "Claude Code no está instalado en el servidor (no se encontró el comando «claude»)."
+            return String(localized: "Claude Code no está instalado en el servidor (no se encontró el comando «claude»).")
         case .busy:
-            return "Otro dispositivo está arrancando este agente ahora mismo. Inténtalo de nuevo en unos segundos."
+            return String(localized: "Otro dispositivo está arrancando este agente ahora mismo. Inténtalo de nuevo en unos segundos.")
         case .launchFailed(let detail):
             let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty
-                ? "Claude se cerró nada más arrancar en el servidor y no dejó ningún mensaje."
-                : "Claude se cerró nada más arrancar en el servidor:\n\(trimmed)"
+                ? String(localized: "Claude se cerró nada más arrancar en el servidor y no dejó ningún mensaje.")
+                : String(localized: "Claude se cerró nada más arrancar en el servidor:\n\(trimmed)")
         case .stuck:
-            return "El agente no responde a la orden de parar. Inténtalo de nuevo; si sigue, reinicia el servidor."
+            return String(localized: "El agente no responde a la orden de parar. Inténtalo de nuevo; si sigue, reinicia el servidor.")
         case .truncatedSend:
-            return "El mensaje no llegó entero al servidor (se cortó la conexión). Vuelve a enviarlo."
+            return String(localized: "El mensaje no llegó entero al servidor (se cortó la conexión). Vuelve a enviarlo.")
         }
     }
 }
@@ -139,7 +139,7 @@ extension SSHService {
         guard let pwd = lines.first(where: { $0.hasPrefix("/") }) else {
             throw SSHServiceError.commandFailed(
                 exitCode: result.exitCode,
-                message: "No se pudo abrir el directorio '\(path)'."
+                message: String(localized: "No se pudo abrir el directorio '\(path)'.")
             )
         }
         let listed: [String] = Array(lines.drop(while: { (line: String) in line != pwd }).dropFirst())
@@ -169,7 +169,7 @@ extension SSHService {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             if detail.contains(PersistentAgentScript.deadReply) { throw PersistentAgentError.notRunning }
             if detail.contains(PersistentAgentShell.stuckMarker) { throw PersistentAgentError.stuck }
-            throw AgentExecError(message: detail.isEmpty ? "código de salida \(result.exitCode)" : String(detail.suffix(600)))
+            throw AgentExecError(message: detail.isEmpty ? String(localized: "código de salida \(String(result.exitCode))") : String(detail.suffix(600)))
         }
         return result.stdout
     }

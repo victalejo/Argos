@@ -45,9 +45,9 @@ struct AgentTabInfoBar: View {
     private var summary: String {
         switch slot {
         case .session:
-            return "Solo en esta sesión: se detiene al cerrar la pestaña o salir de Argos."
+            return String(localized: "Solo en esta sesión: se detiene al cerrar la pestaña o salir de Argos.")
         case .persistent:
-            return "En el servidor: sigue aunque cierres la pestaña o Argos. Puedes continuarla desde el iPhone."
+            return String(localized: "En el servidor: sigue aunque cierres la pestaña o Argos. Puedes continuarla desde el iPhone.")
         }
     }
 
@@ -63,7 +63,7 @@ struct AgentTabInfoBar: View {
             Button("Continuar en el servidor", systemImage: "arrow.up.to.line") { perform(.continueOnServer) }
                 .disabled(blocker != nil)
                 .help(blocker?.errorDescription
-                      ?? "Detiene esta conversación aquí y la relanza en el servidor (--resume): sigue aunque cierres Argos y puedes continuarla desde el iPhone.")
+                      ?? String(localized: "Detiene esta conversación aquí y la relanza en el servidor (--resume): sigue aunque cierres Argos y puedes continuarla desde el iPhone."))
         }
     }
 

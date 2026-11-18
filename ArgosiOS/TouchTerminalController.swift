@@ -221,7 +221,7 @@ final class TouchTerminalController: TerminalViewDelegate {
         } else if let text = pasteboard.string {
             paste(text)
         } else {
-            show(.failed("El portapapeles está vacío."))
+            show(.failed(String(localized: "El portapapeles está vacío.")))
         }
     }
 
@@ -251,7 +251,7 @@ final class TouchTerminalController: TerminalViewDelegate {
                 self?.show(.uploaded(label))
             } catch {
                 Log.terminal.error("No se pudo subir \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                self?.show(.failed("No se pudo subir «\(label)»: \(error.userMessage)"))
+                self?.show(.failed(String(localized: "No se pudo subir «\(label)»: \(error.userMessage)")))
             }
         }
     }
@@ -355,9 +355,9 @@ enum TerminalNotice: Equatable {
 
     var text: String {
         switch self {
-        case .copied: return "Copiado"
-        case .uploading(let name): return "Subiendo «\(name)»…"
-        case .uploaded(let name): return "«\(name)» subido: su ruta está en el prompt"
+        case .copied: return String(localized: "Copiado")
+        case .uploading(let name): return String(localized: "Subiendo «\(name)»…")
+        case .uploaded(let name): return String(localized: "«\(name)» subido: su ruta está en el prompt")
         case .failed(let message): return message
         }
     }

@@ -72,7 +72,7 @@ private struct PersistentAgentRow: View {
                     Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
-                Text(isOpen ? "Abierta" : agent.activity.title)
+                Text(isOpen ? String(localized: "Abierta") : agent.activity.title)
                     .font(.caption2.weight(.medium))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
@@ -98,7 +98,7 @@ private struct PersistentAgentRow: View {
     private var detail: String {
         var parts = [agent.meta.createdAt.formatted(date: .abbreviated, time: .shortened), agent.meta.resolvedPermissionMode.title]
         if let last = agent.lastActivity() {
-            parts.append("actividad \(last.formatted(.relative(presentation: .named)))")
+            parts.append(String(localized: "actividad \(last.formatted(.relative(presentation: .named)))"))
         }
         return parts.joined(separator: " · ")
     }

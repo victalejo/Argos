@@ -28,11 +28,11 @@ struct CIResult: Hashable, Sendable {
     let url: URL?
 
     /// Texto del aviso («CI de app: pasó» / «falló: CI, Android»).
-    var title: String { "CI de «\(watch.name)»: \(state == .success ? "pasó" : state.label.lowercased())" }
+    var title: String { String(localized: "CI de «\(watch.name)»: \(state == .success ? "pasó" : state.label.lowercased())") }
     var body: String {
         let sha = watch.sha.map { String($0.prefix(7)) } ?? ""
-        if failed.isEmpty { return "Commit \(sha) · todos los workflows en verde." }
-        return "Commit \(sha) · falló: \(failed.joined(separator: ", "))."
+        if failed.isEmpty { return String(localized: "Commit \(sha) · todos los workflows en verde.") }
+        return String(localized: "Commit \(sha) · falló: \(failed.joined(separator: ", ")).")
     }
 }
 

@@ -25,11 +25,7 @@ struct DiagnosticSettingsView: View {
             } header: {
                 Text("Informe de diagnóstico")
             } footer: {
-                Text("Incluye la versión de Argos, tu sistema y los últimos minutos del registro de la app. "
-                     + "Por defecto los servidores, usuarios e IPs se sustituyen por marcadores como «servidor-1». "
-                     + "Argos oculta las claves, tokens y contraseñas que reconoce, pero no puede garantizar que no se escape alguno: "
-                     + "revisa el texto antes de publicarlo. Para añadir el estado de un servidor, "
-                     + "abre su Doctor desde el menú del servidor.")
+                Text(String(localized: "Incluye la versión de Argos, tu sistema y los últimos minutos del registro de la app. Por defecto los servidores, usuarios e IPs se sustituyen por marcadores como «servidor-1». Argos oculta las claves, tokens y contraseñas que reconoce, pero no puede garantizar que no se escape alguno: revisa el texto antes de publicarlo. Para añadir el estado de un servidor, abre su Doctor desde el menú del servidor."))
             }
             Section {
                 Button {

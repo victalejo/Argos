@@ -86,23 +86,23 @@ struct NotificationSettingsView: View {
     private func statusRows(_ readiness: NotificationReadiness) -> some View {
         LabeledContent("Notificaciones", value: permissionText(readiness.permission))
         LabeledContent("Actualización en segundo plano", value: refreshText(readiness.backgroundRefresh))
-        LabeledContent("Modo de bajo consumo", value: readiness.lowPowerMode ? "Activado" : "Desactivado")
+        LabeledContent("Modo de bajo consumo", value: readiness.lowPowerMode ? String(localized: "Activado") : String(localized: "Desactivado"))
     }
 
     private func permissionText(_ permission: NotificationPermission) -> String {
         switch permission {
-        case .notDetermined: return "Sin pedir"
-        case .denied: return "Desactivadas"
-        case .authorized: return "Permitidas"
-        case .quiet: return "Silenciosas"
+        case .notDetermined: return String(localized: "Sin pedir")
+        case .denied: return String(localized: "Desactivadas")
+        case .authorized: return String(localized: "Permitidas")
+        case .quiet: return String(localized: "Silenciosas")
         }
     }
 
     private func refreshText(_ availability: BackgroundRefreshAvailability) -> String {
         switch availability {
-        case .available: return "Activada"
-        case .denied: return "Desactivada"
-        case .restricted: return "Restringida"
+        case .available: return String(localized: "Activada")
+        case .denied: return String(localized: "Desactivada")
+        case .restricted: return String(localized: "Restringida")
         }
     }
 

@@ -22,7 +22,16 @@ import Foundation
 struct VisibleProjectListing: Sendable {
     /// Nombre del grupo de las sesiones que no pertenecen a ningún proyecto (también es
     /// la clave con la que se guarda su plegado en `CollapsedSessionGroups`).
+    /// Es un IDENTIFICADOR estable: no se traduce (los plegados ya guardados lo usan). Lo
+    /// que se ve en pantalla es `displayName(ofGroup:)`.
     static let looseGroupName = "Sesiones sueltas"
+
+    /// Nombre para mostrar de un grupo de la lista (incluido el de las sesiones sueltas).
+    static func displayName(ofGroup name: String) -> String {
+        name == looseGroupName
+            ? String(localized: "Sesiones sueltas", comment: "Grupo de las sesiones que no pertenecen a ningún proyecto")
+            : SessionGrouping.displayName(name)
+    }
 
     /// Un grupo de proyectos tal como se pinta.
     struct Group: Identifiable, Sendable {

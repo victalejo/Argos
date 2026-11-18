@@ -80,8 +80,8 @@ extension SessionTerminalView {
         let windows = self.windows
         return TabActions(
             identity: TabIdentity(handle: handle, windows: windows, claude: claudeByWindow, installedAgents: installedAgents),
-            newTitle: "Nueva ventana",
-            closeTitle: "Cerrar ventana",
+            newTitle: String(localized: "Nueva ventana"),
+            closeTitle: String(localized: "Cerrar ventana"),
             newTab: { run { await $0.newWindow() } },
             closeTab: { requestClose(index: nil) },
             selectTab: { number in

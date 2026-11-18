@@ -118,18 +118,18 @@ struct ServerActionsModifier: ViewModifier {
     private func title(for action: ServerAction) -> String {
         switch action {
         case .resources, .doctor: return ""
-        case .installHooks(let server): return "¿Activar el indicador de Claude Code en «\(server.name)»?"
-        case .deviceKey(let server): return "¿Usar una clave de este iPhone en «\(server.name)»?"
-        case .forgetHostKey(let server): return "¿Olvidar la host key de «\(server.name)»?"
+        case .installHooks(let server): return String(localized: "¿Activar el indicador de Claude Code en «\(server.name)»?")
+        case .deviceKey(let server): return String(localized: "¿Usar una clave de este iPhone en «\(server.name)»?")
+        case .forgetHostKey(let server): return String(localized: "¿Olvidar la host key de «\(server.name)»?")
         }
     }
 
     private func confirmLabel(for action: ServerAction) -> String {
         switch action {
         case .resources, .doctor: return ""
-        case .installHooks: return "Activar"
-        case .deviceKey: return "Crear e instalar la clave"
-        case .forgetHostKey: return "Olvidar host key"
+        case .installHooks: return String(localized: "Activar")
+        case .deviceKey: return String(localized: "Crear e instalar la clave")
+        case .forgetHostKey: return String(localized: "Olvidar host key")
         }
     }
 
@@ -139,9 +139,7 @@ struct ServerActionsModifier: ViewModifier {
         case .installHooks: return ClaudeHooksCopy.explanation
         case .deviceKey: return DeviceKeyCopy.explanation
         case .forgetHostKey(let server):
-            return "Hazlo solo si reinstalaste \(server.host) o cambió su clave de forma legítima. "
-                + "La próxima conexión confiará en la huella que presente el servidor; si no esperabas el cambio, "
-                + "podría ser alguien suplantándolo."
+            return String(localized: "Hazlo solo si reinstalaste \(server.host) o cambió su clave de forma legítima. La próxima conexión confiará en la huella que presente el servidor; si no esperabas el cambio, podría ser alguien suplantándolo.")
         }
     }
 
@@ -155,7 +153,7 @@ struct ServerActionsModifier: ViewModifier {
             doctor = server
         case .forgetHostKey:
             hub.forgetHostKey(of: server)
-            resultMessage = "Se olvidó la huella de \(server.host). La próxima conexión guardará la nueva."
+            resultMessage = String(localized: "Se olvidó la huella de \(server.host). La próxima conexión guardará la nueva.")
         case .installHooks:
             work {
                 let message = await hub.installClaudeHooks(on: server)
@@ -166,7 +164,7 @@ struct ServerActionsModifier: ViewModifier {
             work {
                 do {
                     try await hub.installDeviceKey(on: server)
-                    return "«\(server.name)» ya entra con la clave de este iPhone. La contraseña se ha borrado de este dispositivo."
+                    return String(localized: "«\(server.name)» ya entra con la clave de este iPhone. La contraseña se ha borrado de este dispositivo.")
                 } catch {
                     return error.userMessage
                 }

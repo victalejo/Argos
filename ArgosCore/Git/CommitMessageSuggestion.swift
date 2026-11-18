@@ -86,16 +86,16 @@ enum CommitMessageSuggestion {
     /// Mensaje limpio a partir de la salida, o el error de `claude` (salida ≠ 0).
     static func parse(_ output: String) throws -> String {
         guard let range = output.range(of: exitMarker, options: .backwards) else {
-            throw GitCommandError(message: "Claude no respondió (la conexión se cortó).")
+            throw GitCommandError(message: String(localized: "Claude no respondió (la conexión se cortó)."))
         }
         let code = Int(output[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)) ?? -1
         let text = String(output[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
         guard code == 0 else {
-            let detail = text.isEmpty ? "claude terminó con código \(code)." : String(text.suffix(600))
+            let detail = text.isEmpty ? String(localized: "claude terminó con código \(String(code)).") : String(text.suffix(600))
             throw GitCommandError(message: detail)
         }
         let message = clean(text)
-        guard !message.isEmpty else { throw GitCommandError(message: "Claude no propuso ningún mensaje.") }
+        guard !message.isEmpty else { throw GitCommandError(message: String(localized: "Claude no propuso ningún mensaje.")) }
         return message
     }
 
@@ -119,7 +119,7 @@ enum CommitMessageSuggestion {
         service: any SSHServicing, root: String, changes: [GitFileChange], hasCommits: Bool, oauthToken: String?
     ) async throws -> String {
         guard let claude = try await service.locateClaude() else {
-            throw GitCommandError(message: "Claude Code no está instalado en el servidor.")
+            throw GitCommandError(message: String(localized: "Claude Code no está instalado en el servidor."))
         }
         let command = command(claudePath: claude, root: root, changes: changes, hasCommits: hasCommits)
         try RemoteCommandLimit.check(ShellQuoting.posixShell(command))
@@ -150,7 +150,7 @@ enum CommitMessageSuggestion {
             group.cancelAll()
             return first
         }
-        guard let collected else { throw GitCommandError(message: "Claude tardó demasiado en responder.") }
+        guard let collected else { throw GitCommandError(message: String(localized: "Claude tardó demasiado en responder.")) }
         // Con la respuesta ya leída se cierra stdin: así `runAgentExec` termina y se puede
         // esperar su resultado (esperarlo con stdin abierto se quedaría colgado).
         input.finish()

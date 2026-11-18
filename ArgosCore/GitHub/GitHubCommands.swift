@@ -101,9 +101,9 @@ struct GitHubCloneRequest: Hashable, Sendable {
 
         var errorDescription: String? {
             switch self {
-            case .invalidRepository: return "Escribe el repositorio como «dueño/nombre» o pega su URL de GitHub."
-            case .invalidFolder: return "El nombre de la carpeta no puede estar vacío ni contener «/»."
-            case .missingParent: return "Elige la carpeta del servidor donde clonarlo."
+            case .invalidRepository: return String(localized: "Escribe el repositorio como «dueño/nombre» o pega su URL de GitHub.")
+            case .invalidFolder: return String(localized: "El nombre de la carpeta no puede estar vacío ni contener «/».")
+            case .missingParent: return String(localized: "Elige la carpeta del servidor donde clonarlo.")
             }
         }
     }

@@ -70,13 +70,13 @@ struct ServerSessionsSection: View {
             .background(Color.accentColor.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
             .selectionDisabled()
         case .verifying:
-            loadingRow("Verificando tmux…")
+            loadingRow(String(localized: "Verificando tmux…"))
         case .installing:
-            loadingRow("Instalando tmux…")
+            loadingRow(String(localized: "Instalando tmux…"))
         case .configuring:
-            loadingRow("Configurando tmux…")
+            loadingRow(String(localized: "Configurando tmux…"))
         case .loading:
-            loadingRow("Listando sesiones…")
+            loadingRow(String(localized: "Listando sesiones…"))
 
         case .tmuxMissing:
             VStack(alignment: .leading, spacing: 6) {
@@ -137,8 +137,7 @@ struct ServerSessionsSection: View {
                 }
                 Button("Cancelar", role: .cancel) {}
             } message: {
-                Text("Hazlo solo si sabes que el servidor se reinstaló o cambió de clave: Argos confiará "
-                     + "en la huella que presente ahora.")
+                Text(String(localized: "Hazlo solo si sabes que el servidor se reinstaló o cambió de clave: Argos confiará en la huella que presente ahora."))
             }
             .padding(12)
             .background(Color.red.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
@@ -157,7 +156,7 @@ struct ServerSessionsSection: View {
                 #if APPSTORE
                 if SSHDirectoryAccess.needsGrant(for: server, hasGrant: SSHDirectoryAccess.hasGrant()) {
                     Button(action: grantSSHDirectoryAndReconnect) {
-                        Label("Conceder acceso a ~/.ssh…", systemImage: "key")
+                        Label(String(localized: "Conceder acceso a ~/.ssh…"), systemImage: "key")
                     }
                     .font(.caption.weight(.medium))
                     .buttonStyle(.borderedProminent)
@@ -280,8 +279,7 @@ struct ServerSessionsSection: View {
             Button("Restaurar") { restoreProjectsBackup() }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text("Se sustituirá ~/.config/argos/projects.json de \(server.name) por su copia "
-                 + "projects.json.argos-backup. El archivo dañado se guarda como projects.json.argos-damaged.")
+            Text(String(localized: "Se sustituirá ~/.config/argos/projects.json de \(server.name) por su copia projects.json.argos-backup. El archivo dañado se guarda como projects.json.argos-damaged."))
         }
     }
 
@@ -323,7 +321,7 @@ struct ServerSessionsSection: View {
                 Image(systemName: "square.and.arrow.down.on.square")
                     .font(.system(size: 13))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("\(count) \(count == 1 ? "sesión sin organizar" : "sesiones sin organizar")")
+                    Text("\(count) sesiones sin organizar")
                         .font(.system(size: 11, weight: .medium))
                     Text("Convertir en proyectos")
                         .font(.system(size: 10))
@@ -417,12 +415,12 @@ struct ServerSessionsSection: View {
     /// No es seleccionable (no es una sesión).
     @ViewBuilder
     private func groupHeader(name: String, count: Int, sessionNames: [String]) -> some View {
-        let group = (name: name, count: count)
+        let group = (name: VisibleProjectListing.displayName(ofGroup: name), count: count)
         let isCollapsed = collapsedGroups.isCollapsed(serverID: server.id, group: name)
         let claude = vm.claudeActivity.activity(forSessions: sessionNames)
         Button {
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
-                collapsedGroups.toggle(serverID: server.id, group: group.name)
+                collapsedGroups.toggle(serverID: server.id, group: name)
             }
         } label: {
             HStack(spacing: 5) {

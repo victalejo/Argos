@@ -128,7 +128,7 @@ extension SSHService {
             let message = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.commandFailed(
                 exitCode: result.exitCode,
-                message: message.isEmpty ? "No se pudo abrir el proyecto." : message
+                message: message.isEmpty ? String(localized: "No se pudo abrir el proyecto.") : message
             )
         }
     }
@@ -136,7 +136,7 @@ extension SSHService {
     func stopSession(named sessionName: String) async throws {
         _ = try await runChecked(
             Self.stopSessionCommand(sessionName: sessionName),
-            failureMessage: "No se pudo detener la sesión '\(sessionName)'."
+            failureMessage: String(localized: "No se pudo detener la sesión '\(sessionName)'.")
         )
     }
 }

@@ -54,10 +54,10 @@ enum ExtraKey: String, CaseIterable, Sendable {
         case .ctrl: return "ctrl"
         case .alt: return "alt"
         case .tmuxPrefix: return "^B"
-        case .home: return "inicio"
-        case .end: return "fin"
-        case .pageUp: return "RePág"
-        case .pageDown: return "AvPág"
+        case .home: return String(localized: "inicio")
+        case .end: return String(localized: "fin")
+        case .pageUp: return String(localized: "RePág")
+        case .pageDown: return String(localized: "AvPág")
         case .pipe: return "|"
         case .tilde: return "~"
         case .slash: return "/"
@@ -82,24 +82,24 @@ enum ExtraKey: String, CaseIterable, Sendable {
     var accessibilityName: String {
         switch self {
         case .esc: return "Escape"
-        case .tab: return "Tabulador"
-        case .shiftTab: return "Mayúsculas y tabulador"
+        case .tab: return String(localized: "Tabulador")
+        case .shiftTab: return String(localized: "Mayúsculas y tabulador")
         case .ctrl: return "Control"
         case .alt: return "Alt"
-        case .tmuxPrefix: return "Prefijo de tmux"
-        case .left: return "Flecha izquierda"
-        case .up: return "Flecha arriba"
-        case .down: return "Flecha abajo"
-        case .right: return "Flecha derecha"
-        case .home: return "Inicio"
-        case .end: return "Fin"
-        case .pageUp: return "Retroceder página"
-        case .pageDown: return "Avanzar página"
-        case .pipe: return "Barra vertical"
-        case .tilde: return "Virgulilla"
-        case .slash: return "Barra"
-        case .dash: return "Guion"
-        case .hideKeyboard: return "Ocultar teclado"
+        case .tmuxPrefix: return String(localized: "Prefijo de tmux")
+        case .left: return String(localized: "Flecha izquierda")
+        case .up: return String(localized: "Flecha arriba")
+        case .down: return String(localized: "Flecha abajo")
+        case .right: return String(localized: "Flecha derecha")
+        case .home: return String(localized: "Inicio")
+        case .end: return String(localized: "Fin")
+        case .pageUp: return String(localized: "Retroceder página")
+        case .pageDown: return String(localized: "Avanzar página")
+        case .pipe: return String(localized: "Barra vertical")
+        case .tilde: return String(localized: "Virgulilla")
+        case .slash: return String(localized: "Barra")
+        case .dash: return String(localized: "Guion")
+        case .hideKeyboard: return String(localized: "Ocultar teclado")
         }
     }
 }

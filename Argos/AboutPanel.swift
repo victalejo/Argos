@@ -30,12 +30,12 @@ enum AboutPanel {
         ]
 
         body.append(NSAttributedString(
-            string: "Gestor visual de sesiones tmux remotas vía SSH, nativo de macOS.\n\n",
+            string: String(localized: "Gestor visual de sesiones tmux remotas vía SSH, nativo de macOS.\n\n"),
             attributes: base
         ))
-        body.append(link("Repositorio", url: repoURL, paragraph: center))
+        body.append(link(String(localized: "Repositorio"), url: repoURL, paragraph: center))
         body.append(NSAttributedString(string: "   ·   ", attributes: base))
-        body.append(link("Licencia Apache-2.0", url: licenseURL, paragraph: center))
+        body.append(link(String(localized: "Licencia Apache-2.0"), url: licenseURL, paragraph: center))
         return body
     }
 

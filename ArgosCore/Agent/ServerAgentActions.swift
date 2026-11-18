@@ -43,6 +43,6 @@ enum ServerAgentActions {
     static func failureMessage(_ failed: [String], inventory: ServerAgentInventory?) -> String? {
         guard !failed.isEmpty else { return nil }
         let names = failed.map { id in inventory?.agents.first { $0.sessionID == id }?.title ?? id }
-        return "No se pudieron parar: \(names.joined(separator: ", ")). Inténtalo de nuevo; si sigue, reinicia el servidor."
+        return String(localized: "No se pudieron parar: \(names.joined(separator: ", ")). Inténtalo de nuevo; si sigue, reinicia el servidor.")
     }
 }

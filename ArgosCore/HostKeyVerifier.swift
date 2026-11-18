@@ -26,10 +26,7 @@ struct HostKeyMismatchError: LocalizedError {
     let presentedFingerprint: String
 
     var errorDescription: String? {
-        "La identidad del servidor (\(endpoint)) cambió. "
-        + "Esperada \(storedFingerprint), recibida \(presentedFingerprint). "
-        + "Posible ataque MitM: conexión abortada. Si el cambio es legítimo "
-        + "(p. ej. reinstalaste el servidor), elimina su entrada del known_hosts de Argos."
+        String(localized: "La identidad del servidor (\(endpoint)) cambió. Esperada \(storedFingerprint), recibida \(presentedFingerprint). Posible ataque MitM: conexión abortada. Si el cambio es legítimo (p. ej. reinstalaste el servidor), elimina su entrada del known_hosts de Argos.")
     }
 }
 
@@ -39,9 +36,7 @@ struct HostKeyStoreUnreadableError: LocalizedError {
     let endpoint: String
 
     var errorDescription: String? {
-        "El registro de huellas de servidores de Argos está dañado, así que no se puede "
-        + "comprobar la identidad de \(endpoint). Conexión abortada. Usa «Olvidar host key» "
-        + "en este servidor para empezar un registro nuevo y volver a confiar en tus servidores."
+        String(localized: "El registro de huellas de servidores de Argos está dañado, así que no se puede comprobar la identidad de \(endpoint). Conexión abortada. Usa «Olvidar host key» en este servidor para empezar un registro nuevo y volver a confiar en tus servidores.")
     }
 }
 

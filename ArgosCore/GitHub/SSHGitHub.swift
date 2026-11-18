@@ -39,7 +39,7 @@ extension SSHService {
             throw GitCommandError.from(stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode)
         }
         guard let path = GitHubParser.clonedPath(result.stdout) else {
-            throw GitCommandError(message: "El clonado terminó pero no se encontró la carpeta.")
+            throw GitCommandError(message: String(localized: "El clonado terminó pero no se encontró la carpeta."))
         }
         return path
     }

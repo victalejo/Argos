@@ -98,9 +98,9 @@ enum AgentConnectionNotice: Equatable, Sendable {
 
     var text: String {
         switch self {
-        case .connecting: return "Conectando con el agente en el servidor…"
+        case .connecting: return String(localized: "Conectando con el agente en el servidor…")
         case .reconnecting(let attempt):
-            return attempt > 1 ? "Sin conexión con el servidor. Reintentando (\(attempt))…" : "Reconectando con el servidor…"
+            return attempt > 1 ? String(localized: "Sin conexión con el servidor. Reintentando (\(attempt))…") : String(localized: "Reconectando con el servidor…")
         }
     }
 

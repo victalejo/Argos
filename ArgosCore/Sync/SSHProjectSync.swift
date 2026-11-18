@@ -21,7 +21,7 @@ extension SSHService {
             let message = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.commandFailed(
                 exitCode: result.exitCode,
-                message: message.isEmpty ? "No se pudo listar la carpeta del proyecto." : message
+                message: message.isEmpty ? String(localized: "No se pudo listar la carpeta del proyecto.") : message
             )
         }
         return ServerFileList.parse(result.stdout)
@@ -64,7 +64,7 @@ extension SSHService {
         // En lotes (por bytes) para no exceder la longitud máxima de un argumento.
         for batch in RemoteCommandLimit.batches(safe) {
             let command = "cd \(ShellQuoting.singleQuoted(root)) && mkdir -p -- \(batch.joined(separator: " "))"
-            try await runSyncCommand(command, failureMessage: "No se pudieron crear las carpetas en el servidor.")
+            try await runSyncCommand(command, failureMessage: String(localized: "No se pudieron crear las carpetas en el servidor."))
         }
     }
 
@@ -115,14 +115,14 @@ extension SSHService {
     /// Coloca los temporales de `files` (y crea sus enlaces) con `mv -f`, por lotes.
     func placeStagedSyncFiles(root: String, files: [SyncFile]) async throws {
         for command in SyncStaging.placeCommands(root: root, files: files) {
-            try await runSyncCommand(command, failureMessage: "No se pudieron colocar los archivos subidos.")
+            try await runSyncCommand(command, failureMessage: String(localized: "No se pudieron colocar los archivos subidos."))
         }
     }
 
     /// Borra los temporales de `paths` (camino de error).
     func discardStagedSyncFiles(root: String, paths: [String]) async throws {
         for command in SyncStaging.discardCommands(root: root, paths: paths) {
-            try await runSyncCommand(command, failureMessage: "No se pudieron borrar los temporales de la subida.")
+            try await runSyncCommand(command, failureMessage: String(localized: "No se pudieron borrar los temporales de la subida."))
         }
     }
 
@@ -130,7 +130,7 @@ extension SSHService {
     func removeStaleSyncTemporaries(root: String) async throws {
         try await runSyncCommand(
             SyncStaging.staleCleanupCommand(root: root),
-            failureMessage: "No se pudieron limpiar los temporales de envíos anteriores."
+            failureMessage: String(localized: "No se pudieron limpiar los temporales de envíos anteriores.")
         )
     }
 

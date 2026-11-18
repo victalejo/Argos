@@ -56,7 +56,7 @@ extension SSHService {
     func capturePaneText(session: String) async throws -> String {
         let output = try await runChecked(
             Self.capturePaneCommand(session: session),
-            failureMessage: "No se pudo leer el contenido del terminal."
+            failureMessage: String(localized: "No se pudo leer el contenido del terminal.")
         )
         return Self.trimmingTrailingBlankLines(output)
     }
@@ -161,7 +161,7 @@ extension SSHService {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.commandFailed(
                 exitCode: result.exitCode,
-                message: detail.isEmpty ? "La detección de agentes no terminó." : String(detail.suffix(300))
+                message: detail.isEmpty ? String(localized: "La detección de agentes no terminó.") : String(detail.suffix(300))
             )
         }
         return CodingAgent.parseInstalled(result.stdout)
@@ -279,7 +279,7 @@ extension SSHService {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.commandFailed(
                 exitCode: result.exitCode,
-                message: detail.isEmpty ? "El servidor no devolvió detalles." : detail
+                message: detail.isEmpty ? String(localized: "El servidor no devolvió detalles.") : detail
             )
         }
     }

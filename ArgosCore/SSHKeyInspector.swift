@@ -33,8 +33,8 @@ enum SSHKeyAlgorithm: String, Sendable, Equatable, CaseIterable {
         case .rsa: return "RSA"
         case .ecdsa: return "ECDSA"
         case .dsa: return "DSA"
-        case .securityKey: return "de llave física (FIDO)"
-        case .unknown: return "de tipo desconocido"
+        case .securityKey: return String(localized: "de llave física (FIDO)")
+        case .unknown: return String(localized: "de tipo desconocido")
         }
     }
 
@@ -69,32 +69,32 @@ enum SSHKeyProblem: LocalizedError, Equatable, Sendable {
     case unreadable
 
     /// Recomendación común: cómo conseguir una clave que sí funciona.
-    static let ed25519Hint = "Argos admite claves Ed25519; crea una con «ssh-keygen -t ed25519»"
+    static let ed25519Hint = String(localized: "Argos admite claves Ed25519; crea una con «ssh-keygen -t ed25519»")
 
     /// Mensaje para la interfaz. `alternative` añade otra salida propia de la
     /// plataforma (p. ej. «usa "Crear clave en este iPhone"»).
     func userMessage(alternative: String? = nil) -> String {
-        let hint = alternative.map { "\(Self.ed25519Hint) o \($0)." } ?? "\(Self.ed25519Hint)."
+        let hint = alternative.map { String(localized: "\(Self.ed25519Hint) o \($0).") } ?? "\(Self.ed25519Hint)."
         switch self {
         case .unsupportedAlgorithm(let algorithm):
-            return "Es una clave \(algorithm.displayName). \(hint)"
+            return String(localized: "Es una clave \(algorithm.displayName). \(hint)")
         case .legacyPEM(.ed25519):
-            return "Es una clave Ed25519 en formato PEM antiguo. Conviértela al formato OpenSSH con «ssh-keygen -p -f <archivo>» y vuelve a importarla."
+            return String(localized: "Es una clave Ed25519 en formato PEM antiguo. Conviértela al formato OpenSSH con «ssh-keygen -p -f <archivo>» y vuelve a importarla.")
         case .legacyPEM(let algorithm):
-            let what = algorithm == .unknown ? "una clave en formato PEM antiguo" : "una clave \(algorithm.displayName) en formato PEM antiguo"
-            return "Es \(what). \(hint)"
+            let what = algorithm == .unknown ? String(localized: "una clave en formato PEM antiguo") : String(localized: "una clave \(algorithm.displayName) en formato PEM antiguo")
+            return String(localized: "Es \(what). \(hint)")
         case .puttyKey:
-            return "Es una clave de PuTTY (.ppk). Expórtala en formato OpenSSH (PuTTYgen → Conversions → Export OpenSSH key) si es Ed25519. \(hint)"
+            return String(localized: "Es una clave de PuTTY (.ppk). Expórtala en formato OpenSSH (PuTTYgen → Conversions → Export OpenSSH key) si es Ed25519. \(hint)")
         case .publicKey:
-            return "Es una clave PÚBLICA (la que va en authorized_keys del servidor). Aquí hace falta la PRIVADA (el archivo sin «.pub», que empieza por «-----BEGIN OPENSSH PRIVATE KEY-----»)."
+            return String(localized: "Es una clave PÚBLICA (la que va en authorized_keys del servidor). Aquí hace falta la PRIVADA (el archivo sin «.pub», que empieza por «-----BEGIN OPENSSH PRIVATE KEY-----»).")
         case .malformed:
-            return "La clave parece incompleta o dañada. Cópiala entera, desde «-----BEGIN OPENSSH PRIVATE KEY-----» hasta «-----END OPENSSH PRIVATE KEY-----»."
+            return String(localized: "La clave parece incompleta o dañada. Cópiala entera, desde «-----BEGIN OPENSSH PRIVATE KEY-----» hasta «-----END OPENSSH PRIVATE KEY-----».")
         case .notAKey:
-            return "El texto no es una clave privada SSH. \(hint)"
+            return String(localized: "El texto no es una clave privada SSH. \(hint)")
         case .tooLarge:
-            return "El archivo es demasiado grande para ser una clave SSH."
+            return String(localized: "El archivo es demasiado grande para ser una clave SSH.")
         case .unreadable:
-            return "No se pudo leer el archivo de la clave (no es texto)."
+            return String(localized: "No se pudo leer el archivo de la clave (no es texto).")
         }
     }
 

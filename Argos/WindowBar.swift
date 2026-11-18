@@ -30,9 +30,9 @@ struct WindowBar: View {
     /// Etiqueta de VoiceOver de una pestaña de ventana: índice, nombre, si está activa
     /// y cuántos paneles tiene (el botón se expone con texto, no solo con color/forma).
     static func accessibilityLabel(for window: TmuxWindow) -> String {
-        var parts = ["Ventana \(window.index): \(window.name)"]
-        if window.isActive { parts.append("activa") }
-        if window.paneCount > 1 { parts.append("\(window.paneCount) paneles") }
+        var parts = [String(localized: "Ventana \(window.index): \(window.name)")]
+        if window.isActive { parts.append(String(localized: "activa")) }
+        if window.paneCount > 1 { parts.append(String(localized: "\(window.paneCount) paneles")) }
         return parts.joined(separator: ", ")
     }
 

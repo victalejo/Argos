@@ -52,29 +52,29 @@ struct NotificationReadiness: Sendable, Equatable {
 
         var title: String {
             switch self {
-            case .permissionNotRequested: return "Los avisos están sin activar"
-            case .permissionDenied: return "Las notificaciones de Argos están desactivadas"
-            case .alertsOff: return "Las alertas de Argos están desactivadas"
-            case .backgroundRefreshOff: return "La actualización en segundo plano está desactivada"
-            case .backgroundRefreshRestricted: return "La actualización en segundo plano está restringida"
-            case .lowPowerMode: return "Modo de bajo consumo activado"
+            case .permissionNotRequested: return String(localized: "Los avisos están sin activar")
+            case .permissionDenied: return String(localized: "Las notificaciones de Argos están desactivadas")
+            case .alertsOff: return String(localized: "Las alertas de Argos están desactivadas")
+            case .backgroundRefreshOff: return String(localized: "La actualización en segundo plano está desactivada")
+            case .backgroundRefreshRestricted: return String(localized: "La actualización en segundo plano está restringida")
+            case .lowPowerMode: return String(localized: "Modo de bajo consumo activado")
             }
         }
 
         var detail: String {
             switch self {
             case .permissionNotRequested:
-                return "Actívalos para que Argos te avise cuando Claude termine o espere tu permiso."
+                return String(localized: "Actívalos para que Argos te avise cuando Claude termine o espere tu permiso.")
             case .permissionDenied:
-                return "Actívalas en Ajustes → Argos → Notificaciones."
+                return String(localized: "Actívalas en Ajustes → Argos → Notificaciones.")
             case .alertsOff:
-                return "Argos puede avisar, pero los avisos no se muestran. Revisa Ajustes → Argos → Notificaciones."
+                return String(localized: "Argos puede avisar, pero los avisos no se muestran. Revisa Ajustes → Argos → Notificaciones.")
             case .backgroundRefreshOff:
-                return "Con la app cerrada no se revisan tus servidores. Actívala en Ajustes → Argos → Actualización en segundo plano."
+                return String(localized: "Con la app cerrada no se revisan tus servidores. Actívala en Ajustes → Argos → Actualización en segundo plano.")
             case .backgroundRefreshRestricted:
-                return "Un perfil o el control parental la bloquean: con la app cerrada no se revisan tus servidores."
+                return String(localized: "Un perfil o el control parental la bloquean: con la app cerrada no se revisan tus servidores.")
             case .lowPowerMode:
-                return "iOS suspende la actualización en segundo plano mientras dure: los avisos solo llegan con Argos abierto."
+                return String(localized: "iOS suspende la actualización en segundo plano mientras dure: los avisos solo llegan con Argos abierto.")
             }
         }
 
@@ -109,11 +109,11 @@ struct NotificationReadiness: Sendable, Equatable {
     /// Resumen de una línea para la hoja «Avisos».
     var summary: String {
         let current = issues
-        if current.contains(where: \.blocksAllNotices) { return "Los avisos no pueden llegar." }
-        if !current.isEmpty { return "Solo llegan con Argos abierto." }
+        if current.contains(where: \.blocksAllNotices) { return String(localized: "Los avisos no pueden llegar.") }
+        if !current.isEmpty { return String(localized: "Solo llegan con Argos abierto.") }
         return permission == .quiet
-            ? "Llegan sin sonido al Centro de notificaciones, también en segundo plano cuando iOS lo permite."
-            : "Llegan con Argos abierto y, en segundo plano, cuando iOS lo permite."
+            ? String(localized: "Llegan sin sonido al Centro de notificaciones, también en segundo plano cuando iOS lo permite.")
+            : String(localized: "Llegan con Argos abierto y, en segundo plano, cuando iOS lo permite.")
     }
 
     /// Todo en orden.

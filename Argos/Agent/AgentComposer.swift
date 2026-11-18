@@ -39,8 +39,7 @@ struct AgentComposer: View {
             Button("Reanudar en «\(session.resumeConfirmationMode?.title ?? "")»", role: .destructive) { confirmResume() }
             Button("Cancelar", role: .cancel) { pendingResumeText = nil }
         } message: {
-            Text("El servidor indica que este agente usa este modo. \(session.resumeConfirmationMode?.detail ?? "") "
-                 + "Si no lo elegiste tú, detenlo y abre otra conversación.")
+            Text(String(localized: "El servidor indica que este agente usa este modo. \(session.resumeConfirmationMode?.detail ?? "") Si no lo elegiste tú, detenlo y abre otra conversación."))
         }
     }
 
@@ -105,15 +104,15 @@ struct AgentComposer: View {
 
     private var placeholder: String {
         switch session.phase {
-        case .asleep: return "En reposo: escribe para reanudarlo"
-        case .resuming: return "Reanudando…"
-        case .working, .awaitingPermission: return "Claude está trabajando…"
-        case .ready, .stopped: return "Escribe a Claude…"
+        case .asleep: return String(localized: "En reposo: escribe para reanudarlo")
+        case .resuming: return String(localized: "Reanudando…")
+        case .working, .awaitingPermission: return String(localized: "Claude está trabajando…")
+        case .ready, .stopped: return String(localized: "Escribe a Claude…")
         }
     }
 
     private var hint: String {
-        session.phase.isBusy ? "Puedes preparar tu siguiente mensaje" : "⏎ enviar · ⇧⏎ nueva línea"
+        session.phase.isBusy ? String(localized: "Puedes preparar tu siguiente mensaje") : String(localized: "⏎ enviar · ⇧⏎ nueva línea")
     }
 
     private var canSend: Bool {
@@ -167,11 +166,11 @@ private struct AgentStoppedBar: View {
     }
 
     private var text: String {
-        let suffix = onResume == nil ? " Abre otra con + o ⌘T." : ""
+        let suffix = onResume == nil ? String(localized: " Abre otra con + o ⌘T.") : ""
         switch reason {
-        case .connectionLost: return "Se perdió la conexión con el servidor." + suffix
-        case .ended: return "Esta conversación terminó." + suffix
-        case .agentStopped: return "El agente está detenido en el servidor." + suffix
+        case .connectionLost: return String(localized: "Se perdió la conexión con el servidor.") + suffix
+        case .ended: return String(localized: "Esta conversación terminó.") + suffix
+        case .agentStopped: return String(localized: "El agente está detenido en el servidor.") + suffix
         }
     }
 }

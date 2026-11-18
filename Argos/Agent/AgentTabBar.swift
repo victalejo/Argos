@@ -150,8 +150,8 @@ private struct AgentTabChip: View {
     }
 
     private var helpText: String {
-        let mode = "Permisos: \(slot.permissionMode.title)"
-        return isPersistent ? "Agente en el servidor (sigue aunque cierres Argos). \(mode)" : "Solo en esta sesión. \(mode)"
+        let mode = String(localized: "Permisos: \(slot.permissionMode.title)")
+        return isPersistent ? String(localized: "Agente en el servidor (sigue aunque cierres Argos). \(mode)") : String(localized: "Solo en esta sesión. \(mode)")
     }
 }
 

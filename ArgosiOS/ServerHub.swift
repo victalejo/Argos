@@ -311,15 +311,14 @@ final class ServerHub {
         do {
             if try await service.claudeHooksInstalled() {
                 claudeHooks[server.id] = true
-                return "El indicador ya estaba activo en \(server.name)."
+                return String(localized: "El indicador ya estaba activo en \(server.name).")
             }
             try await service.installClaudeHooks()
             claudeHooks[server.id] = true
-            return "Indicador activado en \(server.name). Reinicia las sesiones de Claude Code que ya "
-                + "estuvieran abiertas para que empiecen a reportar su estado."
+            return String(localized: "Indicador activado en \(server.name). Reinicia las sesiones de Claude Code que ya estuvieran abiertas para que empiecen a reportar su estado.")
         } catch {
             Log.ssh.error("Instalar hooks de Claude: \(error.userMessage, privacy: .public)")
-            return "No se pudo activar el indicador: \(error.userMessage)"
+            return String(localized: "No se pudo activar el indicador: \(error.userMessage)")
         }
     }
 

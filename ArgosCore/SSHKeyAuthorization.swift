@@ -123,7 +123,7 @@ extension SSHService {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw SSHServiceError.commandFailed(
                 exitCode: result.exitCode,
-                message: detail.isEmpty ? "No se pudo leer ~/.ssh/authorized_keys." : detail
+                message: detail.isEmpty ? String(localized: "No se pudo leer ~/.ssh/authorized_keys.") : detail
             )
         }
         return AuthorizedDeviceKey.parse(authorizedKeys: result.stdout)

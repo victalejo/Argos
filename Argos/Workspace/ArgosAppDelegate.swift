@@ -84,11 +84,11 @@ final class ArgosAppDelegate: NSObject, NSApplicationDelegate {
         // Desde el Dock con la app detrás, el diálogo quedaría oculto.
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "¿Salir de Argos?"
+        alert.messageText = String(localized: "¿Salir de Argos?")
         alert.informativeText = message
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Salir")
-        alert.addButton(withTitle: "Cancelar")
+        alert.addButton(withTitle: String(localized: "Salir"))
+        alert.addButton(withTitle: String(localized: "Cancelar"))
         return alert.runModal() == .alertFirstButtonReturn
     }
 }

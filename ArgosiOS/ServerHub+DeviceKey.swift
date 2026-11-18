@@ -18,11 +18,9 @@ enum DeviceKeyInstallError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notPasswordServer:
-            return "Este servidor ya usa una clave SSH."
+            return String(localized: "Este servidor ya usa una clave SSH.")
         case .keyRejected(let detail):
-            return "Se añadió la clave a ~/.ssh/authorized_keys, pero el servidor no la aceptó (\(detail)). "
-                + "Se ha retirado y se sigue usando la contraseña. Comprueba que el servidor permite "
-                + "claves (PubkeyAuthentication yes en sshd_config) y que ~/.ssh no tiene permisos de escritura para otros."
+            return String(localized: "Se añadió la clave a ~/.ssh/authorized_keys, pero el servidor no la aceptó (\(detail)). Se ha retirado y se sigue usando la contraseña. Comprueba que el servidor permite claves (PubkeyAuthentication yes en sshd_config) y que ~/.ssh no tiene permisos de escritura para otros.")
         }
     }
 }

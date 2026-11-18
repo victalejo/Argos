@@ -74,17 +74,17 @@ struct ServerResourcesView: View {
             MetricRow(
                 title: "CPU",
                 fraction: cpuUsage,
-                detail: "\(sample.cores) núcleos · carga \(loadText(sample))"
+                detail: String(localized: "\(sample.cores) núcleos · carga \(loadText(sample))")
             )
             MetricRow(
-                title: "Memoria",
+                title: String(localized: "Memoria"),
                 fraction: sample.memory.fraction,
                 detail: usageText(sample.memory)
             )
             if sample.swap.totalKB > 0 {
                 MetricRow(title: "Swap", fraction: sample.swap.fraction, detail: usageText(sample.swap))
             }
-            MetricRow(title: "Disco /", fraction: sample.disk.fraction, detail: usageText(sample.disk))
+            MetricRow(title: String(localized: "Disco /"), fraction: sample.disk.fraction, detail: usageText(sample.disk))
         }
         .padding(14)
         .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
@@ -97,7 +97,7 @@ struct ServerResourcesView: View {
     }
 
     private func usageText(_ usage: ResourceUsage) -> String {
-        "\(ResourceFormat.kilobytes(usage.usedKB)) de \(ResourceFormat.kilobytes(usage.totalKB))"
+        String(localized: "\(ResourceFormat.kilobytes(usage.usedKB)) de \(ResourceFormat.kilobytes(usage.totalKB))")
     }
 
     // MARK: - Procesos
@@ -117,7 +117,7 @@ struct ServerResourcesView: View {
                 .foregroundStyle(.secondary)
                 ForEach(processes) { process in
                     GridRow {
-                        Text("\(process.pid)").foregroundStyle(.secondary)
+                        Text(String(process.pid)).foregroundStyle(.secondary)
                         Text(process.command).lineLimit(1).truncationMode(.tail)
                         Text(process.cpuPercent.formatted(.number.precision(.fractionLength(1))))
                         Text(process.memPercent.formatted(.number.precision(.fractionLength(1))))
@@ -125,7 +125,7 @@ struct ServerResourcesView: View {
                     .font(.callout.monospacedDigit())
                 }
             }
-            Text("%CPU es el promedio desde que arrancó cada proceso (puede superar 100 con varios núcleos).")
+            Text(String(localized: "%CPU es el promedio desde que arrancó cada proceso (puede superar 100 con varios núcleos)."))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)

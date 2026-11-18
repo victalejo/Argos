@@ -69,20 +69,20 @@ struct ServerTipsSection: View {
     private var hooksTip: some View {
         tip(
             .hooks,
-            title: "Activa el indicador de Claude",
-            detail: "Así verás qué hace Claude en cada sesión y ventana, y te avisaremos cuando termine o espere tu permiso.",
+            title: String(localized: "Activa el indicador de Claude"),
+            detail: String(localized: "Así verás qué hace Claude en cada sesión y ventana, y te avisaremos cuando termine o espere tu permiso."),
             symbol: "sparkles",
-            action: "Activar…"
+            action: String(localized: "Activar…")
         ) { confirmingHooks = true }
     }
 
     private var notificationsTip: some View {
         tip(
             .notifications,
-            title: "Recibe avisos de Claude",
-            detail: "Permite las notificaciones para saber cuándo Claude termina o espera tu respuesta.",
+            title: String(localized: "Recibe avisos de Claude"),
+            detail: String(localized: "Permite las notificaciones para saber cuándo Claude termina o espera tu respuesta."),
             symbol: "bell.badge",
-            action: "Activar avisos"
+            action: String(localized: "Activar avisos")
         ) {
             Task {
                 await AgentNotifier.shared.requestAuthorizationFromUserAction()
@@ -94,10 +94,10 @@ struct ServerTipsSection: View {
     private var deviceKeyTip: some View {
         tip(
             .deviceKey,
-            title: "Entra con una clave en vez de contraseña",
-            detail: "Argos crea una clave Ed25519 en este iPhone, la añade al servidor y comprueba que funciona antes de olvidar la contraseña.",
+            title: String(localized: "Entra con una clave en vez de contraseña"),
+            detail: String(localized: "Argos crea una clave Ed25519 en este iPhone, la añade al servidor y comprueba que funciona antes de olvidar la contraseña."),
             symbol: "key.horizontal",
-            action: "Usar una clave…"
+            action: String(localized: "Usar una clave…")
         ) { confirmingKey = true }
     }
 
@@ -159,7 +159,7 @@ struct ServerTipsSection: View {
             defer { isWorking = false }
             do {
                 try await hub.installDeviceKey(on: server)
-                resultMessage = "«\(server.name)» ya entra con la clave de este iPhone. La contraseña se ha borrado de este dispositivo."
+                resultMessage = String(localized: "«\(server.name)» ya entra con la clave de este iPhone. La contraseña se ha borrado de este dispositivo.")
                 await hub.viewModel(for: hub.store.server(withID: server.id) ?? server).load()
             } catch {
                 resultMessage = error.userMessage
@@ -179,13 +179,9 @@ struct ServerTipsSection: View {
 
 /// Textos compartidos por el consejo y el menú del servidor.
 enum ClaudeHooksCopy {
-    static let explanation = "Se añadirán hooks a ~/.claude/settings.json del servidor (con copia en "
-        + "settings.json.argos-backup; tus hooks actuales se conservan). Avisan a Argos cuando Claude "
-        + "trabaja, termina o espera tu respuesta. Las sesiones de Claude ya abiertas deben reiniciarse para usarlos."
+    static let explanation = String(localized: "Se añadirán hooks a ~/.claude/settings.json del servidor (con copia en settings.json.argos-backup; tus hooks actuales se conservan). Avisan a Argos cuando Claude trabaja, termina o espera tu respuesta. Las sesiones de Claude ya abiertas deben reiniciarse para usarlos.")
 }
 
 enum DeviceKeyCopy {
-    static let explanation = "Se crea una clave Ed25519 en este dispositivo, se añade a ~/.ssh/authorized_keys "
-        + "del servidor y se prueba. Solo si funciona, el servidor pasa a usarla y se borra la contraseña de "
-        + "este dispositivo. La clave aparece en «Dispositivos autorizados» del Mac por si quieres revocarla."
+    static let explanation = String(localized: "Se crea una clave Ed25519 en este dispositivo, se añade a ~/.ssh/authorized_keys del servidor y se prueba. Solo si funciona, el servidor pasa a usarla y se borra la contraseña de este dispositivo. La clave aparece en «Dispositivos autorizados» del Mac por si quieres revocarla.")
 }

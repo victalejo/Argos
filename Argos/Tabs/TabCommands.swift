@@ -55,7 +55,7 @@ struct TabCommands: Commands {
         // Menú propio (en macOS reciente no hay menú Archivo y los grupos de colocación
         // estándar no siempre aparecen). Va antes de «Ventana», así su ⌘W gana.
         CommandMenu("Pestañas") {
-            Button(actions?.newTitle ?? "Nueva ventana") { actions?.newTab() }
+            Button(actions?.newTitle ?? String(localized: "Nueva ventana")) { actions?.newTab() }
                 .keyboardShortcut("t", modifiers: .command)
                 .disabled(actions == nil)
             Menu("Iniciar un agente") {
@@ -66,7 +66,7 @@ struct TabCommands: Commands {
                 }
             }
             .disabled(actions?.newAgent == nil)
-            Button(actions?.closeTitle ?? "Cerrar") {
+            Button(actions?.closeTitle ?? String(localized: "Cerrar")) {
                 if let actions {
                     actions.closeTab()
                 } else {
@@ -99,6 +99,6 @@ struct TabCommands: Commands {
         guard let installed = actions?.installedAgents, !installed.contains(agent) else {
             return agent.displayName
         }
-        return "\(agent.displayName) (no instalado)"
+        return String(localized: "\(agent.displayName) (no instalado)")
     }
 }

@@ -103,9 +103,9 @@ struct WorktreesView: View {
                     .accessibilityHidden(true)
                 Text(worktree.displayBranch).font(.body.weight(.medium)).lineLimit(1)
                 if worktree.isMain { tag("principal", .accentColor) }
-                if model.isRunning(worktree) { tag("en marcha", .green) }
+                if model.isRunning(worktree) { tag(String(localized: "en marcha"), .green) }
                 if let changed = worktree.changedCount, changed > 0 { tag("✎\(changed)", .orange) }
-                if worktree.isPrunable { tag("carpeta perdida", .red) }
+                if worktree.isPrunable { tag(String(localized: "carpeta perdida"), .red) }
             }
             Text(project.map { "\($0.name) · \(worktree.path)" } ?? worktree.path)
                 .font(.caption.monospaced()).foregroundStyle(.secondary)
@@ -148,7 +148,7 @@ struct WorktreesView: View {
                     .plainCodeInput()
                 Picker("Desde", selection: $model.base) {
                     ForEach(model.baseOptions, id: \.self) { option in
-                        Text(option == "HEAD" ? "La rama actual (HEAD)" : option).tag(option)
+                        Text(option == "HEAD" ? String(localized: "La rama actual (HEAD)") : option).tag(option)
                     }
                 }
             } else if model.freeBranches.isEmpty {
@@ -181,14 +181,13 @@ struct WorktreesView: View {
     }
 
     private var removalTitle: String {
-        pendingRemoval.map { "¿Quitar el worktree de \($0.displayBranch)?" } ?? ""
+        pendingRemoval.map { String(localized: "¿Quitar el worktree de \($0.displayBranch)?") } ?? ""
     }
 
     private func removalMessage(_ worktree: GitWorktree) -> String {
-        var parts = ["Se borra su carpeta del servidor y su proyecto de Argos; si su sesión corre, se detiene. "
-                     + "La rama y sus commits se conservan."]
+        var parts = [String(localized: "Se borra su carpeta del servidor y su proyecto de Argos; si su sesión corre, se detiene. La rama y sus commits se conservan.")]
         if let changed = worktree.changedCount, changed > 0 {
-            parts.append("Tiene \(changed) archivo\(changed == 1 ? "" : "s") sin confirmar que se perderán.")
+            parts.append(String(localized: "Tiene \(changed) archivos sin confirmar que se perderán."))
         }
         return parts.joined(separator: "\n\n")
     }

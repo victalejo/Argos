@@ -25,11 +25,11 @@ struct WelcomeWorkspaceView: View {
                         .multilineTextAlignment(.center)
                 }
                 VStack(spacing: 0) {
-                    feature("Tu terminal, siempre a mano", detail: "Abre sesiones y cambia entre ventanas.", icon: "terminal")
+                    feature(String(localized: "Tu terminal, siempre a mano"), detail: String(localized: "Abre sesiones y cambia entre ventanas."), icon: "terminal")
                     Divider().padding(.leading, 62)
-                    feature("Explora tus archivos", detail: "Consulta código, imágenes y documentos.", icon: "folder")
+                    feature(String(localized: "Explora tus archivos"), detail: String(localized: "Consulta código, imágenes y documentos."), icon: "folder")
                     Divider().padding(.leading, 62)
-                    feature("Dale una tarea a tu agente", detail: "Trabaja con Claude Code en cada proyecto.", icon: "sparkles")
+                    feature(String(localized: "Dale una tarea a tu agente"), detail: String(localized: "Trabaja con Claude Code en cada proyecto."), icon: "sparkles")
                 }
                 .background(ArgosTheme.surface, in: RoundedRectangle(cornerRadius: 18))
                 .overlay { RoundedRectangle(cornerRadius: 18).strokeBorder(ArgosTheme.border) }

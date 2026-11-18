@@ -64,7 +64,7 @@ enum ProjectShortcutIndex {
             let items = projects.map { project, serverName in
                 let attributes = CSSearchableItemAttributeSet(contentType: .content)
                 attributes.title = project.displayName
-                attributes.contentDescription = "Proyecto de Argos en \(serverName)"
+                attributes.contentDescription = String(localized: "Proyecto de Argos en \(serverName)")
                 attributes.keywords = ["Argos", project.name, serverName]
                 return CSSearchableItem(uniqueIdentifier: project.id, domainIdentifier: spotlightDomain, attributeSet: attributes)
             }

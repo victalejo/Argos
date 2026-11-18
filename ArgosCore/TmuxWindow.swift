@@ -82,15 +82,15 @@ enum WindowColor: String, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .red: return "Rojo"
-        case .orange: return "Naranja"
-        case .yellow: return "Amarillo"
-        case .green: return "Verde"
-        case .mint: return "Menta"
-        case .blue: return "Azul"
-        case .purple: return "Morado"
-        case .pink: return "Rosa"
-        case .gray: return "Gris"
+        case .red: return String(localized: "Rojo")
+        case .orange: return String(localized: "Naranja")
+        case .yellow: return String(localized: "Amarillo")
+        case .green: return String(localized: "Verde")
+        case .mint: return String(localized: "Menta")
+        case .blue: return String(localized: "Azul")
+        case .purple: return String(localized: "Morado")
+        case .pink: return String(localized: "Rosa")
+        case .gray: return String(localized: "Gris")
         }
     }
 }
@@ -107,13 +107,11 @@ enum WindowNameValidator {
         var errorDescription: String? {
             switch self {
             case .empty:
-                return "El nombre no puede estar vacío."
+                return String(localized: "El nombre no puede estar vacío.")
             case .controlCharacter:
-                return "El nombre no puede contener saltos de línea, tabuladores "
-                     + "ni otros caracteres de control."
+                return String(localized: "El nombre no puede contener saltos de línea, tabuladores ni otros caracteres de control.")
             case .leadingDash:
-                return "El nombre no puede empezar por '-' "
-                     + "(tmux lo interpretaría como una opción)."
+                return String(localized: "El nombre no puede empezar por '-' (tmux lo interpretaría como una opción).")
             }
         }
     }

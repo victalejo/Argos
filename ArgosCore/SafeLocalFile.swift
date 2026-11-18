@@ -17,7 +17,7 @@ enum SafeLocalFile {
         case outsideDestination
 
         var errorDescription: String? {
-            "El nombre del archivo que envió el servidor no es válido para guardarlo en este dispositivo."
+            String(localized: "El nombre del archivo que envió el servidor no es válido para guardarlo en este dispositivo.")
         }
     }
 

@@ -90,10 +90,10 @@ private struct AppearanceSettingsView: View {
                     Text("El tema del terminal se configura por separado en la pestaña Terminal.")
                 }
                 Section("Muévete más rápido") {
-                    shortcut("Buscar una sesión", keys: "⌘ K")
-                    shortcut("Buscar proyectos", keys: "⌘ F")
-                    shortcut("Crear un proyecto", keys: "⌘ N")
-                    shortcut("Buscar archivos", keys: "⌘ P")
+                    shortcut(String(localized: "Buscar una sesión"), keys: "⌘ K")
+                    shortcut(String(localized: "Buscar proyectos"), keys: "⌘ F")
+                    shortcut(String(localized: "Crear un proyecto"), keys: "⌘ N")
+                    shortcut(String(localized: "Buscar archivos"), keys: "⌘ P")
                 }
                 Section {
                     Label("Las animaciones respetan Reducir movimiento de macOS.", systemImage: "accessibility")

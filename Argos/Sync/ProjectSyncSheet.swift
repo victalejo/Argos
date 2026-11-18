@@ -191,7 +191,7 @@ private struct ProjectSyncJobView: View {
             summaryRow(files.isEmpty ? "folder" : "doc.on.doc", SyncSummaryText.toMac(
                 fileCount: files.count, kilobytes: ResourceFormat.kilobytes(Int(bytes / 1024))
             ))
-            summaryRow("nosign", "Sin node_modules, builds ni cachés (se regeneran en el Mac). Incluye .git y .env.")
+            summaryRow("nosign", String(localized: "Sin node_modules, builds ni cachés (se regeneran en el Mac). Incluye .git y .env."))
             HStack(spacing: 8) {
                 Image(systemName: "folder").foregroundStyle(.secondary).frame(width: 18)
                 if let destination {
@@ -220,16 +220,16 @@ private struct ProjectSyncJobView: View {
     private func toServerSummary(_ plan: SyncPlan) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             if plan.isEmpty && plan.keptServerChanges.isEmpty {
-                summaryRow("checkmark.circle", "No hay cambios: el Mac y el servidor están iguales.")
+                summaryRow("checkmark.circle", String(localized: "No hay cambios: el Mac y el servidor están iguales."))
             }
             if !plan.uploads.isEmpty {
-                summaryRow("arrow.up.doc", "\(plan.uploads.count) archivos nuevos o modificados se subirán")
+                summaryRow("arrow.up.doc", String(localized: "\(plan.uploads.count) archivos nuevos o modificados se subirán"))
             }
             if !plan.deletions.isEmpty {
-                summaryRow("trash", "\(plan.deletions.count) archivos borrados en el Mac se borrarán en el servidor")
+                summaryRow("trash", String(localized: "\(plan.deletions.count) archivos borrados en el Mac se borrarán en el servidor"))
             }
             if !plan.keptServerChanges.isEmpty {
-                summaryRow("server.rack", "\(plan.keptServerChanges.count) cambios hechos en el servidor mientras tanto se conservan")
+                summaryRow("server.rack", String(localized: "\(plan.keptServerChanges.count) cambios hechos en el servidor mientras tanto se conservan"))
             }
             if !plan.conflicts.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -272,9 +272,9 @@ private struct ProjectSyncJobView: View {
 
     private func describe(_ kind: SyncConflict.Kind) -> String {
         switch kind {
-        case .bothModified: return "modificado en ambos"
-        case .deletedOnMacModifiedOnServer: return "borrado en el Mac, modificado en el servidor"
-        case .modifiedOnMacDeletedOnServer: return "modificado en el Mac, borrado en el servidor"
+        case .bothModified: return String(localized: "modificado en ambos")
+        case .deletedOnMacModifiedOnServer: return String(localized: "borrado en el Mac, modificado en el servidor")
+        case .modifiedOnMacDeletedOnServer: return String(localized: "modificado en el Mac, borrado en el servidor")
         }
     }
 

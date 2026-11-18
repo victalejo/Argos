@@ -52,15 +52,15 @@ struct QuitWorkInProgress: Equatable, Sendable {
         guard needsConfirmation else { return nil }
         var parts: [String] = []
         if busyAgents > 0 {
-            parts.append(busyAgents == 1
-                ? "un agente de Claude está trabajando"
-                : "\(busyAgents) agentes de Claude están trabajando")
+            parts.append(String(localized: "\(busyAgents) agentes de Claude están trabajando"))
         }
         if runningSyncs > 0 {
-            parts.append(runningSyncs == 1 ? "hay un envío en curso" : "hay \(runningSyncs) envíos en curso")
+            parts.append(String(localized: "hay \(runningSyncs) envíos en curso"))
         }
-        let summary = parts.joined(separator: " y ")
-        return summary.prefix(1).uppercased() + summary.dropFirst()
-            + ". Si sales, se detendrán. Las sesiones de tmux del servidor siguen corriendo."
+        let joined = parts.count == 2
+            ? String(localized: "\(parts[0]) y \(parts[1])")
+            : parts.joined()
+        let summary = joined.prefix(1).uppercased() + joined.dropFirst()
+        return String(localized: "\(summary). Si sales, se detendrán. Las sesiones de tmux del servidor siguen corriendo.")
     }
 }

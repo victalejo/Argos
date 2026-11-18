@@ -162,9 +162,9 @@ final class TerminalKeyBar: UIInputView {
         }
         button.configuration = config
         button.accessibilityValue = switch latch {
-        case .off: "Desactivado"
-        case .once: "Para la próxima tecla"
-        case .locked: "Fijado"
+        case .off: String(localized: "Desactivado")
+        case .once: String(localized: "Para la próxima tecla")
+        case .locked: String(localized: "Fijado")
         }
     }
 

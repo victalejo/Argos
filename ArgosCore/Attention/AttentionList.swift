@@ -89,7 +89,7 @@ enum AttentionList {
                 kind: .claudeWaiting,
                 serverID: server.serverID,
                 title: displayName(pane.session, projects: server.projects),
-                detail: "Ventana \(pane.window) · necesita permiso o una respuesta",
+                detail: String(localized: "Ventana \(pane.window) · necesita permiso o una respuesta"),
                 destination: .terminal(handle, window: pane.window)
             )
         }
@@ -101,7 +101,7 @@ enum AttentionList {
             kind: .agentPermission,
             serverID: agent.handle.serverID,
             title: agent.conversation,
-            detail: "Pide permiso para usar \(agent.toolName)",
+            detail: String(localized: "Pide permiso para usar \(agent.toolName)"),
             destination: .agent(agent.handle, tabID: agent.tabID)
         )
     }
@@ -113,11 +113,11 @@ enum AttentionList {
         switch notice.kind {
         case .permission(let tool):
             kind = .agentPermission
-            detail = "Agente en el servidor · pide permiso para usar \(tool)"
+            detail = String(localized: "Agente en el servidor · pide permiso para usar \(tool)")
         case .finished(let summary, let isError):
             kind = .claudeDone
-            let text = summary.map { String($0.prefix(120)) } ?? (isError ? "terminó con un error" : "terminó")
-            detail = "Agente en el servidor · \(text)"
+            let text = summary.map { String($0.prefix(120)) } ?? (isError ? String(localized: "terminó con un error") : String(localized: "terminó"))
+            detail = String(localized: "Agente en el servidor · \(text)")
         }
         return AttentionItem(
             id: notice.id, kind: kind, serverID: notice.serverID,
@@ -138,12 +138,12 @@ enum AttentionList {
     }
 
     private static func portItem(_ port: PortInput) -> AttentionItem {
-        let note = port.request.note.isEmpty ? "Claude quiere mostrártelo en este dispositivo" : port.request.note
+        let note = port.request.note.isEmpty ? String(localized: "Claude quiere mostrártelo en este dispositivo") : port.request.note
         return AttentionItem(
             id: "port|\(port.serverID)|\(port.request.port)",
             kind: .portRequest,
             serverID: port.serverID,
-            title: "Puerto \(port.request.port)",
+            title: String(localized: "Puerto \(String(port.request.port))"),
             detail: note,
             destination: .server(port.serverID)
         )
@@ -166,7 +166,7 @@ enum AttentionList {
             kind: .claudeDone,
             serverID: done.serverID,
             title: displayName(done.session, projects: projects),
-            detail: "Ventana \(done.window) · terminó",
+            detail: String(localized: "Ventana \(done.window) · terminó"),
             destination: .terminal(SessionHandle(serverID: done.serverID, sessionID: done.session), window: done.window)
         )
     }

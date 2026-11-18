@@ -163,7 +163,7 @@ struct ServerAgentsView: View {
             let failed = try await action()
             if !failed.isEmpty {
                 let names = failed.map { id in inventory?.agents.first { $0.sessionID == id }?.title ?? id }
-                actionError = "No se pudieron parar: \(names.joined(separator: ", ")). Inténtalo de nuevo; si sigue, reinicia el servidor."
+                actionError = String(localized: "No se pudieron parar: \(names.joined(separator: ", ")). Inténtalo de nuevo; si sigue, reinicia el servidor.")
             }
         } catch {
             actionError = error.userMessage
@@ -205,12 +205,12 @@ private struct ServerAgentRow: View {
     private var detail: String {
         var parts: [String] = []
         if case .persistent(let meta) = agent.kind { parts.append(ProjectRowPath.short(meta.workingDirectory)) }
-        if agent.hasPendingPermission { parts.append("espera tu permiso") }
+        if agent.hasPendingPermission { parts.append(String(localized: "espera tu permiso")) }
         if let idle = agent.idleSeconds, agent.isAlive {
-            parts.append("inactivo \(Duration.seconds(idle).formatted(.units(allowed: [.days, .hours, .minutes], width: .narrow, maximumUnitCount: 2)))")
+            parts.append(String(localized: "inactivo \(Duration.seconds(idle).formatted(.units(allowed: [.days, .hours, .minutes], width: .narrow, maximumUnitCount: 2)))"))
         }
         if case .persistent(let meta) = agent.kind, !agent.isAlive {
-            parts.append(meta.isHibernated ? "en reposo" : "detenido")
+            parts.append(meta.isHibernated ? String(localized: "en reposo") : String(localized: "detenido"))
         }
         return parts.joined(separator: " · ")
     }

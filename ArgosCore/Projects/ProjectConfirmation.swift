@@ -31,31 +31,29 @@ enum ProjectConfirmation: Identifiable {
 
     var title: String {
         switch self {
-        case .stop(_, let project): return "¿Detener '\(project.name)'?"
-        case .remove(_, let project): return "¿Quitar el proyecto '\(project.name)'?"
+        case .stop(_, let project): return String(localized: "¿Detener '\(project.name)'?")
+        case .remove(_, let project): return String(localized: "¿Quitar el proyecto '\(project.name)'?")
         case .stopBackground(_, let projects):
-            return "¿Detener \(projects.count) \(projects.count == 1 ? "proyecto" : "proyectos") en segundo plano?"
+            return String(localized: "¿Detener \(projects.count) proyectos en segundo plano?")
         }
     }
 
     var message: String {
         switch self {
         case .stop:
-            return "Se cerrará su sesión tmux y todo lo que corra en ella (Claude, servidores, builds). "
-                + "El proyecto se conserva: al abrirlo de nuevo arranca en la misma carpeta."
+            return String(localized: "Se cerrará su sesión tmux y todo lo que corra en ella (Claude, servidores, builds). El proyecto se conserva: al abrirlo de nuevo arranca en la misma carpeta.")
         case .remove:
-            return "Solo se quita de Argos. Los archivos del servidor no se tocan y, si su sesión "
-                + "está corriendo, sigue viva como sesión suelta."
+            return String(localized: "Solo se quita de Argos. Los archivos del servidor no se tocan y, si su sesión está corriendo, sigue viva como sesión suelta.")
         case .stopBackground(_, let projects):
             return projects.map(\.name).sorted().joined(separator: ", ")
-                + "\n\nSe cerrarán sus sesiones para liberar memoria; los proyectos se conservan."
+                + String(localized: "\n\nSe cerrarán sus sesiones para liberar memoria; los proyectos se conservan.")
         }
     }
 
     var actionLabel: String {
         switch self {
-        case .stop, .stopBackground: return "Detener"
-        case .remove: return "Quitar"
+        case .stop, .stopBackground: return String(localized: "Detener")
+        case .remove: return String(localized: "Quitar")
         }
     }
 }

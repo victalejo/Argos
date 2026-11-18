@@ -55,7 +55,7 @@ struct TerminalInputActions: ViewModifier {
                 let ext = item.supportedContentTypes.first?.preferredFilenameExtension
                 controller.attach(data: data, fileName: TerminalAttachment.photoFileName(fileExtension: ext))
             } catch {
-                controller.show(.failed("No se pudo leer la foto: \(error.userMessage)"))
+                controller.show(.failed(String(localized: "No se pudo leer la foto: \(error.userMessage)")))
             }
         }
     }
@@ -74,7 +74,7 @@ struct TerminalInputActions: ViewModifier {
                 controller.attach(data: try Data(contentsOf: url), fileName: url.lastPathComponent)
             }
         } catch {
-            controller.show(.failed("No se pudo leer el archivo: \(error.userMessage)"))
+            controller.show(.failed(String(localized: "No se pudo leer el archivo: \(error.userMessage)")))
         }
     }
 }

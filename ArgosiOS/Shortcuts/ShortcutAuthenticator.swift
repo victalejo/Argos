@@ -23,7 +23,7 @@ enum ShortcutAuthenticator {
     ) async throws {
         let enabled = defaults.bool(forKey: AppLockPolicy.enabledKey)
         guard AppLockPolicy.shortcutRequiresAuthentication(enabled: enabled) else { return }
-        let outcome = await authenticate(reason: "Desbloquea Argos para mandar el encargo a Claude.")
+        let outcome = await authenticate(reason: String(localized: "Desbloquea Argos para mandar el encargo a Claude."))
         switch AppLockPolicy.shortcutDecision(enabled: enabled, authentication: outcome) {
         case .proceed:
             return
@@ -33,7 +33,7 @@ enum ShortcutAuthenticator {
             // Sin continuación: la app se abre y su propio bloqueo pide la cara; el encargo
             // NO se manda (el usuario vuelve a lanzar el atajo ya desbloqueado).
             throw intent.needsToContinueInForegroundError(
-                IntentDialog(stringLiteral: "Argos está bloqueado. Ábrelo para desbloquearlo y vuelve a lanzar el atajo.")
+                IntentDialog(stringLiteral: String(localized: "Argos está bloqueado. Ábrelo para desbloquearlo y vuelve a lanzar el atajo."))
             )
         }
     }

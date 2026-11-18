@@ -24,8 +24,7 @@ struct ImportProjectsSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Importar sesiones como proyectos")
                     .font(.title2.weight(.semibold))
-                Text("Cada sesión de \(server.name) se guarda como proyecto anclado a la carpeta en la que está. "
-                     + "Las sesiones siguen corriendo; solo dejan de ser \"sueltas\".")
+                Text(String(localized: "Cada sesión de \(server.name) se guarda como proyecto anclado a la carpeta en la que está. Las sesiones siguen corriendo; solo dejan de ser \"sueltas\"."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

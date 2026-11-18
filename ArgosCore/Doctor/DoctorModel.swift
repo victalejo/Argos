@@ -17,8 +17,7 @@ enum DoctorError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .incompleteOutput:
-            return "El servidor no devolvió una comprobación completa. Vuelve a intentarlo; si se repite, "
-                 + "revisa que el servidor tenga `sh` y responda con normalidad."
+            return String(localized: "El servidor no devolvió una comprobación completa. Vuelve a intentarlo; si se repite, revisa que el servidor tenga `sh` y responda con normalidad.")
         }
     }
 }

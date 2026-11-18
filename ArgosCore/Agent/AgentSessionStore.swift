@@ -31,7 +31,7 @@ struct AgentTab: Identifiable {
 
     /// Título: el inicio del primer mensaje del usuario, o "Conversación N".
     @MainActor var title: String {
-        AgentTab.title(items: session.state.items) ?? "Conversación \(number)"
+        AgentTab.title(items: session.state.items) ?? String(localized: "Conversación \(number)")
     }
 
     static func title(items: [AgentTranscriptItem]) -> String? {

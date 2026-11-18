@@ -21,9 +21,9 @@ enum TerminalTheme: String, CaseIterable, Identifiable, Sendable {
 
     var label: String {
         switch self {
-        case .system: return "Sistema"
-        case .dark: return "Oscuro"
-        case .light: return "Claro"
+        case .system: return String(localized: "Sistema")
+        case .dark: return String(localized: "Oscuro")
+        case .light: return String(localized: "Claro")
         case .solarizedDark: return "Solarized Dark"
         }
     }

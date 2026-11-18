@@ -14,8 +14,8 @@ enum FileDownloads {
     /// Pide destino (por defecto Descargas, con el mismo nombre) y descarga.
     static func start(_ entry: RemoteFileEntry, model: FileBrowserModel) {
         let panel = NSSavePanel()
-        panel.title = "Descargar «\(entry.name)» al Mac"
-        panel.prompt = "Descargar"
+        panel.title = String(localized: "Descargar «\(entry.name)» al Mac")
+        panel.prompt = String(localized: "Descargar")
         panel.nameFieldStringValue = entry.name
         panel.canCreateDirectories = true
         panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first

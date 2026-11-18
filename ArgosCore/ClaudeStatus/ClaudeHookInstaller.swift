@@ -20,8 +20,7 @@ enum ClaudeHookError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidSettings:
-            return "~/.claude/settings.json del servidor no es un JSON válido; no se modificó. "
-                 + "Corrígelo y vuelve a intentarlo."
+            return String(localized: "~/.claude/settings.json del servidor no es un JSON válido; no se modificó. Corrígelo y vuelve a intentarlo.")
         }
     }
 }

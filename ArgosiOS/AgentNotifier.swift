@@ -138,9 +138,9 @@ final class AgentNotifier {
         for transition in transitions {
             let content = UNMutableNotificationContent()
             content.title = transition.activity.label
-            content.subtitle = "\(transition.session) · ventana \(transition.window) · \(server.name)"
+            content.subtitle = String(localized: "\(transition.session) · ventana \(transition.window) · \(server.name)")
             content.body = transition.activity == .waiting
-                ? "Necesita permiso o una respuesta para continuar."
+                ? String(localized: "Necesita permiso o una respuesta para continuar.")
                 : ClaudeDoneMessage.body(changedFiles: nil)
             content.sound = .default
             content.threadIdentifier = Self.claudeThread(serverID: server.id, session: transition.session)

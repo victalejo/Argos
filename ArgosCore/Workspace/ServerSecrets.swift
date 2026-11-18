@@ -50,7 +50,6 @@ struct ServerNoLongerExistsError: LocalizedError, Equatable {
     let name: String
 
     var errorDescription: String? {
-        "«\(name)» se eliminó en otro dispositivo mientras lo editabas; no se ha vuelto a crear. "
-            + "Si lo quieres, añádelo de nuevo."
+        String(localized: "«\(name)» se eliminó en otro dispositivo mientras lo editabas; no se ha vuelto a crear. Si lo quieres, añádelo de nuevo.")
     }
 }

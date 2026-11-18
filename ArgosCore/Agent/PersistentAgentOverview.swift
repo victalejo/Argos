@@ -23,11 +23,11 @@ enum PersistentAgentActivity: Equatable, Sendable {
 
     var title: String {
         switch self {
-        case .working: return "Trabajando"
-        case .waitingPermission: return "Espera tu permiso"
-        case .idle: return "Esperando"
-        case .asleep: return "En reposo"
-        case .stopped: return "Detenido"
+        case .working: return String(localized: "Trabajando")
+        case .waitingPermission: return String(localized: "Espera tu permiso")
+        case .idle: return String(localized: "Esperando")
+        case .asleep: return String(localized: "En reposo")
+        case .stopped: return String(localized: "Detenido")
         }
     }
 

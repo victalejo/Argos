@@ -66,9 +66,9 @@ final class ClaudeActivityNotifier: NSObject {
         for transition in pending {
             let content = UNMutableNotificationContent()
             content.title = transition.activity.label
-            content.subtitle = "\(transition.session) · ventana \(transition.window) · \(serverName)"
+            content.subtitle = String(localized: "\(transition.session) · ventana \(transition.window) · \(serverName)")
             content.body = transition.activity == .waiting
-                ? "Necesita permiso o una respuesta para continuar."
+                ? String(localized: "Necesita permiso o una respuesta para continuar.")
                 : ClaudeDoneMessage.body(changedFiles: gitSummary(transition.session)?.changedCount)
             content.sound = .default
             content.threadIdentifier = "claude-\(serverName)-\(transition.session)"

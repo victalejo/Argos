@@ -79,7 +79,7 @@ enum ShortcutAgentPlanner {
 
     /// Texto del modo para la confirmación.
     static func modeTitle(_ mode: ClaudeAgentCommand.PermissionMode?) -> String {
-        mode?.title ?? "Desconocido"
+        mode?.title ?? String(localized: "Desconocido")
     }
 
     /// Motivo para NO arrancar un `claude` (memoria o tope), o `nil` si se puede. A
@@ -89,7 +89,7 @@ enum ShortcutAgentPlanner {
         guard case .warning(let title, let message) = AgentLaunchGuard.assess(
             freeMemoryKB: freeMemoryKB, liveAgents: liveAgents
         ) else { return nil }
-        return "\(title). \(message) El atajo no ha arrancado otro agente."
+        return String(localized: "\(title). \(message) El atajo no ha arrancado otro agente.")
     }
 
     /// Las rutas se comparan sin la barra final («/srv/app/» es «/srv/app»).
@@ -144,29 +144,29 @@ enum ShortcutError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .emptyTask:
-            return "El encargo está vacío: escribe qué quieres que haga Claude."
+            return String(localized: "El encargo está vacío: escribe qué quieres que haga Claude.")
         case .taskTooLong(let limit):
-            return "El encargo es demasiado largo (máximo \(limit) caracteres)."
+            return String(localized: "El encargo es demasiado largo (máximo \(String(limit)) caracteres).")
         case .serverNotFound:
-            return "Ese servidor ya no está en Argos. Elige otro proyecto."
+            return String(localized: "Ese servidor ya no está en Argos. Elige otro proyecto.")
         case .projectNotFound:
-            return "No se encontró ese proyecto. Abre Argos y entra en su servidor para actualizar la lista."
+            return String(localized: "No se encontró ese proyecto. Abre Argos y entra en su servidor para actualizar la lista.")
         case .timedOut:
-            return "El servidor no respondió a tiempo. Comprueba la conexión o abre Argos para ver qué pasa."
+            return String(localized: "El servidor no respondió a tiempo. Comprueba la conexión o abre Argos para ver qué pasa.")
         case .claudeMissing:
-            return "Claude Code no está instalado en el servidor. Instálalo desde Argos."
+            return String(localized: "Claude Code no está instalado en el servidor. Instálalo desde Argos.")
         case .claudeLoggedOut:
-            return "El servidor no tiene sesión de Claude. Conéctala desde Argos (Agentes → Conectar Claude)."
+            return String(localized: "El servidor no tiene sesión de Claude. Conéctala desde Argos (Agentes → Conectar Claude).")
         case .capacity(let message):
             return message
         case .sendFailed(let message):
-            return "No se pudo enviar el encargo: \(message)"
+            return String(localized: "No se pudo enviar el encargo: \(message)")
         case .agentChanged:
-            return "El agente de este proyecto cambió mientras se preparaba el envío. Vuelve a ejecutar el atajo."
+            return String(localized: "El agente de este proyecto cambió mientras se preparaba el envío. Vuelve a ejecutar el atajo.")
         case .permissionModeChanged:
-            return "El modo de permisos de este agente cambió; ábrelo en Argos para confirmarlo."
+            return String(localized: "El modo de permisos de este agente cambió; ábrelo en Argos para confirmarlo.")
         case .appLocked:
-            return "Argos está bloqueado. Desbloquéalo para usar este atajo."
+            return String(localized: "Argos está bloqueado. Desbloquéalo para usar este atajo.")
         }
     }
 }

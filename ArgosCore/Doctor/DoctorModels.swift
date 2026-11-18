@@ -29,10 +29,10 @@ enum DoctorStatus: String, Sendable, Equatable {
     /// Etiqueta corta para el texto del informe y la accesibilidad.
     var label: String {
         switch self {
-        case .ok: return "Correcto"
-        case .warning: return "Aviso"
-        case .problem: return "Problema"
-        case .unknown: return "No se pudo comprobar"
+        case .ok: return String(localized: "Correcto")
+        case .warning: return String(localized: "Aviso")
+        case .problem: return String(localized: "Problema")
+        case .unknown: return String(localized: "No se pudo comprobar")
         }
     }
 }
@@ -88,20 +88,22 @@ struct DoctorResult: Equatable, Sendable {
 
     var summary: String {
         switch (problemCount, warningCount) {
-        case (0, 0): return "Todo en orden."
-        case (0, let w): return w == 1 ? "1 aviso." : "\(w) avisos."
-        case (let p, 0): return p == 1 ? "1 problema." : "\(p) problemas."
+        case (0, 0): return String(localized: "Todo en orden.")
+        case (0, let w): return String(localized: "\(w) avisos.")
+        case (let p, 0): return String(localized: "\(p) problemas.")
         case (let p, let w):
-            return "\(p == 1 ? "1 problema" : "\(p) problemas") y \(w == 1 ? "1 aviso" : "\(w) avisos")."
+            let problems = String(localized: "\(p) problemas")
+            let warnings = String(localized: "\(w) avisos")
+            return String(localized: "\(problems) y \(warnings).")
         }
     }
 
     /// Texto plano para pegar en un issue (`serverLabel` ya viene redactado si hace falta).
     func plainText(serverLabel: String) -> String {
-        var lines = ["Doctor del servidor: \(serverLabel)", "Resumen: \(summary)"]
+        var lines = [String(localized: "Doctor del servidor: \(serverLabel)"), String(localized: "Resumen: \(summary)")]
         for check in checks {
             lines.append("[\(check.status.label)] \(check.title): \(check.detail)")
-            if case .copyCommand(let command) = check.fix { lines.append("    Arreglo: \(command)") }
+            if case .copyCommand(let command) = check.fix { lines.append(String(localized: "    Arreglo: \(command)")) }
         }
         return lines.joined(separator: "\n")
     }

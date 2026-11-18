@@ -92,7 +92,7 @@ final class PortForwardsModel {
     @discardableResult
     func startManual(_ text: String) async -> ActivePortForward? {
         guard let port = Self.parsePort(text) else {
-            errorMessage = "Escribe un puerto entre 1 y 65535."
+            errorMessage = String(localized: "Escribe un puerto entre 1 y 65535.")
             return nil
         }
         let target = listening.first { $0.port == port }?.targetHost ?? "localhost"

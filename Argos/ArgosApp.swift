@@ -68,7 +68,7 @@ struct ArgosApp: App {
             CommandGroup(replacing: .appInfo) {
                 Button("Acerca de Argos") { AboutPanel.show() }
                 #if APPSTORE
-                Button("Buscar actualizaciones…") { Self.open(AppStoreLinks.productPage) }
+                Button(String(localized: "Buscar actualizaciones…")) { Self.open(AppStoreLinks.productPage) }
                 #else
                 CheckForUpdatesView(updater: updaterController.updater)
                 #endif

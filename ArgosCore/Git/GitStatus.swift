@@ -30,14 +30,14 @@ enum GitChangeKind: String, Sendable, Hashable {
     /// Descripción para VoiceOver y tooltips.
     var label: String {
         switch self {
-        case .modified: return "Modificado"
-        case .added: return "Añadido"
-        case .deleted: return "Eliminado"
-        case .renamed: return "Renombrado"
-        case .copied: return "Copiado"
-        case .typeChanged: return "Tipo cambiado"
-        case .untracked: return "Nuevo, sin seguimiento"
-        case .conflicted: return "En conflicto"
+        case .modified: return String(localized: "Modificado")
+        case .added: return String(localized: "Añadido")
+        case .deleted: return String(localized: "Eliminado")
+        case .renamed: return String(localized: "Renombrado")
+        case .copied: return String(localized: "Copiado")
+        case .typeChanged: return String(localized: "Tipo cambiado")
+        case .untracked: return String(localized: "Nuevo, sin seguimiento")
+        case .conflicted: return String(localized: "En conflicto")
         }
     }
 }

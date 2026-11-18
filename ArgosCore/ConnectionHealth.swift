@@ -165,15 +165,14 @@ enum SSHConnectionError: LocalizedError, Equatable {
         switch self {
         case .backingOff(let retryIn, let lastFailure):
             let seconds = max(1, Int(retryIn.components.seconds))
-            let reason = lastFailure.map { " Último error: \($0)" } ?? ""
-            return "El servidor no respondió hace poco; se volverá a intentar en \(seconds) s.\(reason)"
+            let reason = lastFailure.map { String(localized: " Último error: \($0)") } ?? ""
+            return String(localized: "El servidor no respondió hace poco; se volverá a intentar en \(seconds) s.\(reason)")
         case .commandTimedOut(let limit):
-            return "El comando remoto no terminó en \(Int(limit.components.seconds)) s y se dejó de esperar. "
-                + "El servidor puede estar muy cargado o la conexión, colgada: reintenta."
+            return String(localized: "El comando remoto no terminó en \(Int(limit.components.seconds)) s y se dejó de esperar. El servidor puede estar muy cargado o la conexión, colgada: reintenta.")
         case .connectionLost:
-            return "La conexión con el servidor dejó de responder (¿cambio de red o reposo?) y se cerró."
+            return String(localized: "La conexión con el servidor dejó de responder (¿cambio de red o reposo?) y se cerró.")
         case .notConnected:
-            return "No hay conexión con el servidor."
+            return String(localized: "No hay conexión con el servidor.")
         }
     }
 }

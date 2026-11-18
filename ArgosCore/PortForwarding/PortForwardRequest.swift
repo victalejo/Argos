@@ -55,8 +55,7 @@ enum PortForwardRequestParser {
 enum PortForwardRequestPrompt {
     static func message(for request: PortForwardRequest, serverName: String) -> String {
         let note = request.note.isEmpty ? "" : "«\(request.note)»\n\n"
-        return note + "Se abrirá un túnel desde \(serverName) y lo verás en tu navegador en localhost. "
-            + "Nada se abre si no aceptas."
+        return note + String(localized: "Se abrirá un túnel desde \(serverName) y lo verás en tu navegador en localhost. Nada se abre si no aceptas.")
     }
 }
 
@@ -146,6 +145,6 @@ final class PortForwardRequestsModel {
 
     /// Título del aviso.
     nonisolated static func title(for request: PortForwardRequest) -> String {
-        "Claude quiere mostrarte el puerto \(request.port)"
+        String(localized: "Claude quiere mostrarte el puerto \(String(request.port))")
     }
 }

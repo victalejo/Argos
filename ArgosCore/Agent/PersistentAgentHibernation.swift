@@ -29,8 +29,7 @@ struct PersistentAgentHibernation: Equatable, Sendable {
     static let busyCPUSeconds = 3
 
     /// Aviso para la interfaz, junto al selector del plazo.
-    static let backgroundWorkWarning = "En reposo se detiene el agente y todo lo que lanzó en segundo plano "
-        + "(servidores de desarrollo, compilaciones). Si algo suyo sigue usando la CPU, no se pone en reposo."
+    static let backgroundWorkWarning = String(localized: "En reposo se detiene el agente y todo lo que lanzó en segundo plano (servidores de desarrollo, compilaciones). Si algo suyo sigue usando la CPU, no se pone en reposo.")
 
     init(idleHours: Int) {
         self.init(idleSeconds: max(0, idleHours) * 3600, checkSeconds: Self.defaultCheckSeconds)
@@ -46,9 +45,8 @@ struct PersistentAgentHibernation: Equatable, Sendable {
 
     static func title(forHours hours: Int) -> String {
         switch hours {
-        case 0: return "Nunca"
-        case 1: return "1 hora"
-        default: return "\(hours) horas"
+        case 0: return String(localized: "Nunca")
+        default: return String(localized: "\(hours) horas")
         }
     }
 }

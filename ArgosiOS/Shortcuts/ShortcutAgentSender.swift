@@ -39,7 +39,7 @@ enum ShortcutAgentSender {
         }
         guard let server = ServerStore().server(withID: project.serverID) else { throw ShortcutError.serverNotFound }
         guard !ImportedKeyStore.needsImport(server) else {
-            throw ShortcutError.sendFailed("este iPhone aún no tiene la clave de «\(server.name)». Recíbela desde el Mac.")
+            throw ShortcutError.sendFailed(String(localized: "este iPhone aún no tiene la clave de «\(server.name)». Recíbela desde el Mac."))
         }
         return Target(server: server, project: project)
     }
@@ -117,7 +117,7 @@ enum ShortcutAgentSender {
         case .needsResumeConfirmation:
             throw ShortcutError.permissionModeChanged
         case .failed:
-            throw ShortcutError.sendFailed(session.lastError ?? "el agente no respondió.")
+            throw ShortcutError.sendFailed(session.lastError ?? String(localized: "el agente no respondió."))
         }
     }
 

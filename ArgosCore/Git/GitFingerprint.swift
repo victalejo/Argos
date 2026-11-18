@@ -58,7 +58,7 @@ extension SSHService {
             result += GitFingerprint.parse(try await capture(client, command: command).stdout)
         }
         guard result.count == changes.count else {
-            throw GitCommandError(message: "No se pudo comprobar si los archivos cambiaron en el servidor.")
+            throw GitCommandError(message: String(localized: "No se pudo comprobar si los archivos cambiaron en el servidor."))
         }
         return result
     }

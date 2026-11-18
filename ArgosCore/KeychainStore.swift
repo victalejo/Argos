@@ -21,8 +21,8 @@ enum KeychainStore {
         var errorDescription: String? {
             switch self {
             case .unexpectedStatus(let status):
-                let message = SecCopyErrorMessageString(status, nil) as String? ?? "código \(status)"
-                return "Error de Keychain: \(message)"
+                let message = SecCopyErrorMessageString(status, nil) as String? ?? String(localized: "código \(String(status))")
+                return String(localized: "Error de Keychain: \(message)")
             }
         }
     }

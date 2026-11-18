@@ -32,11 +32,11 @@ extension SessionConnectionState {
     /// Texto del tooltip.
     var label: String {
         switch self {
-        case .live: return "Activa (cargada y conectada)"
-        case .connecting: return "Conectando…"
-        case .error: return "Error de conexión"
-        case .attachedElsewhere: return "Adjunta por otro cliente"
-        case .dormant: return "Dormida (no cargada)"
+        case .live: return String(localized: "Activa (cargada y conectada)")
+        case .connecting: return String(localized: "Conectando…")
+        case .error: return String(localized: "Error de conexión")
+        case .attachedElsewhere: return String(localized: "Adjunta por otro cliente")
+        case .dormant: return String(localized: "Dormida (no cargada)")
         }
     }
 }
@@ -92,13 +92,13 @@ struct SessionRow: View {
     /// Etiqueta de VoiceOver: nombre + estado de conexión + nº de ventanas en una sola
     /// frase (la fila se expone como un único elemento, no como piezas sueltas).
     private var accessibilityText: String {
-        let windows = "\(session.windowCount) \(session.windowCount == 1 ? "ventana" : "ventanas")"
+        let windows = String(localized: "\(session.windowCount) ventanas")
         let claudeText = claude.map { ", \($0.label)" } ?? ""
         return "\(title), \(state.label), \(windows)\(claudeText)"
     }
 
     private var subtitle: String {
-        let windows = "\(session.windowCount) \(session.windowCount == 1 ? "ventana" : "ventanas")"
+        let windows = String(localized: "\(session.windowCount) ventanas")
         let age = session.createdAt.formatted(.relative(presentation: .named, unitsStyle: .abbreviated))
         return "\(windows) · \(age)"
     }

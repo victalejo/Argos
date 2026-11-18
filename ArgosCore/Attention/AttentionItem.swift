@@ -52,13 +52,13 @@ enum AttentionKind: Int, CaseIterable, Comparable, Sendable {
     /// Nombre del tipo para VoiceOver y para el resumen.
     var label: String {
         switch self {
-        case .claudeWaiting: return "Claude espera tu respuesta"
-        case .agentPermission: return "Permiso pendiente del agente"
-        case .ciFailed: return "Falló el CI"
-        case .portRequest: return "Claude quiere abrir un puerto"
-        case .syncFailed: return "Falló un envío"
-        case .syncFinished: return "Envío terminado"
-        case .claudeDone: return "Claude terminó"
+        case .claudeWaiting: return String(localized: "Claude espera tu respuesta")
+        case .agentPermission: return String(localized: "Permiso pendiente del agente")
+        case .ciFailed: return String(localized: "Falló el CI")
+        case .portRequest: return String(localized: "Claude quiere abrir un puerto")
+        case .syncFailed: return String(localized: "Falló un envío")
+        case .syncFinished: return String(localized: "Envío terminado")
+        case .claudeDone: return String(localized: "Claude terminó")
         }
     }
 }
@@ -94,6 +94,6 @@ struct AttentionItem: Identifiable, Equatable, Hashable, Sendable {
 
     /// Frase completa para VoiceOver.
     func accessibilityLabel(serverName: String) -> String {
-        "\(kind.label): \(title), \(detail), en \(serverName)"
+        String(localized: "\(kind.label): \(title), \(detail), en \(serverName)")
     }
 }

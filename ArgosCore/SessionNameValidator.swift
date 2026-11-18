@@ -24,16 +24,13 @@ enum SessionNameValidator {
         var errorDescription: String? {
             switch self {
             case .empty:
-                return "El nombre no puede estar vacío."
+                return String(localized: "El nombre no puede estar vacío.")
             case .forbiddenCharacter(let character):
-                return "El nombre no puede contener '\(character)': "
-                     + "tmux usa ':' y '.' como separadores de sesión."
+                return String(localized: "El nombre no puede contener '\(character)': tmux usa ':' y '.' como separadores de sesión.")
             case .controlCharacter:
-                return "El nombre no puede contener saltos de línea, tabuladores "
-                     + "ni otros caracteres de control."
+                return String(localized: "El nombre no puede contener saltos de línea, tabuladores ni otros caracteres de control.")
             case .leadingDash:
-                return "El nombre no puede empezar por '-' "
-                     + "(tmux lo interpretaría como una opción)."
+                return String(localized: "El nombre no puede empezar por '-' (tmux lo interpretaría como una opción).")
             }
         }
     }

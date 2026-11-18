@@ -21,7 +21,7 @@ struct RemoteFolderPicker: View {
 
     var body: some View {
         content
-            .navigationTitle(listing.map { ($0.path as NSString).lastPathComponent.isEmpty ? "/" : ($0.path as NSString).lastPathComponent } ?? "Carpeta")
+            .navigationTitle(listing.map { ($0.path as NSString).lastPathComponent.isEmpty ? "/" : ($0.path as NSString).lastPathComponent } ?? String(localized: "Carpeta"))
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom) { footer }
             .toolbar {

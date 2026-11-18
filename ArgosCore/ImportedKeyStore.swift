@@ -24,11 +24,11 @@ enum ImportedKeyStore {
         var errorDescription: String? {
             switch self {
             case .notOpenSSHKey:
-                return "El archivo no es una clave privada OpenSSH (debe empezar por «-----BEGIN OPENSSH PRIVATE KEY-----»). Argos admite claves Ed25519."
+                return String(localized: "El archivo no es una clave privada OpenSSH (debe empezar por «-----BEGIN OPENSSH PRIVATE KEY-----»). Argos admite claves Ed25519.")
             case .tooLarge:
-                return "El archivo es demasiado grande para ser una clave SSH."
+                return String(localized: "El archivo es demasiado grande para ser una clave SSH.")
             case .unreadable:
-                return "No se pudo leer el archivo de la clave."
+                return String(localized: "No se pudo leer el archivo de la clave.")
             }
         }
     }
@@ -120,8 +120,7 @@ enum ImportedKeyStore {
     }
 
     /// Pista para «no se pudo leer la clave» en iPhone/iPad.
-    static let missingKeyHint = "Las claves SSH no viajan por iCloud: importa en este dispositivo "
-        + "una copia de la clave de este servidor, o crea una nueva (Editar servidor → Elegir clave privada)."
+    static let missingKeyHint = String(localized: "Las claves SSH no viajan por iCloud: importa en este dispositivo una copia de la clave de este servidor, o crea una nueva (Editar servidor → Elegir clave privada).")
 
     static func keyURL(for serverID: UUID, in directory: URL) -> URL {
         directory.appendingPathComponent(serverID.uuidString, isDirectory: false)

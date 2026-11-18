@@ -137,7 +137,7 @@ struct RemoteDirectoryPicker: View {
             newFolderError = failure.localizedDescription
         case .success(let name):
             if listing?.subdirectories.contains(name) == true {
-                newFolderError = "Ya existe una carpeta «\(name)» aquí."
+                newFolderError = String(localized: "Ya existe una carpeta «\(name)» aquí.")
                 return
             }
             creating = true

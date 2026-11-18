@@ -160,11 +160,11 @@ enum AgentConversionError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .nothingToContinue:
-            return "Esta conversación aún no tiene mensajes: abre una conversación nueva en el servidor."
+            return String(localized: "Esta conversación aún no tiene mensajes: abre una conversación nueva en el servidor.")
         case .busy:
-            return "Claude está trabajando o espera un permiso. Espera a que termine o detén el turno y vuelve a intentarlo."
+            return String(localized: "Claude está trabajando o espera un permiso. Espera a que termine o detén el turno y vuelve a intentarlo.")
         case .alreadyPersistent:
-            return "Esta conversación ya sigue en el servidor. Ábrela desde «En el servidor»."
+            return String(localized: "Esta conversación ya sigue en el servidor. Ábrela desde «En el servidor».")
         }
     }
 }

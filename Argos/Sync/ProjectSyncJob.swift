@@ -76,7 +76,7 @@ final class ProjectSyncJob {
             case .toServer:
                 guard let manifest = try MacSyncStore.loadManifest(for: project.id),
                       let localRoot = MacSyncStore.localFolder(of: manifest) else {
-                    phase = .failed("Este Mac no tiene la copia de \(project.name). Envíalo al servidor desde el Mac donde lo tienes.")
+                    phase = .failed(String(localized: "Este Mac no tiene la copia de \(project.name). Envíalo al servidor desde el Mac donde lo tienes."))
                     return
                 }
                 let exists = await MacSyncStore.withAccess(to: localRoot) {
@@ -84,7 +84,7 @@ final class ProjectSyncJob {
                 }
                 guard exists else {
                     Log.store.error("Copia local de \(self.project.name, privacy: .public) no encontrada en \(localRoot.path, privacy: .public)")
-                    phase = .failed("La copia de \(project.name) ya no está en \(localRoot.path) (¿se movió o se borró?).")
+                    phase = .failed(String(localized: "La copia de \(project.name) ya no está en \(localRoot.path) (¿se movió o se borró?)."))
                     return
                 }
                 let (plan, local) = try await MacSyncStore.withAccess(to: localRoot) {
@@ -111,7 +111,7 @@ final class ProjectSyncJob {
                 let message = try await runToMac(files: files, destination: destination)
                 finish(.done(message.text, localRoot: message.localRoot))
             } catch is CancellationError {
-                finish(.failed("Cancelado. La copia del Mac puede haber quedado a medias: bórrala antes de reintentar."))
+                finish(.failed(String(localized: "Cancelado. La copia del Mac puede haber quedado a medias: bórrala antes de reintentar.")))
             } catch {
                 Log.store.error("Envío de \(self.project.name, privacy: .public) falló: \(String(describing: error), privacy: .public)")
                 finish(.failed(error.userMessage))
@@ -149,7 +149,7 @@ final class ProjectSyncJob {
             try? await vm.stopProject(project)
         }
         await vm.refresh()
-        return ("\(files.count) archivos copiados\(conversation). Trabaja en el Mac y, al terminar, usa «Enviar al servidor».", localRoot)
+        return (String(localized: "\(files.count) archivos copiados\(conversation). Trabaja en el Mac y, al terminar, usa «Enviar al servidor»."), localRoot)
     }
 
     /// Trae la conversación de Claude Code. Si falla NO se pierde el envío: los archivos
@@ -157,12 +157,12 @@ final class ProjectSyncJob {
     private func downloadClaudeSession(to localRoot: URL) async -> String {
         do {
             let found = try await engine.downloadClaudeSession(remoteRoot: project.path, to: localRoot, service: vm.service)
-            return found ? " y la conversación de Claude Code" : ""
+            return found ? String(localized: " y la conversación de Claude Code") : ""
         } catch is CancellationError {
             return ""
         } catch {
             Log.store.error("No se pudo traer la conversación de Claude de \(self.project.name, privacy: .public): \(String(describing: error), privacy: .public)")
-            return " (la conversación de Claude Code no se pudo traer: \(error.userMessage))"
+            return String(localized: " (la conversación de Claude Code no se pudo traer: \(error.userMessage))")
         }
     }
 
@@ -175,12 +175,11 @@ final class ProjectSyncJob {
             do {
                 let conversation = try await runToServer(resolved, manifest: manifest, localRoot: localRoot)
                 finish(.done(
-                    "Listo: \(resolved.uploads.count) archivos subidos y \(resolved.deletions.count) borrados en \(request.server.name). "
-                    + "El proyecto vuelve a estar en el servidor. \(conversation)",
+                    String(localized: "Listo: \(resolved.uploads.count) archivos subidos y \(resolved.deletions.count) borrados en \(request.server.name). El proyecto vuelve a estar en el servidor. \(conversation)"),
                     localRoot: nil
                 ))
             } catch is CancellationError {
-                finish(.failed("Cancelado. Parte de los cambios pueden haberse subido; vuelve a «Enviar al servidor» para terminar."))
+                finish(.failed(String(localized: "Cancelado. Parte de los cambios pueden haberse subido; vuelve a «Enviar al servidor» para terminar.")))
             } catch {
                 Log.store.error("Envío de \(self.project.name, privacy: .public) falló: \(String(describing: error), privacy: .public)")
                 finish(.failed(error.userMessage))
@@ -213,13 +212,13 @@ final class ProjectSyncJob {
         do {
             let found = try await engine.uploadClaudeSession(remoteRoot: remoteRoot, from: localRoot, service: vm.service)
             return found
-                ? "La conversación de Claude Code también viajó."
-                : "No había conversación del Mac que llevar (para que viaje, sal de Claude Code con /exit antes de enviar)."
+                ? String(localized: "La conversación de Claude Code también viajó.")
+                : String(localized: "No había conversación del Mac que llevar (para que viaje, sal de Claude Code con /exit antes de enviar).")
         } catch is CancellationError {
             return ""
         } catch {
             Log.store.error("No se pudo subir la conversación de Claude de \(self.project.name, privacy: .public): \(String(describing: error), privacy: .public)")
-            return "La conversación de Claude Code no se pudo subir: \(error.userMessage)"
+            return String(localized: "La conversación de Claude Code no se pudo subir: \(error.userMessage)")
         }
     }
 
@@ -237,10 +236,10 @@ final class ProjectSyncJob {
         let content = UNMutableNotificationContent()
         switch phase {
         case .done(let message, _):
-            content.title = isToMac ? "\(project.name) ya está en el Mac" : "\(project.name) volvió al servidor"
+            content.title = isToMac ? String(localized: "\(project.name) ya está en el Mac") : String(localized: "\(project.name) volvió al servidor")
             content.body = message
         case .failed(let message):
-            content.title = "No se pudo enviar \(project.name)"
+            content.title = String(localized: "No se pudo enviar \(project.name)")
             content.body = message
         default:
             return

@@ -147,7 +147,7 @@ extension AgentPanelView {
             )
         } catch {
             Log.agent.error("No se pudo crear el agente en el servidor: \(error.localizedDescription, privacy: .private)")
-            actionError = "No se pudo crear el agente en el servidor: \(error.userMessage)"
+            actionError = String(localized: "No se pudo crear el agente en el servidor: \(error.userMessage)")
         }
     }
 

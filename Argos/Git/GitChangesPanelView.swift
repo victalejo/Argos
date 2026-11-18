@@ -153,7 +153,7 @@ private struct GitChangesSidebar: View {
                 }
             } header: {
                 HStack {
-                    Text("\(status.changes.count) archivo\(status.changes.count == 1 ? "" : "s")")
+                    Text("\(status.changes.count) archivos")
                     Spacer()
                     Button(model.includedCount == status.changes.count ? "Desmarcar todo" : "Marcar todo") {
                         model.setAllIncluded(model.includedCount != status.changes.count)
@@ -176,7 +176,7 @@ private struct GitBranchHeader: View {
         HStack(spacing: 8) {
             Image(systemName: "arrow.triangle.branch").foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 2) {
-                Text(status.branch.name ?? "HEAD desacoplado")
+                Text(status.branch.name ?? String(localized: "HEAD desacoplado"))
                     .font(.headline).lineLimit(1).truncationMode(.middle)
                 Text(trackingText)
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -219,13 +219,13 @@ private struct GitBranchHeader: View {
 
     private var trackingText: String {
         let branch = status.branch
-        if !branch.hasCommits { return "Sin commits todavía" }
-        guard let upstream = branch.upstream else { return "\(status.repositoryName) · sin rama remota" }
-        if branch.upstreamGone { return "\(upstream) ya no existe" }
+        if !branch.hasCommits { return String(localized: "Sin commits todavía") }
+        guard let upstream = branch.upstream else { return String(localized: "\(status.repositoryName) · sin rama remota") }
+        if branch.upstreamGone { return String(localized: "\(upstream) ya no existe") }
         var parts = [upstream]
         if branch.ahead > 0 { parts.append("↑\(branch.ahead)") }
         if branch.behind > 0 { parts.append("↓\(branch.behind)") }
-        if branch.ahead == 0 && branch.behind == 0 { parts.append("al día") }
+        if branch.ahead == 0 && branch.behind == 0 { parts.append(String(localized: "al día")) }
         return parts.joined(separator: " · ")
     }
 }
@@ -278,8 +278,8 @@ private struct GitChangeRow: View {
 
     private var discardTitle: String {
         change.isUntracked
-            ? "¿Eliminar «\(change.fileName)»? Es un archivo nuevo sin seguimiento."
-            : "¿Descartar los cambios de «\(change.fileName)» y dejarlo como en el último commit?"
+            ? String(localized: "¿Eliminar «\(change.fileName)»? Es un archivo nuevo sin seguimiento.")
+            : String(localized: "¿Descartar los cambios de «\(change.fileName)» y dejarlo como en el último commit?")
     }
 
     private func copy(_ text: String) {

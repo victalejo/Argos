@@ -65,10 +65,10 @@ enum AgentAttention: Equatable, Sendable {
         case .none, .undetermined:
             return nil
         case .needsPermission(let tool):
-            return ("\(agentTitle): Claude espera tu permiso", "Quiere usar \(tool). Ábrelo para permitir o denegar.")
+            return (String(localized: "\(agentTitle): Claude espera tu permiso"), String(localized: "Quiere usar \(tool). Ábrelo para permitir o denegar."))
         case .finished(let summary, let isError):
-            let body = summary.map { String($0.prefix(180)) } ?? (isError ? "Terminó con un error." : "Terminó la tarea.")
-            return ("\(agentTitle): \(isError ? "Claude terminó con error" : "Claude terminó")", body)
+            let body = summary.map { String($0.prefix(180)) } ?? (isError ? String(localized: "Terminó con un error.") : String(localized: "Terminó la tarea."))
+            return (String(localized: "\(agentTitle): \(isError ? "Claude terminó con error" : "Claude terminó")"), body)
         }
     }
 }

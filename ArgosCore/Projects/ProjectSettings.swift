@@ -20,10 +20,10 @@ final class ProjectSettings {
 
     /// Atajos ofrecidos en Ajustes y en el formulario del proyecto.
     static let presets: [(label: String, command: String)] = [
-        ("Claude Code, continuar conversación", "cc --continue"),
-        ("Claude Code, conversación nueva", "cc"),
-        ("claude --continue (sin alias)", "claude --continue"),
-        ("No lanzar nada", ""),
+        (String(localized: "Claude Code, continuar conversación"), "cc --continue"),
+        (String(localized: "Claude Code, conversación nueva"), "cc"),
+        (String(localized: "claude --continue (sin alias)"), "claude --continue"),
+        (String(localized: "No lanzar nada"), ""),
     ]
 
     private static let defaultsKey = "projects.defaultStartupCommand"

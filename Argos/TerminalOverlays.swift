@@ -21,7 +21,7 @@ struct TerminalStatusOverlay: View {
     var body: some View {
         switch status {
         case .connecting:
-            TerminalConnectionProgress(title: "Conectando a la sesión", sessionName: sessionName)
+            TerminalConnectionProgress(title: String(localized: "Conectando a la sesión"), sessionName: sessionName)
                 .transition(.opacity.animation(reduceMotion ? nil : .easeOut(duration: 0.25)))
         case .connected:
             EmptyView()
@@ -29,26 +29,26 @@ struct TerminalStatusOverlay: View {
             TerminalBanner(
                 icon: "bolt.horizontal.circle",
                 tint: .secondary,
-                title: "Sesión desconectada",
-                message: "Se cerró la conexión con la sesión. Si sigue abierta en el servidor, reconecta para continuar.",
-                action: ("Reconectar", onReconnect)
+                title: String(localized: "Sesión desconectada"),
+                message: String(localized: "Se cerró la conexión con la sesión. Si sigue abierta en el servidor, reconecta para continuar."),
+                action: (String(localized: "Reconectar"), onReconnect)
             )
         case .failed(let message):
             if reconnect.isReconnecting {
                 TerminalBanner(
                     icon: nil,
                     tint: .secondary,
-                    title: "Reconectando… (intento \(reconnect.attempt + 1) de \(reconnect.policy.maxAttempts))",
-                    message: "Se perdió la conexión. Reintentando automáticamente.",
+                    title: String(localized: "Reconectando… (intento \(reconnect.attempt + 1) de \(reconnect.policy.maxAttempts))"),
+                    message: String(localized: "Se perdió la conexión. Reintentando automáticamente."),
                     action: nil
                 )
             } else {
                 TerminalBanner(
                     icon: "exclamationmark.triangle.fill",
                     tint: .orange,
-                    title: reconnect.gaveUp == .needsUserAction ? "Hace falta que revises la conexión" : "No se pudo abrir el terminal",
+                    title: reconnect.gaveUp == .needsUserAction ? String(localized: "Hace falta que revises la conexión") : String(localized: "No se pudo abrir el terminal"),
                     message: message,
-                    action: ("Reconectar", onReconnect)
+                    action: (String(localized: "Reconectar"), onReconnect)
                 )
             }
         }

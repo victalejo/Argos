@@ -201,7 +201,7 @@ final class PersistentAgentSession {
             throw PersistentAgentError.launchFailed(String(detail.suffix(PersistentAgentScript.errorTailBytes)))
         }
         guard reply == PersistentAgentScript.aliveReply || Int32(reply) != nil else {
-            throw AgentExecError(message: "No se pudo arrancar el agente en el servidor (respuesta: \(reply.prefix(200))).")
+            throw AgentExecError(message: String(localized: "No se pudo arrancar el agente en el servidor (respuesta: \(reply.prefix(200)))."))
         }
     }
 
@@ -414,7 +414,7 @@ final class PersistentAgentSession {
             if done {
                 lastError = nil
             } else if isAlive {
-                lastError = "Claude está trabajando o espera un permiso: no se puede poner en reposo ahora."
+                lastError = String(localized: "Claude está trabajando o espera un permiso: no se puede poner en reposo ahora.")
             }
             return done
         } catch {
@@ -503,7 +503,7 @@ final class PersistentAgentSession {
         let base = PersistentAgentError.notRunning.userMessage
         guard let tail = try? await service.runAgentScript(PersistentAgentScript.errorTail(id: id))
             .trimmingCharacters(in: .whitespacesAndNewlines), !tail.isEmpty else { return base }
-        return "\(base)\nÚltimo mensaje del servidor:\n\(tail.suffix(600))"
+        return String(localized: "\(base)\nÚltimo mensaje del servidor:\n\(tail.suffix(600))")
     }
 
     /// Acción explícita del usuario (enviar, reanudar, recargar): olvida el bloqueo de la

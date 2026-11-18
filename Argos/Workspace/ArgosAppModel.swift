@@ -133,7 +133,7 @@ final class ArgosAppModel {
         // si no, los sondeos se espaciaban minutos y los avisos llegaban tarde o nunca.
         napActivity = ProcessInfo.processInfo.beginActivity(
             options: .userInitiatedAllowingIdleSystemSleep,
-            reason: "Avisos de Claude Code en las sesiones remotas"
+            reason: String(localized: "Avisos de Claude Code en las sesiones remotas")
         )
         let poller = WorkspacePoller(
             targets: { [weak self] in self?.pollTargets ?? [] },

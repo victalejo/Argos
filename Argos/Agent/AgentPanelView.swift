@@ -164,7 +164,7 @@ struct AgentPanelView: View {
                   systemImage: "checkmark.seal.fill")
                 .font(.caption)
                 .foregroundStyle(.teal)
-                .help(authStatus.email ?? "Sesión de Claude iniciada en \(serverName)")
+                .help(authStatus.email ?? String(localized: "Sesión de Claude iniciada en \(serverName)"))
         } else if KeychainStore.hasClaudeOAuthToken() {
             Label("Token", systemImage: "key.fill").font(.caption).foregroundStyle(.secondary)
         }
@@ -192,23 +192,23 @@ struct AgentPanelView: View {
             checkingView
         case .noFolder:
             AgentPanelCard(icon: "questionmark.folder", tint: .orange,
-                           title: "No se sabe en qué carpeta trabajar",
-                           text: "Esta sesión no es un proyecto y no se pudo leer su carpeta. Conviértela en proyecto para fijarla.")
+                           title: String(localized: "No se sabe en qué carpeta trabajar"),
+                           text: String(localized: "Esta sesión no es un proyecto y no se pudo leer su carpeta. Conviértela en proyecto para fijarla."))
         case .notInstalled:
             AgentPanelCard(icon: "arrow.down.circle", tint: .blue,
-                           title: "Claude Code no está instalado en \(serverName)",
-                           text: "Argos puede instalarlo con el instalador oficial de Anthropic.",
-                           action: ("Instalar Claude Code", { setupPurpose = .install }))
+                           title: String(localized: "Claude Code no está instalado en \(serverName)"),
+                           text: String(localized: "Argos puede instalarlo con el instalador oficial de Anthropic."),
+                           action: (String(localized: "Instalar Claude Code"), { setupPurpose = .install }))
         case .loggedOut:
             AgentPanelCard(icon: "person.badge.key", tint: .blue,
-                           title: "Conecta tu cuenta de Claude",
-                           text: "\(serverName) todavía no tiene sesión de Claude. Se usa tu suscripción, nunca la API de pago.",
-                           action: ("Conectar Claude", { startLogin() }))
+                           title: String(localized: "Conecta tu cuenta de Claude"),
+                           text: String(localized: "\(serverName) todavía no tiene sesión de Claude. Se usa tu suscripción, nunca la API de pago."),
+                           action: (String(localized: "Conectar Claude"), { startLogin() }))
         case .failed(let message):
             AgentPanelCard(icon: "exclamationmark.triangle", tint: .red,
-                           title: "No se pudo preparar el agente",
+                           title: String(localized: "No se pudo preparar el agente"),
                            text: message,
-                           action: ("Reintentar", { Task { await prepare(userInitiated: true) } }))
+                           action: (String(localized: "Reintentar"), { Task { await prepare(userInitiated: true) } }))
         case .ready:
             conversations
         }
@@ -277,12 +277,12 @@ struct AgentPanelView: View {
 
     private var emptyCard: some View {
         let count = folderAgents.count
-        let extra = count > 0 ? " Hay \(count) en el servidor: ábrelos con «En el servidor»." : ""
+        let extra = count > 0 ? String(localized: " Hay \(count) en el servidor: ábrelos con «En el servidor».") : ""
         return AgentPanelCard(
             icon: "bubble.left.and.text.bubble.right", tint: .accentColor,
-            title: "Sin conversaciones abiertas",
-            text: "Empieza una conversación con Claude en \(title) (\(placement.title.lowercased())).\(extra)",
-            action: ("Nueva conversación", { newConversationRequested(placement) })
+            title: String(localized: "Sin conversaciones abiertas"),
+            text: String(localized: "Empieza una conversación con Claude en \(title) (\(placement.title.lowercased())).\(extra)"),
+            action: (String(localized: "Nueva conversación"), { newConversationRequested(placement) })
         )
     }
 

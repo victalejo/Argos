@@ -27,7 +27,7 @@ enum MacSyncStore {
     }
 
     static var macName: String {
-        Host.current().localizedName ?? "este Mac"
+        Host.current().localizedName ?? String(localized: "este Mac")
     }
 
     // MARK: - Carpeta destino
@@ -48,9 +48,9 @@ enum MacSyncStore {
     /// Pide al usuario la carpeta destino (p. ej. ~/Desarrollo) y la recuerda.
     static func chooseDestination() -> URL? {
         let panel = NSOpenPanel()
-        panel.title = "¿Dónde guardo los proyectos en este Mac?"
-        panel.message = "Cada proyecto se copiará en una subcarpeta con su nombre."
-        panel.prompt = "Usar esta carpeta"
+        panel.title = String(localized: "¿Dónde guardo los proyectos en este Mac?")
+        panel.message = String(localized: "Cada proyecto se copiará en una subcarpeta con su nombre.")
+        panel.prompt = String(localized: "Usar esta carpeta")
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
@@ -100,7 +100,7 @@ enum MacSyncStore {
         var errorDescription: String? {
             switch self {
             case .unreadable(let path, let reason):
-                return "No se pudo leer el registro del envío (\(path)): \(reason)"
+                return String(localized: "No se pudo leer el registro del envío (\(path)): \(reason)")
             }
         }
     }

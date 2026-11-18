@@ -29,12 +29,10 @@ extension Error {
 enum SSHErrorMessage {
 
     static let authenticationRejected =
-        "El servidor rechazó la contraseña o la clave. Revisa las credenciales del servidor "
-        + "(Editar servidor) y vuelve a conectar."
-    static let connectionClosed = "Se cerró la conexión SSH con el servidor. Reintenta."
+        String(localized: "El servidor rechazó la contraseña o la clave. Revisa las credenciales del servidor (Editar servidor) y vuelve a conectar.")
+    static let connectionClosed = String(localized: "Se cerró la conexión SSH con el servidor. Reintenta.")
     static let timedOut =
-        "Tiempo de espera agotado: el servidor no respondió. Comprueba tu conexión a internet "
-        + "y que el servidor esté encendido."
+        String(localized: "Tiempo de espera agotado: el servidor no respondió. Comprueba tu conexión a internet y que el servidor esté encendido.")
 
     /// `nil` si el error no es de transporte (se usa su descripción normal).
     static func transportText(for error: Error) -> String? {
@@ -71,12 +69,11 @@ enum SSHErrorMessage {
     static func text(for type: NIOSSHError.ErrorType, detail: String) -> String {
         switch type {
         case .channelSetupRejected:
-            return "El servidor rechazó abrir un canal SSH nuevo (¿demasiados canales abiertos "
-                + "en la conexión?). Reintenta en unos segundos. (\(detail))"
+            return String(localized: "El servidor rechazó abrir un canal SSH nuevo (¿demasiados canales abiertos en la conexión?). Reintenta en unos segundos. (\(detail))")
         case .tcpShutdown, .creatingChannelAfterClosure:
-            return "Se cortó la conexión SSH con el servidor. Reintenta. (\(detail))"
+            return String(localized: "Se cortó la conexión SSH con el servidor. Reintenta. (\(detail))")
         default:
-            return "Error SSH: \(detail)"
+            return String(localized: "Error SSH: \(detail)")
         }
     }
 
@@ -85,13 +82,13 @@ enum SSHErrorMessage {
         case .allAuthenticationOptionsFailed:
             return authenticationRejected
         case .unsupportedPasswordAuthentication:
-            return "El servidor no admite iniciar sesión con contraseña. Configura una clave SSH para este servidor."
+            return String(localized: "El servidor no admite iniciar sesión con contraseña. Configura una clave SSH para este servidor.")
         case .unsupportedPrivateKeyAuthentication:
-            return "El servidor no admite iniciar sesión con clave. Usa contraseña o revisa su configuración de sshd."
+            return String(localized: "El servidor no admite iniciar sesión con clave. Usa contraseña o revisa su configuración de sshd.")
         case .unsupportedHostBasedAuthentication:
-            return "El servidor no admite este método de inicio de sesión. Revisa la configuración del servidor."
+            return String(localized: "El servidor no admite este método de inicio de sesión. Revisa la configuración del servidor.")
         case .channelCreationFailed:
-            return "No se pudo abrir un canal SSH en el servidor. Reintenta en unos segundos."
+            return String(localized: "No se pudo abrir un canal SSH en el servidor. Reintenta en unos segundos.")
         }
     }
 
@@ -100,25 +97,23 @@ enum SSHErrorMessage {
         case .unauthorized:
             return authenticationRejected
         case .channelCreationFailed, .channelFailure:
-            return "El servidor no abrió el canal SSH a tiempo (¿muy cargado?). Reintenta en unos segundos."
+            return String(localized: "El servidor no abrió el canal SSH a tiempo (¿muy cargado?). Reintenta en unos segundos.")
         case .commandOutputTooLarge:
-            return "La salida del comando remoto es demasiado grande."
+            return String(localized: "La salida del comando remoto es demasiado grande.")
         default:
-            return "Fallo de cifrado o de protocolo en la conexión SSH (\(error)). Reintenta; si persiste, "
-                + "revisa la configuración del servidor."
+            return String(localized: "Fallo de cifrado o de protocolo en la conexión SSH (\(error)). Reintenta; si persiste, revisa la configuración del servidor.")
         }
     }
 
     /// No se llegó a conectar con `host:port`.
     static func connectionFailure(host: String, port: Int, dnsFailed: Bool, refused: Bool) -> String {
         if dnsFailed {
-            return "No se encontró el servidor «\(host)». Revisa la dirección y tu conexión a internet."
+            return String(localized: "No se encontró el servidor «\(host)». Revisa la dirección y tu conexión a internet.")
         }
         if refused {
-            return "\(host) rechazó la conexión en el puerto \(port). Comprueba el puerto y que el servicio SSH esté en marcha."
+            return String(localized: "\(host) rechazó la conexión en el puerto \(String(port)). Comprueba el puerto y que el servicio SSH esté en marcha.")
         }
-        return "No se pudo conectar con \(host):\(port). Comprueba que el servidor esté encendido y accesible, "
-            + "y tu conexión a internet."
+        return String(localized: "No se pudo conectar con \(host):\(String(port)). Comprueba que el servidor esté encendido y accesible, y tu conexión a internet.")
     }
 
     static func text(for error: ChannelError) -> String {
@@ -128,24 +123,24 @@ enum SSHErrorMessage {
         case .ioOnClosedChannel, .alreadyClosed, .eof, .outputClosed, .inputClosed:
             return connectionClosed
         case .writeHostUnreachable:
-            return "No hay ruta hasta el servidor. Comprueba tu conexión a internet."
+            return String(localized: "No hay ruta hasta el servidor. Comprueba tu conexión a internet.")
         default:
-            return "Error de conexión con el servidor (\(error)). Reintenta."
+            return String(localized: "Error de conexión con el servidor (\(error)). Reintenta.")
         }
     }
 
     static func text(for error: IOError) -> String {
         switch error.errnoCode {
         case ECONNREFUSED:
-            return "El servidor rechazó la conexión. Comprueba el puerto y que el servicio SSH esté en marcha."
+            return String(localized: "El servidor rechazó la conexión. Comprueba el puerto y que el servicio SSH esté en marcha.")
         case ECONNRESET, EPIPE, ENOTCONN:
             return connectionClosed
         case ETIMEDOUT:
             return timedOut
         case ENETUNREACH, EHOSTUNREACH, ENETDOWN:
-            return "No hay ruta hasta el servidor. Comprueba tu conexión a internet."
+            return String(localized: "No hay ruta hasta el servidor. Comprueba tu conexión a internet.")
         default:
-            return "Error de red: \(error.description)"
+            return String(localized: "Error de red: \(error.description)")
         }
     }
 
@@ -156,7 +151,7 @@ enum SSHErrorMessage {
         case .errorStatus(let status):
             return sftpStatus(status.errorCode, message: status.message)
         default:
-            return "El servidor respondió de forma inesperada a una operación de archivos (\(error)). Reintenta."
+            return String(localized: "El servidor respondió de forma inesperada a una operación de archivos (\(error)). Reintenta.")
         }
     }
 
@@ -166,17 +161,17 @@ enum SSHErrorMessage {
         let suffix = detail.isEmpty ? "" : " (\(detail))"
         switch code {
         case .noSuchFile:
-            return "El archivo o la carpeta no existe en el servidor." + suffix
+            return String(localized: "El archivo o la carpeta no existe en el servidor.") + suffix
         case .permissionDenied:
-            return "Permiso denegado en el servidor: tu usuario no puede acceder a ese archivo o carpeta." + suffix
+            return String(localized: "Permiso denegado en el servidor: tu usuario no puede acceder a ese archivo o carpeta.") + suffix
         case .noConnection, .connectionLost:
             return connectionClosed
         case .unsupportedOperation:
-            return "El servidor no admite esa operación de archivos." + suffix
+            return String(localized: "El servidor no admite esa operación de archivos.") + suffix
         case .eof:
-            return "El archivo terminó antes de lo esperado." + suffix
+            return String(localized: "El archivo terminó antes de lo esperado.") + suffix
         default:
-            return "El servidor no pudo completar la operación de archivos." + suffix
+            return String(localized: "El servidor no pudo completar la operación de archivos.") + suffix
         }
     }
 

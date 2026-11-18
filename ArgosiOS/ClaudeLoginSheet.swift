@@ -122,7 +122,7 @@ struct ClaudeLoginSheet: View {
                 }
             }
         } header: {
-            stepHeader(1, "Autoriza con tu cuenta", done: didOpenPage || isPastAuthorize)
+            stepHeader(1, String(localized: "Autoriza con tu cuenta"), done: didOpenPage || isPastAuthorize)
         } footer: {
             Text("No salgas de Argos hasta terminar: el inicio de sesión se cancelaría. Con «Copiar enlace» puedes autorizar desde otro dispositivo.")
         }
@@ -146,7 +146,7 @@ struct ClaudeLoginSheet: View {
             Button("Confirmar", action: submit)
                 .disabled(!model.canSubmitCode || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } header: {
-            stepHeader(2, "Pega el código que te da la página", done: isPastAuthorize)
+            stepHeader(2, String(localized: "Pega el código que te da la página"), done: isPastAuthorize)
         }
     }
 

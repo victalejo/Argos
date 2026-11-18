@@ -15,7 +15,7 @@ struct SSHServiceRetiredError: LocalizedError, Equatable {
     let host: String
 
     var errorDescription: String? {
-        "La conexión con \(host) se cerró porque el servidor cambió o se eliminó. Cierra esta ventana y vuelve a abrirla."
+        String(localized: "La conexión con \(host) se cerró porque el servidor cambió o se eliminó. Cierra esta ventana y vuelve a abrirla.")
     }
 }
 

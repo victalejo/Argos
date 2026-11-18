@@ -66,14 +66,14 @@ enum AgentStdinExchange {
             Log.agent.error("Sin respuesta del servidor: \(channelError.localizedDescription, privacy: .private)")
             throw channelError
         }
-        throw AgentExecError(message: "El servidor no respondió.")
+        throw AgentExecError(message: String(localized: "El servidor no respondió."))
     }
 }
 
 /// El servidor no contestó a tiempo (conexión colgada o comando bloqueado).
 struct AgentExchangeTimeout: LocalizedError, Equatable {
     var errorDescription: String? {
-        "El servidor no respondió a tiempo. Comprueba la conexión y vuelve a intentarlo."
+        String(localized: "El servidor no respondió a tiempo. Comprueba la conexión y vuelve a intentarlo.")
     }
 }
 

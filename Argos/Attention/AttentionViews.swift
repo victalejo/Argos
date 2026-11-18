@@ -143,9 +143,8 @@ struct AttentionRow: View {
 enum AttentionText {
     static func summary(count: Int) -> String {
         switch count {
-        case 0: return "Nada pendiente"
-        case 1: return "1 cosa te necesita"
-        default: return "\(count) cosas te necesitan"
+        case 0: return String(localized: "Nada pendiente")
+        default: return String(localized: "\(count) cosas te necesitan")
         }
     }
 

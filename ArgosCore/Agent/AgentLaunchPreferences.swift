@@ -20,15 +20,15 @@ enum AgentConversationPlacement: String, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .session: return "Solo en esta sesión"
-        case .server: return "Mantener en el servidor"
+        case .session: return String(localized: "Solo en esta sesión")
+        case .server: return String(localized: "Mantener en el servidor")
         }
     }
 
     var detail: String {
         switch self {
-        case .session: return "Se detiene al cerrar la pestaña o salir de Argos."
-        case .server: return "Sigue aunque cierres Argos o se corte la red; puedes continuarla desde el iPhone."
+        case .session: return String(localized: "Se detiene al cerrar la pestaña o salir de Argos.")
+        case .server: return String(localized: "Sigue aunque cierres Argos o se corte la red; puedes continuarla desde el iPhone.")
         }
     }
 

@@ -34,7 +34,7 @@ struct ServerKeySection: View {
     @State private var issue: String?
     @State private var showingSavedPublicKey = false
 
-    static let platformAlternative = "usa «Crear clave en este iPhone»"
+    static let platformAlternative = String(localized: "usa «Crear clave en este iPhone»")
 
     var body: some View {
         Section {
@@ -79,14 +79,12 @@ struct ServerKeySection: View {
 
     private var footer: String {
         if pendingKey?.publicLine != nil {
-            return "Añade esta clave pública a ~/.ssh/authorized_keys del servidor. Si ya entras con contraseña, es más fácil "
-                + "guardar el servidor con contraseña y usar «Usar una clave de este iPhone…» en su menú: Argos la instala y la prueba."
+            return String(localized: "Añade esta clave pública a ~/.ssh/authorized_keys del servidor. Si ya entras con contraseña, es más fácil guardar el servidor con contraseña y usar «Usar una clave de este iPhone…» en su menú: Argos la instala y la prueba.")
         }
         if keyFromOtherDevice {
-            return "Este servidor llegó de tu Mac por iCloud con la clave «\(keyPath)», pero las claves no viajan. "
-                + "Importa o pega aquí una copia, o crea una clave nueva en este iPhone."
+            return String(localized: "Este servidor llegó de tu Mac por iCloud con la clave «\(keyPath)», pero las claves no viajan. Importa o pega aquí una copia, o crea una clave nueva en este iPhone.")
         }
-        return "Argos admite claves Ed25519 en formato OpenSSH. Se guarda una copia privada en este dispositivo; la passphrase va al Llavero."
+        return String(localized: "Argos admite claves Ed25519 en formato OpenSSH. Se guarda una copia privada en este dispositivo; la passphrase va al Llavero.")
     }
 
     // MARK: - Acciones

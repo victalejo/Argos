@@ -75,15 +75,15 @@ struct AgentChatView: View {
     private var canCompose: Bool { session.isAlive || session.meta.isHibernated }
 
     private var composerPlaceholder: String {
-        if session.isAlive { return "Pide algo a Claude…" }
-        return session.meta.isHibernated ? "En reposo: escribe para reanudarlo" : "El agente está detenido"
+        if session.isAlive { return String(localized: "Pide algo a Claude…") }
+        return session.meta.isHibernated ? String(localized: "En reposo: escribe para reanudarlo") : String(localized: "El agente está detenido")
     }
 
     private var emptyTitle: String {
         switch session.link {
-        case .live: return "Escribe tu primer mensaje"
-        case .reconnecting: return "Reconectando…"
-        case .connecting, .detached: return "Conectando…"
+        case .live: return String(localized: "Escribe tu primer mensaje")
+        case .reconnecting: return String(localized: "Reconectando…")
+        case .connecting, .detached: return String(localized: "Conectando…")
         }
     }
 
