@@ -39,11 +39,17 @@ class TerminalOutput {
 /** Canal de control sin pérdidas: lo emitido antes de que el terminal lo recoja se conserva. */
 fun controlChannel(): Channel<TerminalControlEvent> = Channel(Channel.UNLIMITED)
 
+const val EVENTUALLY_TIMEOUT_MILLIS = 30_000L
+
 /** Teclas como bytes UTF-8. */
 fun keys(text: String): TerminalControlEvent = TerminalControlEvent.Input(text.toByteArray(Charsets.UTF_8))
 
-/** Espera (sondeando) a que [condition] se cumpla; falla con [description] si se agota el tiempo. */
-suspend fun eventually(description: String, timeoutMillis: Long = 15_000, condition: () -> Boolean) {
+/**
+ * Espera (sondeando) a que [condition] se cumpla; falla con [description] si se agota el tiempo. El
+ * plazo es GENEROSO a propósito: con la máquina cargada el servidor embebido y los `sh` tardan, y si
+ * todo va bien se sale enseguida.
+ */
+suspend fun eventually(description: String, timeoutMillis: Long = EVENTUALLY_TIMEOUT_MILLIS, condition: () -> Boolean) {
     val deadline = System.nanoTime() + timeoutMillis * 1_000_000
     while (!condition()) {
         if (System.nanoTime() > deadline) fail("No se cumplió a tiempo: $description")

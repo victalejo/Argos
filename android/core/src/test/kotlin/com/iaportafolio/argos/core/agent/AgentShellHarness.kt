@@ -82,6 +82,9 @@ class AgentShellHarness(val shell: String, setsid: Boolean = false) : AutoClosea
     fun launch(invocation: String, hibernation: PersistentAgentHibernation = PersistentAgentHibernation.ofHours(0)): Run =
         sh(PersistentAgentScript.launch(id, meta(), invocation, hibernation), "\n".toByteArray())
 
+    /** Lo que lleva escrito el log del agente (vacío si aún no existe). */
+    fun logText(): String = runCatching { File(agentDir, "out.ndjson").readText() }.getOrDefault("")
+
     fun listed(): PersistentAgentInfo? = PersistentAgentScript.parseList(sh(PersistentAgentScript.list()).output).firstOrNull()
 
     fun writeMeta(meta: PersistentAgentMeta = meta()) {

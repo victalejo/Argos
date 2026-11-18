@@ -164,10 +164,10 @@ class PersistentAgentScriptTest {
             val agentDir = File(home, ".config/argos/agents/$id")
             val logFile = File(agentDir, "out.ndjson")
             var log = ""
-            for (attempt in 0 until 150) { // hasta 3 s: el proceso de fondo escribe de forma asíncrona
+            // El proceso de fondo escribe de forma asíncrona: se espera la condición con plazo generoso.
+            AgentShellHarness.waitUntil(AgentHardeningShellTest.PATIENCE_SECONDS) {
                 log = runCatching { logFile.readText() }.getOrDefault("")
-                if (log.contains(""""line":{"n":2}""")) break
-                Thread.sleep(20)
+                log.contains(""""line":{"n":2}""")
             }
             val errLog = runCatching { File(agentDir, "err.log").readText() }.getOrDefault("-")
             assertTrue(log.contains("""{"type":"echo","line":{"n":1}}"""), "log: $log err: $errLog")
@@ -187,13 +187,10 @@ class PersistentAgentScriptTest {
             assertEquals(true, listed.first().isAlive)
 
             shell(PersistentAgentScript.stop(id, delete = false), home)
-            var alive = true
-            for (attempt in 0 until 150) {
-                alive = PersistentAgentScript.parseList(shell(PersistentAgentScript.list(), home)).firstOrNull()?.isAlive ?: false
-                if (!alive) break
-                Thread.sleep(20)
+            val stopped = AgentShellHarness.waitUntil(AgentHardeningShellTest.PATIENCE_SECONDS) {
+                PersistentAgentScript.parseList(shell(PersistentAgentScript.list(), home)).firstOrNull()?.isAlive != true
             }
-            assertFalse(alive)
+            assertTrue(stopped)
             assertFailsWith<IllegalStateException> { shell(PersistentAgentScript.send(id, "{}"), home) }
         } finally {
             home.deleteRecursively()

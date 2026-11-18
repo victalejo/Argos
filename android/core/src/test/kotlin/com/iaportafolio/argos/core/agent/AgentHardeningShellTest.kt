@@ -24,6 +24,15 @@ class AgentHardeningShellTest {
     companion object {
         @JvmStatic
         fun shells(): List<String> = AgentShellHarness.shells()
+
+        /**
+         * Plazo GENEROSO de las esperas por condición: con la máquina cargada (CI, varios agentes
+         * compilando) arrancar un `sh` o un perl tarda; si todo va bien se sale mucho antes.
+         */
+        const val PATIENCE_SECONDS = 30.0
+
+        /** Antigüedad que se da al log para que cuente como inactivo sin esperar. */
+        const val IDLE_LOG_AGE_MILLIS = 10_000L
     }
 
     // MARK: Arranque
@@ -49,7 +58,7 @@ class AgentHardeningShellTest {
         assertNotNull(run.output.trim().toIntOrNull(), "salida: ${run.output}")
         h.sh(PersistentAgentScript.send(h.id, """{"n":1}"""))
 
-        assertTrue(waitUntil(15.0) { h.listed()?.let { !it.isAlive && it.meta.isHibernated } ?: false })
+        assertTrue(waitUntil(PATIENCE_SECONDS) { h.listed()?.let { !it.isAlive && it.meta.isHibernated } ?: false })
         // Con la marca puesta, un envío ya no se da por entregado.
         assertTrue(h.sh(PersistentAgentScript.send(h.id, "{}")).status != 0)
         val decoded = assertNotNull(PersistentAgentMeta.decode(File(h.agentDir, "meta.json").readText()))
@@ -67,6 +76,9 @@ class AgentHardeningShellTest {
     fun `no hiberna si espera un permiso`(shell: String) = AgentShellHarness(shell).use { h ->
         h.launch(h.fakeClaude(), PersistentAgentHibernation.of(1, 1))
         h.sh(PersistentAgentScript.send(h.id, """{"permiso":1}"""))
+        // Primero, que el permiso ESTÉ en el log (con la máquina cargada tarda); después, varias
+        // vueltas del vigilante (1 s) sin que lo hiberne: esta espera es la prueba en sí.
+        assertTrue(waitUntil(PATIENCE_SECONDS) { h.logText().contains("can_use_tool") }, "el permiso no llegó al log")
         Thread.sleep(4_000)
         assertEquals(true, h.listed()?.isAlive)
         // A demanda tampoco: el servidor vuelve a comprobar la quietud.
@@ -85,9 +97,15 @@ class AgentHardeningShellTest {
         // Recién activo: con 1 h de inactividad mínima, no se toca.
         assertFalse(h.sh(PersistentAgentScript.hibernate(h.id, 3600)).output.contains(PersistentAgentScript.HIBERNATED_REPLY))
         assertEquals(true, h.listed()?.isAlive)
-        Thread.sleep(2_000)
-        val late = h.sh(PersistentAgentScript.hibernate(h.id, 1)).output
-        assertTrue(late.contains("${PersistentAgentScript.HIBERNATED_REPLY} ${h.id}"), "salida: $late")
+        // Que el turno haya acabado (el `result` en el log) y después, que el servidor lo vea quieto
+        // al menos 1 s: se reintenta con plazo en vez de suponer cuánto tarda con la máquina cargada.
+        assertTrue(waitUntil(PATIENCE_SECONDS) { h.logText().contains("\"type\":\"result\"") }, "el turno no terminó")
+        var late = ""
+        val hibernated = waitUntil(PATIENCE_SECONDS) {
+            late = h.sh(PersistentAgentScript.hibernate(h.id, 1)).output
+            late.contains("${PersistentAgentScript.HIBERNATED_REPLY} ${h.id}")
+        }
+        assertTrue(hibernated, "salida: $late")
         val info = assertNotNull(h.listed())
         assertTrue(!info.isAlive && info.meta.isHibernated)
     }
@@ -101,7 +119,8 @@ class AgentHardeningShellTest {
         val other = ProcessBuilder("/bin/sleep", "30").start()
         try {
             File(h.agentDir, "pid").writeText("${other.pid()}\n")
-            Thread.sleep(1_200) // que el log ya cuente como inactivo
+            // Que el log ya cuente como inactivo, sin depender de cuánto tarde en pasar el tiempo.
+            assertTrue(File(h.agentDir, "out.ndjson").setLastModified(System.currentTimeMillis() - IDLE_LOG_AGE_MILLIS))
             val watch = PersistentAgentShell.watchdog(h.id, 1, 1)
             val run = h.sh("sh -c ${ShellQuoting.singleQuoted(watch)} argos-watch ${other.pid()}")
             assertEquals(0, run.status) // sale en cuanto ve que no es el agente
@@ -137,7 +156,7 @@ class AgentHardeningShellTest {
         assertTrue(isRunning(pid))
         val stop = h.sh(PersistentAgentScript.stop(h.id, delete = true, graceSeconds = 1))
         assertEquals(0, stop.status)
-        assertTrue(waitUntil(2.0) { !isRunning(pid) }) // ni con TERM ignorado sobrevive
+        assertTrue(waitUntil(PATIENCE_SECONDS) { !isRunning(pid) }) // ni con TERM ignorado sobrevive
         assertFalse(h.agentDir.exists())
     }
 
@@ -148,13 +167,13 @@ class AgentHardeningShellTest {
         val run = h.launch(h.fakeClaude(child = true))
         val pid = assertNotNull(run.output.trim().toLongOrNull(), "salida: ${run.output}")
         val childFile = File(h.home, "child.pid")
-        assertTrue(waitUntil(3.0) { childFile.exists() && childFile.readText().isNotBlank() })
+        assertTrue(waitUntil(PATIENCE_SECONDS) { childFile.exists() && childFile.readText().isNotBlank() })
         val child = assertNotNull(childFile.readText().trim().toLongOrNull())
         assertEquals(pid, AgentShellHarness.processGroup(pid)) // líder de su propio grupo
         assertTrue(isRunning(child))
         h.sh(PersistentAgentScript.stop(h.id, delete = false, graceSeconds = 2))
-        assertTrue(waitUntil(2.0) { !isRunning(pid) })
-        assertTrue(waitUntil(2.0) { !isRunning(child) }) // el hijo cae con el grupo
+        assertTrue(waitUntil(PATIENCE_SECONDS) { !isRunning(pid) })
+        assertTrue(waitUntil(PATIENCE_SECONDS) { !isRunning(child) }) // el hijo cae con el grupo
     }
 
     // MARK: Envío grande por stdin
@@ -174,7 +193,7 @@ class AgentHardeningShellTest {
         val sent = h.sh(PersistentAgentScript.sendViaStdin(h.id, payload.size, "r9"), payload)
         assertTrue(sent.status == 0 && sent.output.contains(PersistentAgentScript.SENT_REPLY), "salida: ${sent.output}")
         val log = File(h.agentDir, "out.ndjson")
-        assertTrue(waitUntil(5.0) { runCatching { log.readText() }.getOrDefault("").contains("\"bytes\":") })
+        assertTrue(waitUntil(PATIENCE_SECONDS) { runCatching { log.readText() }.getOrDefault("").contains("\"bytes\":") })
         assertTrue(log.readText().contains("\"request_id\":\"r9\""))
         h.sh(PersistentAgentScript.stop(h.id, delete = true))
         val dead = h.sh(PersistentAgentScript.sendViaStdin(h.id, 3), "{}\n".toByteArray())
@@ -245,6 +264,13 @@ class AgentHardeningShellTest {
         assertEquals(1L, PersistentAgentScript.parseLogBase(header(base + rotated.size + 5_000))?.from)
     }
 
+    /** Bytes del log que ya reenvió el `tail` de [out] (sin su línea de cabecera). */
+    private fun readUpTo(out: File): Long {
+        val bytes = runCatching { out.readBytes() }.getOrDefault(ByteArray(0))
+        val header = bytes.indexOf('\n'.code.toByte())
+        return if (header < 0) 0 else (bytes.size - header - 1).toLong()
+    }
+
     /** Un `tail -F` enganchado durante la rotación ve la marca ANTES de la copia conservada. */
     @ParameterizedTest
     @MethodSource("shells")
@@ -263,13 +289,14 @@ class AgentHardeningShellTest {
             put("PATH", h.path)
         }
         val attach = builder.start()
-        // Que el tail haya leído todo (cabecera + log) antes de rotar.
-        assertTrue(waitUntil(10.0) { outFile.length() > original.size })
+        // Que el tail haya leído TODO (cabecera + log entero) antes de rotar: con la máquina cargada
+        // va por detrás, y lo que no leyó del archivo viejo (la marca incluida) ya no lo verá.
+        assertTrue(waitUntil(PATIENCE_SECONDS) { readUpTo(outFile) >= original.size })
         h.sh(PersistentAgentShell.rotateOutputLog(PersistentAgentScript.directory(h.id), 200_000, 100_000))
         // tail -F reabre el archivo nuevo y lo reenvía (con la máquina cargada puede tardar).
-        waitUntil(15.0) { outFile.length() > original.size + 50_000 }
+        waitUntil(PATIENCE_SECONDS) { readUpTo(outFile) > original.size + 50_000 }
         attach.outputStream.close()
-        waitUntil(5.0) { !attach.isAlive }
+        waitUntil(PATIENCE_SECONDS) { !attach.isAlive }
         if (attach.isAlive) attach.destroy()
         val received = outFile.readBytes()
 
@@ -334,9 +361,16 @@ class AgentHardeningShellTest {
         val target = spawn(mine)
         val bystander = spawn(other)
         try {
-            Thread.sleep(300)
+            // Que los dos ya se vean en `ps` con su id (con la máquina cargada, perl tarda en arrancar).
+            assertTrue(
+                waitUntil(PATIENCE_SECONDS) {
+                    val listing = h.sh("ps -eo args=").output
+                    listing.contains(mine) && listing.contains(other)
+                },
+                "los procesos del panel no arrancaron",
+            )
             h.sh(ServerAgentInventory.stopPanelSessions(listOf(mine)))
-            assertTrue(waitUntil(3.0) { !target.isAlive })
+            assertTrue(waitUntil(PATIENCE_SECONDS) { !target.isAlive })
             assertTrue(bystander.isAlive)
         } finally {
             bystander.destroy()
