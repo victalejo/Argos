@@ -37,10 +37,9 @@ env:
   # Medida en local el 2026-11-18: 66,42 % (6291/9471 líneas) → 66.
   CORE_COVERAGE_MIN: "66"
   # `MaxSessions` del sshd temporal de los tests de integración. OpenSSH usa 10 por
-  # defecto; 6 es el tope de canales cortos de la app (ChannelGate), así que con 6 los
-  # comandos, las subidas y el SFTP compartido ya compiten por canales. Con 4 (menor que
-  # el tope) la ráfaga de comandos falla hoy: ver el informe del encargo ci-calidad.
-  SSHD_MAX_SESSIONS: "6"
+  # defecto; con 4 (menor que el tope de 6 canales cortos de la app) los tests ejercitan el
+  # tope adaptativo: la app debe bajar su cupo ante el primer rechazo del servidor.
+  SSHD_MAX_SESSIONS: "4"
 
 jobs:
   # Variante Mac (GitHub): comprobación de drift de XcodeGen, compilación, tests con
@@ -130,6 +129,7 @@ jobs:
             -project Argos.xcodeproj -scheme Argos -configuration Debug \
             -destination 'platform=macOS' -clonedSourcePackagesDirPath .spm \
             -only-testing:ArgosTests/IntegrationSSHDTests \
+            -only-testing:ArgosTests/IntegrationConnectionMonitorTests \
             -resultBundlePath IntegrationResults.xcresult \
             CODE_SIGNING_ALLOWED=NO | xcbeautify
 
