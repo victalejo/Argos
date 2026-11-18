@@ -5,7 +5,10 @@
 #
 # Guion: los turnos impares piden permiso para `Write` (al aprobar crea el archivo en la carpeta
 # de trabajo, al denegar no); los pares responden solo con texto markdown. Un prompt con
-# `#lento` responde solo con texto, en varios pasos separados por pausas.
+# `#lento` responde solo con texto, en varios pasos separados por pausas. Un prompt con `#abierto`
+# deja el turno ABIERTO (un texto, sin `result`) hasta que llegue la petición de control
+# `interrupt`, que se responde como el CLI real 2.1.x: `control_response` con éxito y, si había
+# turno abierto, un `user` sintético («[Request interrupted by user]») y un `result`.
 #
 #   claude auth status --json   logueado, salvo que exista ~/.fake-claude-logged-out
 #   ~/.fake-claude-test/        (si existe) modo test: sin pausas, registra argumentos, token
@@ -99,6 +102,7 @@ turn=$(cat "$turn_file" 2>/dev/null)
 turn=${turn:-0}
 pending_id=""
 pending_file=""
+open_turn=0
 first_turn=1
 model="claude-simulado"
 cwd_json=$(pwd | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
@@ -171,8 +175,10 @@ handle_user() {
   turn=$((turn + 1))
   printf '%s' "$turn" 2>/dev/null >"$turn_file"
   start_turn
+  open_turn=0
   case "$text" in
     *'#lento'*) answer_slowly; return ;;
+    *'#abierto'*) assistant_text '"Trabajando sin fin…"'; open_turn=1; return ;;
   esac
   if [ $((turn % 2)) = 1 ]; then ask_write_permission; else answer_with_text; fi
 }
@@ -202,10 +208,24 @@ handle_permission_response() {
   esac
 }
 
+handle_control_request() {
+  case "$line" in
+    *'"subtype":"interrupt"'*) ;;
+    *) return ;;
+  esac
+  request_id=$(printf '%s\n' "$line" | sed -n -E 's/^.*"request_id":("([^"\\]|\\.)*").*$/\1/p')
+  emit "{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":${request_id:-\"\"}}}"
+  [ "$open_turn" = 1 ] || return
+  open_turn=0
+  emit "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"[Request interrupted by user]\"}]},\"session_id\":\"$session\",\"parent_tool_use_id\":null}"
+  emit "{\"type\":\"result\",\"subtype\":\"error_during_execution\",\"is_error\":false,\"total_cost_usd\":0,\"duration_ms\":1,\"num_turns\":1,\"session_id\":\"$session\"}"
+}
+
 while IFS= read -r line; do
   if [ "$in_test" = 1 ]; then printf '%s\n' "$line" >>"$test_dir/$session.stdin"; fi
   case "$line" in
     *'"type":"control_response"'*) handle_permission_response ;;
+    *'"type":"control_request"'*) handle_control_request ;;
     *'"type":"user"'*) handle_user ;;
   esac
 done

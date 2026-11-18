@@ -10,7 +10,13 @@
 #   claude -p --input-format stream-json ... --session-id|--resume ID
 #       emite `system/init`; por cada línea de stdin con un mensaje de usuario, lo repite
 #       (como `--replay-user-messages`) y responde con `assistant` + `result`. Se queda
-#       vivo esperando más líneas (la FIFO del agente nunca da EOF).
+#       vivo esperando más líneas (la FIFO del agente nunca da EOF). Un prompt que
+#       contenga «SIN-FIN» deja el turno ABIERTO (solo un `assistant`, sin `result`).
+#       La petición de control `interrupt` responde `control_response` con éxito y, si hay
+#       un turno abierto, lo cierra como el CLI real 2.1.327: un `user` sintético
+#       («[Request interrupted by user]») y un `result` (`stop_reason: null`,
+#       `duration_api_ms: 0`, `total_cost_usd: 0`). Sin turno, solo el `control_response`
+#       (`{"subtype":"success","request_id":…,"response":{"still_queued":[]}}`).
 #
 # Variantes: el archivo `.argos-fake-mode` del directorio de trabajo (una palabra por
 # línea, con argumento opcional):
@@ -177,6 +183,20 @@ def reply(sid, text, line_bytes, modes):
           "session_id": sid, "num_turns": 1, "duration_ms": 1, "total_cost_usd": 0})
 
 
+def interrupt(sid, message, state):
+    emit({"type": "control_response",
+          "response": {"subtype": "success", "request_id": message.get("request_id", ""),
+                       "response": {"still_queued": []}}})
+    if not state.get("open"):
+        return
+    state["open"] = False
+    emit({"type": "user", "session_id": sid, "parent_tool_use_id": None,
+          "message": {"role": "user", "content": [{"type": "text", "text": "[Request interrupted by user]"}]}})
+    emit({"type": "result", "subtype": "error_during_execution", "is_error": False,
+          "session_id": sid, "num_turns": 1, "duration_ms": 1, "duration_api_ms": 0,
+          "stop_reason": None, "total_cost_usd": 0})
+
+
 def stream(argv):
     modes = read_modes()
     log_call("args " + " ".join(argv))
@@ -198,6 +218,7 @@ def stream(argv):
         emit({"type": "assistant", "session_id": sid,
               "message": {"role": "assistant", "content": [{"type": "text", "text": "h" * size}]}})
     replay = "--replay-user-messages" in argv
+    state = {"open": False}
     while True:
         raw = sys.stdin.buffer.readline()
         if not raw:
@@ -207,12 +228,24 @@ def stream(argv):
             message = json.loads(raw.decode("utf-8"))
         except ValueError:
             continue
+        if message.get("type") == "control_request":
+            if (message.get("request") or {}).get("subtype") == "interrupt":
+                interrupt(sid, message, state)
+            continue
         if message.get("type") != "user":
             continue
         if replay:
             emit(message)
-        if run_prompt_hooks(sid, user_text(message), permission_mode(argv)):
-            reply(sid, user_text(message), len(raw), modes)
+        text = user_text(message)
+        if not run_prompt_hooks(sid, text, permission_mode(argv)):
+            continue
+        if "SIN-FIN" in text:
+            state["open"] = True
+            emit({"type": "assistant", "session_id": sid,
+                  "message": {"role": "assistant", "content": [{"type": "text", "text": "trabajando sin fin"}]}})
+            continue
+        state["open"] = False
+        reply(sid, text, len(raw), modes)
 
 
 def main(argv):
