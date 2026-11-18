@@ -40,12 +40,23 @@ class AgentHardeningShellTest {
     @ParameterizedTest
     @MethodSource("shells")
     fun `si claude muere al arrancar se dice el porque`(shell: String) = AgentShellHarness(shell).use { h ->
+        // El lanzador solo espera 1 s: si claude muere antes, lo dice (`ARGOS_AGENT_FAILED` con su
+        // error); si tarda más (máquina cargada), responde su PID y lo detecta el cliente después
+        // (`PersistentAgentSession.watchStartup`). Se comprueba el contrato en los dos caminos.
         val run = h.launch(h.fakeClaude(failing = true))
-        assertEquals(6, run.status)
-        val error = assertFailsWith<PersistentAgentException> { PersistentAgentScript.parseLaunchReply(run.output.trim()) }
-        assertEquals(PersistentAgentError.LAUNCH_FAILED, error.error)
-        assertEquals("error: unknown option --foo\n", error.detail)
-        assertTrue(error.message.orEmpty().contains("unknown option --foo"))
+        val line = run.output.trim()
+        if (line.startsWith(PersistentAgentScript.FAILED_REPLY)) {
+            assertEquals(6, run.status)
+            val error = assertFailsWith<PersistentAgentException> { PersistentAgentScript.parseLaunchReply(line) }
+            assertEquals(PersistentAgentError.LAUNCH_FAILED, error.error)
+            assertEquals("error: unknown option --foo\n", error.detail)
+            assertTrue(error.message.orEmpty().contains("unknown option --foo"))
+        } else {
+            assertTrue(run.status == 0 && line.toIntOrNull() != null, "salida: ${run.output}")
+            assertTrue(waitUntil(PATIENCE_SECONDS) { h.listed()?.isAlive == false })
+        }
+        // En los dos caminos el motivo queda donde el cliente lo lee.
+        assertTrue(h.sh(PersistentAgentScript.errorTail(h.id)).output.contains("error: unknown option --foo"))
     }
 
     // MARK: Hibernación
@@ -251,17 +262,21 @@ class AgentHardeningShellTest {
         assertTrue(rotated.size <= 100_000)
         assertEquals('{'.code.toByte(), rotated.first()) // empieza en una línea completa
         assertEquals(150L + original.size, base + rotated.size) // la marca no cuenta
-        assertFalse(rotated.toString(Charsets.UTF_8).contains(PersistentAgentShell.ROTATED_EVENT_TYPE))
+        // El log nuevo EMPIEZA por la marca (un `tail -F` que lo reabre la lee primero).
+        assertTrue(rotated.toString(Charsets.UTF_8).startsWith(PersistentAgentShell.ROTATED_LINE + "\n"))
         assertFalse(File(h.agentDir, ".rotating").exists())
         assertEquals(150L + original.size, h.listed()?.logBytes)
 
         fun header(fromByte: Long) = h.sh(PersistentAgentScript.attach(h.id, fromByte)).output.lineSequence().first()
         // El enganche traduce el byte absoluto pedido al local y lo anuncia.
-        assertEquals(PersistentAgentScript.LogBase(base, 11), PersistentAgentScript.parseLogBase(header(base + 11)))
-        // Lo pedido ya se rotó: desde el principio de lo conservado.
-        assertEquals(1L, PersistentAgentScript.parseLogBase(header(5))?.from)
+        // (Tras la marca inicial: sus bytes locales nunca se entregan.)
+        val mark = PersistentAgentShell.ROTATED_LINE_BYTES
+        assertEquals(PersistentAgentScript.LogBase(base, mark + 11L), PersistentAgentScript.parseLogBase(header(base + mark + 11)))
+        // Lo pedido ya se rotó: desde el principio de lo conservado (tras la marca).
+        val afterMark = PersistentAgentShell.ROTATED_LINE_BYTES + 1L
+        assertEquals(afterMark, PersistentAgentScript.parseLogBase(header(5))?.from)
         // Más allá del final (desplazamientos que no cuadran): también reconstruye.
-        assertEquals(1L, PersistentAgentScript.parseLogBase(header(base + rotated.size + 5_000))?.from)
+        assertEquals(afterMark, PersistentAgentScript.parseLogBase(header(base + rotated.size + 5_000))?.from)
     }
 
     /** Bytes del log que ya reenvió el `tail` de [out] (sin su línea de cabecera). */

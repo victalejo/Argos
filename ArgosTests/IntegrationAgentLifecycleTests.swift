@@ -139,11 +139,26 @@ struct AgentLifecycle {
           .enabled(if: IntegrationRemote.isLinux, IntegrationRemote.linuxOnly), .timeLimit(.minutes(2)))
     func watchdogSparesBusyGroup() async throws {
         let box = try await RemoteBox.open("agent-busy")
+        // Vueltas de 10 s: el grupo cuenta como ocupado con 3 s de CPU por vuelta (30 %), que
+        // el hijo (un bucle sin pausa) alcanza aunque la máquina esté cargada. Sin esperas
+        // fijas: se espera a que el vigilante complete DOS vueltas enteras (las vemos porque
+        // cada una recorta `err.log`) y entonces debe seguir vivo.
         let agent = try await box.launchAgent(
-            modes: ["busy-child"], hibernation: PersistentAgentHibernation(idleSeconds: 2, checkSeconds: 5)
+            modes: ["busy-child"], hibernation: PersistentAgentHibernation(idleSeconds: 2, checkSeconds: 10)
         )
         defer { IntegrationCleanup.later { await box.removeAgents([agent]); await box.close() } }
-        try await Task.sleep(for: .seconds(17))
+        #expect(try await eventually(seconds: 10) { try await !box.processes(matching: agent.childPattern).isEmpty })
+        for round in 1...2 {
+            let errLog = "\(agent.directory)/err.log"
+            try await box.sh("head -c \(PersistentAgentShell.errLogMaxBytes + 1_024) /dev/zero | tr '\\0' e > \(errLog)")
+            #expect(try await eventually(seconds: 60) {
+                let size = try await box.sh("wc -c < \(errLog) | tr -d ' '").trimmingCharacters(in: .whitespacesAndNewlines)
+                return (Int(size) ?? .max) <= PersistentAgentShell.errLogKeepBytes
+            }, "El vigilante no completó la vuelta \(round)")
+        }
+        // El hijo de verdad gastó CPU (si no, la prueba no probaría nada).
+        let cpu = try await box.sh("ps -eo time=,args= | grep -e \(box.q(RemoteBox.selfExcluding(agent.childPattern))) | head -n 1")
+        #expect(!cpu.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("00:00:00"), "CPU del hijo: \(cpu)")
         #expect(try await box.isAlive(agent), "Se hibernó con un hijo trabajando")
         #expect(try await box.agentMeta(agent).contains("hibernatedAt") == false)
         try await box.sh(PersistentAgentScript.stop(id: agent.id, delete: false, graceSeconds: 2))
@@ -172,7 +187,7 @@ struct AgentLifecycle {
         let base = try await box.sh("cat \(agent.directory)/log.base")
         let rotated = try #require(Int(base.trimmingCharacters(in: .whitespacesAndNewlines)))
         #expect(rotated > 0 && rotated < total)
-        #expect(try await box.agentLog(agent).contains(PersistentAgentShell.rotatedEventType) == false)
+        #expect(try await box.agentLog(agent).hasPrefix(PersistentAgentShell.rotatedLine + "\n"))
 
         // El enganche vio la marca, se reenganchó y sigue en el mismo byte absoluto.
         #expect(try await eventually(seconds: 20) { session.link.isLive && session.receivedBytes == total })

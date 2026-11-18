@@ -167,7 +167,7 @@ enum PersistentAgentScript {
             "IFS= read -r ARGOS_OAUTH; export ARGOS_OAUTH",
             "mkdir -p \"$HOME/\(rootRelativePath)\" && chmod 700 \"$HOME/\(rootRelativePath)\"",
             // Un cerrojo de más de un minuto es de un lanzamiento que se interrumpió.
-            "find \"$HOME/\(rootRelativePath)\" -maxdepth 1 -name '.\(id).lock' -mmin +1 -exec rmdir {} \\; 2>/dev/null",
+            PersistentAgentShell.clearStaleLock(id),
             PersistentAgentShell.acquireLock(
                 id, waitSeconds: PersistentAgentShell.lockWaitSeconds, onBusy: "echo \(busyReply); exit 4"
             ),
@@ -197,11 +197,19 @@ enum PersistentAgentScript {
     /// bloquea aunque claude acabe de morir. Si `answeredRequestID` no es nil (respuesta a
     /// un permiso), DESPUÉS de entregarla se anota en el log que ya se respondió.
     /// Para líneas grandes (ver `needsStdin`) se usa `sendViaStdin`.
+    ///
+    /// Con el cerrojo del vigilante: o la línea llega antes de que se hiberne (y se toca el
+    /// log, así que ya no está quieto y no se hiberna) o se ve hibernado y se responde
+    /// «muerto» (el cliente lo reanuda y reenvía). Nunca se da por enviada una línea que
+    /// el vigilante va a tirar al parar a claude.
     static func send(id: String, line: String, answeredRequestID: String? = nil) -> String {
         let dir = directory(id)
         let b64 = Data((line + "\n").utf8).base64EncodedString()
-        var command = "\(deliverable(id)) || { echo '\(deadReply)' >&2; exit 3; }; "
-            + "exec 3<>\(dir)/in && printf '%s' '\(b64)' | base64 -d >&3"
+        let dead = "{ echo '\(deadReply)' >&2; exit 3; }"
+        var command = "\(deliverable(id)) || \(dead); "
+            + PersistentAgentShell.lockForDelivery(id, onBusy: "echo '\(busyReply)' >&2; exit 4") + "; "
+            + "\(deliverable(id)) || \(dead); "
+            + "exec 3<>\(dir)/in && printf '%s' '\(b64)' | base64 -d >&3 && \(PersistentAgentShell.touchLog(dir))"
         if let answeredRequestID {
             command += " && " + appendAnsweredMarker(dir: dir, requestID: answeredRequestID)
         }
@@ -230,6 +238,8 @@ enum PersistentAgentScript {
     /// abierta también para leer, nunca llegaría un SIGPIPE. Si el agente muere o pasan
     /// `sendTimeoutSeconds`, se mata al escritor y el script termina: al cerrarse la FIFO
     /// sin nadie más, lo que quedara en ella se descarta (no le llega a otro claude).
+    /// Como `send`, la comprobación y la escritura van con el cerrojo del vigilante
+    /// (`ARGOS_AGENT_BUSY` si no se consigue a tiempo).
     static func sendViaStdin(
         id: String,
         byteCount: Int,
@@ -244,6 +254,8 @@ enum PersistentAgentScript {
             "( umask 077 && head -n 1 > \(file) )",
             "n=$(wc -c < \(file) | tr -d ' ')",
             "if [ \"$n\" != \"\(byteCount)\" ]; then rm -f \(file); echo \(shortReply); exit 7; fi",
+            PersistentAgentShell.lockForDelivery(id, onBusy: "rm -f \(file); echo \(busyReply); exit 4"),
+            "\(deliverable(id)) || { rm -f \(file); echo \(deadReply); exit 3; }",
             "exec 3<>\(dir)/in || { rm -f \(file); exit 1; }",
             "cat \(file) >&3 & w=$!",
             "i=0; while kill -0 \"$w\" 2>/dev/null; do",
@@ -251,6 +263,7 @@ enum PersistentAgentScript {
             "if [ $i -ge \(ticks) ]; then kill \"$w\" 2>/dev/null; rm -f \(file); echo \(timeoutReply); exit 8; fi",
             "sleep 0.2; i=$((i+1)); done",
             "wait \"$w\"; r=$?; rm -f \(file); [ $r -eq 0 ] || exit 1",
+            PersistentAgentShell.touchLog(dir),
         ]
         if let answeredRequestID {
             lines.append(appendAnsweredMarker(dir: dir, requestID: answeredRequestID) + " || exit 1")
@@ -275,12 +288,16 @@ enum PersistentAgentScript {
     /// el canal SSH (EOF en stdin): si no, cada reconexión dejaría un `tail` huérfano.
     /// Mientras se rota (`.rotating`) espera hasta 10 s. Si lo pedido queda más allá del
     /// final del archivo (desplazamientos que ya no cuadran), responde `S` = 1 para que el
-    /// cliente reconstruya en vez de quedarse esperando bytes que no llegarán.
+    /// cliente reconstruya en vez de quedarse esperando bytes que no llegarán. Si el log
+    /// empieza por la marca de rotación (ver `PersistentAgentShell.rotateOutputLog`), nunca
+    /// se envía: se sigue desde justo después (si no, el cliente se reengancharía sin fin).
     static func attach(id: String, fromByte: Int = 1) -> String {
         let dir = directory(id)
+        let mark = PersistentAgentShell.rotatedLineBytes
         return "w=0; while [ -e \(dir)/.rotating ] && [ $w -lt 50 ]; do sleep 0.2; w=$((w+1)); done; "
             + "\(PersistentAgentShell.readBase(dir)); s=$((\(max(1, fromByte)) - b)); [ \"$s\" -ge 1 ] || s=1; "
             + "sz=$(wc -c < \(dir)/out.ndjson 2>/dev/null | tr -d ' '); [ \"$s\" -le $(( ${sz:-0} + 1 )) ] || s=1; "
+            + "if [ \"$s\" -le \(mark) ] && [ \"$(head -c \(mark) \(dir)/out.ndjson 2>/dev/null)\" = '\(PersistentAgentShell.rotatedLine)' ]; then s=\(mark + 1); fi; "
             + "printf '{\"type\":\"\(logBaseEventType)\",\"base\":%s,\"from\":%s}\\n' \"$b\" \"$s\"; "
             + "tail -c +\"$s\" -F \(dir)/out.ndjson 2>/dev/null & T=$!; "
             + "trap 'kill $T 2>/dev/null' EXIT HUP TERM; cat > /dev/null; kill $T 2>/dev/null"

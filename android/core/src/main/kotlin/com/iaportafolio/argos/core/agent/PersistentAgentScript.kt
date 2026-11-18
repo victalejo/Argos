@@ -132,7 +132,7 @@ object PersistentAgentScript {
             "IFS= read -r ARGOS_OAUTH; export ARGOS_OAUTH",
             "mkdir -p \"\$HOME/$ROOT_RELATIVE_PATH\" && chmod 700 \"\$HOME/$ROOT_RELATIVE_PATH\"",
             // Un cerrojo de más de un minuto es de un lanzamiento que se interrumpió.
-            "find \"\$HOME/$ROOT_RELATIVE_PATH\" -maxdepth 1 -name '.$id.lock' -mmin +1 -exec rmdir {} \\; 2>/dev/null",
+            PersistentAgentShell.clearStaleLock(id),
             PersistentAgentShell.acquireLock(id, PersistentAgentShell.LOCK_WAIT_SECONDS, "echo $BUSY_REPLY; exit 4"),
             "trap 'rmdir $lock 2>/dev/null' EXIT",
             alive,
@@ -179,12 +179,19 @@ object PersistentAgentScript {
      * Escribe una línea NDJSON en la FIFO del agente, en base64 (nunca se interpreta en el
      * shell). Con [answeredRequestID] (respuesta a un permiso), DESPUÉS de entregarla se anota
      * en el log que ya se respondió. Para líneas grandes (ver [needsStdin]) se usa [sendViaStdin].
+     *
+     * Con el cerrojo del vigilante: o la línea llega antes de que se hiberne (y se toca el log,
+     * así que ya no está quieto) o se ve hibernado y se responde «muerto» (el cliente lo reanuda
+     * y reenvía). Nunca se da por enviada una línea que el vigilante va a tirar al parar a claude.
      */
     fun send(id: String, line: String, answeredRequestID: String? = null): String {
         val dir = directory(id)
         val b64 = SwiftText.encodeBase64("$line\n".toByteArray(Charsets.UTF_8))
-        val command = "${deliverable(id)} || { echo '$DEAD_REPLY' >&2; exit 3; }; " +
-            "exec 3<>$dir/in && printf '%s' '$b64' | base64 -d >&3"
+        val dead = "{ echo '$DEAD_REPLY' >&2; exit 3; }"
+        val command = "${deliverable(id)} || $dead; " +
+            PersistentAgentShell.lockForDelivery(id, "echo '$BUSY_REPLY' >&2; exit 4") + "; " +
+            "${deliverable(id)} || $dead; " +
+            "exec 3<>$dir/in && printf '%s' '$b64' | base64 -d >&3 && ${PersistentAgentShell.touchLog(dir)}"
         if (answeredRequestID == null) return command
         return "$command && ${appendAnsweredMarker(dir, answeredRequestID)}"
     }
@@ -204,7 +211,8 @@ object PersistentAgentScript {
      * en un archivo privado, se comprueba que llegó entera ([byteCount] = bytes con su `\n`) y
      * solo entonces se escribe en la FIFO, en SEGUNDO PLANO y vigilada (muerte del agente o
      * plazo). Responde por stdout con `ARGOS_SENT`, `ARGOS_AGENT_DEAD`, `ARGOS_SEND_SHORT` o
-     * `ARGOS_SEND_TIMEOUT`.
+     * `ARGOS_SEND_TIMEOUT`. Como [send], la comprobación y la escritura van con el cerrojo del
+     * vigilante (`ARGOS_AGENT_BUSY` si no se consigue a tiempo).
      */
     fun sendViaStdin(
         id: String,
@@ -220,6 +228,8 @@ object PersistentAgentScript {
             "( umask 077 && head -n 1 > $file )",
             "n=\$(wc -c < $file | tr -d ' ')",
             "if [ \"\$n\" != \"$byteCount\" ]; then rm -f $file; echo $SHORT_REPLY; exit 7; fi",
+            PersistentAgentShell.lockForDelivery(id, "rm -f $file; echo $BUSY_REPLY; exit 4"),
+            "${deliverable(id)} || { rm -f $file; echo $DEAD_REPLY; exit 3; }",
             "exec 3<>$dir/in || { rm -f $file; exit 1; }",
             "cat $file >&3 & w=\$!",
             "i=0; while kill -0 \"\$w\" 2>/dev/null; do",
@@ -227,6 +237,7 @@ object PersistentAgentScript {
             "if [ \$i -ge $ticks ]; then kill \"\$w\" 2>/dev/null; rm -f $file; echo $TIMEOUT_REPLY; exit 8; fi",
             "sleep 0.2; i=\$((i+1)); done",
             "wait \"\$w\"; r=\$?; rm -f $file; [ \$r -eq 0 ] || exit 1",
+            PersistentAgentShell.touchLog(dir),
         )
         if (answeredRequestID != null) lines += "${appendAnsweredMarker(dir, answeredRequestID)} || exit 1"
         lines += "echo $SENT_REPLY"
@@ -251,12 +262,17 @@ object PersistentAgentScript {
      * imprime UNA línea `{"type":"argos_log_base","base":B,"from":S}`: `B` son los bytes rotados
      * y `S` el byte local desde el que sigue (si lo pedido ya se rotó o queda más allá del final,
      * `S` = 1 y el cliente reconstruye). El `tail` muere al cerrarse el canal SSH (EOF en stdin).
+     * Si el log empieza por la marca de rotación, nunca se envía: se sigue desde justo después (si
+     * no, el cliente se reengancharía sin fin).
      */
     fun attach(id: String, fromByte: Long = 1): String {
         val dir = directory(id)
+        val mark = PersistentAgentShell.ROTATED_LINE_BYTES
         return "w=0; while [ -e $dir/.rotating ] && [ \$w -lt 50 ]; do sleep 0.2; w=\$((w+1)); done; " +
             "${PersistentAgentShell.readBase(dir)}; s=\$((${maxOf(1L, fromByte)} - b)); [ \"\$s\" -ge 1 ] || s=1; " +
             "sz=\$(wc -c < $dir/out.ndjson 2>/dev/null | tr -d ' '); [ \"\$s\" -le \$(( \${sz:-0} + 1 )) ] || s=1; " +
+            "if [ \"\$s\" -le $mark ] && [ \"\$(head -c $mark $dir/out.ndjson 2>/dev/null)\" = '${PersistentAgentShell.ROTATED_LINE}' ]; " +
+            "then s=${mark + 1}; fi; " +
             "printf '{\"type\":\"$LOG_BASE_EVENT_TYPE\",\"base\":%s,\"from\":%s}\\n' \"\$b\" \"\$s\"; " +
             "tail -c +\"\$s\" -F $dir/out.ndjson 2>/dev/null & T=\$!; " +
             "trap 'kill \$T 2>/dev/null' EXIT HUP TERM; cat > /dev/null; kill \$T 2>/dev/null"

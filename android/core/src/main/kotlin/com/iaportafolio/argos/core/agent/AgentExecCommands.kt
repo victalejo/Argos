@@ -161,6 +161,9 @@ object AgentExecCommands {
     /** ¿Indica este stderr que el agente persistente ya no corre? */
     fun isAgentDead(stderr: String): Boolean = stderr.contains(AGENT_DEAD_MARKER)
 
+    /** ¿Indica este stderr que el cerrojo del agente estaba cogido (lanzamiento, hibernación o envío)? */
+    fun isAgentBusy(stderr: String): Boolean = stderr.contains(PersistentAgentScript.BUSY_REPLY)
+
     /** ¿Indica este stderr que el agente no murió ni con KILL? */
     fun isAgentStuck(stderr: String): Boolean = stderr.contains(PersistentAgentShell.STUCK_MARKER)
 }

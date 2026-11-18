@@ -168,6 +168,7 @@ extension SSHService {
         guard result.exitCode == 0 else {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             if detail.contains(PersistentAgentScript.deadReply) { throw PersistentAgentError.notRunning }
+            if detail.contains(PersistentAgentScript.busyReply) { throw PersistentAgentError.busy }
             if detail.contains(PersistentAgentShell.stuckMarker) { throw PersistentAgentError.stuck }
             throw AgentExecError(message: detail.isEmpty ? String(localized: "código de salida \(String(result.exitCode))") : String(detail.suffix(600)))
         }

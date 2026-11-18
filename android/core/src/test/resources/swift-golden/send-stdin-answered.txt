@@ -2,6 +2,8 @@
 ( umask 077 && head -n 1 > "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/.send.$$ )
 n=$(wc -c < "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/.send.$$ | tr -d ' ')
 if [ "$n" != "20000" ]; then rm -f "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/.send.$$; echo ARGOS_SEND_SHORT; exit 7; fi
+find "$HOME/.config/argos/agents" -maxdepth 1 -name '.6a55640d-ac70-41ab-8426-6eb72d4fb5eb.lock' -mmin +1 -exec rmdir {} \; 2>/dev/null; n=0; until mkdir "$HOME/.config/argos/agents/.6a55640d-ac70-41ab-8426-6eb72d4fb5eb.lock" 2>/dev/null; do n=$((n+1)); if [ $n -ge 20 ]; then rm -f "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/.send.$$; echo ARGOS_AGENT_BUSY; exit 4; fi; sleep 1; done; trap 'rmdir "$HOME/.config/argos/agents/.6a55640d-ac70-41ab-8426-6eb72d4fb5eb.lock" 2>/dev/null' EXIT
+{ { p=$(cat "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/pid 2>/dev/null); [ -n "$p" ] && ps -o args= -p "$p" 2>/dev/null | grep -q -- '6a55640d-ac70-41ab-8426-6eb72d4fb5eb'; } && ! grep -q '"hibernatedAt"' "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/meta.json 2>/dev/null; } || { rm -f "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/.send.$$; echo ARGOS_AGENT_DEAD; exit 3; }
 exec 3<>"$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/in || { rm -f "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/.send.$$; exit 1; }
 cat "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/.send.$$ >&3 & w=$!
 i=0; while kill -0 "$w" 2>/dev/null; do
@@ -9,5 +11,6 @@ if ! { p=$(cat "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"
 if [ $i -ge 10 ]; then kill "$w" 2>/dev/null; rm -f "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/.send.$$; echo ARGOS_SEND_TIMEOUT; exit 8; fi
 sleep 0.2; i=$((i+1)); done
 wait "$w"; r=$?; rm -f "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/.send.$$; [ $r -eq 0 ] || exit 1
+touch "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/out.ndjson
 printf '%s' 'eyJyZXF1ZXN0X2lkIjoiclwiMVwveCIsInR5cGUiOiJhcmdvc19wZXJtaXNzaW9uX2Fuc3dlcmVkIn0K' | base64 -d >> "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/out.ndjson || exit 1
 echo ARGOS_SENT

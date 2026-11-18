@@ -12,8 +12,12 @@ package com.iaportafolio.argos.core.agent
  *
  * COMPATIBILIDAD: todo es ADITIVO sobre la carpeta del agente:
  * - `log.base`: bytes que una rotación quitó del principio de `out.ndjson` (sin archivo, 0).
- * - Antes de rotar se anexa al archivo viejo `{"type":"argos_log_rotated"}`: quien lo siga con
- *   `tail -F` sabe que debe reengancharse. Sus bytes NO cuentan en los desplazamientos.
+ * - Marca `{"type":"argos_log_rotated"}`: se anexa al archivo viejo antes de rotarlo Y es la
+ *   PRIMERA línea del nuevo. Un `tail -F` enganchado la ve siempre: al final del viejo o, si el
+ *   archivo se sustituyó antes de leerla, al reabrir el nuevo (que reenvía desde el principio).
+ *   Sus bytes NO cuentan: el cliente deja de contar en ella y se reengancha. La del archivo nuevo
+ *   ocupa bytes locales, pero `log.base` se ajusta para que lo conservado siga en su byte absoluto
+ *   y `attach` la salta. Las versiones publicadas la ignoran como evento desconocido.
  * - `.rotating`: existe mientras se rota (el enganche espera a que desaparezca).
  * - `meta.json` puede llevar `"hibernatedAt"`: las versiones antiguas lo ignoran.
  */
@@ -40,9 +44,12 @@ object PersistentAgentShell {
     /** Marca que se escribe en stderr si el proceso no muere ni con KILL. */
     const val STUCK_MARKER = "ARGOS_AGENT_STUCK"
 
-    /** Línea que se anexa al log viejo antes de rotarlo. */
+    /** Línea que se anexa al log viejo antes de rotarlo y con la que empieza el nuevo. */
     const val ROTATED_EVENT_TYPE = "argos_log_rotated"
     const val ROTATED_LINE = "{\"type\":\"$ROTATED_EVENT_TYPE\"}"
+
+    /** Bytes de la marca con su salto de línea (lo que ocupa al principio del log nuevo). */
+    val ROTATED_LINE_BYTES: Int = ROTATED_LINE.toByteArray(Charsets.UTF_8).size + 1
 
     /** Cerrojo compartido por lanzar, hibernar y el vigilante. */
     fun lockPath(id: String): String = "\"\$HOME/${PersistentAgentScript.ROOT_RELATIVE_PATH}/.$id.lock\""
@@ -53,6 +60,24 @@ object PersistentAgentShell {
             "if [ \$n -ge $waitSeconds ]; then $onBusy; fi; sleep 1; done"
 
     fun releaseLock(id: String): String = "rmdir ${lockPath(id)} 2>/dev/null"
+
+    /** Un cerrojo de más de un minuto es de un lanzamiento o envío que se interrumpió. */
+    fun clearStaleLock(id: String): String =
+        "find \"\$HOME/${PersistentAgentScript.ROOT_RELATIVE_PATH}\" -maxdepth 1 -name '.$id.lock' -mmin +1 -exec rmdir {} \\; 2>/dev/null"
+
+    /**
+     * Para los ENVÍOS: con el cerrojo del vigilante cogido (y soltándolo al salir), así comprobar
+     * que no se hiberna y escribir en la FIFO es atómico respecto a hibernar.
+     */
+    fun lockForDelivery(id: String, onBusy: String): String =
+        "${clearStaleLock(id)}; ${acquireLock(id, LOCK_WAIT_SECONDS, onBusy)}; trap '${releaseLock(id)}' EXIT"
+
+    /**
+     * Tras escribir en la FIFO se toca el log: hasta que claude lea la línea el log no cambia, y
+     * un vigilante (también los de versiones antiguas, que miran su fecha) lo vería quieto y lo
+     * pararía con el mensaje aún sin leer.
+     */
+    fun touchLog(dir: String): String = "touch $dir/out.ndjson"
 
     /** Base del log (bytes rotados) en `$b`, siempre un entero. */
     fun readBase(dir: String): String =
@@ -108,8 +133,9 @@ object PersistentAgentShell {
 
     /**
      * Rota `out.ndjson` si es enorme. SOLO con el agente parado (lo llama el lanzador con el
-     * cerrojo cogido): conserva el final desde una línea completa, suma a `log.base` lo quitado
-     * y avisa a quien siga el archivo viejo con la línea `argos_log_rotated`.
+     * cerrojo cogido): conserva el final desde una línea completa, EMPIEZA el archivo nuevo por la
+     * marca `argos_log_rotated` (también la anexa al viejo) y deja en `log.base` lo quitado menos
+     * lo que ocupa la marca: lo conservado sigue en su byte ABSOLUTO.
      */
     fun rotateOutputLog(dir: String, maxBytes: Int = OUT_LOG_MAX_BYTES, keepBytes: Int = OUT_LOG_KEEP_BYTES): String {
         val out = "$dir/out.ndjson"
@@ -118,8 +144,8 @@ object PersistentAgentShell {
             ": > $dir/.rotating; ${readBase(dir)}; " +
             "tail -c $keepBytes $out > $dir/out.tmp && " +
             "l=\$(head -n 1 $dir/out.tmp | wc -c | tr -d ' ') && " +
-            "tail -c +\$((l + 1)) $dir/out.tmp > $dir/out.new && " +
-            "k=\$(wc -c < $dir/out.new | tr -d ' ') && " +
+            "{ printf '%s\\n' '$ROTATED_LINE' && tail -c +\$((l + 1)) $dir/out.tmp; } > $dir/out.new && " +
+            "k=\$(wc -c < $dir/out.new | tr -d ' ') && [ \$((b + os - k)) -ge 0 ] && " +
             "echo \$((b + os - k)) > $dir/log.base.tmp && " +
             "printf '%s\\n' '$ROTATED_LINE' >> $out && " +
             "mv $dir/log.base.tmp $dir/log.base && mv $dir/out.new $out; " +

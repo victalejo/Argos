@@ -15,9 +15,14 @@
 //   - `log.base`: bytes que una rotación quitó del principio de `out.ndjson`. El byte k
 //     del archivo actual es el byte absoluto `base + k`. Sin archivo, base = 0 (lo de
 //     siempre). Las versiones antiguas lo ignoran.
-//   - Antes de rotar se anexa al archivo viejo `{"type":"argos_log_rotated"}`: quien esté
-//     siguiéndolo con `tail -F` sabe que debe reengancharse. Sus bytes NO cuentan en los
-//     desplazamientos absolutos (no se guardan en el archivo nuevo).
+//   - Marca `{"type":"argos_log_rotated"}`: se anexa al archivo viejo antes de rotarlo Y es
+//     la PRIMERA línea del archivo nuevo. Un `tail -F` enganchado la ve siempre: o al final
+//     del viejo o, si el archivo se sustituyó antes de que la leyera, al reabrir el nuevo
+//     (que reenvía desde el principio). Sus bytes NO cuentan en los desplazamientos: el
+//     cliente deja de contar en ella y se reengancha. La del archivo nuevo ocupa bytes
+//     locales, pero `log.base` se ajusta para que lo conservado siga en su byte absoluto,
+//     y `attach` la salta. Las versiones publicadas no la conocen: la ignoran como evento
+//     desconocido (miden el tamaño local, igual que antes).
 //   - `.rotating`: existe mientras se rota (el enganche espera a que desaparezca).
 //   - `meta.json` puede llevar `"hibernatedAt"` (fecha ISO 8601): Swift y Kotlin
 //     ignoran las claves que no conocen.
@@ -43,9 +48,11 @@ enum PersistentAgentShell {
 
     /// Marca que se escribe en stderr si el proceso no muere ni con KILL.
     static let stuckMarker = "ARGOS_AGENT_STUCK"
-    /// Línea que se anexa al log viejo antes de rotarlo.
+    /// Línea que se anexa al log viejo antes de rotarlo y con la que empieza el nuevo.
     static let rotatedEventType = "argos_log_rotated"
     static var rotatedLine: String { "{\"type\":\"\(rotatedEventType)\"}" }
+    /// Bytes de la marca con su salto de línea (lo que ocupa al principio del log nuevo).
+    static var rotatedLineBytes: Int { rotatedLine.utf8.count + 1 }
 
     /// Cerrojo compartido por lanzar, hibernar y el vigilante.
     static func lockPath(_ id: String) -> String {
@@ -60,6 +67,25 @@ enum PersistentAgentShell {
 
     static func releaseLock(_ id: String) -> String {
         "rmdir \(lockPath(id)) 2>/dev/null"
+    }
+
+    /// Un cerrojo de más de un minuto es de un lanzamiento o envío que se interrumpió.
+    static func clearStaleLock(_ id: String) -> String {
+        "find \"$HOME/\(PersistentAgentScript.rootRelativePath)\" -maxdepth 1 -name '.\(id).lock' -mmin +1 -exec rmdir {} \\; 2>/dev/null"
+    }
+
+    /// Para los ENVÍOS: con el cerrojo del vigilante cogido (y soltándolo al salir), así
+    /// comprobar que no se hiberna y escribir en la FIFO es atómico respecto a hibernar.
+    static func lockForDelivery(_ id: String, onBusy: String) -> String {
+        "\(clearStaleLock(id)); \(acquireLock(id, waitSeconds: lockWaitSeconds, onBusy: onBusy)); "
+            + "trap '\(releaseLock(id))' EXIT"
+    }
+
+    /// Tras escribir en la FIFO se toca el log: hasta que claude lea la línea (y la refleje)
+    /// el log no cambia, y un vigilante (también los de versiones antiguas, que miran la
+    /// fecha del log) lo vería quieto y lo pararía con el mensaje aún sin leer.
+    static func touchLog(_ dir: String) -> String {
+        "touch \(dir)/out.ndjson"
     }
 
     /// Base del log (bytes rotados) en `$b`, siempre un entero.
@@ -122,9 +148,10 @@ enum PersistentAgentShell {
     }
 
     /// Rota `out.ndjson` si es enorme. SOLO con el agente parado (lo llama el lanzador
-    /// con el cerrojo cogido): conserva el final desde una línea completa, suma a
-    /// `log.base` lo quitado (así los desplazamientos ABSOLUTOS siguen valiendo) y avisa a
-    /// quien siga el archivo viejo con la línea `argos_log_rotated`.
+    /// con el cerrojo cogido): conserva el final desde una línea completa, EMPIEZA el
+    /// archivo nuevo por la marca `argos_log_rotated` (también la anexa al viejo), y deja en
+    /// `log.base` lo quitado menos lo que ocupa la marca: así lo conservado sigue en su byte
+    /// ABSOLUTO y el tamaño absoluto no cambia.
     static func rotateOutputLog(_ dir: String, maxBytes: Int = outLogMaxBytes, keepBytes: Int = outLogKeepBytes) -> String {
         let out = "\(dir)/out.ndjson"
         return "os=$(wc -c < \(out) 2>/dev/null | tr -d ' '); "
@@ -132,8 +159,8 @@ enum PersistentAgentShell {
             + ": > \(dir)/.rotating; \(readBase(dir)); "
             + "tail -c \(keepBytes) \(out) > \(dir)/out.tmp && "
             + "l=$(head -n 1 \(dir)/out.tmp | wc -c | tr -d ' ') && "
-            + "tail -c +$((l + 1)) \(dir)/out.tmp > \(dir)/out.new && "
-            + "k=$(wc -c < \(dir)/out.new | tr -d ' ') && "
+            + "{ printf '%s\\n' '\(rotatedLine)' && tail -c +$((l + 1)) \(dir)/out.tmp; } > \(dir)/out.new && "
+            + "k=$(wc -c < \(dir)/out.new | tr -d ' ') && [ $((b + os - k)) -ge 0 ] && "
             + "echo $((b + os - k)) > \(dir)/log.base.tmp && "
             + "printf '%s\\n' '\(rotatedLine)' >> \(out) && "
             + "mv \(dir)/log.base.tmp \(dir)/log.base && mv \(dir)/out.new \(out); "

@@ -481,7 +481,7 @@ final class PersistentAgentSession {
         let bytes = Array((line + "\n").utf8)
         let replies = [
             PersistentAgentScript.sentReply, PersistentAgentScript.deadReply,
-            PersistentAgentScript.shortReply, PersistentAgentScript.timeoutReply,
+            PersistentAgentScript.shortReply, PersistentAgentScript.timeoutReply, PersistentAgentScript.busyReply,
         ]
         let reply = try await AgentStdinExchange.firstLine(
             service: service,
@@ -494,6 +494,7 @@ final class PersistentAgentSession {
         case PersistentAgentScript.sentReply: return
         case PersistentAgentScript.deadReply: throw PersistentAgentError.notRunning
         case PersistentAgentScript.shortReply: throw PersistentAgentError.truncatedSend
+        case PersistentAgentScript.busyReply: throw PersistentAgentError.busy
         default: throw AgentExchangeTimeout()
         }
     }

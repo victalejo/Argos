@@ -445,27 +445,32 @@ struct AgentHardeningShellTests {
         #expect(rotated.count <= 100_000)
         #expect(rotated.first == UInt8(ascii: "{")) // empieza en una línea completa
         #expect(base + rotated.count == 150 + original.count) // la marca no cuenta
-        #expect(!String(decoding: rotated, as: UTF8.self).contains(PersistentAgentShell.rotatedEventType))
+        // El log nuevo EMPIEZA por la marca (un `tail -F` que lo reabre la lee primero).
+        #expect(String(decoding: rotated, as: UTF8.self).hasPrefix(PersistentAgentShell.rotatedLine + "\n"))
         #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent(".rotating").path))
         #expect(try listed(home, shell: shell)?.logBytes == 150 + original.count)
 
         // El enganche traduce el byte absoluto pedido al local y lo anuncia.
-        let header = try sh(PersistentAgentScript.attach(id: id, fromByte: base + 11), home: home, shell: shell).output
+        // (Tras la marca inicial: sus bytes locales nunca se entregan.)
+        let mark = PersistentAgentShell.rotatedLineBytes
+        let header = try sh(PersistentAgentScript.attach(id: id, fromByte: base + mark + 11), home: home, shell: shell).output
             .split(separator: "\n").first.map(String.init) ?? ""
         let parsed = try #require(PersistentAgentScript.parseLogBase(header))
-        #expect(parsed.base == base && parsed.from == 11)
-        // Lo pedido ya se rotó: desde el principio de lo conservado.
+        #expect(parsed.base == base && parsed.from == mark + 11)
+        // Lo pedido ya se rotó: desde el principio de lo conservado (tras la marca).
         let old = try sh(PersistentAgentScript.attach(id: id, fromByte: 5), home: home, shell: shell).output
             .split(separator: "\n").first.map(String.init) ?? ""
-        #expect(PersistentAgentScript.parseLogBase(old)?.from == 1)
+        #expect(PersistentAgentScript.parseLogBase(old)?.from == PersistentAgentShell.rotatedLineBytes + 1)
         // Más allá del final (desplazamientos que no cuadran): también reconstruye.
         let beyond = try sh(PersistentAgentScript.attach(id: id, fromByte: base + rotated.count + 5_000), home: home, shell: shell)
             .output.split(separator: "\n").first.map(String.init) ?? ""
-        #expect(PersistentAgentScript.parseLogBase(beyond)?.from == 1)
+        #expect(PersistentAgentScript.parseLogBase(beyond)?.from == PersistentAgentShell.rotatedLineBytes + 1)
     }
 
     /// Un `tail -F` enganchado durante la rotación ve la marca ANTES de la copia
-    /// conservada; el cliente deja de contar ahí y sus desplazamientos no se inflan.
+    /// conservada (al final del viejo o al principio del nuevo); el cliente deja de contar
+    /// ahí y sus desplazamientos no se inflan. El caso de no ver la del viejo, sin depender
+    /// de la carga: `AgentHardeningRound3Tests`.
     @Test(arguments: shells) func rotarConUnTailEnganchadoNoInflaLosDesplazamientos(shell: String) async throws {
         let home = try makeHome(shell: shell)
         defer { cleanUp(home) }
