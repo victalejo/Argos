@@ -320,4 +320,23 @@ class ImportServerViewModelTest {
         assertFalse(link in vm.state.value.toString())
         assertFalse(link.substringAfter("d=") in vm.state.value.toString())
     }
+
+    @Test
+    fun `la confirmación indica si el enlace vino de otra app`() = runTest(main.dispatcher) {
+        val vm = viewModel()
+        vm.onDeepLink(transfer(port = 2222).urlString())
+        advanceUntilIdle()
+        val external = assertNotNull(vm.state.value.preview)
+        assertTrue(external.fromExternalLink)
+        assertEquals("dev.example.com:2222", external.hostAndPort)
+        assertEquals("victor", external.username)
+
+        vm.scanAgain()
+        paste(vm, transfer().urlString())
+        assertFalse(assertNotNull(vm.state.value.preview).fromExternalLink)
+        vm.scanAgain()
+        vm.onScanned(transfer().urlString())
+        advanceUntilIdle()
+        assertFalse(assertNotNull(vm.state.value.preview).fromExternalLink)
+    }
 }

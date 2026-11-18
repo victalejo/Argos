@@ -36,7 +36,15 @@ data class ImportPreview(
     val isDuplicate: Boolean,
     /** La huella del QR no coincide con la que ya confía este dispositivo: no se puede añadir. */
     val conflictsWithTrustedHostKey: Boolean,
+    /**
+     * Llegó por un enlace `argos://add-server` que abrió OTRA app o una web (no la cámara de Argos
+     * ni un enlace pegado aquí): el nombre lo eligió quien lo generó y la confirmación lo advierte.
+     */
+    val fromExternalLink: Boolean = false,
 ) {
+    /** `host` y el puerto solo si no es el 22. */
+    val hostAndPort: String get() = host + if (port == Server.DEFAULT_PORT) "" else ":$port"
+
     /** `usuario@host` y el puerto solo si no es el 22 (como iOS). */
     val address: String get() = "$username@$host" + if (port == Server.DEFAULT_PORT) "" else ":$port"
 }
@@ -123,7 +131,7 @@ class ImportServerViewModel(
             mutableState.update { it.copy(inputError = UiText.res(R.string.import_error_link_while_confirming)) }
             return
         }
-        accept(text)
+        accept(text, external = true)
     }
 
     override fun scanAgain() {
@@ -137,7 +145,7 @@ class ImportServerViewModel(
     /** La navegación ya atendió [ImportServerState.importedServerId]. */
     fun importHandled() = mutableState.update { it.copy(importedServerId = null) }
 
-    private fun accept(raw: String) {
+    private fun accept(raw: String, external: Boolean = false) {
         if (state.value.isImporting) return
         val text = raw.trim()
         val rejection = when {
@@ -162,14 +170,14 @@ class ImportServerViewModel(
                 withContext(io) { importer.trustedFingerprint(decoded) }
             }.onSuccess { trusted ->
                 transfer = decoded
-                mutableState.value = ImportServerState(preview = preview(decoded, trusted))
+                mutableState.value = ImportServerState(preview = preview(decoded, trusted, external))
                 delay(ARM_DELAY_MILLIS)
                 mutableState.update { it.copy(isArmed = true) }
             }.onFailure { error -> mutableState.update { it.copy(inputError = error.toUiText()) } }
         }
     }
 
-    private fun preview(transfer: ServerTransfer, trusted: String?) = ImportPreview(
+    private fun preview(transfer: ServerTransfer, trusted: String?, external: Boolean) = ImportPreview(
         name = transfer.name,
         username = transfer.username,
         host = transfer.host,
@@ -179,6 +187,7 @@ class ImportServerViewModel(
             it.host == transfer.host && it.port == transfer.port && it.username == transfer.username
         },
         conflictsWithTrustedHostKey = transfer.conflictsWithTrustedHostKey(trusted),
+        fromExternalLink = external,
     )
 
     override fun confirmImport() {

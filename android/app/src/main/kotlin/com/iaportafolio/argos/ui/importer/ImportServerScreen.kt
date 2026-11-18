@@ -135,9 +135,11 @@ private fun ColumnScope.ScanStep(state: ImportServerState, actions: ImportServer
 
 @Composable
 private fun ColumnScope.ConfirmStep(preview: ImportPreview, state: ImportServerState, actions: ImportServerActions) {
+    if (preview.fromExternalLink) ExternalLinkWarning(preview)
     Card {
-        DetailRow(stringResource(R.string.import_field_name), preview.name)
-        DetailRow(stringResource(R.string.import_field_server), preview.address, monospace = true)
+        DetailRow(stringResource(R.string.import_field_server), preview.hostAndPort, monospace = true)
+        DetailRow(stringResource(R.string.import_field_user), preview.username, monospace = true)
+        DetailRow(stringResource(R.string.import_field_proposed_name), preview.name)
         DetailRow(stringResource(R.string.import_field_access), stringResource(R.string.import_access_value))
         DetailRow(
             stringResource(R.string.import_field_identity),
@@ -187,6 +189,29 @@ private fun ColumnScope.ConfirmStep(preview: ImportPreview, state: ImportServerS
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+/** El enlace lo abrió otra app o una web: quien lo generó eligió el nombre, no el usuario. */
+@Composable
+private fun ExternalLinkWarning(preview: ImportPreview) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        ),
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+    ) {
+        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Filled.Warning, contentDescription = null)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.import_external_title), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    stringResource(R.string.import_external_body, preview.name, preview.username, preview.hostAndPort),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+    }
 }
 
 @Composable

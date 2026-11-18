@@ -553,8 +553,11 @@
     <string name="import_paste_label">Enlace del código</string>
     <string name="import_paste_placeholder" translatable="false">argos://add-server?d=…</string>
     <string name="import_paste_continue">Continuar</string>
-    <string name="import_field_name">Nombre</string>
     <string name="import_field_server">Servidor</string>
+    <string name="import_field_user">Usuario</string>
+    <string name="import_field_proposed_name">Nombre (lo propone el enlace)</string>
+    <string name="import_external_title">Enlace abierto desde otra app</string>
+    <string name="import_external_body">No viene de la cámara de Argos: lo abrió otra app o una web. El nombre «%1$s» lo eligió quien creó el enlace. Añádelo solo si reconoces al usuario %2$s y el servidor %3$s.</string>
     <string name="import_field_access">Acceso</string>
     <string name="import_access_value">Clave creada en el Mac solo para este dispositivo</string>
     <string name="import_field_identity">Identidad del servidor</string>
