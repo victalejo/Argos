@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Para el sshd temporal de `sshd-test-start.sh` (listener y sesiones abiertas) y borra su
-# directorio. Es idempotente: sin directorio o sin proceso, no falla.
+# directorio. Es idempotente: sin directorio o sin proceso, no falla. Mata también lo que
+# las sesiones dejaron corriendo (servidor tmux aislado, agentes simulados, vigilantes),
+# reconociéndolo por su entorno (`TMUX_TMPDIR` de este directorio): nada más se toca.
 #
 # Uso: scripts/sshd-test-stop.sh [--keep] [directorio]
 #   --keep     solo mata los procesos y conserva el directorio (clave de host, puerto y
@@ -38,6 +40,35 @@ if [ -f "$PIDFILE" ]; then
     for _ in $(seq 1 30); do kill -0 "$PID" 2>/dev/null || break; sleep 0.1; done
   fi
   rm -f "$PIDFILE"
+fi
+
+# Procesos lanzados desde las sesiones de este sshd: heredan `TMUX_TMPDIR=$DIR/tmux`, que
+# es único de este directorio. Linux: /proc/<pid>/environ; macOS: `ps -E`.
+session_pids() {
+  local marker="TMUX_TMPDIR=$DIR/tmux"
+  if [ -d /proc/self ]; then
+    for env_file in /proc/[0-9]*/environ; do
+      pid="${env_file#/proc/}"; pid="${pid%/environ}"
+      [ "$pid" = "$$" ] && continue
+      # Solo procesos propios (los ajenos no se pueden leer… ni se deben tocar).
+      [ -O "$env_file" ] || continue
+      { tr '\0' '\n' < "$env_file"; } 2>/dev/null | grep -qxF -- "$marker" && echo "$pid"
+    done
+  else
+    ps -axE -o pid=,command= 2>/dev/null | grep -F -- " $marker" | grep -vF grep | awk '{print $1}' \
+      | grep -vx "$$" || true
+  fi
+}
+if [ "$KEEP" -eq 0 ] && [ -d "$DIR/tmux" ]; then
+  LEFT="$(session_pids | tr '\n' ' ')"
+  if [ -n "${LEFT// /}" ]; then
+    # shellcheck disable=SC2086
+    kill -TERM $LEFT 2>/dev/null || true
+    sleep 1
+    LEFT="$(session_pids | tr '\n' ' ')"
+    # shellcheck disable=SC2086
+    [ -z "${LEFT// /}" ] || kill -KILL $LEFT 2>/dev/null || true
+  fi
 fi
 
 if [ "$KEEP" -eq 0 ]; then

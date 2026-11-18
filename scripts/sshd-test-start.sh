@@ -15,7 +15,7 @@
 #
 # Salida (stdout): líneas `CLAVE=valor` (sin comillas; las rutas no llevan espacios):
 #   ARGOS_E2E_SSH_HOST, ARGOS_E2E_SSH_PORT, ARGOS_E2E_SSH_USER, ARGOS_E2E_SSH_KEY,
-#   ARGOS_E2E_SSH_MAX_SESSIONS, ARGOS_E2E_SSHD_DIR
+#   ARGOS_E2E_SSH_MAX_SESSIONS, ARGOS_E2E_SSHD_DIR, ARGOS_E2E_SERVER_OS (`uname -s`)
 # Los mensajes de diagnóstico van a stderr. Con GITHUB_ENV definido, las mismas variables
 # se añaden ahí con el prefijo TEST_RUNNER_ (así llegan al proceso de test de xcodebuild).
 set -euo pipefail
@@ -24,12 +24,15 @@ SSHD_BIN="${ARGOS_SSHD_BIN:-/usr/sbin/sshd}"
 MAX_SESSIONS="${ARGOS_SSHD_MAX_SESSIONS:-}"
 PORT="${ARGOS_SSHD_PORT:-}"
 DIR="${ARGOS_SSHD_DIR:-}"
+FORCE_SH="${ARGOS_SSHD_FORCE_SH:-0}"
+SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --max-sessions) MAX_SESSIONS="$2"; shift 2 ;;
     --port) PORT="$2"; shift 2 ;;
     --dir) DIR="$2"; shift 2 ;;
+    --force-sh) FORCE_SH=1; shift ;;
     *) echo "Opción desconocida: $1" >&2; exit 2 ;;
   esac
 done
@@ -76,8 +79,43 @@ if [ ! -f "$CONFIG" ]; then
   [ -n "$SFTP_SERVER" ] || { echo "No se encontró sftp-server" >&2; exit 1; }
 
   # HOME aislado: lo que Argos escriba en ~ del servidor (skill de puertos, hooks,
-  # ~/.config/argos…) cae aquí y no en el HOME real de quien ejecuta los tests.
-  mkdir -p "$DIR/home"
+  # ~/.config/argos…) cae aquí y no en el HOME real de quien ejecuta los tests. Igual el
+  # socket de tmux (TMUX_TMPDIR) y una carpeta propia al principio del PATH.
+  mkdir -p "$DIR/home/.local/bin" "$DIR/tmux" "$DIR/bin"
+  chmod 700 "$DIR/tmux"
+  # `claude` simulado donde Argos lo busca (nunca se usa uno real en los tests).
+  cp "$SCRIPTS_DIR/argos-fake-claude" "$DIR/home/.local/bin/claude"
+  chmod 755 "$DIR/home/.local/bin/claude"
+  # macOS: bajo un sshd que no lanza launchd (este), el `nohup` del sistema falla con
+  # «can't detach from console» y los agentes persistentes no arrancarían; con el sshd del
+  # sistema sí funciona. Sustituto equivalente (ignora HUP y ejecuta) solo en la carpeta propia.
+  if [ "$(uname -s)" = Darwin ]; then
+    printf '%s\n' '#!/bin/sh' "trap '' HUP" 'exec "$@"' > "$DIR/bin/nohup"
+    chmod 755 "$DIR/bin/nohup"
+  fi
+  # PATH de las sesiones: la carpeta propia, el claude simulado y las rutas habituales
+  # (incluida la de Homebrew, donde está tmux en macOS).
+  SESSION_PATH="$DIR/bin:$DIR/home/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
+  # Locale: en Debian/Ubuntu, pam_env da a cada sesión el LANG de /etc/default/locale.
+  # Con `UsePAM no` (sin root) no llegaría, y tmux sin UTF-8 cambia los acentos por «_».
+  SESSION_LANG=""
+  if [ -r /etc/default/locale ]; then
+    SESSION_LANG="$(. /etc/default/locale 2>/dev/null; printf '%s' "${LANG:-}")"
+  fi
+  LANG_ENV=""
+  [ -n "$SESSION_LANG" ] && LANG_ENV=" LANG=$SESSION_LANG"
+  FORCE_LINE=""
+  if [ "$FORCE_SH" = 1 ]; then
+    # Con comando: lo ejecuta /bin/sh (también el subsistema SFTP, que llega como la
+    # ruta del sftp-server). Sin comando (PTY interactivo): el shell de login.
+    cat > "$DIR/force-sh" <<'FORCE'
+#!/bin/sh
+if [ -n "${SSH_ORIGINAL_COMMAND+x}" ]; then exec /bin/sh -c "$SSH_ORIGINAL_COMMAND"; fi
+exec "${SHELL:-/bin/sh}" -l
+FORCE
+    chmod 755 "$DIR/force-sh"
+    FORCE_LINE="ForceCommand $DIR/force-sh"
+  fi
 
   cat > "$CONFIG" <<CFG
 Port $PORT
@@ -94,10 +132,16 @@ StrictModes no
 PermitRootLogin no
 MaxSessions $MAX_SESSIONS
 MaxStartups 100:30:200
-SetEnv HOME=$DIR/home
+SetEnv HOME=$DIR/home TMUX_TMPDIR=$DIR/tmux PATH=$SESSION_PATH$LANG_ENV
 LogLevel INFO
 Subsystem sftp $SFTP_SERVER
+$FORCE_LINE
 CFG
+  # Los tests abren muchas conexiones seguidas desde 127.0.0.1: sin esto, OpenSSH ≥ 9.8
+  # podría penalizar la dirección tras una conexión cortada a propósito.
+  printf 'PerSourcePenalties no\n' >> "$CONFIG"
+  "$SSHD_BIN" -t -f "$CONFIG" 2>/dev/null || sed -i.bak '/^PerSourcePenalties/d' "$CONFIG"
+  rm -f "$CONFIG.bak"
 else
   PORT="$(awk '$1 == "Port" { print $2 }' "$CONFIG")"
   # Reinicio: MaxSessions solo cambia si se pide explícitamente; el resto se conserva.
@@ -143,6 +187,7 @@ VARS=(
   "ARGOS_E2E_SSH_KEY=$DIR/user_key"
   "ARGOS_E2E_SSH_MAX_SESSIONS=$MAX_SESSIONS"
   "ARGOS_E2E_SSHD_DIR=$DIR"
+  "ARGOS_E2E_SERVER_OS=$(uname -s)"
 )
 printf '%s\n' "${VARS[@]}"
 if [ -n "${GITHUB_ENV:-}" ]; then

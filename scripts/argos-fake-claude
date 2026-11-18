@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+# `claude` SIMULADO para los tests de integración de Argos (ArgosTests/Integration*). Lo
+# instala `sshd-test-start.sh` en el HOME aislado del sshd temporal (`~/.local/bin/claude`),
+# así Argos lo encuentra como encontraría el real. Nunca habla con Anthropic: entiende lo
+# justo del protocolo stream-json para que los agentes persistentes funcionen de punta a
+# punta (lanzar, enviar, reenganchar, parar, hibernar, reanudar).
+#
+#   claude --version                 -> versión fija
+#   claude auth status --json        -> {"loggedIn": false}
+#   claude -p --input-format stream-json ... --session-id|--resume ID
+#       emite `system/init`; por cada línea de stdin con un mensaje de usuario, lo repite
+#       (como `--replay-user-messages`) y responde con `assistant` + `result`. Se queda
+#       vivo esperando más líneas (la FIFO del agente nunca da EOF).
+#
+# Variantes: el archivo `.argos-fake-mode` del directorio de trabajo (una palabra por
+# línea, con argumento opcional):
+#   ignore-term           ignora SIGTERM (obliga a escalar a KILL)
+#   spawn-child TOKEN     lanza un hijo en segundo plano con TOKEN en su línea de comandos
+#   busy-child TOKEN      igual, pero el hijo gasta CPU sin parar
+#   die                   escribe un error en stderr y termina al arrancar
+#   huge-line BYTES       al arrancar emite una línea `assistant` de BYTES bytes
+#   permission            ante un prompt que contenga «PERMISO», pide permiso (Write
+#                         con una entrada enorme) en vez de responder
+# Además anexa a `.argos-fake-calls` del directorio de trabajo una línea por invocación
+# (sus argumentos) y por mensaje recibido (`recv <bytes de la línea>`).
+import json
+import os
+import signal
+import subprocess
+import sys
+
+VERSION = "9.9.9 (Claude Code, simulado por Argos)"
+
+
+def log_call(text):
+    try:
+        with open(".argos-fake-calls", "a", encoding="utf-8") as handle:
+            handle.write(text + "\n")
+    except OSError:
+        pass
+
+
+def read_modes():
+    modes = {}
+    try:
+        with open(".argos-fake-mode", encoding="utf-8") as handle:
+            for raw in handle:
+                parts = raw.split()
+                if parts:
+                    modes[parts[0]] = parts[1] if len(parts) > 1 else ""
+    except OSError:
+        pass
+    return modes
+
+
+def emit(event):
+    sys.stdout.write(json.dumps(event, separators=(",", ":"), ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+
+def session_id(argv):
+    for flag in ("--session-id", "--resume"):
+        if flag in argv:
+            index = argv.index(flag)
+            if index + 1 < len(argv):
+                return argv[index + 1]
+    return ""
+
+
+def user_text(message):
+    content = (message.get("message") or {}).get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(item.get("text", "") for item in content if isinstance(item, dict))
+    return ""
+
+
+def start_child(token, busy):
+    loop = "while :; do :; done" if busy else "while :; do sleep 1; done"
+    subprocess.Popen(
+        ["sh", "-c", loop, "argos-fake-child-" + token],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+
+def reply(sid, text, line_bytes, modes):
+    if "permission" in modes and "PERMISO" in text:
+        emit({
+            "type": "control_request", "request_id": "perm-1",
+            "request": {
+                "subtype": "can_use_tool", "tool_name": "Write", "tool_use_id": "toolu_1",
+                "input": {"file_path": "/tmp/argos-fake.txt", "content": "x" * 200_000},
+            },
+        })
+        return
+    answer = "eco(%d): %s" % (line_bytes, text[:40])
+    emit({"type": "assistant", "session_id": sid,
+          "message": {"role": "assistant", "content": [{"type": "text", "text": answer}]}})
+    emit({"type": "result", "subtype": "success", "is_error": False, "result": answer,
+          "session_id": sid, "num_turns": 1, "duration_ms": 1, "total_cost_usd": 0})
+
+
+def stream(argv):
+    modes = read_modes()
+    log_call("args " + " ".join(argv))
+    if "die" in modes:
+        sys.stderr.write("claude simulado: fallo al arrancar (opción desconocida)\n")
+        sys.stderr.flush()
+        return 1
+    if "ignore-term" in modes:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    if "spawn-child" in modes:
+        start_child(modes["spawn-child"], busy=False)
+    if "busy-child" in modes:
+        start_child(modes["busy-child"], busy=True)
+    sid = session_id(argv)
+    emit({"type": "system", "subtype": "init", "session_id": sid, "model": "simulado",
+          "resumed": "--resume" in argv})
+    if "huge-line" in modes:
+        size = int(modes["huge-line"] or "300000")
+        emit({"type": "assistant", "session_id": sid,
+              "message": {"role": "assistant", "content": [{"type": "text", "text": "h" * size}]}})
+    replay = "--replay-user-messages" in argv
+    while True:
+        raw = sys.stdin.buffer.readline()
+        if not raw:
+            return 0
+        log_call("recv %d" % len(raw))
+        try:
+            message = json.loads(raw.decode("utf-8"))
+        except ValueError:
+            continue
+        if message.get("type") != "user":
+            continue
+        if replay:
+            emit(message)
+        reply(sid, user_text(message), len(raw), modes)
+
+
+def main(argv):
+    if "--version" in argv:
+        print(VERSION)
+        return 0
+    if argv[:2] == ["auth", "status"]:
+        print(json.dumps({"loggedIn": False}))
+        return 0
+    if "stream-json" in argv:
+        return stream(argv)
+    sys.stderr.write("claude simulado: invocación no soportada\n")
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
