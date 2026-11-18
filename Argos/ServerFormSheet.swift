@@ -52,6 +52,10 @@ struct ServerFormSheet: View {
     @State private var passphrase: String
     @State private var password: String
     @State private var bookmarkError: String?
+    /// Qué es la clave elegida (`nil` si no se pudo leer todavía: ruta escrita a mano).
+    @State private var keyInspection: SSHKeyInspection?
+    /// Ruta a la que corresponde `keyInspection` (escribir otra la invalida).
+    @State private var inspectedPath: String?
     @State private var testState: TestState = .idle
 
     private let editingID: UUID?
@@ -138,8 +142,10 @@ struct ServerFormSheet: View {
                                 .font(.caption)
                                 .foregroundStyle(.red)
                         }
-                        SecureField("Passphrase (opcional)", text: $passphrase)
+                        keyInspectionNotice
+                        SecureField(passphrasePrompt, text: $passphrase)
                             .focused($focusedField, equals: .passphrase)
+                            .disabled(!passphraseApplies)
                     case .password:
                         SecureField("Contraseña", text: $password)
                             .focused($focusedField, equals: .password)
@@ -147,7 +153,9 @@ struct ServerFormSheet: View {
                 } header: {
                     Label("Acceso seguro", systemImage: "lock.shield")
                 } footer: {
-                    Text("Tus credenciales se guardan de forma segura en el Llavero de macOS.")
+                    Text(authMethod == .key
+                         ? "\(SSHKeyProblem.ed25519Hint). Tus credenciales se guardan de forma segura en el Llavero de macOS."
+                         : "Tus credenciales se guardan de forma segura en el Llavero de macOS.")
                         .font(.caption)
                 }
             }
@@ -192,11 +200,83 @@ struct ServerFormSheet: View {
         .frame(width: 560)
         .background(Color(nsColor: .windowBackgroundColor))
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: authMethod)
-        .onAppear { focusedField = .name }
+        .onAppear {
+            focusedField = .name
+            inspectSavedKey()
+        }
+        .onChange(of: keyPath) { _, path in
+            if path != inspectedPath { keyInspection = nil }
+        }
         // Un cambio en los datos de conexión invalida el resultado anterior del test.
         .onChange(of: connectionFingerprint) { _, _ in
             if testState != .testing { testState = .idle }
         }
+    }
+
+    // MARK: - Tipo de clave
+
+    /// Qué es la clave elegida: aviso en el momento si Argos no la admite.
+    @ViewBuilder
+    private var keyInspectionNotice: some View {
+        switch keyInspection {
+        case .supported(let isEncrypted, _):
+            Label(isEncrypted ? "Clave Ed25519 con passphrase." : "Clave Ed25519 sin passphrase.",
+                  systemImage: "checkmark.seal")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .unsupported(let problem):
+            Label(problem.userMessage(), systemImage: "exclamationmark.triangle")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+        case nil:
+            EmptyView()
+        }
+    }
+
+    /// La passphrase solo se pide si la clave está cifrada (o si no se sabe).
+    private var passphraseApplies: Bool {
+        if case .supported(let isEncrypted, _) = keyInspection { return isEncrypted }
+        return true
+    }
+
+    private var passphrasePrompt: String {
+        if case .supported(true, _) = keyInspection { return "Passphrase" }
+        return passphraseApplies ? "Passphrase (opcional)" : "Passphrase (la clave no tiene)"
+    }
+
+    /// Lee y examina la clave del archivo elegido (el panel ya concedió el acceso).
+    private func inspectKey(at url: URL) {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: url, options: [.mappedIfSafe])
+            apply(SSHKeyInspector.inspect(data: data))
+        } catch {
+            keyInspection = .unsupported(.unreadable)
+            inspectedPath = keyPath
+            Log.store.notice("No se pudo leer la clave elegida: \(error.localizedDescription, privacy: .private)")
+        }
+    }
+
+    /// Al editar: examina la clave guardada a través de su bookmark (si lo hay).
+    private func inspectSavedKey() {
+        guard authMethod == .key, let keyBookmark else { return }
+        var stale = false
+        do {
+            let url = try URL(resolvingBookmarkData: keyBookmark, options: [.withSecurityScope],
+                              relativeTo: nil, bookmarkDataIsStale: &stale)
+            inspectKey(at: url)
+        } catch {
+            Log.store.notice("No se pudo abrir el bookmark de la clave: \(error.localizedDescription, privacy: .private)")
+        }
+    }
+
+    private func apply(_ inspection: SSHKeyInspection) {
+        keyInspection = inspection
+        inspectedPath = keyPath
+        // Sin cifrar no hay passphrase que guardar (una vieja haría fallar la conexión).
+        if case .supported(false, _) = inspection { passphrase = "" }
     }
 
     /// Resultado de "Probar conexión" (oculto en estado inicial).
@@ -244,6 +324,7 @@ struct ServerFormSheet: View {
             guard response == .OK, let url = panel.url else { return }
             keyPath = url.path
             bookmarkError = nil
+            inspectKey(at: url)
             do {
                 keyBookmark = try url.bookmarkData(
                     options: [.withSecurityScope],
@@ -315,7 +396,9 @@ struct ServerFormSheet: View {
                 testState = .success(who.isEmpty ? "Conexión correcta." : "Conectado como “\(who)”.")
             } catch {
                 await service.disconnect()
-                testState = .failure(error.userMessage)
+                // Una clave que Argos no admite falla con jerga de Citadel: se explica el porqué.
+                let keyProblem = server.authMethod == .key ? keyInspection?.problem : nil
+                testState = .failure(keyProblem?.userMessage() ?? error.userMessage)
             }
         }
     }
