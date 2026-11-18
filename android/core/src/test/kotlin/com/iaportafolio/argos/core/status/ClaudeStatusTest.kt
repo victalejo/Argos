@@ -78,6 +78,50 @@ class ClaudeStatusTest {
     }
 
     @Test
+    fun `cubre interrupciones por error y herramientas fallidas`() {
+        val hooks = assertNotNull(ClaudeHookInstaller.installing(JsonObject(emptyMap()))["hooks"] as? JsonObject)
+        for (event in listOf("PostToolUseFailure", "PermissionDenied", "StopFailure")) {
+            assertNotNull(hooks[event], "falta $event")
+        }
+    }
+
+    /** Paridad con `detectsOutdatedHooks` de `ClaudeStatusTests.swift` (commit 3a70d15). */
+    @Test
+    fun `hooks de una version anterior no cuentan como instalados pero si como nuestros`() {
+        val installed = ClaudeHookInstaller.installing(JsonObject(emptyMap()))
+        val hooks = assertNotNull(installed["hooks"] as? JsonObject)
+        val outdated = JsonObject(installed + ("hooks" to JsonObject(hooks - "StopFailure")))
+        assertFalse(ClaudeHookInstaller.isInstalled(outdated))
+        assertTrue(ClaudeHookInstaller.hasAnyOurs(outdated))
+        assertTrue(ClaudeHookInstaller.needsUpgrade(outdated))
+        val upgraded = ClaudeHookInstaller.installing(outdated)
+        assertTrue(ClaudeHookInstaller.isInstalled(upgraded))
+        assertFalse(ClaudeHookInstaller.needsUpgrade(upgraded))
+        val foreign = ClaudeHookInstaller.parseSettings(
+            """{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"say listo"}]}]}}""",
+        )
+        assertFalse(ClaudeHookInstaller.hasAnyOurs(foreign))
+        assertFalse(ClaudeHookInstaller.needsUpgrade(foreign))
+    }
+
+    @Test
+    fun `un hook nuestro con otro comando o matcher es una version antigua`() {
+        val old = ClaudeHookInstaller.parseSettings(
+            """{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"tmux viejo # argos-claude-status"}]}]}}""",
+        )
+        assertFalse(ClaudeHookInstaller.isInstalled(old))
+        assertTrue(ClaudeHookInstaller.needsUpgrade(old))
+        assertTrue(ClaudeHookInstaller.isInstalled(ClaudeHookInstaller.installing(old)))
+        val installed = ClaudeHookInstaller.installing(JsonObject(emptyMap()))
+        val hooks = assertNotNull(installed["hooks"] as? JsonObject)
+        val notification = assertNotNull(hooks["Notification"] as? JsonArray).single() as JsonObject
+        val otherMatcher = JsonObject(notification + ("matcher" to JsonPrimitive("permission_prompt")))
+        val changed = JsonObject(installed + ("hooks" to JsonObject(hooks + ("Notification" to JsonArray(listOf(otherMatcher))))))
+        assertFalse(ClaudeHookInstaller.isInstalled(changed))
+        assertTrue(ClaudeHookInstaller.needsUpgrade(changed))
+    }
+
+    @Test
     fun `instalar dos veces no duplica los hooks`() {
         val once = ClaudeHookInstaller.installing(JsonObject(emptyMap()))
         val twice = ClaudeHookInstaller.installing(once)

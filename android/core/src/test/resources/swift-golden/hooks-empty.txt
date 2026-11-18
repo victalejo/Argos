@@ -12,6 +12,17 @@
         "matcher" : "permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input"
       }
     ],
+    "PermissionDenied" : [
+      {
+        "hooks" : [
+          {
+            "command" : "[ -n \"$TMUX_PANE\" ] && tmux set-option -p -t \"$TMUX_PANE\" @argos_claude working >/dev/null 2>&1; exit 0 # argos-claude-status",
+            "timeout" : 5,
+            "type" : "command"
+          }
+        ]
+      }
+    ],
     "PermissionRequest" : [
       {
         "hooks" : [
@@ -34,6 +45,17 @@
         ]
       }
     ],
+    "PostToolUseFailure" : [
+      {
+        "hooks" : [
+          {
+            "command" : "[ -n \"$TMUX_PANE\" ] && tmux set-option -p -t \"$TMUX_PANE\" @argos_claude working >/dev/null 2>&1; exit 0 # argos-claude-status",
+            "timeout" : 5,
+            "type" : "command"
+          }
+        ]
+      }
+    ],
     "SessionEnd" : [
       {
         "hooks" : [
@@ -46,6 +68,17 @@
       }
     ],
     "Stop" : [
+      {
+        "hooks" : [
+          {
+            "command" : "[ -n \"$TMUX_PANE\" ] && tmux set-option -p -t \"$TMUX_PANE\" @argos_claude done >/dev/null 2>&1; exit 0 # argos-claude-status",
+            "timeout" : 5,
+            "type" : "command"
+          }
+        ]
+      }
+    ],
+    "StopFailure" : [
       {
         "hooks" : [
           {

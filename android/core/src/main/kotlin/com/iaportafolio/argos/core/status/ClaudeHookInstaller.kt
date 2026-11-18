@@ -44,6 +44,11 @@ object ClaudeHookInstaller {
     private val entries = listOf(
         Entry("UserPromptSubmit", null, ClaudeActivity.WORKING),
         Entry("PostToolUse", null, ClaudeActivity.WORKING),
+        // Sin estos, una herramienta que falla tras aprobarla (o un permiso denegado en modo
+        // auto) dejaba el panel «esperando» hasta el final del turno.
+        Entry("PostToolUseFailure", null, ClaudeActivity.WORKING),
+        Entry("PermissionDenied", null, ClaudeActivity.WORKING),
+        // También AskUserQuestion / ExitPlanMode, incluso en bypassPermissions.
         Entry("PermissionRequest", null, ClaudeActivity.WAITING),
         Entry(
             "Notification",
@@ -51,8 +56,11 @@ object ClaudeHookInstaller {
             ClaudeActivity.WAITING,
         ),
         Entry("Stop", null, ClaudeActivity.DONE),
+        // Un error de la API corta el turno SIN `Stop`: se quedaba «trabajando».
+        Entry("StopFailure", null, ClaudeActivity.DONE),
         Entry("SessionEnd", null, null),
     )
+    // Interrumpir con Esc no dispara ningún hook: lo corrige el sondeo mirando la pantalla.
 
     /** Comando del hook. Sin `$TMUX_PANE` (Claude fuera de tmux) no hace nada. */
     fun command(state: ClaudeActivity?): String {
@@ -80,11 +88,32 @@ object ClaudeHookInstaller {
 
     // MARK: Fusión
 
-    /** ¿Están todos los hooks de Argos presentes? */
+    /**
+     * ¿Están todos los hooks de Argos presentes y en su versión ACTUAL (mismo comando y
+     * matcher)? Una versión antigua cuenta como no instalada, para actualizarla.
+     */
     fun isInstalled(settings: JsonObject): Boolean {
         val hooks = settings["hooks"] as? JsonObject ?: JsonObject(emptyMap())
-        return entries.all { entry -> groups(hooks[entry.event]).any { group -> handlers(group).any(::isOurs) } }
+        return entries.all { entry ->
+            val expected = command(entry.state)
+            groups(hooks[entry.event]).any { group ->
+                group["matcher"].stringOrNull == entry.matcher &&
+                    handlers(group).any { it["command"].stringOrNull == expected }
+            }
+        }
     }
+
+    /**
+     * ¿Hay ALGÚN hook de Argos (de cualquier versión)? Indica que el usuario ya activó el
+     * indicador, así que se puede actualizar sin volver a preguntar.
+     */
+    fun hasAnyOurs(settings: JsonObject): Boolean {
+        val hooks = settings["hooks"] as? JsonObject ?: return false
+        return hooks.values.any { value -> groups(value).any { group -> handlers(group).any(::isOurs) } }
+    }
+
+    /** ¿Hay que actualizar unos hooks de Argos antiguos (sin volver a preguntar)? */
+    fun needsUpgrade(settings: JsonObject): Boolean = hasAnyOurs(settings) && !isInstalled(settings)
 
     /** Devuelve [settings] con los hooks de Argos (re)instalados. */
     fun installing(settings: JsonObject): JsonObject {
