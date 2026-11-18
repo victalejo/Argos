@@ -4,7 +4,8 @@
 //
 //  Agentes de Claude Code PERSISTENTES de un proyecto (ver `PersistentAgentScript`):
 //  corren en el servidor aunque el iPhone se bloquee o se cierre la app. Aquí se
-//  listan, se crean y se abren para conversar.
+//  listan, se crean y se abren para conversar. Antes de crear uno se comprueba la
+//  memoria del servidor y cuántos agentes hay vivos (avisa y deja seguir).
 //
 
 import SwiftUI
@@ -24,6 +25,10 @@ struct AgentsView: View {
     @State private var launchAfterLogin = false
     /// Sesión de Claude ya confirmada en este servidor: no se vuelve a preguntar.
     @State private var isClaudeConnected = false
+    /// Aviso de la guardia de memoria/tope pendiente de confirmar.
+    @State private var launchWarning: LaunchWarning?
+    @State private var showsServerAgents = false
+    @State private var idleHours = AgentHibernationPreferences.idleHours()
 
     private var service: any SSHServicing { hub.viewModel(for: server).service }
 
@@ -50,7 +55,7 @@ struct AgentsView: View {
                         LabeledContent("Permisos") {
                             AgentPermissionPicker(serverID: server.id, workingDirectory: workingDirectory)
                         }
-                        Button(action: launch) {
+                        Button { launch() } label: {
                             HStack {
                                 Label("Nuevo agente", systemImage: "plus.bubble")
                                 Spacer()
@@ -82,15 +87,40 @@ struct AgentsView: View {
         .navigationDestination(item: $opened) { route in
             AgentChatView(session: hub.agentSession(for: route.info, server: server))
         }
+        .navigationDestination(isPresented: $showsServerAgents) {
+            ServerAgentsView(server: server, service: service)
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu("Opciones de agentes", systemImage: "ellipsis.circle") {
+                    Button("Agentes en este servidor", systemImage: "server.rack") { showsServerAgents = true }
+                    Picker(selection: $idleHours) {
+                        ForEach(PersistentAgentHibernation.choices, id: \.self) { hours in
+                            Text(PersistentAgentHibernation.title(forHours: hours)).tag(hours)
+                        }
+                    } label: {
+                        Label("Poner en reposo tras inactividad", systemImage: "moon.zzz")
+                    }
+                    .pickerStyle(.menu)
                     Button("Conectar Claude…", systemImage: "person.badge.key") {
                         launchAfterLogin = false
                         isShowingLogin = true
                     }
                 }
             }
+        }
+        .onChange(of: idleHours) { _, hours in AgentHibernationPreferences.setIdleHours(hours) }
+        .confirmationDialog(
+            launchWarning?.title ?? "",
+            isPresented: Binding(get: { launchWarning != nil }, set: { if !$0 { launchWarning = nil } }),
+            titleVisibility: .visible,
+            presenting: launchWarning
+        ) { _ in
+            Button("Crear de todos modos") { launch(force: true) }
+            Button("Ver agentes del servidor") { showsServerAgents = true }
+            Button("Cancelar", role: .cancel) {}
+        } message: { warning in
+            Text(warning.message)
         }
         .sheet(isPresented: $isShowingLogin) {
             ClaudeLoginSheet(service: service, serverName: server.name, allowsSkip: launchAfterLogin) { connected in
@@ -121,7 +151,7 @@ struct AgentsView: View {
         }
     }
 
-    private func launch() {
+    private func launch(force: Bool = false) {
         isLaunching = true
         Task {
             defer { isLaunching = false }
@@ -129,6 +159,10 @@ struct AgentsView: View {
                 guard try await isClaudeReady() else {
                     launchAfterLogin = true
                     isShowingLogin = true
+                    return
+                }
+                if !force, let warning = await capacityWarning() {
+                    launchWarning = warning
                     return
                 }
                 let session = try await PersistentAgentSession.launch(
@@ -150,6 +184,22 @@ struct AgentsView: View {
         }
     }
 
+    /// Aviso si el servidor va justo de memoria o ya tiene muchos agentes vivos (de
+    /// cualquier proyecto o dispositivo). Si no se puede saber, no se bloquea.
+    private func capacityWarning() async -> LaunchWarning? {
+        do {
+            let inventory = try await service.serverAgentInventory()
+            let assessment = AgentLaunchGuard.assess(
+                freeMemoryKB: inventory.freeMemoryKB, liveAgents: inventory.liveAgents.count
+            )
+            guard case .warning(let title, let message) = assessment else { return nil }
+            return LaunchWarning(title: title, message: message)
+        } catch {
+            Log.agent.notice("No se pudo comprobar la memoria antes de crear el agente: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
     /// `false` si el servidor tiene Claude Code pero sin sesión (y no hay token guardado):
     /// toca el login guiado. Sin Claude instalado sigue adelante y el lanzamiento lo dice.
     private func isClaudeReady() async throws -> Bool {
@@ -158,6 +208,13 @@ struct AgentsView: View {
         isClaudeConnected = status.loggedIn
         return status.loggedIn
     }
+}
+
+/// Aviso de la guardia antes de crear un agente.
+private struct LaunchWarning: Identifiable {
+    let title: String
+    let message: String
+    var id: String { title }
 }
 
 /// Destino de navegación hacia una conversación con un agente.
@@ -185,7 +242,7 @@ private struct AgentRowView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(info.isAlive ? "En marcha" : "Detenido")
+            Text(info.isAlive ? "En marcha" : (info.meta.isHibernated ? "En reposo" : "Detenido"))
                 .font(.caption2.weight(.medium))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)

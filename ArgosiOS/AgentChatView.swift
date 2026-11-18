@@ -3,8 +3,10 @@
 //  ArgosiOS
 //
 //  Conversación con un agente persistente. Al entrar se engancha al log del servidor
-//  (reconstruye todo lo que pasó mientras no mirabas); al salir se desengancha y el
-//  agente sigue trabajando.
+//  (sigue desde lo último que viste); al salir se desengancha y el agente sigue
+//  trabajando. Muestra el estado REAL de la conexión y reintenta solo si se corta. Un
+//  agente hibernado se reanuda al escribirle. El borrador no se borra hasta que el
+//  mensaje llega.
 //
 
 import SwiftUI
@@ -13,14 +15,20 @@ struct AgentChatView: View {
     let session: PersistentAgentSession
 
     @State private var draft = ""
+    @State private var isSending = false
     @State private var confirmDelete = false
     @State private var confirmResume = false
+    /// Mensaje que espera a que se confirme la reanudación para enviarse.
+    @State private var pendingResumeText: String?
+    /// El usuario está al final de la conversación: solo entonces se sigue lo nuevo.
+    @State private var isAtBottom = true
     @Environment(\.dismiss) private var dismiss
     @FocusState private var composerFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             transcript
+            connectionBanner
             if let error = session.lastError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
@@ -52,7 +60,8 @@ struct AgentChatView: View {
             Text("Se detiene el agente y se borra su registro del servidor.")
         }
         .confirmationDialog("¿Reanudar en «\(resumeMode.title)»?", isPresented: $confirmResume, titleVisibility: .visible) {
-            Button("Reanudar en «\(resumeMode.title)»", role: .destructive) { Task { await session.resume() } }
+            Button("Reanudar en «\(resumeMode.title)»", role: .destructive) { confirmedResume() }
+            Button("Cancelar", role: .cancel) { pendingResumeText = nil }
         } message: {
             Text("El servidor indica que este agente usa este modo. \(resumeMode.detail) Si no lo elegiste tú, borra la conversación y crea otra.")
         }
@@ -60,6 +69,78 @@ struct AgentChatView: View {
 
     private var resumeMode: ClaudeAgentCommand.PermissionMode {
         session.meta.resolvedPermissionMode
+    }
+
+    /// Se puede escribir: vivo, o hibernado (escribir lo reanuda).
+    private var canCompose: Bool { session.isAlive || session.meta.isHibernated }
+
+    private var composerPlaceholder: String {
+        if session.isAlive { return "Pide algo a Claude…" }
+        return session.meta.isHibernated ? "En reposo: escribe para reanudarlo" : "El agente está detenido"
+    }
+
+    private var emptyTitle: String {
+        switch session.link {
+        case .live: return "Escribe tu primer mensaje"
+        case .reconnecting: return "Reconectando…"
+        case .connecting, .detached: return "Conectando…"
+        }
+    }
+
+    @ViewBuilder
+    private var connectionBanner: some View {
+        if case .reconnecting(let attempt) = session.link {
+            Label(attempt > 1 ? "Sin conexión con el servidor. Reintentando (\(attempt))…" : "Reconectando con el servidor…",
+                  systemImage: "wifi.exclamationmark")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else if session.isResuming {
+            Label("Reanudando el agente…", systemImage: "play.circle")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func submit() {
+        let text = draft
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !isSending else { return }
+        // Se oculta el teclado para ver la respuesta (tocar el campo lo reabre).
+        composerFocused = false
+        isSending = true
+        Task {
+            defer { isSending = false }
+            handle(await session.send(text), text: text)
+        }
+    }
+
+    private func confirmedResume() {
+        guard let text = pendingResumeText else {
+            Task { await session.resume() }
+            return
+        }
+        pendingResumeText = nil
+        isSending = true
+        Task {
+            defer { isSending = false }
+            handle(await session.send(text, confirmedResume: true), text: text)
+        }
+    }
+
+    /// El borrador solo se vacía si el mensaje LLEGÓ (y si no se ha cambiado mientras).
+    private func handle(_ outcome: AgentSendOutcome, text: String) {
+        switch outcome {
+        case .sent:
+            if draft == text { draft = "" }
+        case .needsResumeConfirmation:
+            pendingResumeText = text
+            confirmResume = true
+        case .failed:
+            break
+        }
     }
 
     // MARK: - Transcripción
@@ -70,7 +151,7 @@ struct AgentChatView: View {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     if session.state.items.isEmpty {
                         ContentUnavailableView(
-                            session.isAttached ? "Escribe tu primer mensaje" : "Conectando…",
+                            emptyTitle,
                             systemImage: "sparkles",
                             description: Text("Claude Code trabajará en \(session.meta.workingDirectory).")
                         )
@@ -79,7 +160,7 @@ struct AgentChatView: View {
                     ForEach(session.state.items) { item in
                         TranscriptRow(item: item).id(item.id)
                     }
-                    if session.state.status == .working {
+                    if session.state.status == .working, session.link.isLive {
                         HStack(spacing: 8) {
                             ProgressView()
                             Text("Trabajando…").font(.footnote).foregroundStyle(.secondary)
@@ -90,7 +171,14 @@ struct AgentChatView: View {
                 .padding()
             }
             .scrollDismissesKeyboard(.interactively)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 60
+            } action: { _, atBottom in
+                isAtBottom = atBottom
+            }
             .onChange(of: session.state.items.count) { _, _ in
+                // Si el usuario subió a leer algo, no se le arrastra al final.
+                guard isAtBottom else { return }
                 withAnimation { proxy.scrollTo(session.state.items.last?.id, anchor: .bottom) }
             }
         }
@@ -98,21 +186,19 @@ struct AgentChatView: View {
 
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            TextField(session.isAlive ? "Pide algo a Claude…" : "El agente está detenido", text: $draft, axis: .vertical)
+            TextField(composerPlaceholder, text: $draft, axis: .vertical)
                 .lineLimit(1...6)
                 .textFieldStyle(.roundedBorder)
                 .focused($composerFocused)
-                .disabled(!session.isAlive)
-            Button {
-                let text = draft
-                draft = ""
-                // Se oculta el teclado para ver la respuesta (tocar el campo lo reabre).
-                composerFocused = false
-                Task { await session.send(text) }
-            } label: {
-                Image(systemName: "arrow.up.circle.fill").font(.title)
+                .disabled(!canCompose)
+            Button(action: submit) {
+                if isSending {
+                    ProgressView()
+                } else {
+                    Image(systemName: "arrow.up.circle.fill").font(.title)
+                }
             }
-            .disabled(!session.isAlive || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!canCompose || isSending || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityLabel("Enviar")
         }
         .padding(.horizontal)
@@ -128,6 +214,7 @@ struct AgentChatView: View {
                     Button("Detener agente", systemImage: "stop.circle") { Task { await session.stop() } }
                 } else {
                     Button("Reanudar conversación", systemImage: "play.circle") {
+                        pendingResumeText = nil
                         if session.meta.resumeRequiresConfirmation {
                             confirmResume = true
                         } else {
