@@ -73,16 +73,33 @@ final class DemoServerFlowTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["backups"].waitForExistence(timeout: 15))
         sleep(3)
         app.typeText("clear; echo \(demo.marker)-1\n")
-        sleep(2)
+        // `clear` borra la línea del comando: lo que queda es la SALIDA de `echo`, que solo
+        // puede venir del servidor (el terminal no hace eco local de las teclas).
+        XCTAssertTrue(
+            waitForTerminalText("\(demo.marker)-1", occurrences: 1, timeout: 20),
+            "El texto escrito no llegó al servidor o su salida no volvió al terminal:\n\(terminalDebug())"
+        )
         snapshot("4-escritura")
 
         // Segundo plano y vuelta: el PTY se reabre y se puede seguir escribiendo.
         XCUIDevice.shared.press(.home)
         sleep(3)
         app.activate()
-        sleep(5)
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10), "La app no volvió a primer plano")
+        XCTAssertTrue(app.navigationBars["backups"].waitForExistence(timeout: 15),
+                      "Se perdió la pantalla del terminal al volver de segundo plano")
+        // Reattach: la sesión tmux sigue viva (el marcador anterior se redibuja) y el PTY
+        // nuevo acepta teclas (el segundo marcador aparece como comando y como salida).
+        XCTAssertTrue(
+            waitForTerminalText("\(demo.marker)-1", occurrences: 1, timeout: 40),
+            "El terminal no se reenganchó a la sesión tras el segundo plano:\n\(terminalDebug())"
+        )
         app.typeText("echo \(demo.marker)-2\n")
-        sleep(2)
+        XCTAssertTrue(
+            waitForTerminalText("\(demo.marker)-2", occurrences: 2, timeout: 20),
+            "Tras el segundo plano el PTY no acepta teclas:\n\(terminalDebug())"
+        )
+        XCTAssertFalse(app.alerts.firstMatch.exists, "Apareció una alerta de error tras volver")
         snapshot("5-tras-segundo-plano")
     }
 
@@ -248,6 +265,34 @@ final class DemoServerFlowTests: XCTestCase {
             app.coordinate(withNormalizedOffset: point).tap()
         }
         sleep(1)
+    }
+
+    /// Texto visible del terminal (SwiftTerm lo expone por accesibilidad como `value` o
+    /// `label`): cuenta las apariciones de `text` y espera hasta `occurrences`.
+    private func waitForTerminalText(_ text: String, occurrences: Int, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if terminalTextCount(of: text) >= occurrences { return true }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        return terminalTextCount(of: text) >= occurrences
+    }
+
+    private func terminalTextCount(of text: String) -> Int {
+        let matches = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", text, text))
+        var best = 0
+        for index in 0..<min(matches.count, 20) {
+            let element = matches.element(boundBy: index)
+            let haystack = "\(element.label)\n\((element.value as? String) ?? "")"
+            // El elemento con más apariciones es el búfer del terminal.
+            best = max(best, haystack.components(separatedBy: text).count - 1)
+        }
+        return best
+    }
+
+    private func terminalDebug() -> String {
+        String(app.debugDescription.suffix(2500))
     }
 
     private func fill(_ placeholder: String, with text: String) {
