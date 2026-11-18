@@ -102,26 +102,49 @@ enum ShortcutAgentSender {
     }
 
     private static func deliver(_ text: String, prepared: Prepared) async throws {
-        let session: PersistentAgentSession
+        let session = try await session(for: prepared)
+        // El encargo nunca va en la línea de comandos (se vería en `ps` del servidor).
+        session.sendsOnlyViaStdin = true
+        // Reanudar está permitido SOLO con el modo aprobado: se comprueba con el meta.json
+        // vigente antes de cada reanudación (puede cambiar mientras tanto).
+        let approved = prepared.plan.approvedRawMode
+        let outcome = await session.send(text, confirmedResume: true) { (meta: PersistentAgentMeta) -> Bool in
+            ShortcutAgentPlanner.mayDeliver(approvedRawMode: approved, currentRawMode: meta.permissionMode)
+        }
+        switch outcome {
+        case .sent:
+            return
+        case .needsResumeConfirmation:
+            throw ShortcutError.permissionModeChanged
+        case .failed:
+            throw ShortcutError.sendFailed(session.lastError ?? "el agente no respondió.")
+        }
+    }
+
+    /// El agente al que entregar. Uno existente se relee del servidor JUSTO antes: tiene que
+    /// seguir siendo el mismo, en la carpeta del proyecto y con el modo aprobado. Uno nuevo
+    /// se crea con el modo que se mostró en la confirmación (el del plan, no el de ahora).
+    private static func session(for prepared: Prepared) async throws -> PersistentAgentSession {
         switch prepared.plan {
         case .reuse(let info), .resume(let info):
-            session = PersistentAgentSession(service: prepared.service, info: info)
+            let session = PersistentAgentSession(service: prepared.service, info: info)
+            let current: PersistentAgentMeta? = await session.refreshInfo() ? session.meta : nil
+            switch ShortcutAgentPlanner.deliveryVerdict(
+                approvedRawMode: prepared.plan.approvedRawMode,
+                workingDirectory: prepared.target.project.path,
+                current: current
+            ) {
+            case .deliver: return session
+            case .agentGone, .agentMoved: throw ShortcutError.agentChanged
+            case .modeChanged: throw ShortcutError.permissionModeChanged
+            }
         case .create(let mode):
-            session = try await PersistentAgentSession.launch(
+            return try await PersistentAgentSession.launch(
                 service: prepared.service,
                 workingDirectory: prepared.target.project.path,
                 title: prepared.target.project.name,
                 permissionMode: mode
             )
-        }
-        // El encargo nunca va en la línea de comandos (se vería en `ps` del servidor).
-        session.sendsOnlyViaStdin = true
-        // La confirmación por el modo ya se resolvió en el atajo: reanudar está permitido.
-        switch await session.send(text, confirmedResume: true) {
-        case .sent:
-            return
-        case .needsResumeConfirmation, .failed:
-            throw ShortcutError.sendFailed(session.lastError ?? "el agente no respondió.")
         }
     }
 }

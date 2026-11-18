@@ -286,17 +286,27 @@ final class PersistentAgentSession {
     /// estaba hibernado, se reanuda solo (salvo en un modo que actúa sin preguntar, que
     /// pide confirmación: ver `PersistentAgentMeta.resumeRequiresConfirmation`).
     @discardableResult
-    func send(_ rawText: String, confirmedResume: Bool = false) async -> AgentSendOutcome {
+    ///
+    /// `resumeGuard` (atajos): se consulta con el `meta.json` vigente justo antes de CADA
+    /// reanudación; si dice que no, no se reanuda y se devuelve `.needsResumeConfirmation`
+    /// (el modo cambió desde que el usuario lo aprobó).
+    func send(
+        _ rawText: String,
+        confirmedResume: Bool = false,
+        resumeGuard: ((PersistentAgentMeta) -> Bool)? = nil
+    ) async -> AgentSendOutcome {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return .failed }
         if !isAlive, meta.isHibernated || confirmedResume {
             if meta.resumeRequiresConfirmation && !confirmedResume { return .needsResumeConfirmation }
+            if let resumeGuard, !resumeGuard(meta) { return .needsResumeConfirmation }
             guard await resume() else { return .failed }
         }
         var sent = await write(AgentProtocol.encodeUserMessage(text: text), answering: nil)
         if !sent, !isAlive, await refreshInfo(), meta.isHibernated {
             // Lo hibernó el vigilante mientras mirabas: se reanuda y se reintenta.
             if meta.resumeRequiresConfirmation && !confirmedResume { return .needsResumeConfirmation }
+            if let resumeGuard, !resumeGuard(meta) { return .needsResumeConfirmation }
             if await resume() {
                 sent = await write(AgentProtocol.encodeUserMessage(text: text), answering: nil)
             }

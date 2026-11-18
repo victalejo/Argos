@@ -59,7 +59,11 @@ enum ShortcutAgentPlanner {
     /// Modo que declara el `meta.json`: `nil` si trae uno desconocido. Sin modo guardado
     /// (agentes antiguos) se crearon preguntando cada permiso.
     static func declaredMode(of meta: PersistentAgentMeta) -> ClaudeAgentCommand.PermissionMode? {
-        guard let raw = meta.permissionMode else { return .default }
+        declaredMode(raw: meta.permissionMode)
+    }
+
+    static func declaredMode(raw: String?) -> ClaudeAgentCommand.PermissionMode? {
+        guard let raw else { return .default }
         return ClaudeAgentCommand.PermissionMode(rawValue: raw)
     }
 
@@ -130,6 +134,12 @@ enum ShortcutError: LocalizedError, Equatable {
     case claudeLoggedOut
     case capacity(String)
     case sendFailed(String)
+    /// El agente elegido ya no está (o trabaja en otra carpeta) al ir a entregar.
+    case agentChanged
+    /// Su modo de permisos cambió desde que se confirmó.
+    case permissionModeChanged
+    /// La app está bloqueada con Face ID y no se pudo (o no se quiso) desbloquear.
+    case appLocked
 
     var errorDescription: String? {
         switch self {
@@ -151,6 +161,12 @@ enum ShortcutError: LocalizedError, Equatable {
             return message
         case .sendFailed(let message):
             return "No se pudo enviar el encargo: \(message)"
+        case .agentChanged:
+            return "El agente de este proyecto cambió mientras se preparaba el envío. Vuelve a ejecutar el atajo."
+        case .permissionModeChanged:
+            return "El modo de permisos de este agente cambió; ábrelo en Argos para confirmarlo."
+        case .appLocked:
+            return "Argos está bloqueado. Desbloquéalo para usar este atajo."
         }
     }
 }
