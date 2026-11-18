@@ -182,8 +182,11 @@ actor SSHService {
     static let sessionFormat =
         "#{session_name}|#{session_windows}|#{session_attached}|#{session_created}"
 
+    /// `-u`: salida en UTF-8 aunque el servidor no tenga locale (macOS, Linux mínimo):
+    /// sin él tmux cambia cada carácter no ASCII por «_» y una sesión «diseño» se
+    /// listaría como «dise_o», un nombre que luego no encuentra ningún `-t =nombre`.
     private static var listSessionsCommand: String {
-        "tmux list-sessions -F '\(sessionFormat)'"
+        "tmux -u list-sessions -F '\(sessionFormat)'"
     }
 
     init(configuration: Configuration) {
@@ -201,6 +204,11 @@ actor SSHService {
         let result = try await capture(client, command: RemoteTimeout.wrap(Self.listSessionsCommand))
 
         if result.exitCode != 0 {
+            // 0) El plazo remoto (`timeout`) mató un tmux colgado: es un plazo vencido, no
+            //    un fallo de tmux (si no, la interfaz decía «no devolvió detalles»).
+            if result.exitCode == RemoteTimeout.expiredExitCode, result.stdout.isEmpty, result.stderr.isEmpty {
+                throw SSHConnectionError.commandTimedOut(.seconds(RemoteTimeout.pollSeconds))
+            }
             // 1) tmux instalado pero sin servidor / sin sesiones -> [] (caso normal).
             if Self.indicatesNoTmuxServer(stdout: result.stdout, stderr: result.stderr) {
                 return []

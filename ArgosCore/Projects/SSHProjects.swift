@@ -41,7 +41,7 @@ extension SSHService {
     }
 
     static let firstPanePathsCommand =
-        "tmux list-panes -a -F '#{window_index}|#{pane_index}|#{pane_current_path}|#{session_name}' 2>/dev/null"
+        "tmux -u list-panes -a -F '#{window_index}|#{pane_index}|#{pane_current_path}|#{session_name}' 2>/dev/null"
 
     // MARK: - Fichero de proyectos
 

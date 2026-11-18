@@ -76,7 +76,8 @@ extension SSHService {
     func listWindows(session: String) async throws -> [TmuxWindow] {
         let client = try await connectedClient()
         let command =
-            "tmux list-windows -t \(ShellQuoting.singleQuoted(session)) "
+            // `-u`: nombres con acentos intactos aunque el servidor no tenga locale UTF-8.
+            "tmux -u list-windows -t \(ShellQuoting.singleQuoted(session)) "
             + "-F \(ShellQuoting.singleQuoted(Self.listWindowsFormat))"
         // Se sondea cada pocos segundos: con plazo también en el servidor.
         let result = try await capture(client, command: RemoteTimeout.wrap(command))
