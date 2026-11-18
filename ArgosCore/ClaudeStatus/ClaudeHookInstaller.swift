@@ -34,7 +34,7 @@ enum ClaudeHookInstaller {
     static let option = "@argos_claude"
 
     /// Evento de Claude Code -> (matcher opcional, estado a escribir; `nil` = borrar).
-    private static let entries: [(event: String, matcher: String?, state: ClaudeActivity?)] = [
+    private static let statusEntries: [(event: String, matcher: String?, state: ClaudeActivity?)] = [
         ("UserPromptSubmit", nil, .working),
         ("PostToolUse", nil, .working),
         // Sin estos, una herramienta que falla tras aprobarla (o un permiso denegado en
@@ -51,6 +51,33 @@ enum ClaudeHookInstaller {
     ]
     // Interrumpir con Esc no dispara ningún hook: lo corrige el sondeo mirando la
     // pantalla (`ClaudeScreenSignal`).
+
+    /// Un hook instalado: evento, matcher opcional, comando y plazo (segundos).
+    private struct Entry {
+        let event: String
+        let matcher: String?
+        let command: String
+        let timeout: Int
+    }
+
+    /// Todos los hooks de Argos: los del indicador y el del punto de restauración.
+    /// Añadir uno hace que `isInstalled` falle en las instalaciones antiguas y que
+    /// `upgradeClaudeHooksIfOutdated` lo añada sola. Las versiones publicadas (iPhone,
+    /// Android) solo comprueban SUS entradas, así que lo siguen viendo instalado.
+    private static var entries: [Entry] {
+        statusEntries.map { Entry(event: $0.event, matcher: $0.matcher, command: command(setting: $0.state), timeout: 5) }
+            + [Entry(event: "UserPromptSubmit", matcher: nil, command: checkpointCommand, timeout: checkpointTimeout)]
+    }
+
+    /// Plazo del hook de captura: el script se limita a sí mismo (~8 s) y Claude lo corta aquí.
+    static let checkpointTimeout = 15
+
+    /// Hook del punto de restauración: ejecuta el script instalado (si está) sin dejar
+    /// salir nada por stdout (en `UserPromptSubmit`, Claude lo añadiría como contexto) y
+    /// siempre con éxito (un código 2 bloquearía el mensaje).
+    static var checkpointCommand: String {
+        "f=\"$HOME/\(CheckpointScript.installedRelativePath)\"; [ -f \"$f\" ] && sh \"$f\" hook >/dev/null 2>&1; exit 0 # \(marker) checkpoint"
+    }
 
     /// Comando del hook. Sin `$TMUX_PANE` (Claude fuera de tmux) no hace nada.
     static func command(setting state: ClaudeActivity?) -> String {
@@ -88,7 +115,7 @@ enum ClaudeHookInstaller {
         return entries.allSatisfy { entry in
             groups(hooks[entry.event]).contains { group in
                 group["matcher"] as? String == entry.matcher
-                    && handlers(group).contains { $0["command"] as? String == command(setting: entry.state) }
+                    && handlers(group).contains { $0["command"] as? String == entry.command }
             }
         }
     }
@@ -110,8 +137,8 @@ enum ClaudeHookInstaller {
             var group: [String: Any] = [
                 "hooks": [[
                     "type": "command",
-                    "command": command(setting: entry.state),
-                    "timeout": 5,
+                    "command": entry.command,
+                    "timeout": entry.timeout,
                 ] as [String: Any]],
             ]
             if let matcher = entry.matcher { group["matcher"] = matcher }

@@ -1,0 +1,159 @@
+//
+//  CheckpointTestSupport.swift
+//  ArgosTests
+//
+//  Repositorio git temporal (con su propio $HOME) para ejecutar DE VERDAD el script de
+//  los puntos de restauración con /bin/sh o dash.
+//
+
+import Foundation
+@testable import Argos
+
+struct ShellRun {
+    let exitCode: Int32
+    let stdout: String
+    let stderr: String
+}
+
+final class CheckpointRepo {
+    let base: URL
+    let home: URL
+    let repo: URL
+    let shell: String
+
+    static var shells: [String] {
+        ["/bin/sh", "/bin/dash"].filter { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    init(shell: String = "/bin/sh", name: String = "proyecto") throws {
+        self.shell = shell
+        base = try LocalShell.makeTemporaryDirectory()
+        home = base.appendingPathComponent("home", isDirectory: true)
+        repo = base.appendingPathComponent(name, isDirectory: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        try git("init -q && git config user.email t@t && git config user.name Test && git config commit.gpgsign false")
+    }
+
+    deinit { LocalShell.remove(base) }
+
+    var environment: [String: String] {
+        var env = ["HOME": home.path, "PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "en_US.UTF-8",
+                   "GIT_CONFIG_NOSYSTEM": "1"]
+        if let developer = ProcessInfo.processInfo.environment["DEVELOPER_DIR"] { env["DEVELOPER_DIR"] = developer }
+        return env
+    }
+
+    /// Ejecuta `executable arguments…` en `cwd` (por defecto, el repo).
+    @discardableResult
+    func exec(_ executable: String, _ arguments: [String], stdin: String? = nil, cwd: URL? = nil) throws -> ShellRun {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        process.environment = environment
+        process.currentDirectoryURL = cwd ?? repo
+        let out = Pipe(), err = Pipe(), input = Pipe()
+        process.standardOutput = out
+        process.standardError = err
+        process.standardInput = input
+        try process.run()
+        if let stdin { input.fileHandleForWriting.write(Data(stdin.utf8)) }
+        try? input.fileHandleForWriting.close()
+        let outData = out.fileHandleForReading.readDataToEndOfFile()
+        let errData = err.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return ShellRun(exitCode: process.terminationStatus,
+                        stdout: String(decoding: outData, as: UTF8.self),
+                        stderr: String(decoding: errData, as: UTF8.self))
+    }
+
+    /// Script de shell en el repo (para preparar el escenario). Lanza si falla.
+    @discardableResult
+    func sh(_ script: String, stdin: String? = nil) throws -> ShellRun {
+        let result = try exec("/bin/sh", ["-c", script], stdin: stdin)
+        guard result.exitCode == 0 else {
+            throw CheckpointError.failed("script de prueba: \(script)\n\(result.stderr)")
+        }
+        return result
+    }
+
+    @discardableResult
+    func git(_ arguments: String) throws -> ShellRun { try sh("git " + arguments) }
+
+    /// Modo `mode` del script de puntos con el shell de la prueba (sh o dash).
+    @discardableResult
+    func checkpoint(_ arguments: [String]) throws -> ShellRun {
+        try exec(shell, ["-c", CheckpointScript.source, CheckpointScript.processName] + arguments)
+    }
+
+    /// Simula el hook `UserPromptSubmit`: el script en `$HOME` y la entrada JSON por stdin.
+    @discardableResult
+    func hook(prompt: String = "Arregla el bug", session: String = "sesion-1", cwd: URL? = nil) throws -> ShellRun {
+        try installScript()
+        let json = try String(decoding: JSONSerialization.data(withJSONObject: [
+            "session_id": session, "transcript_path": "/x/t.jsonl", "cwd": (cwd ?? repo).path,
+            "permission_mode": "default", "hook_event_name": "UserPromptSubmit", "prompt": prompt,
+        ], options: [.sortedKeys]), as: UTF8.self)
+        let script = home.appendingPathComponent(CheckpointScript.installedRelativePath).path
+        return try exec(shell, [script, "hook"], stdin: json, cwd: cwd)
+    }
+
+    func installScript() throws {
+        let url = home.appendingPathComponent(CheckpointScript.installedRelativePath)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try CheckpointScript.source.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    func write(_ relativePath: String, _ content: String) throws {
+        let url = repo.appendingPathComponent(relativePath)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try content.write(to: url, atomically: false, encoding: .utf8)
+    }
+
+    func read(_ relativePath: String) -> String? {
+        try? String(contentsOf: repo.appendingPathComponent(relativePath), encoding: .utf8)
+    }
+
+    func exists(_ relativePath: String) -> Bool {
+        FileManager.default.fileExists(atPath: repo.appendingPathComponent(relativePath).path)
+    }
+
+    func remove(_ relativePath: String) throws {
+        try FileManager.default.removeItem(at: repo.appendingPathComponent(relativePath))
+    }
+
+    func refs() throws -> [String] {
+        try git("for-each-ref --sort=-refname --format='%(refname)' refs/argos/").stdout
+            .split(separator: "\n").map(String.init)
+    }
+
+    /// `git status` y el índice real, para comprobar que capturar no los toca.
+    func realState() throws -> String {
+        let status = try sh("GIT_OPTIONAL_LOCKS=0 git status --porcelain=v1 -z --untracked-files=all").stdout
+        let index = try Data(contentsOf: repo.appendingPathComponent(".git/index"))
+        return status + "|" + index.base64EncodedString()
+    }
+
+    /// Runner del modelo: ejecuta el comando tal como iría por SSH, con /bin/sh.
+    var runner: CheckpointRunner {
+        let environment = environment
+        let home = home
+        return { command in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sh")
+            process.arguments = ["-c", command]
+            process.environment = environment
+            process.currentDirectoryURL = home
+            let out = Pipe(), err = Pipe()
+            process.standardOutput = out
+            process.standardError = err
+            try process.run()
+            let outData = out.fileHandleForReading.readDataToEndOfFile()
+            let errData = err.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            return CheckpointCommandOutput(stdout: String(decoding: outData, as: UTF8.self),
+                                           stderr: String(decoding: errData, as: UTF8.self),
+                                           exitCode: Int(process.terminationStatus))
+        }
+    }
+}

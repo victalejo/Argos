@@ -245,6 +245,12 @@ protocol SSHServicing: Sendable {
     /// Desconecta y no vuelve a conectar nunca (su view model se descartó). Por defecto,
     /// `disconnect()` (`SSHServiceRetirement.swift`).
     func retire() async
+
+    // MARK: Puntos de restauración
+
+    /// Ejecuta un comando de `CheckpointCommands` (plazo largo). No lanza por el código de
+    /// salida. Implementación por defecto (lanza) para los dobles en `SSHCheckpoints.swift`.
+    func runCheckpointCommand(_ command: String) async throws -> CheckpointCommandOutput
 }
 
 extension SSHServicing {
