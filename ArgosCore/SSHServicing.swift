@@ -235,6 +235,13 @@ protocol SSHServicing: Sendable {
     func removeStaleSyncTemporaries(root: String) async throws
     /// Huella barata (cksum del diff) de cada cambio, en el mismo orden.
     func gitFingerprints(root: String, changes: [GitFileChange], hasCommits: Bool) async throws -> [String]
+
+    // MARK: - Sondeo agrupado (WorkspacePoller)
+
+    /// Una vuelta del sondeo en un solo comando: estado de Claude, sesiones y solicitudes
+    /// de puertos (ver `WorkspacePollCommand`). Hay una implementación por defecto con las
+    /// llamadas sueltas (`SSHWorkspacePoll.swift`) para los dobles de prueba.
+    func workspacePoll(_ sections: Set<WorkspacePollSection>) async throws -> WorkspacePollOutput
 }
 
 extension SSHServicing {

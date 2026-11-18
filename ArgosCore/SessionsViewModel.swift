@@ -153,6 +153,13 @@ final class SessionsViewModel {
             noteBackgroundFailure(error, during: "leer el estado de Claude")
             return []
         }
+        return await absorbClaudeActivity(fresh)
+    }
+
+    /// Toma un estado de Claude recién leído (sondeo suelto o agrupado) y devuelve las
+    /// transiciones que merecen aviso. El primero no avisa y actualiza los hooks.
+    func absorbClaudeActivity(_ fresh: ClaudeActivitySnapshot) async -> [ClaudeTransition] {
+        guard case .loaded = state else { return [] }
         let isFirstPoll = !hasPolledClaude
         hasPolledClaude = true
         if isFirstPoll { await upgradeClaudeHooks() }
@@ -236,9 +243,19 @@ final class SessionsViewModel {
             noteBackgroundFailure(error, during: "releer las sesiones")
             return
         }
-        // Entretanto pudo cambiarla un refresco explícito: manda ese.
+        adoptQuietSessions(fresh, readOver: current)
+    }
+
+    /// Pone `fresh` (leída en segundo plano sobre `current`) salvo que entretanto un
+    /// refresco explícito haya cambiado la lista: manda ese.
+    func adoptQuietSessions(_ fresh: [TmuxSession], readOver current: [TmuxSession]) {
         guard case .loaded(let now) = state, now == current, !isRefreshing, fresh != current else { return }
         state = .loaded(fresh)
+    }
+
+    /// `projects.json` está dañado (no es JSON): se puede ofrecer restaurar su copia.
+    var isProjectsFileDamaged: Bool {
+        projectsError != nil && projectsError == ProjectError.invalidFile.errorDescription
     }
 
     // MARK: - Fallos de los sondeos de fondo

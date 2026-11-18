@@ -83,7 +83,19 @@ final class PortForwardRequestsModel {
 
     func refresh() async {
         guard !isOpening else { return }
-        let pending = (try? await service.pendingPortForwardRequests()) ?? []
+        let pending: [PortForwardRequest]
+        do {
+            pending = try await service.pendingPortForwardRequests()
+        } catch {
+            Log.ssh.debug("Leer solicitudes de puertos: \(error.userMessage, privacy: .public)")
+            pending = []
+        }
+        absorb(pending)
+    }
+
+    /// Toma la lista de pendientes leída por otro (el sondeo agrupado del Mac).
+    func absorb(_ pending: [PortForwardRequest]) {
+        guard !isOpening else { return }
         // Lo respondido que ya no está en el servidor deja de importar.
         handled.formIntersection(pending.map(\.port))
         current = pending.first { !handled.contains($0.port) }

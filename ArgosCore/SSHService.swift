@@ -179,7 +179,7 @@ actor SSHService {
     var connectionEpoch = 0
 
     /// Formato exacto requerido para `tmux list-sessions -F`.
-    private static let sessionFormat =
+    static let sessionFormat =
         "#{session_name}|#{session_windows}|#{session_attached}|#{session_created}"
 
     private static var listSessionsCommand: String {
