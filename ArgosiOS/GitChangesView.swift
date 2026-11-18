@@ -105,6 +105,7 @@ private struct GitChangesList: View {
     var body: some View {
         List {
             branchSection
+            checkpointsSection
             Section("GitHub") {
                 GitHubStatusHost(root: status.root, branch: status.branch, service: viewModel.service) { [weak viewModel] root, sha in
                     viewModel?.watchCI(root: root, sha: sha)
@@ -159,6 +160,24 @@ private struct GitChangesList: View {
                     .disabled(!model.canPush)
                 }
                 .buttonStyle(.borderless)
+            }
+        }
+    }
+
+    /// Puntos de restauración por turno y, si Claude acaba de terminar, atajo a su turno.
+    private var checkpointsSection: some View {
+        Section {
+            if viewModel.claudeActivity(forProjectPath: model.path) == .done {
+                NavigationLink {
+                    CheckpointsView(path: model.path, service: viewModel.service, opensLatestTurn: true)
+                } label: {
+                    Label("Ver lo que cambió en este turno", systemImage: "sparkles")
+                }
+            }
+            NavigationLink {
+                CheckpointsView(path: model.path, service: viewModel.service)
+            } label: {
+                Label("Puntos de restauración", systemImage: "clock.arrow.circlepath")
             }
         }
     }

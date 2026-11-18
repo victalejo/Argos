@@ -13,6 +13,7 @@ struct GitChangesPanelView: View {
     @State private var model: GitChangesModel
     private let viewModel: SessionsViewModel
     @Environment(\.isDetailPanelActive) private var isActive
+    @State private var checkpoints: CheckpointsRequest?
 
     /// `viewModel`: el del servidor, para vigilar el CI de lo que se sube y avisar al terminar.
     init(path: String, viewModel: SessionsViewModel) {
@@ -45,6 +46,9 @@ struct GitChangesPanelView: View {
             } message: {
                 Text(model.commitReview ?? "")
             }
+            .sheet(item: $checkpoints) { request in
+                CheckpointsSheet(path: model.path, service: viewModel.service, opensLatestTurn: request.latestTurn)
+            }
     }
 
     @ViewBuilder
@@ -74,7 +78,7 @@ struct GitChangesPanelView: View {
             }
         case .loaded(let status):
             HSplitView {
-                GitChangesSidebar(model: model, status: status, viewModel: viewModel)
+                GitChangesSidebar(model: model, status: status, viewModel: viewModel) { checkpoints = $0 }
                     .frame(minWidth: 240, idealWidth: 300, maxWidth: 460, maxHeight: .infinity)
                 GitDiffPane(model: model)
                     .frame(minWidth: 280, maxWidth: .infinity, maxHeight: .infinity)
@@ -99,16 +103,20 @@ private struct GitChangesSidebar: View {
     let model: GitChangesModel
     let status: GitRepositoryStatus
     let viewModel: SessionsViewModel
+    let openCheckpoints: (CheckpointsRequest) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            GitBranchHeader(model: model, status: status)
+            GitBranchHeader(model: model, status: status) { openCheckpoints(CheckpointsRequest(latestTurn: false)) }
             GitHubStatusHost(root: status.root, branch: status.branch, service: viewModel.service) { [weak viewModel] root, sha in
                 viewModel?.watchCI(root: root, sha: sha)
             }
             .id(status.root)
             .padding(.horizontal, 10)
             .padding(.bottom, 8)
+            CheckpointTurnBanner(activity: viewModel.claudeActivity(forProjectPath: model.path)) {
+                openCheckpoints(CheckpointsRequest(latestTurn: true))
+            }
             Divider()
             if status.isClean {
                 ContentUnavailableView("Sin cambios", systemImage: "checkmark.circle",
@@ -162,6 +170,7 @@ private struct GitChangesSidebar: View {
 private struct GitBranchHeader: View {
     let model: GitChangesModel
     let status: GitRepositoryStatus
+    let openCheckpoints: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -190,6 +199,12 @@ private struct GitBranchHeader: View {
             .disabled(!model.canPush)
             .help(status.branch.upstream == nil ? "Publicar la rama en origin" : "Subir los commits al remoto")
             .accessibilityLabel(status.branch.upstream == nil ? "Publicar rama" : "Push")
+            Button(action: openCheckpoints) {
+                Image(systemName: "clock.arrow.circlepath")
+            }
+            .buttonStyle(.borderless)
+            .help("Puntos de restauración: qué cambió Claude en cada turno y deshacerlo")
+            .accessibilityLabel("Puntos de restauración")
             Button { Task { await model.refresh() } } label: {
                 Image(systemName: "arrow.clockwise")
             }
@@ -416,6 +431,32 @@ private struct GitNoticeBanner: View {
                     if model.notice == notice { model.notice = nil }
                 }
                 .accessibilityAddTraits(.updatesFrequently)
+        }
+    }
+}
+
+// MARK: - Puntos de restauración
+
+/// Petición de abrir la hoja de puntos (`latestTurn`: directamente en el último turno).
+struct CheckpointsRequest: Identifiable {
+    let id = UUID()
+    let latestTurn: Bool
+}
+
+/// Cuando Claude acaba de terminar un turno: atajo a lo que cambió en él.
+private struct CheckpointTurnBanner: View {
+    let activity: ClaudeActivity?
+    let open: () -> Void
+
+    var body: some View {
+        if activity == .done {
+            Button(action: open) {
+                Label("Claude terminó · Ver lo que cambió en este turno", systemImage: "clock.arrow.circlepath")
+                    .font(.callout)
+            }
+            .buttonStyle(.borderless)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
         }
     }
 }
