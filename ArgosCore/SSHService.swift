@@ -146,6 +146,19 @@ actor SSHService {
     var health = ConnectionHealth()
     /// Error que bloqueó los reintentos (se relanza tal cual: la UI distingue host key).
     var lastBlockingError: Error?
+    /// Ritmo de los vigilantes y umbrales (inyectable en los tests).
+    var monitorPolicy = ConnectionMonitorPolicy.standard
+    /// Última actividad de la compartida: con tráfico reciente no hace falta latido.
+    nonisolated let sharedActivity = LinkActivity()
+    /// Actividad de cada conexión dedicada (la anota su dueño al recibir datos).
+    var linkActivities: [UUID: LinkActivity] = [:]
+    /// Sondeos lanzados por los vigilantes de conexiones dedicadas (para los tests).
+    var linkProbeCount = 0
+    /// Latidos lanzados sobre la compartida (para los tests).
+    var sharedProbeCount = 0
+    /// Comandos con turno ocupado y, de ellos, los que vencieron con el canal aún abierto.
+    var heldCommands: Set<UUID> = []
+    var abandonedCommands: Set<UUID> = []
     /// Túneles de reenvío de puertos activos (ver `SSHPortForwarding.swift`).
     var portForwards: [UUID: PortForwardRuntime] = [:]
     /// Vigilante de los túneles: cierra los inactivos y renueva su archivo en el servidor.
@@ -163,7 +176,7 @@ actor SSHService {
     private var connecting: Task<SSHClient, Error>?
     /// Sube en cada `disconnect()`: una apertura que termina después de desconectar no
     /// debe instalarse (dejaría una conexión y un heartbeat sin dueño).
-    private var connectionEpoch = 0
+    var connectionEpoch = 0
 
     /// Formato exacto requerido para `tmux list-sessions -F`.
     private static let sessionFormat =
@@ -184,7 +197,8 @@ actor SSHService {
     /// "no server running" o "no sessions" se tratan como **lista vacía**, no como error.
     func listSessions() async throws -> [TmuxSession] {
         let client = try await connectedClient()
-        let result = try await capture(client, command: Self.listSessionsCommand)
+        // Es el sondeo más frecuente: con plazo también en el servidor (ver RemoteTimeout).
+        let result = try await capture(client, command: RemoteTimeout.wrap(Self.listSessionsCommand))
 
         if result.exitCode != 0 {
             // 1) tmux instalado pero sin servidor / sin sesiones -> [] (caso normal).
@@ -223,6 +237,7 @@ actor SSHService {
         stopAllLinkMonitors()
         let dedicated = dedicatedClients.values
         dedicatedClients.removeAll()
+        linkActivities.removeAll()
         for dedicatedClient in dedicated {
             try? await dedicatedClient.close()
         }
@@ -419,7 +434,12 @@ actor SSHService {
         // El actor es reentrante: sin esto, dos llamadas simultáneas (sondeos, panel
         // git…) abrirían una conexión cada una y la primera quedaría sin dueño.
         if let connecting {
-            return try await connecting.value
+            do {
+                return try await connecting.value
+            } catch where ConnectionHealth.joinerShouldRetry(after: error, priority: ConnectionPriority.current) {
+                // El intento era de un sondeo y se quedó en la espera: el usuario no espera.
+                if let client, client.isConnected { return client }
+            }
         }
 
         let epoch = connectionEpoch
@@ -458,17 +478,26 @@ actor SSHService {
     /// nuevos ("no more sessions" → `NIOSSHError`). Los canales de larga duración usan
     /// por eso una conexión dedicada; la compartida queda para comandos cortos.
     ///
-    /// Un vigilante la sondea cada `linkCheckInterval`: si deja de responder (cambio de
+    /// Un vigilante la sondea (ver `ConnectionMonitorPolicy`): si deja de responder (cambio de
     /// red, reposo largo) la cierra y `body` termina con `SSHConnectionError.connectionLost`,
     /// para que su dueño reconecte con su propio backoff en vez de quedarse «conectado».
     func withDedicatedClient(_ body: (SSHClient) async throws -> Void) async throws {
+        try await withDedicatedClient { client, _ in try await body(client) }
+    }
+
+    /// Igual, y además entrega la `LinkActivity` de la conexión: quien la usa la toca al
+    /// recibir datos, y mientras haya tráfico reciente el vigilante no gasta un canal en
+    /// sondearla (con `MaxSessions 1` ni siquiera podría).
+    func withDedicatedClient(_ body: (SSHClient, LinkActivity) async throws -> Void) async throws {
         let id = UUID()
         let client = try await openClient()
+        let activity = LinkActivity()
         dedicatedClients[id] = client
+        linkActivities[id] = activity
         startLinkMonitor(id)
         Log.ssh.debug("Conexión dedicada abierta (\(self.dedicatedClients.count) activas)")
         do {
-            try await body(client)
+            try await body(client, activity)
         } catch {
             let lost = await closeDedicatedClient(id)
             if lost, !(error is CancellationError) { throw SSHConnectionError.connectionLost }
@@ -480,6 +509,7 @@ actor SSHService {
     /// Cierra la conexión dedicada. Devuelve si el vigilante la había dado por perdida.
     private func closeDedicatedClient(_ id: UUID) async -> Bool {
         stopLinkMonitor(id)
+        linkActivities.removeValue(forKey: id)
         let lost = lostLinks.remove(id) != nil
         guard let client = dedicatedClients.removeValue(forKey: id) else { return lost }
         try? await client.close()

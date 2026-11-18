@@ -84,7 +84,7 @@ extension SSHService {
                 }
             }
         } catch {
-            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let message = error.userMessage
             throw SSHServiceError.uploadFailed(message)
         }
         Log.ssh.notice("Archivo subido por SFTP a \(remotePath, privacy: .public) (\(data.count, privacy: .public) bytes)")

@@ -78,7 +78,8 @@ extension SSHService {
         let command =
             "tmux list-windows -t \(ShellQuoting.singleQuoted(session)) "
             + "-F \(ShellQuoting.singleQuoted(Self.listWindowsFormat))"
-        let result = try await capture(client, command: command)
+        // Se sondea cada pocos segundos: con plazo también en el servidor.
+        let result = try await capture(client, command: RemoteTimeout.wrap(command))
         guard result.exitCode == 0 else { return [] }
         return result.stdout
             .split(separator: "\n", omittingEmptySubsequences: true)

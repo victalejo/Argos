@@ -60,6 +60,28 @@ struct ConnectionHealthTests {
         #expect(health.admission(for: .background, at: t0 + .seconds(3600)) == .blocked(kind))
     }
 
+    @Test("Bloqueado + fallo de red: sigue bloqueado")
+    func blockedIgnoresNetworkFailure() {
+        let blocked = ConnectionHealth().recordingFailure(.authentication, message: "no", at: t0)
+        let after = blocked.recordingFailure(.network, message: "red", at: t0)
+        #expect(after == blocked)
+        #expect(after.admission(for: .user, at: t0) == .blocked(.authentication))
+    }
+
+    @Test("Quien se une como usuario a un intento de fondo en espera reintenta por su cuenta")
+    func joinerRetry() {
+        let deferred = SSHConnectionError.backingOff(retryIn: .seconds(4), lastFailure: nil)
+        #expect(ConnectionHealth.joinerShouldRetry(after: deferred, priority: .user))
+        #expect(!ConnectionHealth.joinerShouldRetry(after: deferred, priority: .background))
+        #expect(!ConnectionHealth.joinerShouldRetry(after: URLError(.timedOut), priority: .user))
+        #expect(!ConnectionHealth.joinerShouldRetry(after: SSHClientError.allAuthenticationOptionsFailed, priority: .user))
+    }
+
+    @Test("«Conexión perdida» no promete una reconexión que no todos hacen")
+    func connectionLostWording() {
+        #expect(!(SSHConnectionError.connectionLost.errorDescription ?? "").contains("Reconectando"))
+    }
+
     // MARK: - Clasificación
 
     @Test("Clasifica los fallos de autenticación")
@@ -120,10 +142,31 @@ struct SSHServiceHealthTests {
 
     @Test("Host key cambiada: se relanza el error original (la UI ofrece «Olvidar host key»)")
     func hostKeyRethrowsOriginal() async {
-        let service = makeService()
-        let mismatch = HostKeyMismatchError(endpoint: "h:22", storedFingerprint: "a", presentedFingerprint: "b")
+        // Endpoint propio de este test: la huella vive en el registro real de la app.
+        let host = "argos-test-\(UUID().uuidString).invalid"
+        let port = 2222
+        TOFUHostKeyValidator.trustIfUnknown(fingerprint: "SHA256:guardada", host: host, port: port)
+        defer { TOFUHostKeyValidator.forget(host: host, port: port) }
+        let service = SSHService(configuration: .init(server: Server(name: "p", host: host, port: port, username: "u")))
+        let mismatch = HostKeyMismatchError(
+            endpoint: "\(host):\(port)", storedFingerprint: "SHA256:guardada", presentedFingerprint: "SHA256:otra"
+        )
         await service.recordConnectionFailure(mismatch)
         await #expect(throws: HostKeyMismatchError.self) { try await service.admitConnectionAttempt() }
+
+        // «Olvidar host key» (aunque se pulse en otro sitio) levanta el bloqueo.
+        TOFUHostKeyValidator.forget(host: host, port: port)
+        await #expect(throws: Never.self) { try await service.admitConnectionAttempt() }
+        #expect(await service.connectionHealth == ConnectionHealth())
+    }
+
+    @Test("Un fallo de red no degrada un bloqueo por credenciales")
+    func networkFailureKeepsBlock() async {
+        let service = makeService(auth: .password, password: nil)
+        _ = try? await service.openClient()
+        await service.recordConnectionFailure(URLError(.timedOut))
+        #expect(await service.connectionHealth.isBlocked)
+        await #expect(throws: SSHService.SSHServiceError.self) { try await service.admitConnectionAttempt() }
     }
 
     @Test("La cancelación no cuenta como fallo")

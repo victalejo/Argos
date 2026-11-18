@@ -32,7 +32,7 @@ extension SSHService {
     /// Estado de Claude en las sesiones del servidor. Sin servidor tmux -> vacío.
     func claudeActivity() async throws -> ClaudeActivitySnapshot {
         let client = try await connectedClient()
-        let result = try await capture(client, command: Self.claudeActivityCommand)
+        let result = try await capture(client, command: RemoteTimeout.wrap(Self.claudeActivityCommand))
         guard result.exitCode == 0 else { return .empty }
         return ClaudeActivitySnapshot(listPanesOutput: result.stdout)
     }

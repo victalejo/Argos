@@ -121,7 +121,8 @@ extension SSHService {
         defer { output.finish() }
 
         // Conexión dedicada: evita agotar el `MaxSessions` de la conexión compartida.
-        try await withDedicatedClient { client in
+        // La actividad se anota con cada salida: un terminal con tráfico no se sondea.
+        try await withDedicatedClient { client, activity in
             try await client.withPTY(request) { inbound, outbound in
                 // `exec` reemplaza el shell del PTY por el comando, para que al terminar este
                 // (detach de tmux, o fin de `claude auth login`) el canal se cierre limpiamente.
@@ -132,6 +133,7 @@ extension SSHService {
                     // PTY -> TerminalView: reenvía cada chunk de salida.
                     group.addTask {
                         for try await chunk in inbound {
+                            activity.touch()
                             switch chunk {
                             case .stdout(let buffer), .stderr(let buffer):
                                 if let bytes = buffer.getBytes(

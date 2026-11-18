@@ -156,12 +156,14 @@ struct ChannelGateTests {
         #expect(await gate.activeCount == 5)
     }
 
-    @Test("El tope adaptativo nunca baja de 2")
+    @Test("El tope adaptativo llega hasta 1 (MaxSessions 1) y no baja de ahí")
     func adaptiveFloor() async throws {
         let gate = ChannelGate(limit: 6)
         try await gate.acquire()
-        #expect(await gate.lowerLimitAfterRejection() == 2)
-        #expect(await gate.lowerLimitAfterRejection() == 2)
+        try await gate.acquire()
+        #expect(await gate.lowerLimitAfterRejection() == 1)
+        #expect(await gate.lowerLimitAfterRejection() == 1)
+        #expect(await gate.backgroundLimit == 1)
     }
 }
 

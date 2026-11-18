@@ -118,6 +118,9 @@ struct ConnectionHealth: Sendable, Equatable {
         case .authentication, .hostKey:
             return ConnectionHealth(status: .blocked(kind), lastFailureMessage: message)
         case .network:
+            // Un fallo de red no levanta un bloqueo por credenciales o host key: lo que
+            // había que arreglar sigue sin arreglar.
+            if isBlocked { return self }
             let failures = previousNetworkFailures + 1
             let retryAt = now + Self.backoff(afterFailures: failures)
             return ConnectionHealth(status: .backingOff(failures: failures, retryAt: retryAt), lastFailureMessage: message)
@@ -126,6 +129,14 @@ struct ConnectionHealth: Sendable, Equatable {
 
     func recordingSuccess() -> ConnectionHealth {
         ConnectionHealth()
+    }
+
+    /// ¿Debe quien se unió a un intento de conexión ajeno reintentar por su cuenta? Sí si
+    /// es el usuario y el intento era de fondo y se quedó en la espera entre reintentos.
+    static func joinerShouldRetry(after error: Error, priority: ConnectionPriority) -> Bool {
+        guard priority == .user, let connection = error as? SSHConnectionError else { return false }
+        if case .backingOff = connection { return true }
+        return false
     }
 
     var isBlocked: Bool {
@@ -160,7 +171,7 @@ enum SSHConnectionError: LocalizedError, Equatable {
             return "El comando remoto no terminó en \(Int(limit.components.seconds)) s y se dejó de esperar. "
                 + "El servidor puede estar muy cargado o la conexión, colgada: reintenta."
         case .connectionLost:
-            return "La conexión con el servidor dejó de responder (¿cambio de red o reposo?) y se cerró. Reconectando…"
+            return "La conexión con el servidor dejó de responder (¿cambio de red o reposo?) y se cerró."
         case .notConnected:
             return "No hay conexión con el servidor."
         }

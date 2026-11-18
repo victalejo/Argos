@@ -44,6 +44,8 @@ extension SSHService {
         preferredLocalPort: Int
     ) async throws -> ActivePortForward {
         guard (1...65535).contains(remotePort) else { throw PortForwardError.invalidPort(remotePort) }
+        // Abrir un túnel es una acción explícita: levanta el bloqueo de la conexión.
+        await resetConnectionHealth()
         if portForwards.values.contains(where: { $0.info.remotePort == remotePort })
             || brokenPortForwards.values.contains(where: { $0.remotePort == remotePort }) {
             throw PortForwardError.alreadyForwarded(remotePort)
@@ -74,7 +76,8 @@ extension SSHService {
         brokenPortForwards.removeAll()
         for runtime in runtimes { await close(runtime) }
         if !runtimes.isEmpty {
-            await captureIfConnected(PortForwardServerFiles.unpublishCommand(deviceID: PortForwardDevice.id))
+            // Sin esperar turno: al desconectar no debe quedarse detrás de un comando largo.
+            await captureNowIfConnected(PortForwardServerFiles.unpublishCommand(deviceID: PortForwardDevice.id))
         }
         portForwardsPublishedAt = nil
     }
@@ -84,7 +87,9 @@ extension SSHService {
     /// se puede reabrir todavía sigue en la lista (`isReconnecting`) y se reintenta en la
     /// siguiente pasada: al despertar el Mac la red tarda unos segundos en volver.
     func activePortForwards() async -> [ActivePortForward] {
-        await reopenBrokenPortForwards()
+        // Reabrir es automático (lo pide cualquier consulta, a menudo un sondeo de la
+        // interfaz): respeta la espera entre reintentos, nunca cuenta como acción del usuario.
+        await ConnectionPriority.background { await reopenBrokenPortForwards() }
         let live = portForwards.values.map(\.info)
         let broken = brokenPortForwards.values.map { $0.reconnecting() }
         return (live + broken).sorted { $0.remotePort < $1.remotePort }
@@ -133,7 +138,7 @@ extension SSHService {
     /// fondo, así un servidor caído no recibe un intento de conexión en cada vuelta.
     func pendingPortForwardRequests() async throws -> [PortForwardRequest] {
         try await ConnectionPriority.background {
-            let result = try await run(PortForwardServerFiles.listRequestsCommand)
+            let result = try await run(RemoteTimeout.wrap(PortForwardServerFiles.listRequestsCommand))
             return PortForwardRequestParser.parse(result.stdout)
         }
     }

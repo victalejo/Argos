@@ -25,6 +25,7 @@ extension SSHService {
 
     /// Lanza si ahora no se debe intentar conectar (sin tocar la red).
     func admitConnectionAttempt(now: ContinuousClock.Instant = .now) throws {
+        liftResolvedHostKeyBlock()
         switch health.admission(for: ConnectionPriority.current, at: now) {
         case .allowed:
             return
@@ -33,6 +34,27 @@ extension SSHService {
         case .deferred(let remaining):
             throw SSHConnectionError.backingOff(retryIn: remaining, lastFailure: health.lastFailureMessage)
         }
+    }
+
+    /// Un bloqueo por host key deja de tener sentido si el usuario ya lo resolvió fuera de
+    /// este servicio: «Olvidar host key» borró (o cambió) la huella guardada, o rehízo el
+    /// registro de huellas, que es común a todos los servidores.
+    private func liftResolvedHostKeyBlock() {
+        guard case .blocked(.hostKey) = health.status, let error = lastBlockingError else { return }
+        let resolved: Bool
+        switch error {
+        case let mismatch as HostKeyMismatchError:
+            let stored = TOFUHostKeyValidator.trustedFingerprint(host: configuration.host, port: configuration.port)
+            resolved = stored != mismatch.storedFingerprint
+        case is HostKeyStoreUnreadableError:
+            resolved = TOFUHostKeyValidator.isReadable()
+        default:
+            resolved = false
+        }
+        guard resolved else { return }
+        Log.ssh.notice("La huella de \(self.configuration.host, privacy: .public) ya se olvidó o el registro se rehízo: se vuelve a intentar")
+        health = ConnectionHealth()
+        lastBlockingError = nil
     }
 
     /// Registra un intento fallido. La cancelación no cuenta.

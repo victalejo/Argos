@@ -89,8 +89,8 @@ actor ChannelGate {
         dispatch()
     }
 
-    /// Nunca se baja de aquí: con menos, la app entera iría a paso de tortuga.
-    private static let minimumAdaptiveLimit = 2
+    /// Hasta 1: con `MaxSessions 1` (configuración endurecida) es lo único que funciona.
+    private static let minimumAdaptiveLimit = 1
 
     // MARK: - Reparto
 
@@ -134,7 +134,7 @@ enum ChannelRetry {
     static let maxAttempts = 4
 
     /// El servidor no admitió el canal («no more sessions»).
-    static func isChannelRejection(_ error: Error) -> Bool {
+    @Sendable static func isChannelRejection(_ error: Error) -> Bool {
         (error as? NIOSSHError)?.type == .channelSetupRejected
     }
 
