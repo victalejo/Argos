@@ -15,6 +15,7 @@ import com.iaportafolio.argos.core.git.GitWorktreeCommands
 import com.iaportafolio.argos.core.git.GitWorktreeListResult
 import com.iaportafolio.argos.core.git.GitWorktreeParser
 import com.iaportafolio.argos.core.git.GitWorktreeRequest
+import kotlin.time.Duration
 
 /**
  * Operaciones git del panel «Cambios» (port de `ArgosCore/Git/SSHGit.swift`) por el canal de
@@ -40,22 +41,24 @@ internal class SshjGit(private val connection: SshjConnection) : GitOperations {
     }
 
     override suspend fun gitCommit(root: String, message: String, changes: List<GitFileChange>): String =
-        runGit(GitCommands.commit(root, message, changes))
+        // Los hooks de pre-commit pueden tardar (tests, linters).
+        runGit(GitCommands.commit(root, message, changes), CommandTimeouts.LONG)
 
-    override suspend fun gitPush(root: String, hasUpstream: Boolean): String = runGit(GitCommands.push(root, hasUpstream))
+    override suspend fun gitPush(root: String, hasUpstream: Boolean): String = runGit(GitCommands.push(root, hasUpstream), CommandTimeouts.LONG)
 
-    override suspend fun gitPull(root: String): String = runGit(GitCommands.pull(root))
+    override suspend fun gitPull(root: String): String = runGit(GitCommands.pull(root), CommandTimeouts.LONG)
 
     override suspend fun gitSummaries(paths: List<String>): Map<String, GitRepoSummary> {
         if (paths.isEmpty()) return emptyMap()
-        return GitSummaryParser.parse(connection.capture(GitSummaryCommands.summaries(paths)).stdout, paths)
+        return GitSummaryParser.parse(connection.capture(GitSummaryCommands.summaries(paths), CommandTimeouts.MEDIUM).stdout, paths)
     }
 
     override suspend fun gitWorktrees(path: String): GitWorktreeListResult =
         GitWorktreeParser.parseList(connection.capture(GitWorktreeCommands.list(path)).stdout)
 
     override suspend fun gitAddWorktree(request: GitWorktreeRequest): String {
-        val result = connection.capture(GitWorktreeCommands.add(request))
+        // Crear un worktree hace checkout de todo el árbol.
+        val result = connection.capture(GitWorktreeCommands.add(request), CommandTimeouts.LONG)
         GitWorktreeParser.addRefusal(result.stdout)?.let { throw GitCommandException(it) }
         if (result.exitCode != 0) throw GitCommandException.from(result.stdout, result.stderr, result.exitCode)
         return GitWorktreeParser.addedPath(result.stdout)
@@ -67,8 +70,8 @@ internal class SshjGit(private val connection: SshjConnection) : GitOperations {
     }
 
     /** Ejecuta un comando git y devuelve su salida (recortada); lanza si falla. */
-    private suspend fun runGit(command: String): String {
-        val result = connection.capture(command)
+    private suspend fun runGit(command: String, timeout: Duration = CommandTimeouts.SHORT): String {
+        val result = connection.capture(command, timeout)
         if (result.exitCode != 0) throw GitCommandException.from(result.stdout, result.stderr, result.exitCode)
         return result.stdout.trim()
     }

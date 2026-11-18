@@ -1,5 +1,7 @@
 package com.iaportafolio.argos.ssh
 
+import com.iaportafolio.argos.core.ConnectionHealthProbing
+import com.iaportafolio.argos.core.ConnectionProbeResult
 import com.iaportafolio.argos.core.SSHServiceError
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.TerminalControlEvent
@@ -22,6 +24,7 @@ import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectCommands
 import com.iaportafolio.argos.core.projects.ProjectListing
 import com.iaportafolio.argos.core.status.ClaudeHookInstaller
+import com.iaportafolio.argos.core.status.ClaudeHookMaintenance
 import com.iaportafolio.argos.core.status.ClaudeStatusCommands
 import com.iaportafolio.argos.core.tmux.CodingAgent
 import com.iaportafolio.argos.core.tmux.TmuxCommands
@@ -38,6 +41,7 @@ import com.iaportafolio.argos.core.ports.PortForwardRequest
 import kotlinx.coroutines.flow.Flow
 import java.io.OutputStream
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * [SSHServicing] sobre sshj (port de `SSHService.swift` + `SSHSessionManagement.swift`,
@@ -68,7 +72,9 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     AgentExecStreaming,
     GitOperations by SshjGit(connection),
     GitHubOperations by SshjGitHub(connection),
-    PortForwardOperations {
+    PortForwardOperations,
+    ConnectionHealthProbing,
+    ClaudeHookMaintenance {
 
     private val terminal = SshjTerminal(connection)
     private val files = SshjFileBrowser(connection)
@@ -83,7 +89,9 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
 
     override suspend fun claudeAuthStatus(): ClaudeAuthStatus? {
         val claudePath = locateClaude() ?: return null
-        return AgentExecCommands.parseAuthStatus(connection.capture(AgentExecCommands.claudeAuthStatus(claudePath)).stdout)
+        // Arrancar `claude` en frío puede tardar.
+        val result = connection.capture(AgentExecCommands.claudeAuthStatus(claudePath), CommandTimeouts.MEDIUM)
+        return AgentExecCommands.parseAuthStatus(result.stdout)
     }
 
     // MARK: Explorador de archivos (SFTP)
@@ -127,6 +135,12 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
         return TmuxOutputParser.parseListSessions(result.stdout, result.stderr, result.exitCode)
     }
 
+    // MARK: Salud de la conexión
+
+    /** Ver [ConnectionHealthProbing]: invalida la conexión compartida si no responde a tiempo. */
+    override suspend fun probeConnection(timeoutMillis: Long): ConnectionProbeResult =
+        connection.probe(timeoutMillis.milliseconds)
+
     override suspend fun disconnect() {
         ports.stopAll()
         files.close()
@@ -153,7 +167,7 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     override suspend fun canUseSudoNonInteractive(): Boolean = succeeds(TmuxCommands.CAN_USE_SUDO_NON_INTERACTIVE)
 
     override suspend fun installTmuxWithApt() {
-        val result = connection.capture(TmuxCommands.INSTALL_TMUX_WITH_APT)
+        val result = connection.capture(TmuxCommands.INSTALL_TMUX_WITH_APT, CommandTimeouts.LONG)
         // Verificación independiente del código de salida de apt.
         if (!isTmuxInstalled()) {
             throw SSHServiceError.InstallFailed(result.stderr.trim().ifEmpty { "apt terminó con código ${result.exitCode}." })
@@ -188,8 +202,9 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     override suspend fun newAgentWindow(session: String, agent: CodingAgent, directory: String?) =
         runManagement(TmuxCommands.newAgentWindow(session, agent, directory))
 
-    override suspend fun installedCodingAgents(): Set<CodingAgent> =
-        CodingAgent.parseInstalled(connection.capture(posixShell(CodingAgent.installedAgentsScript)).stdout)
+    override suspend fun installedCodingAgents(): Set<CodingAgent> = CodingAgent.parseInstalled(
+        connection.capture(posixShell(CodingAgent.installedAgentsScript), CommandTimeouts.MEDIUM).stdout,
+    )
 
     override suspend fun gitBranch(path: String): String? {
         val result = connection.capture(TmuxCommands.gitBranch(path))
@@ -237,6 +252,14 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
         val merged = ClaudeHookInstaller.installing(readClaudeSettings())
         val content = ClaudeHookInstaller.serialize(merged).toByteArray(Charsets.UTF_8)
         writeHomeFilePrivately(content, ClaudeStatusCommands.CLAUDE_SETTINGS_RELATIVE_PATH, backup = true)
+    }
+
+    override suspend fun upgradeClaudeHooksIfOutdated(): Boolean {
+        val settings = readClaudeSettings()
+        if (!ClaudeHookInstaller.needsUpgrade(settings)) return false
+        val content = ClaudeHookInstaller.serialize(ClaudeHookInstaller.installing(settings)).toByteArray(Charsets.UTF_8)
+        writeHomeFilePrivately(content, ClaudeStatusCommands.CLAUDE_SETTINGS_RELATIVE_PATH, backup = true)
+        return true
     }
 
     private suspend fun readClaudeSettings() =
@@ -295,7 +318,7 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
 
     override suspend fun runAgentScript(command: String): String {
         // Bajo `sh`: con zsh como shell de login, el comodín del listado sin agentes abortaría.
-        val result = connection.capture(posixShell(command))
+        val result = connection.capture(posixShell(command), CommandTimeouts.MEDIUM)
         if (result.exitCode == 0) return result.stdout
         val detail = result.stderr.trim()
         if (AgentExecCommands.isAgentDead(detail)) throw PersistentAgentException(PersistentAgentError.NOT_RUNNING)

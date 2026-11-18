@@ -26,6 +26,12 @@ sealed class SshConnectionException(message: String, cause: Throwable?) : Except
         cause,
     )
 
+    /** La conexión se cortó con una operación en curso (red caída, servidor reiniciado, keep-alive). */
+    class ConnectionClosed(val endpoint: String, cause: Throwable? = null) : SshConnectionException(
+        "Se cortó la conexión SSH con $endpoint. Reintenta; si persiste, comprueba la red.",
+        cause,
+    )
+
     /** Fallo del protocolo SSH no clasificado (negociación, transporte…). */
     class ProtocolFailed(val endpoint: String, cause: Throwable? = null) : SshConnectionException(
         "Falló la conexión SSH con $endpoint: ${cause?.message ?: "sin detalles"}.",
@@ -104,3 +110,19 @@ sealed class RemoteFileException(val path: String, message: String, cause: Throw
         cause,
     )
 }
+
+/**
+ * El servidor rechazó abrir un canal nuevo en la conexión (`MaxSessions` agotado: «open failed»),
+ * incluso tras reintentar. La conexión se recicla: el siguiente intento abre una nueva.
+ */
+class SshChannelRejectedException(val endpoint: String, cause: Throwable? = null) : Exception(
+    "El servidor $endpoint rechazó abrir un canal SSH nuevo (¿demasiados canales abiertos en la " +
+        "conexión?). Reintenta en unos segundos.",
+    cause,
+)
+
+/** Un comando no terminó dentro de su plazo: se canceló y se liberó su canal. */
+class SshCommandTimeoutException(val endpoint: String, val timeoutSeconds: Long) : Exception(
+    "$endpoint no respondió en $timeoutSeconds s y se canceló la operación. Comprueba la red y " +
+        "vuelve a intentarlo.",
+)

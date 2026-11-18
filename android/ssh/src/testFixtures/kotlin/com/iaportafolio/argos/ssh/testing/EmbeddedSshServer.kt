@@ -9,6 +9,11 @@ import java.nio.file.Path
 import java.security.PublicKey
 import java.util.AbstractMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.ConcurrentHashMap
+import org.apache.sshd.common.channel.Channel
+import org.apache.sshd.common.channel.ChannelFactory
+import org.apache.sshd.common.channel.ChannelListener
+import org.apache.sshd.common.session.Session
 import org.apache.sshd.common.config.keys.AuthorizedKeyEntry
 import org.apache.sshd.common.config.keys.KeyUtils
 import org.apache.sshd.common.config.keys.PublicKeyEntry
@@ -55,9 +60,23 @@ class EmbeddedSshServer private constructor(
     /** Clave pública de host que presenta el servidor. */
     val hostPublicKey: PublicKey,
     private val environment: Map<String, String>,
+    private val channels: ChannelTracker,
 ) : AutoCloseable {
 
     val port: Int get() = sshd.port
+
+    /** Canales (sesión, SFTP, reenvío) abiertos ahora mismo en todas las conexiones. */
+    val openChannels: Int get() = channels.open
+
+    /**
+     * Retraso artificial antes de confirmar cada canal nuevo (0 = ninguno): permite cancelar una
+     * operación justo a mitad de la apertura del canal.
+     */
+    var channelOpenDelayMillis: Long
+        get() = channels.openDelayMillis
+        set(value) {
+            channels.openDelayMillis = value
+        }
 
     /** Conexiones SSH abiertas en este momento. */
     val activeConnections: Int get() = sshd.activeSessions.size
@@ -128,6 +147,8 @@ class EmbeddedSshServer private constructor(
 
         /** `MaxSessions` por defecto de OpenSSH: lo que justifica las conexiones dedicadas. */
         const val MAX_CHANNELS_PER_CONNECTION = 10
+
+        private const val SESSION_CHANNEL = "session"
 
         private const val AGENT_BINARY_PATH = FakeClaude.RELATIVE_PATH
         private const val AGENTS_PATH = ".config/argos/agents"
@@ -201,9 +222,14 @@ class EmbeddedSshServer private constructor(
                 if (allowTcpForwarding) forwardingFilter = AcceptAllForwardingFilter.INSTANCE
             }
             CoreModuleProperties.MAX_CONCURRENT_CHANNELS.set(sshd, MAX_CHANNELS_PER_CONNECTION)
+            val channels = ChannelTracker(MAX_CHANNELS_PER_CONNECTION)
+            sshd.addChannelListener(channels)
+            sshd.channelFactories = sshd.channelFactories.map { factory ->
+                if (factory.name == SESSION_CHANNEL) LimitedSessionChannels(factory, channels) else factory
+            }
             sshd.start()
             val hostPublicKey = hostKeys.loadKeys(null).first().public
-            return EmbeddedSshServer(sshd, username, password, home, tmuxDir, hostPublicKey, environment)
+            return EmbeddedSshServer(sshd, username, password, home, tmuxDir, hostPublicKey, environment, channels)
         }
 
         private fun parsePublicKey(line: String): PublicKey =
@@ -264,6 +290,44 @@ class EmbeddedSshServer private constructor(
             return shimDir.toString()
         }
     }
+}
+
+/** Cuenta los canales abiertos y, si se pide, retrasa la confirmación de los nuevos. */
+private class ChannelTracker(private val maxPerConnection: Int) : ChannelListener {
+    private val channels: MutableSet<Channel> = ConcurrentHashMap.newKeySet()
+
+    val open: Int get() = channels.size
+
+    @Volatile
+    var openDelayMillis: Long = 0
+
+    /** ¿Admite la conexión [session] otro canal? */
+    fun admits(session: Session): Boolean = channels.count { it.session === session } < maxPerConnection
+
+    override fun channelInitialized(channel: Channel) {
+        channels += channel
+        // Se ejecuta antes de confirmar la apertura: el cliente sigue esperando entretanto.
+        val delay = openDelayMillis
+        if (delay > 0) Thread.sleep(delay)
+    }
+
+    override fun channelClosed(channel: Channel, reason: Throwable?) {
+        channels -= channel
+    }
+}
+
+/**
+ * Canales `session` con el tope por conexión de `MaxSessions` de OpenSSH: sin cupo, MINA responde
+ * `CHANNEL_OPEN_FAILURE` (en sshj, `OpenFailException`), igual que sshd con «no more sessions».
+ */
+private class LimitedSessionChannels(
+    private val delegate: ChannelFactory,
+    private val tracker: ChannelTracker,
+) : ChannelFactory {
+    override fun getName(): String = delegate.name
+
+    override fun createChannel(session: Session): Channel? =
+        if (tracker.admits(session)) delegate.createChannel(session) else null
 }
 
 /**

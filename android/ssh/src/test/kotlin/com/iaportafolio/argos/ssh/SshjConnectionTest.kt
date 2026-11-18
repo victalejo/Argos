@@ -9,6 +9,14 @@ import com.iaportafolio.argos.ssh.testing.EmbeddedSshServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import com.iaportafolio.argos.core.ConnectionProbeResult
+import kotlin.time.Duration.Companion.seconds
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -182,6 +190,129 @@ class SshjConnectionTest {
         service.disconnect()
     }
 
+    // MARK: Canales
+
+    private fun connection() = SshjConnection(
+        testServer(server.port),
+        SSHCredentials.Password(PASSWORD),
+        InMemoryTrustStore(),
+        SshjConnector.Settings(),
+    )
+
+    /** Espera a que el servidor cierre los canales de más (los abandonados se cierran solos). */
+    private suspend fun awaitChannelsAtMost(expected: Int) {
+        withTimeout(CHANNEL_SETTLE_MILLIS) { while (server.openChannels > expected) delay(POLL_MILLIS) }
+    }
+
+    /**
+     * Antes, cancelar una captura mientras sshj abría su canal (`CHANNEL_OPEN` enviado, esperando
+     * la confirmación) dejaba el canal abierto en el servidor sin dueño: tras unos cuantos sondeos
+     * cancelados se agotaba `MaxSessions` y todo fallaba con «open failed».
+     */
+    @Test
+    fun `cancelar capturas a mitad de abrir el canal no deja canales huérfanos`() = runBlocking<Unit> {
+        val connection = connection()
+        val service = SshjSSHService(connection)
+        try {
+            assertEquals(localUser, service.testConnection())
+            val baseline = server.openChannels
+            server.channelOpenDelayMillis = OPEN_DELAY_MILLIS
+            try {
+                repeat(EmbeddedSshServer.MAX_CHANNELS_PER_CONNECTION + 2) {
+                    val job = launch(Dispatchers.IO) { service.runAgentScript("echo hola") }
+                    delay(OPEN_DELAY_MILLIS / 3) // en plena apertura del canal
+                    job.cancelAndJoin()
+                }
+            } finally {
+                server.channelOpenDelayMillis = 0
+            }
+            awaitChannelsAtMost(baseline)
+
+            // Siguen cabiendo todos los canales que admite la conexión.
+            val ssh = connection.connectedClient()
+            val sessions = (1..EmbeddedSshServer.MAX_CHANNELS_PER_CONNECTION).map { ssh.startSession() }
+            sessions.forEach { it.close() }
+            assertEquals("hola", service.runAgentScript("echo hola").trim())
+        } finally {
+            server.channelOpenDelayMillis = 0
+            service.disconnect()
+        }
+    }
+
+    @Test
+    fun `más capturas a la vez que MaxSessions esperan turno en vez de fallar`() = runBlocking<Unit> {
+        val service = service(SSHCredentials.Password(PASSWORD))
+        try {
+            val count = EmbeddedSshServer.MAX_CHANNELS_PER_CONNECTION * 2
+            val outputs = (1..count).map { index ->
+                async(Dispatchers.IO) { service.runAgentScript("sleep 0.3; echo $index") }
+            }.map { it.await().trim() }
+            assertEquals((1..count).map(Int::toString), outputs)
+        } finally {
+            service.disconnect()
+        }
+    }
+
+    @Test
+    fun `una captura que no termina caduca y libera su canal`() = runBlocking<Unit> {
+        val connection = connection()
+        try {
+            connection.capture("true")
+            val baseline = server.openChannels
+            val started = System.nanoTime()
+            val error = assertFailsWith<SshCommandTimeoutException> { connection.capture("sleep 30", 1.seconds) }
+            assertTrue(System.nanoTime() - started < 10.seconds.inWholeNanoseconds, "debe caducar pronto")
+            assertContains(error.message.orEmpty(), "no respondió en 1 s")
+            awaitChannelsAtMost(baseline)
+            assertEquals(0, connection.capture("true").exitCode)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `si el servidor rechaza canales una y otra vez se recicla la conexión`() = runBlocking<Unit> {
+        val connection = connection()
+        try {
+            val ssh = connection.connectedClient()
+            // Ocupa todos los canales de la conexión compartida.
+            val held = (1..EmbeddedSshServer.MAX_CHANNELS_PER_CONNECTION).map { ssh.startSession() }
+            val error = assertFailsWith<SshChannelRejectedException> { connection.capture("true") }
+            assertContains(error.message.orEmpty(), "rechazó abrir un canal")
+            assertFalse(ssh.isConnected, "la conexión saturada debe cerrarse")
+            held.forEach { runCatching { it.close() } }
+            // La siguiente operación abre una conexión nueva y funciona.
+            assertEquals(0, connection.capture("true").exitCode)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    @Test
+    fun `la sonda distingue sin conexión, viva y colgada`() = runBlocking<Unit> {
+        val connection = connection()
+        try {
+            assertEquals(ConnectionProbeResult.NOT_CONNECTED, connection.probe())
+            val first = connection.connectedClient()
+            assertEquals(ConnectionProbeResult.ALIVE, connection.probe())
+
+            // El servidor deja de responder a canales nuevos: la sonda no espera más que su plazo.
+            server.channelOpenDelayMillis = HUNG_DELAY_MILLIS
+            val started = System.nanoTime()
+            try {
+                assertEquals(ConnectionProbeResult.RECYCLED, connection.probe(1.seconds))
+            } finally {
+                server.channelOpenDelayMillis = 0
+            }
+            assertTrue(System.nanoTime() - started < 4.seconds.inWholeNanoseconds, "la sonda debe respetar su plazo")
+            assertTrue(first !== connection.connectedClient(), "tras reciclar se abre otra conexión")
+            assertEquals(ConnectionProbeResult.ALIVE, connection.probe())
+        } finally {
+            server.channelOpenDelayMillis = 0
+            connection.disconnect()
+        }
+    }
+
     @Test
     fun `installSecurityProvider deja BouncyCastle completo como primer proveedor`() {
         SshjConnector.installSecurityProvider()
@@ -194,5 +325,9 @@ class SshjConnectionTest {
     private companion object {
         const val PASSWORD = "contraseña-de-prueba"
         const val PASSPHRASE = "frase secreta"
+        const val OPEN_DELAY_MILLIS = 300L
+        const val HUNG_DELAY_MILLIS = 3_000L
+        const val CHANNEL_SETTLE_MILLIS = 15_000L
+        const val POLL_MILLIS = 50L
     }
 }

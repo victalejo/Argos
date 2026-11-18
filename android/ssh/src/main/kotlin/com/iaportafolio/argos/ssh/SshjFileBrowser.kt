@@ -75,7 +75,7 @@ internal class SshjFileBrowser(private val connection: SshjConnection) : RemoteF
         }
 
     override suspend fun indexProjectFiles(root: String): List<String> =
-        FileBrowserCommands.parseFileIndex(connection.capture(FileBrowserCommands.fileIndexCommand(root)).stdout)
+        FileBrowserCommands.parseFileIndex(connection.capture(FileBrowserCommands.fileIndexCommand(root), CommandTimeouts.MEDIUM).stdout)
 
     override suspend fun listRemoteDirectories(path: String): RemoteDirectoryListing {
         val result = connection.capture(AgentExecCommands.listRemoteDirectories(path))

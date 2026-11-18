@@ -2,7 +2,6 @@ package com.iaportafolio.argos.ssh
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -54,7 +53,9 @@ internal class SftpClientCache(private val connection: SshjConnection) {
         val stale = current
         current = null
         stale?.let { withContext(NonCancellable + Dispatchers.IO) { closeQuietly(it.sftp) } }
-        val sftp = runInterruptible(Dispatchers.IO) { ssh.newSFTPClient() }
+        // Abrir es un canal más: respeta el tope, reintenta si el servidor lo rechaza y no deja
+        // el canal huérfano si se cancela a mitad.
+        val sftp = connection.withShortChannel({ ssh }) { connection.openSftp(it) }
         current = Entry(ssh, sftp)
         return sftp
     }

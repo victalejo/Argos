@@ -62,8 +62,9 @@ internal class SshjTerminal(private val connection: SshjConnection) {
 
     // MARK: Apertura
 
+    /** Sin interrumpir la apertura: un canal abierto a medias quedaría huérfano en el servidor. */
     private suspend fun openSession(ssh: SSHClient): Session = try {
-        blockingIo { ssh.startSession() }
+        connection.openSession(ssh)
     } catch (error: IOException) {
         throw failure(ssh, error, opening = true)
     }

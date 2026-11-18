@@ -7,6 +7,7 @@ import com.iaportafolio.argos.core.github.GitHubOperations
 import com.iaportafolio.argos.core.github.GitHubParser
 import com.iaportafolio.argos.core.github.GitHubRepositoriesResult
 import com.iaportafolio.argos.core.github.GitHubStatusResult
+import kotlin.time.Duration
 
 /**
  * GitHub por el `gh` del servidor (port de `ArgosCore/GitHub/SSHGitHub.swift`), con comandos cortos
@@ -15,20 +16,20 @@ import com.iaportafolio.argos.core.github.GitHubStatusResult
 internal class SshjGitHub(private val connection: SshjConnection) : GitHubOperations {
 
     override suspend fun gitHubStatus(root: String): GitHubStatusResult =
-        GitHubParser.parseStatus(connection.capture(GitHubCommands.status(root)).stdout)
+        GitHubParser.parseStatus(connection.capture(GitHubCommands.status(root), CommandTimeouts.MEDIUM).stdout)
 
     override suspend fun gitHubCreatePullRequest(root: String, draft: Boolean): String? =
-        GitHubParser.createdPullRequestUrl(run(GitHubCommands.createPullRequest(root, draft)))
+        GitHubParser.createdPullRequestUrl(run(GitHubCommands.createPullRequest(root, draft), CommandTimeouts.LONG))
 
     override suspend fun gitHubRerunFailed(root: String, runId: Long) {
-        run(GitHubCommands.rerunFailed(root, runId))
+        run(GitHubCommands.rerunFailed(root, runId), CommandTimeouts.MEDIUM)
     }
 
     override suspend fun gitHubRepositories(): GitHubRepositoriesResult =
-        GitHubParser.parseRepositories(connection.capture(GitHubCommands.repositories()).stdout)
+        GitHubParser.parseRepositories(connection.capture(GitHubCommands.repositories(), CommandTimeouts.MEDIUM).stdout)
 
     override suspend fun gitHubClone(request: GitHubCloneRequest): String {
-        val result = connection.capture(GitHubCommands.clone(request))
+        val result = connection.capture(GitHubCommands.clone(request), CommandTimeouts.LONG)
         GitHubParser.cloneRefusal(result.stdout)?.let { throw GitCommandException(it) }
         if (result.exitCode != 0) throw GitCommandException.from(result.stdout, result.stderr, result.exitCode)
         return GitHubParser.clonedPath(result.stdout)
@@ -36,8 +37,8 @@ internal class SshjGitHub(private val connection: SshjConnection) : GitHubOperat
     }
 
     /** Ejecuta un comando `gh` (con `2>&1`) y devuelve su salida; lanza si falla. */
-    private suspend fun run(command: String): String {
-        val result = connection.capture(command)
+    private suspend fun run(command: String, timeout: Duration): String {
+        val result = connection.capture(command, timeout)
         if (result.exitCode != 0) throw GitCommandException.from(result.stdout, result.stderr, result.exitCode)
         return result.stdout
     }
