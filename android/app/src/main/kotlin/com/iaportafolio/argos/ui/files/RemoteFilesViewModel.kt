@@ -280,16 +280,20 @@ class RemoteFilesViewModel(
         /** Visor definitivo con los bytes leídos (decodifica y resalta fuera del hilo principal). */
         fun prepare(name: String, file: RemoteFileContent): PreviewContent =
             when (val kind = FilePreview.kind(name, file.data)) {
-                FilePreviewKind.Markdown -> PreviewContent.Markdown(file.data.toString(Charsets.UTF_8))
-                is FilePreviewKind.Code -> {
-                    val text = file.data.toString(Charsets.UTF_8)
-                    val tokens = if (text.length <= MAX_UI_HIGHLIGHT) SyntaxHighlighter.tokens(text, kind.language) else emptyList()
-                    PreviewContent.Code(text, kind.language, tokens)
-                }
+                FilePreviewKind.Markdown -> PreviewContent.Markdown(FilePreview.text(file.data))
+                is FilePreviewKind.Code -> code(file, kind.language)
+                // Hasta que haya visor HTML renderizado, su fuente resaltada.
+                FilePreviewKind.Html -> code(file, "html")
                 FilePreviewKind.Image -> PreviewContent.Image(file.data)
                 FilePreviewKind.Pdf -> PreviewContent.Pdf
-                FilePreviewKind.Binary -> PreviewContent.Binary
+                FilePreviewKind.Spreadsheet, FilePreviewKind.Binary -> PreviewContent.Binary
             }
+
+        private fun code(file: RemoteFileContent, language: String?): PreviewContent {
+            val text = FilePreview.text(file.data)
+            val tokens = if (text.length <= MAX_UI_HIGHLIGHT) SyntaxHighlighter.tokens(text, language) else emptyList()
+            return PreviewContent.Code(text, language, tokens)
+        }
     }
 }
 

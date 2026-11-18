@@ -109,12 +109,81 @@ class FileBrowserTest {
         assertEquals(FilePreviewKind.Code("typescript"), FilePreview.kind("page.tsx"))
         assertEquals(FilePreviewKind.Code("shell"), FilePreview.kind("Dockerfile"))
         assertEquals(FilePreviewKind.Code(null), FilePreview.kind("datos.xyz"))
+        assertEquals(FilePreviewKind.Html, FilePreview.kind("informe.HTML"))
+        assertEquals(FilePreviewKind.Html, FilePreview.kind("viejo.htm"))
+        assertEquals(FilePreview.MAX_TEXT_BYTES, FilePreview.readLimit(FilePreviewKind.Html))
+    }
+
+    @Test
+    fun `texto Windows-1252 o Latin-1 se decodifica en vez de tratarse como binario`() {
+        val html = "<html><body>Página de acción €</body></html>".toByteArray(charset("windows-1252"))
+        assertFalse(FilePreview.looksBinary(html))
+        assertEquals(FilePreviewKind.Html, FilePreview.kind("host.html", html))
+        assertTrue(FilePreview.text(html).contains("Página de acción €"))
+        // 0x81 no existe en Windows-1252: se cae a Latin-1.
+        val latin1 = "caf".toByteArray() + bytes(0xE9, 0x81) +
+            " y más texto normal para diluir el control".repeat(3).toByteArray(Charsets.ISO_8859_1)
+        assertTrue(FilePreview.text(latin1).startsWith("café"))
+    }
+
+    @Test
+    fun `UTF-16 con BOM es texto aunque tenga NUL y sin BOM binario`() {
+        val withBom = "<p>hola ñ</p>".toByteArray(Charsets.UTF_16)
+        assertEquals(FilePreviewKind.Html, FilePreview.kind("a.html", withBom))
+        assertEquals("<p>hola ñ</p>", FilePreview.text(withBom))
+        val littleEndian = bytes(0xFF, 0xFE) + "<p>ñ</p>".toByteArray(Charsets.UTF_16LE)
+        assertEquals("<p>ñ</p>", FilePreview.text(littleEndian))
+        // Bloque truncado a mitad de una unidad de 16 bits.
+        assertTrue(FilePreview.text(withBom.copyOf(withBom.size - 1)).startsWith("<p>hola"))
+        assertTrue(FilePreview.looksBinary("<p>hola</p>".toByteArray(Charsets.UTF_16LE)))
+    }
+
+    @Test
+    fun `UTF-8 valido se decodifica tal cual`() {
+        assertEquals("<h1>Título</h1>", FilePreview.text("<h1>Título</h1>".toByteArray()))
+        assertEquals(null, FilePreview.decodeText(bytes(0x00, 0x41)))
+    }
+
+    // Hojas de cálculo (paridad con `SpreadsheetPreviewTests.swift`, commit f5a1220)
+
+    @ParameterizedTest
+    @CsvSource("datos.xlsx", "Informe.XLSX", "macros.xlsm", "viejo.xls", "plan.numbers")
+    fun `Excel y Numbers se reconocen por extension y leen hasta su limite`(name: String) {
+        assertEquals(FilePreviewKind.Spreadsheet, FilePreview.kind(name))
+        assertEquals(FilePreview.MAX_SPREADSHEET_BYTES, FilePreview.readLimit(FilePreviewKind.Spreadsheet))
+    }
+
+    @Test
+    fun `con bytes ZIP u OLE2 es hoja de calculo y otra cosa binario`() {
+        val zip = bytes(0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00)
+        val ole = bytes(0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1)
+        assertEquals(FilePreviewKind.Spreadsheet, FilePreview.kind("a.xlsx", zip))
+        assertEquals(FilePreviewKind.Spreadsheet, FilePreview.kind("a.xls", ole))
+        assertEquals(FilePreviewKind.Binary, FilePreview.kind("a.xlsx", "no soy excel".toByteArray()))
+        assertEquals(FilePreviewKind.Binary, FilePreview.kind("a.xlsx", ByteArray(0)))
+        assertEquals(FilePreviewKind.Code(null), FilePreview.kind("datos.csv", "a,b\n1,2\n".toByteArray()))
+    }
+
+    @Test
+    fun `el nombre del servidor no puede escapar de la carpeta temporal`() {
+        val cases = listOf(
+            "../../etc/passwd.xlsx" to "passwd.xlsx",
+            "/tmp/x/datos.xlsx" to "datos.xlsx",
+            ".." to "archivo",
+            "" to "archivo",
+            "a\u0000b\u0007.xlsx" to "ab.xlsx",
+            "..oculto.xlsx" to "oculto.xlsx",
+            "c:\\x\\y.xls" to "cxy.xls",
+        )
+        for ((input, expected) in cases) assertEquals(expected, PreviewTempFileName.safe(input), input)
+        assertEquals(200, PreviewTempFileName.safe("a".repeat(300) + ".xlsx").length)
     }
 
     @Test
     fun `binario NUL o UTF-8 invalido y texto con multibyte cortado no lo es`() {
         assertTrue(FilePreview.looksBinary(byteArrayOf(0x48, 0x00, 0x49)))
-        assertTrue(FilePreview.looksBinary(bytes(0xFF, 0xFE, 0xFD, 0xFC, 0x80, 0x81)))
+        // Vector de Swift tras c40ab9b: controles C1 que ni Windows-1252 ni Latin-1 hacen texto.
+        assertTrue(FilePreview.looksBinary(bytes(0x80, 0x81, 0x8D, 0x8F, 0x90, 0x9D, 0x01, 0x02)))
         assertFalse(FilePreview.looksBinary("hola mundo ñ".toByteArray()))
         // "acci" + primer byte de "ó": multibyte cortado al final del bloque leído.
         assertFalse(FilePreview.looksBinary("acci".toByteArray() + bytes(0xC3)))
