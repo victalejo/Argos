@@ -31,8 +31,21 @@ enum AppLockPolicy {
     }
 
     /// Se tapa el contenido (selector de apps, captura del sistema) si el bloqueo está
-    /// activo y la app no está delante, o si está bloqueada.
+    /// activo y la app no está delante, o si está bloqueada. La portada va en una
+    /// ventana propia por encima de hojas y alertas: tapa TODO lo presentado.
     static func shouldCover(enabled: Bool, isLocked: Bool, isActive: Bool) -> Bool {
         enabled && (isLocked || !isActive)
+    }
+
+    /// Un enlace entrante (`argos://add-server`) o el toque en una notificación se
+    /// guardan y se atienden tras desbloquear: bloqueada, la app no hace nada.
+    static func shouldDeferIncoming(enabled: Bool, isLocked: Bool) -> Bool {
+        enabled && isLocked
+    }
+
+    /// Lo encolado mientras estaba bloqueada: solo el ÚLTIMO destino (abrir varios
+    /// seguidos al desbloquear sería confuso). `nil` si se puede atender ya.
+    static func deferring<Item>(_ item: Item, enabled: Bool, isLocked: Bool) -> Item? {
+        shouldDeferIncoming(enabled: enabled, isLocked: isLocked) ? item : nil
     }
 }

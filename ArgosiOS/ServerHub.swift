@@ -39,6 +39,9 @@ final class ServerHub {
     /// Destino pedido al tocar una notificación. Lo consume la vista que lo resuelve.
     var pendingRoute: NotificationRoute?
     @ObservationIgnored private var routeExpiry: Task<Void, Never>?
+    /// Con la app bloqueada (Face ID) los avisos tocados esperan aquí al desbloqueo.
+    @ObservationIgnored private var isLocked = false
+    @ObservationIgnored private var deferredRoute: NotificationRoute?
     /// Terminal (sesión y ventana) que hay en pantalla: de esa ventana no se avisa con la
     /// app delante. Con dueño: al girar, la vista nueva aparece antes de que se vaya la
     /// vieja, y la vieja no debe borrar el foco de la nueva.
@@ -149,8 +152,21 @@ final class ServerHub {
         return viewModel
     }
 
+    /// La app se bloquea o se desbloquea (`AppLockPolicy.shouldDeferIncoming`). Al
+    /// desbloquear se atiende el último aviso tocado mientras estaba bloqueada.
+    func setLocked(_ locked: Bool) {
+        isLocked = locked
+        guard !locked, let route = deferredRoute else { return }
+        deferredRoute = nil
+        follow(route)
+    }
+
     /// Aviso tocado: pide abrir su destino, si su servidor sigue existiendo.
     func follow(_ route: NotificationRoute) {
+        if isLocked {
+            deferredRoute = route
+            return
+        }
         routeExpiry?.cancel()
         guard store.server(withID: route.serverID) != nil else {
             pendingRoute = nil

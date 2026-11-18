@@ -22,6 +22,21 @@ struct ArgosiOSApp: App {
         hub.startNetworkMonitoring()
     }
 
+    private struct CoverState: Equatable {
+        let cover: Bool
+        let active: Bool
+        let locked: Bool
+    }
+
+    private var coverState: CoverState {
+        let active = scenePhase == .active
+        return CoverState(
+            cover: AppLockPolicy.shouldCover(enabled: lock.isEnabled, isLocked: lock.isLocked, isActive: active),
+            active: active,
+            locked: lock.isLocked
+        )
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -29,11 +44,10 @@ struct ArgosiOSApp: App {
                 .environment(lock)
                 .tint(.indigo)
                 // Bloqueada, o con el bloqueo activo fuera de primer plano (selector de
-                // apps): se tapa todo.
-                .overlay {
-                    if AppLockPolicy.shouldCover(enabled: lock.isEnabled, isLocked: lock.isLocked, isActive: scenePhase == .active) {
-                        AppLockCover(lock: lock, isActive: scenePhase == .active)
-                    }
+                // apps): se tapa todo, también las hojas y alertas abiertas.
+                .onChange(of: coverState, initial: true) { _, state in
+                    AppLockWindows.shared.update(cover: state.cover, lock: lock, isActive: state.active)
+                    hub.setLocked(AppLockPolicy.shouldDeferIncoming(enabled: lock.isEnabled, isLocked: lock.isLocked))
                 }
                 .task { await lock.unlock() }
         }
