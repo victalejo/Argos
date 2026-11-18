@@ -28,10 +28,15 @@ enum ConnectionPriority: Sendable, Hashable {
     /// Prioridad de la tarea actual (`.user` si nadie la marcó).
     @TaskLocal static var current: ConnectionPriority = .user
 
-    /// Ejecuta `operation` como trabajo de fondo (en el mismo contexto que quien llama).
-    nonisolated(nonsending) static func background<T>(
-        _ operation: nonisolated(nonsending) () async throws -> T
+    /// Ejecuta `operation` como trabajo de fondo, en el mismo aislamiento que quien llama
+    /// (por eso recibe `isolation`: ni `operation` ni su resultado cruzan de actor).
+    ///
+    /// Se usa el parámetro `isolation` (Swift 6.0) y no `nonisolated(nonsending)`
+    /// (Swift 6.2) porque la CI y el release compilan con Xcode 16.4.
+    static func background<T>(
+        isolation: isolated (any Actor)? = #isolation,
+        _ operation: () async throws -> T
     ) async rethrows -> T {
-        try await $current.withValue(.background, operation: operation)
+        try await $current.withValue(.background, operation: operation, isolation: isolation)
     }
 }
