@@ -153,11 +153,13 @@ struct ServerTransferTests {
 
     // MARK: - authorized_keys
 
-    @Test("Autorizar añade la línea entrecomillada a authorized_keys")
+    @Test("Autorizar añade la línea entrecomillada a authorized_keys (con salto final previo)")
     func authorizeCommand() {
         #expect(
             SSHService.authorizeKeyCommand(line: "ssh-ed25519 AAAA argos-iphone-x")
-                == "umask 077 && mkdir -p \"$HOME/.ssh\" && printf '%s\\n' 'ssh-ed25519 AAAA argos-iphone-x' >> \"$HOME/.ssh/authorized_keys\""
+                == "umask 077 && mkdir -p \"$HOME/.ssh\" && f=\"$HOME/.ssh/authorized_keys\" && "
+                + "{ [ ! -s \"$f\" ] || [ $(tail -c 1 \"$f\" | wc -l) -ne 0 ] || printf '\\n' >> \"$f\"; } && "
+                + "printf '%s\\n' 'ssh-ed25519 AAAA argos-iphone-x' >> \"$f\""
         )
     }
 
