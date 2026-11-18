@@ -46,11 +46,13 @@ enum AttentionList {
         servers: [ServerInput],
         agents: [AgentPermissionInput] = [],
         ports: [PortInput] = [],
-        syncs: [SyncInput] = []
+        syncs: [SyncInput] = [],
+        persistentAgents: [PersistentAgentAttentionTracker.Notice] = []
     ) -> [AttentionItem] {
         let projects = Dictionary(servers.map { ($0.serverID, $0.projects) }, uniquingKeysWith: { first, _ in first })
         var items = servers.flatMap(waitingItems)
         items += agents.map(agentItem)
+        items += persistentAgents.map { persistentItem($0, projects: projects[$0.serverID] ?? []) }
         items += inbox.failedCI.values.map { ciItem($0, projects: projects[$0.serverID] ?? []) }
         items += ports.map(portItem)
         items += syncs.map(syncItem)
@@ -101,6 +103,26 @@ enum AttentionList {
             title: agent.conversation,
             detail: "Pide permiso para usar \(agent.toolName)",
             destination: .agent(agent.handle, tabID: agent.tabID)
+        )
+    }
+
+    private static func persistentItem(_ notice: PersistentAgentAttentionTracker.Notice, projects: [Project]) -> AttentionItem {
+        let project = projects.first { AgentFolderMatch.same($0.path, notice.workingDirectory) }
+        let kind: AttentionKind
+        let detail: String
+        switch notice.kind {
+        case .permission(let tool):
+            kind = .agentPermission
+            detail = "Agente en el servidor · pide permiso para usar \(tool)"
+        case .finished(let summary, let isError):
+            kind = .claudeDone
+            let text = summary.map { String($0.prefix(120)) } ?? (isError ? "terminó con un error" : "terminó")
+            detail = "Agente en el servidor · \(text)"
+        }
+        return AttentionItem(
+            id: notice.id, kind: kind, serverID: notice.serverID,
+            title: project?.name ?? notice.title, detail: detail,
+            destination: .persistentAgent(serverID: notice.serverID, agentID: notice.agentID)
         )
     }
 

@@ -69,6 +69,8 @@ enum AttentionDestination: Equatable, Hashable, Sendable {
     case terminal(SessionHandle, window: Int?)
     /// Pestaña del panel Agente.
     case agent(SessionHandle, tabID: UUID)
+    /// Un agente persistente del servidor (se abre en una pestaña del panel Agente).
+    case persistentAgent(serverID: Server.ID, agentID: String)
     /// Un modo concreto del proyecto (p. ej. «Cambios» para el CI).
     case project(SessionHandle, mode: DetailMode)
     /// El servidor (sin proyecto concreto).

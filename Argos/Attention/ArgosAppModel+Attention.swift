@@ -38,7 +38,8 @@ extension ArgosAppModel {
             servers: attentionServerInputs,
             agents: attentionAgentInputs,
             ports: attentionPortInputs,
-            syncs: attentionSyncInputs
+            syncs: attentionSyncInputs,
+            persistentAgents: attentionPersistentInputs
         )
     }
 
@@ -68,6 +69,8 @@ extension ArgosAppModel {
         case .agent(let handle, let tabID):
             agentStore.select(tabID, for: handle)
             open(handle, mode: .agent)
+        case .persistentAgent(let serverID, let agentID):
+            openPersistentAgent(serverID: serverID, agentID: agentID)
         case .project(let handle, let mode):
             open(handle, mode: mode)
         case .server(let id):
@@ -106,6 +109,7 @@ extension ArgosAppModel {
     /// Número del Dock: solo lo que pide una respuesta (y si el ajuste lo permite). Se
     /// vuelve a calcular solo cuando cambia algo de lo que lee.
     func observeDockBadge() {
+        startPersistentAgentWatch()
         withObservationTracking {
             updateDockBadge()
         } onChange: { [weak self] in
@@ -117,6 +121,42 @@ extension ArgosAppModel {
         let count = AttentionSettings.showsDockBadge ? AttentionList.responseCount(attentionItems) : 0
         let label = count > 0 ? "\(count)" : nil
         if NSApp.dockTile.badgeLabel != label { NSApp.dockTile.badgeLabel = label }
+    }
+
+    // MARK: - Agentes persistentes
+
+    /// Sondeo de fondo de los agentes persistentes de los servidores conectados (ver
+    /// `PersistentAgentWatch`). Idempotente; no arranca durante el cierre.
+    private func startPersistentAgentWatch() {
+        guard !agentStore.watch.isRunning, !isShuttingDown else { return }
+        agentStore.watch.start { [weak self] in
+            guard let self else { return [] }
+            return self.store.servers.compactMap { server -> (Server.ID, any SSHServicing)? in
+                guard let vm = self.vms[server.id], case .loaded = vm.state else { return nil }
+                return (server.id, vm.service)
+            }
+        }
+    }
+
+    /// Abre el agente en una pestaña del panel Agente de su proyecto (la carpeta del agente).
+    private func openPersistentAgent(serverID: Server.ID, agentID: String) {
+        agentStore.watch.markSeen(serverID: serverID, agentID: agentID)
+        if let existing = agentStore.persistentTab(serverID: serverID, agentID: agentID) {
+            agentStore.select(existing.tab.id, for: existing.handle)
+            open(existing.handle, mode: .agent)
+            return
+        }
+        guard let vm = vms[serverID], let agent = agentStore.watch.overview(serverID: serverID, agentID: agentID),
+              let project = vm.projects.first(where: { AgentFolderMatch.same($0.path, agent.meta.workingDirectory) })
+        else {
+            Log.agent.notice("El agente del aviso no tiene un proyecto en este Mac: se abre su servidor.")
+            selectedServerID = serverID
+            loadSelectedIfNeeded()
+            return
+        }
+        let handle = SessionHandle(serverID: serverID, sessionID: project.sessionName)
+        agentStore.openPersistent(agent.info, for: handle, service: vm.service)
+        open(handle, mode: .agent)
     }
 
     // MARK: - Entradas
@@ -136,6 +176,22 @@ extension ArgosAppModel {
                 toolName: permission.displayName ?? permission.toolName
             )
         }
+    }
+
+    /// Agentes persistentes: los de pestañas abiertas con su estado en vivo; el resto, del
+    /// último sondeo de fondo.
+    private var attentionPersistentInputs: [PersistentAgentAttentionTracker.Notice] {
+        let attached = agentStore.persistentTabs.filter { $0.tab.session.isAttached }
+        let live = attached.compactMap { entry -> PersistentAgentAttentionTracker.Notice? in
+            guard let permission = entry.tab.session.state.pendingPermission else { return nil }
+            return .init(
+                serverID: entry.handle.serverID, agentID: entry.tab.session.id, title: entry.tab.title,
+                workingDirectory: entry.tab.session.meta.workingDirectory,
+                kind: .permission(tool: permission.displayName ?? permission.toolName)
+            )
+        }
+        let watch = agentStore.watch
+        return live + watch.tracker.notices(agents: watch.agents, excluding: Set(attached.map(\.tab.session.id)))
     }
 
     private var attentionPortInputs: [AttentionList.PortInput] {
