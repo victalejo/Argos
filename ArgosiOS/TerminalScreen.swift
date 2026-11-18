@@ -52,103 +52,173 @@ struct TerminalScreen: View {
 
     private var service: any SSHServicing { hub.viewModel(for: server).service }
 
+    // El cuerpo va en piezas pequeñas: con todo encadenado en una sola expresión, el
+    // compilador de la CI (Swift 6.1) no llegaba a comprobar sus tipos a tiempo.
     var body: some View {
+        lifecycle(navigationChrome(dialogs(styledContent)))
+    }
+
+    // MARK: - Piezas del cuerpo
+
+    /// Pestañas de ventanas, cabecera, terminal y barra inferior (iPad).
+    private var content: some View {
         VStack(spacing: 0) {
             if !windows.isEmpty {
-                TerminalWindowBar(
-                    windows: windows,
-                    claudeActivity: claudeActivityByWindow,
-                    installedAgents: installedAgents,
-                    onSelect: select,
-                    onNew: newWindow,
-                    onNewAgent: newAgentWindow,
-                    onClose: { requestClose(index: $0.index) },
-                    onRename: { window in
-                        windowName = window.name
-                        renamingWindow = window
-                    },
-                    onColor: setColor
-                )
+                windowBar
                 header
             }
-            if let controller {
-                TerminalHost(view: controller.terminalView)
-                    .id(ObjectIdentifier(controller))
-                    .overlay { statusOverlay(controller) }
-            } else {
-                Color(white: 0.07)
-            }
+            terminalArea
             if sizeClass == .regular && !windows.isEmpty {
                 bottomBar
             }
         }
-        .background(Color(white: 0.07))
-        .background { keyboardShortcuts }
-        .modifier(TerminalInputActions(
-            controller: controller,
-            isPickingPhotos: $isPickingPhotos,
-            isPickingFiles: $isPickingFiles,
-            isShowingText: $isShowingText
-        ))
-        .confirmationDialog(
-            "¿Cerrar la ventana \(closingWindow?.index ?? 0)?",
-            isPresented: Binding(get: { closingWindow != nil }, set: { if !$0 { closingWindow = nil } }),
-            titleVisibility: .visible,
-            presenting: closingWindow
-        ) { window in
-            Button("Cerrar ventana", role: .destructive) { close(window) }
-            Button("Cancelar", role: .cancel) {}
-        } message: { _ in
-            Text("Se cerrarán sus paneles y se perderá lo que corra en ellos.")
+    }
+
+    private var windowBar: some View {
+        TerminalWindowBar(
+            windows: windows,
+            claudeActivity: claudeActivityByWindow,
+            installedAgents: installedAgents,
+            onSelect: select,
+            onNew: newWindow,
+            onNewAgent: newAgentWindow,
+            onClose: { (window: TmuxWindow) in requestClose(index: window.index) },
+            onRename: { (window: TmuxWindow) in
+                windowName = window.name
+                renamingWindow = window
+            },
+            onColor: setColor
+        )
+    }
+
+    @ViewBuilder
+    private var terminalArea: some View {
+        if let controller {
+            TerminalHost(view: controller.terminalView)
+                .id(ObjectIdentifier(controller))
+                .overlay { statusOverlay(controller) }
+        } else {
+            Color(white: 0.07)
         }
-        .alert("Renombrar ventana", isPresented: Binding(get: { renamingWindow != nil }, set: { if !$0 { renamingWindow = nil } })) {
-            TextField("Nuevo nombre", text: $windowName)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            Button("Cancelar", role: .cancel) {}
-            Button("Renombrar") { if let window = renamingWindow { rename(window, to: windowName) } }
-        } message: {
-            Text("Ventana \(renamingWindow?.index ?? 0) de «\(sessionName)».")
+    }
+
+    /// Fondo, atajos de teclado y acciones de entrada (fotos, archivos, texto).
+    private var styledContent: some View {
+        content
+            .background(Color(white: 0.07))
+            .background { keyboardShortcuts }
+            .modifier(TerminalInputActions(
+                controller: controller,
+                isPickingPhotos: $isPickingPhotos,
+                isPickingFiles: $isPickingFiles,
+                isShowingText: $isShowingText
+            ))
+    }
+
+    private var isClosingWindow: Binding<Bool> {
+        Binding<Bool>(
+            get: { closingWindow != nil },
+            set: { (shown: Bool) in if !shown { closingWindow = nil } }
+        )
+    }
+
+    private var isRenamingWindow: Binding<Bool> {
+        Binding<Bool>(
+            get: { renamingWindow != nil },
+            set: { (shown: Bool) in if !shown { renamingWindow = nil } }
+        )
+    }
+
+    /// Diálogos de cerrar ventana o panel y la alerta de renombrar.
+    private func dialogs<Content: View>(_ content: Content) -> some View {
+        content
+            .confirmationDialog(
+                "¿Cerrar la ventana \(closingWindow?.index ?? 0)?",
+                isPresented: isClosingWindow,
+                titleVisibility: .visible,
+                presenting: closingWindow
+            ) { (window: TmuxWindow) in
+                Button("Cerrar ventana", role: .destructive) { close(window) }
+                Button("Cancelar", role: .cancel) {}
+            } message: { (_: TmuxWindow) in
+                Text("Se cerrarán sus paneles y se perderá lo que corra en ellos.")
+            }
+            .alert("Renombrar ventana", isPresented: isRenamingWindow) {
+                renameFields
+            } message: {
+                Text("Ventana \(renamingWindow?.index ?? 0) de «\(sessionName)».")
+            }
+            .confirmationDialog("¿Cerrar el panel activo?", isPresented: $confirmingPaneClose, titleVisibility: .visible) {
+                Button("Cerrar panel", role: .destructive) { closeActivePane() }
+            } message: {
+                Text("Se perderá lo que corra en él.")
+            }
+    }
+
+    @ViewBuilder
+    private var renameFields: some View {
+        TextField("Nuevo nombre", text: $windowName)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+        Button("Cancelar", role: .cancel) {}
+        Button("Renombrar") { if let window = renamingWindow { rename(window, to: windowName) } }
+    }
+
+    private func closeActivePane() {
+        paneAction("No se pudo cerrar el panel") { (service: any SSHServicing, session: String) in
+            try await service.killPane(session: session)
         }
-        .confirmationDialog("¿Cerrar el panel activo?", isPresented: $confirmingPaneClose, titleVisibility: .visible) {
-            Button("Cerrar panel", role: .destructive) { paneAction("No se pudo cerrar el panel") { try await $0.killPane(session: $1) } }
-        } message: {
-            Text("Se perderá lo que corra en él.")
-        }
-        .navigationTitle(sessionName)
-        .navigationBarTitleDisplayMode(.inline)
-        // Barra oscura a juego con el terminal (si no, el título no se lee).
-        .toolbarBackground(Color(white: 0.11), for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbar { toolbar }
-        // Solo sondea con la app activa: al pasar a segundo plano la tarea se cancela y
-        // al volver arranca de nuevo (relee al instante).
-        .task(id: PollKey(session: sessionName, active: scenePhase == .active)) {
-            guard scenePhase == .active else { return }
-            await pollWindows()
-        }
-        .task(id: sessionName) { await loadAgentsAndBranch() }
-        .onChange(of: windows) {
-            updateFocus()
-            if sizeClass == .regular { Task { await refreshBranch() } }
-        }
-        .onChange(of: fontSize) { _, size in
-            let font = TerminalAppearance.font(size: CGFloat(size))
-            if controller?.terminalView.font != font { controller?.terminalView.font = font }
-        }
-        .onChange(of: optionAsMeta) { _, enabled in controller?.terminalView.optionAsMetaKey = enabled }
-        .onAppear {
-            if controller == nil { controller = hub.terminal(for: server, sessionName: sessionName) }
-            updateFocus()
-        }
-        .onDisappear {
-            hub.unfocusTerminal(owner: focusOwner)
-            // Aparcado, no cerrado: volver desde Archivos/Cambios/Agentes, o tras girar o
-            // redimensionar, reutiliza la conexión.
-            hub.parkTerminal(server: server.id, sessionName: sessionName)
-            controller = nil
-        }
+    }
+
+    /// Título y barra de navegación oscura a juego con el terminal (si no, el título no se lee).
+    private func navigationChrome<Content: View>(_ content: Content) -> some View {
+        content
+            .navigationTitle(sessionName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(white: 0.11), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar { toolbar }
+    }
+
+    /// Sondeo de ventanas, carga de agentes/rama, ajustes que cambian y aparición.
+    private func lifecycle<Content: View>(_ content: Content) -> some View {
+        content
+            // Solo sondea con la app activa: al pasar a segundo plano la tarea se cancela y
+            // al volver arranca de nuevo (relee al instante).
+            .task(id: PollKey(session: sessionName, active: scenePhase == .active)) {
+                guard scenePhase == .active else { return }
+                await pollWindows()
+            }
+            .task(id: sessionName) { await loadAgentsAndBranch() }
+            .onChange(of: windows) { windowsDidChange() }
+            .onChange(of: fontSize) { (_: Double, size: Double) in applyFontSize(size) }
+            .onChange(of: optionAsMeta) { (_: Bool, enabled: Bool) in controller?.terminalView.optionAsMetaKey = enabled }
+            .onAppear(perform: didAppear)
+            .onDisappear(perform: didDisappear)
+    }
+
+    private func windowsDidChange() {
+        updateFocus()
+        if sizeClass == .regular { Task { await refreshBranch() } }
+    }
+
+    private func applyFontSize(_ size: Double) {
+        let font = TerminalAppearance.font(size: CGFloat(size))
+        if controller?.terminalView.font != font { controller?.terminalView.font = font }
+    }
+
+    private func didAppear() {
+        if controller == nil { controller = hub.terminal(for: server, sessionName: sessionName) }
+        updateFocus()
+    }
+
+    private func didDisappear() {
+        hub.unfocusTerminal(owner: focusOwner)
+        // Aparcado, no cerrado: volver desde Archivos/Cambios/Agentes, o tras girar o
+        // redimensionar, reutiliza la conexión.
+        hub.parkTerminal(server: server.id, sessionName: sessionName)
+        controller = nil
     }
 
     // MARK: - Cabecera y barra inferior

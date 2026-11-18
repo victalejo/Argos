@@ -46,66 +46,92 @@ struct TerminalWindowBar: View {
 
     // MARK: - Pestaña
 
+    // En piezas pequeñas y con tipos explícitos: en una sola expresión, el compilador de
+    // la CI (Swift 6.1) tardaba demasiado en comprobarla.
     private func tab(for window: TmuxWindow, repeatedAgents: Set<CodingAgent>) -> some View {
-        let agent = WindowTabs.agent(for: window, claudeReported: claudeWindows.contains(window.index))
-        let title = WindowTabs.title(for: window, agent: agent)
+        let agent: CodingAgent? = WindowTabs.agent(for: window, claudeReported: claudeWindows.contains(window.index))
+        let title: String? = WindowTabs.title(for: window, agent: agent)
+        let showsIndex: Bool = agent.map { (agent: CodingAgent) -> Bool in repeatedAgents.contains(agent) } ?? true
         return Button { onSelect(window) } label: {
-            HStack(spacing: 5) {
-                if let agent {
-                    CodingAgentIcon(agent: agent, size: 11)
-                } else {
-                    Text(verbatim: ">_")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(window.isActive ? Color.accentColor : .white.opacity(0.55))
-                }
-                if agent.map(repeatedAgents.contains) ?? true {
-                    Text(verbatim: "\(window.index)")
-                        .font(.caption.monospaced().weight(.medium))
-                }
-                if let title {
-                    Text(title)
-                        .font(.caption.weight(window.isActive ? .semibold : .regular))
-                        .lineLimit(1)
-                }
-                if let activity = claudeActivity[window.index] {
-                    ClaudeActivityBadge(activity: activity, size: 10)
-                }
-            }
-            .foregroundStyle(window.isActive ? .white : .white.opacity(0.6))
-            .padding(.horizontal, 10)
-            .frame(height: 30)
-            .background(
-                window.isActive ? Color.white.opacity(0.14) : Color.clear,
-                in: RoundedRectangle(cornerRadius: 8)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(window.isActive ? Color.white.opacity(0.12) : .clear, lineWidth: 1)
-            )
-            .overlay(alignment: .bottom) {
-                if let color = window.color {
-                    Capsule().fill(color.swatch).frame(height: 2.5).padding(.horizontal, 8)
-                }
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            tabChrome(window, tabLabel(window, agent: agent, title: title, showsIndex: showsIndex))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel(window, title: title))
         .accessibilityAddTraits(window.isActive ? .isSelected : [])
-        .contextMenu {
-            Button("Renombrar…", systemImage: "pencil") { onRename(window) }
-            Menu("Color", systemImage: "paintpalette") {
-                Button("Sin color", systemImage: window.color == nil ? "checkmark" : "circle.slash") { onColor(window, nil) }
-                ForEach(WindowColor.allCases) { color in
-                    Button { onColor(window, color) } label: {
-                        Label { Text(color.displayName) } icon: { Image(uiImage: color.menuSwatch(selected: window.color == color)) }
-                    }
-                }
+        .contextMenu { tabMenu(window) }
+    }
+
+    /// Icono (agente o `>_`), número, título e insignia de Claude.
+    private func tabLabel(_ window: TmuxWindow, agent: CodingAgent?, title: String?, showsIndex: Bool) -> some View {
+        HStack(spacing: 5) {
+            tabIcon(window, agent: agent)
+            if showsIndex {
+                Text(verbatim: "\(window.index)")
+                    .font(.caption.monospaced().weight(.medium))
             }
-            Divider()
-            Button("Cerrar ventana", systemImage: "xmark", role: .destructive) { onClose(window) }
-                // Cerrar la última ventana mataría la sesión entera.
-                .disabled(windows.count <= 1)
+            if let title {
+                Text(title)
+                    .font(.caption.weight(window.isActive ? .semibold : .regular))
+                    .lineLimit(1)
+            }
+            if let activity = claudeActivity[window.index] {
+                ClaudeActivityBadge(activity: activity, size: 10)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func tabIcon(_ window: TmuxWindow, agent: CodingAgent?) -> some View {
+        if let agent {
+            CodingAgentIcon(agent: agent, size: 11)
+        } else {
+            let tint: Color = window.isActive ? Color.accentColor : Color.white.opacity(0.55)
+            Text(verbatim: ">_")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(tint)
+        }
+    }
+
+    /// Fondo, borde y franja de color de la pestaña.
+    private func tabChrome<Content: View>(_ window: TmuxWindow, _ content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 8)
+        let foreground: Color = window.isActive ? Color.white : Color.white.opacity(0.6)
+        let fill: Color = window.isActive ? Color.white.opacity(0.14) : Color.clear
+        let border: Color = window.isActive ? Color.white.opacity(0.12) : Color.clear
+        return content
+            .foregroundStyle(foreground)
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(fill, in: shape)
+            .overlay(shape.strokeBorder(border, lineWidth: 1))
+            .overlay(alignment: .bottom) { colorStripe(window) }
+            .contentShape(shape)
+    }
+
+    @ViewBuilder
+    private func colorStripe(_ window: TmuxWindow) -> some View {
+        if let color = window.color {
+            Capsule().fill(color.swatch).frame(height: 2.5).padding(.horizontal, 8)
+        }
+    }
+
+    @ViewBuilder
+    private func tabMenu(_ window: TmuxWindow) -> some View {
+        Button("Renombrar…", systemImage: "pencil") { onRename(window) }
+        Menu("Color", systemImage: "paintpalette") { colorItems(window) }
+        Divider()
+        Button("Cerrar ventana", systemImage: "xmark", role: .destructive) { onClose(window) }
+            // Cerrar la última ventana mataría la sesión entera.
+            .disabled(windows.count <= 1)
+    }
+
+    @ViewBuilder
+    private func colorItems(_ window: TmuxWindow) -> some View {
+        Button("Sin color", systemImage: window.color == nil ? "checkmark" : "circle.slash") { onColor(window, nil) }
+        ForEach(WindowColor.allCases) { (color: WindowColor) in
+            Button { onColor(window, color) } label: {
+                Label { Text(color.displayName) } icon: { Image(uiImage: color.menuSwatch(selected: window.color == color)) }
+            }
         }
     }
 

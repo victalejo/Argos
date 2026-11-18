@@ -142,13 +142,20 @@ extension SSHService {
                 message: "No se pudo abrir el directorio '\(path)'."
             )
         }
-        let subdirectories = lines
-            .drop(while: { $0 != pwd })
-            .dropFirst()
-            .map { $0.hasSuffix("/") ? String($0.dropLast()) : $0 }
-            .filter { !$0.isEmpty }
-            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-        return RemoteDirectoryListing(path: pwd, subdirectories: subdirectories)
+        let listed: [String] = Array(lines.drop(while: { (line: String) in line != pwd }).dropFirst())
+        return RemoteDirectoryListing(path: pwd, subdirectories: Self.directoryNames(listed))
+    }
+
+    /// Nombres de `ls -1Ap` sin la barra final, sin vacíos y en orden alfabético. Aparte
+    /// y con tipos explícitos: encadenado, el compilador de la CI tardaba en comprobarlo.
+    static func directoryNames(_ entries: [String]) -> [String] {
+        let names: [String] = entries.map { (entry: String) -> String in
+            entry.hasSuffix("/") ? String(entry.dropLast()) : entry
+        }
+        let nonEmpty: [String] = names.filter { (name: String) -> Bool in !name.isEmpty }
+        return nonEmpty.sorted { (lhs: String, rhs: String) -> Bool in
+            lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+        }
     }
 
     /// ¿Existe `path` como directorio en el servidor? Expande `~` igual que el comando
