@@ -38,6 +38,7 @@ final class PersistentAgentSession {
     @ObservationIgnored private let service: any SSHServicing
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var retryTask: Task<Void, Never>?
+    @ObservationIgnored private var startupWatch: Task<Void, Never>?
     /// Igual que en el terminal: un `tail` viejo que termina tarde no debe tocar el
     /// estado del enganche actual.
     @ObservationIgnored private var generation = 0
@@ -90,12 +91,14 @@ final class PersistentAgentSession {
     ) async throws -> PersistentAgentSession {
         let id = UUID().uuidString.lowercased()
         let meta = PersistentAgentMeta(workingDirectory: workingDirectory, title: title, createdAt: Date(), permissionMode: permissionMode.rawValue)
-        try await start(service: service, id: id, meta: meta, resume: false, oauthToken: oauthToken, hibernation: hibernation)
-        return PersistentAgentSession(
+        let launched = try await start(service: service, id: id, meta: meta, resume: false, oauthToken: oauthToken, hibernation: hibernation)
+        let session = PersistentAgentSession(
             service: service,
             info: PersistentAgentInfo(id: id, isAlive: true, logBytes: 0, meta: meta),
             hibernation: { hibernation }
         )
+        if launched { session.watchStartup() }
+        return session
     }
 
     /// Relanza el proceso (tras reiniciarse el servidor o hibernar) y se vuelve a
@@ -109,10 +112,11 @@ final class PersistentAgentSession {
         fresh.hibernatedAt = nil
         let hasConversation = max(listedLogBytes, receivedBytes) > 0 || !state.items.isEmpty
         do {
-            try await Self.start(
+            let launched = try await Self.start(
                 service: service, id: id, meta: fresh, resume: hasConversation,
                 oauthToken: oauthToken, hibernation: hibernation()
             )
+            if launched { watchStartup() }
             meta = fresh
             isAlive = true
             lastError = nil
@@ -126,6 +130,8 @@ final class PersistentAgentSession {
     }
 
     /// `claudePath`: ruta ya conocida del binario (si no, se busca en el servidor).
+    /// Devuelve `true` si lanzó un proceso nuevo (`false` si ya estaba vivo).
+    @discardableResult
     static func start(
         service: any SSHServicing,
         id: String,
@@ -134,7 +140,7 @@ final class PersistentAgentSession {
         oauthToken: String?,
         hibernation: PersistentAgentHibernation,
         claudePath knownPath: String? = nil
-    ) async throws {
+    ) async throws -> Bool {
         let located: String?
         if let knownPath { located = knownPath } else { located = try await service.locateClaude() }
         guard let claudePath = located else {
@@ -152,6 +158,32 @@ final class PersistentAgentSession {
             timeout: .seconds(60), accept: isLaunchReply
         )
         try parseLaunchReply(reply)
+        return reply != PersistentAgentScript.aliveReply
+    }
+
+    /// Plazos (acumulados: 2, 6 y 12 s) en los que se vuelve a mirar si el claude recién
+    /// lanzado sigue vivo. El lanzador solo espera 1 s: en un servidor cargado, un claude
+    /// que no puede arrancar (opción desconocida, sin sesión…) tarda más en morir y el
+    /// lanzador ya lo habría dado por arrancado. Sin una señal positiva de «arrancó bien»
+    /// (en stream-json claude no escribe nada hasta recibir un mensaje) se comprueba aquí,
+    /// con margen y sin retrasar el arranque.
+    static let startupChecks: [Duration] = [.seconds(2), .seconds(4), .seconds(6)]
+
+    /// Tras lanzar: si el proceso muere al poco, lo marca como parado y muestra el porqué
+    /// (final de `err.log`), igual que si el lanzador lo hubiera visto morir.
+    func watchStartup(checks: [Duration] = PersistentAgentSession.startupChecks) {
+        startupWatch?.cancel()
+        startupWatch = Task { [weak self] in
+            for delay in checks {
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled, let self else { return }
+                guard await self.refreshInfo() else { continue }
+                guard !self.isAlive else { continue }
+                let tail = (try? await self.service.runAgentScript(PersistentAgentScript.errorTail(id: self.id))) ?? ""
+                self.lastError = PersistentAgentError.launchFailed(String(tail.suffix(PersistentAgentScript.errorTailBytes))).userMessage
+                return
+            }
+        }
     }
 
     /// ¿Es `line` una respuesta del lanzador? (lo demás es ruido del perfil del shell)

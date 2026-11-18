@@ -48,7 +48,7 @@ struct AgentHardeningRound2Tests {
     private let id = "6a55640d-ac70-41ab-8426-6eb72d4fb5eb"
 
     private func waitUntil(_ condition: () -> Bool) async throws {
-        for _ in 0..<150 where !condition() { try await Task.sleep(for: .milliseconds(20)) }
+        for _ in 0..<3000 where !condition() { try await Task.sleep(for: .milliseconds(20)) } // hasta 60 s
         #expect(condition())
     }
 
@@ -132,6 +132,24 @@ struct AgentHardeningRound2Tests {
         #expect(session.receivedBytes == prompt.utf8.count + 1) // ni ruido ni marca ni copia
         #expect(mock.agentCommands.last?.contains("s=$((\(prompt.utf8.count + 2) - b))") == true)
         session.detach()
+    }
+
+    /// Un claude que tarda más de lo que espera el lanzador en morir (servidor cargado) se
+    /// detecta poco después y se explica, como si el lanzador lo hubiera visto morir.
+    @Test func unClaudeQueMuereTrasElArranqueSeDetecta() async throws {
+        let mock = MockSSHService()
+        mock.agentScript = ["4242"]
+        let meta = try JSONEncoder.projects.encode(PersistentAgentMeta(workingDirectory: "/srv", title: "srv", createdAt: Date()))
+        mock.agentScriptOutput = { command in
+            if command.contains("err.log") && command.contains("tail -c") { return "error: not logged in\n" }
+            return "\(self.id)|0|0|\(meta.base64EncodedString())\n" // el listado: ya no está vivo
+        }
+        let session = PersistentAgentSession(service: mock, info: info(alive: false, logBytes: 10), hibernation: { .standard })
+        #expect(await session.resume(oauthToken: nil))
+        #expect(session.isAlive) // el lanzador respondió con su PID
+        session.watchStartup(checks: [.milliseconds(10)])
+        try await waitUntil { !session.isAlive && session.lastError != nil }
+        #expect(session.lastError == PersistentAgentError.launchFailed("error: not logged in\n").userMessage)
     }
 
     @Test func reanudarConLaVistaCerradaNoSeReengancha() async throws {
