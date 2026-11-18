@@ -6,6 +6,209 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **Argos en inglés.** En Mac, iPhone y iPad la app sigue el idioma del sistema: español e
+  inglés, y quien tenga otro idioma la verá en inglés. Los mensajes de error, los plurales
+  y los tamaños también se adaptan. Lo que Argos ejecuta en el servidor y lo que guarda en
+  él no cambia de idioma, así que Mac, iPhone/iPad y Android se siguen entendiendo entre sí.
+- **Puntos de restauración por turno (Mac e iPhone/iPad, opcionales).** En «Cambios», cada
+  vez que le escribes a Claude en un proyecto se puede guardar cómo estaba tu carpeta, para
+  ver qué cambió en ese turno y usar «Deshacer hasta aquí» o «Restaurar este archivo» si no
+  te gusta. **Están desactivados por defecto**: se activan proyecto a proyecto y solo
+  entonces se instala el aviso correspondiente en el servidor (hace falta git 2.20 o
+  posterior). Las copias viven aparte del historial de git (no aparecen en ramas, `git log`,
+  `push` ni «Enviar al Mac») y puedes borrarlas todas o quitar el aviso cuando quieras.
+  Restaurar es prudente: enseña antes lo que va a hacer, hace una copia previa, no pisa ni
+  borra nada que no esté en esa copia, se niega si hay carpetas, repositorios anidados o
+  enlaces en el camino y, si Claude está trabajando, ofrece «Detener a Claude y restaurar».
+  Cuando Claude termina, un atajo lleva a «Ver lo que cambió en este turno».
+- **Doctor del servidor y «Copiar diagnóstico» (Mac, iPhone/iPad y Android).** Una
+  comprobación de solo lectura que dice si el servidor está listo (tmux, git, `gh`, Claude
+  Code, indicador de Claude, skill de puertos…) y propone el arreglo o el comando para
+  copiar. «Copiar diagnóstico» reúne versión, dispositivo y resultado del Doctor; siempre
+  quita claves, tokens y contraseñas y, por defecto, también oculta nombres de servidor,
+  usuarios e IPs. En el Mac está en el menú del servidor y en Ayuda.
+- **Mac: bandeja «Te necesita».** Un icono en la barra de menús (que sigue ahí con la
+  ventana cerrada), un botón en la ventana y la insignia del Dock reúnen lo que espera por ti
+  en todos los servidores: Claude esperando tu respuesta o un permiso, CI fallida, puertos por
+  aceptar, envíos y agentes que terminaron sin que los mirases. ⌘J salta al siguiente que te
+  necesita. Se configura en Ajustes → Avisos.
+- **Agentes persistentes en el Mac.** El panel Agente lista «En el servidor» los agentes
+  que corren allí (también los que creaste desde el iPhone o Android) y se engancha a ellos.
+  Una conversación nueva puede quedarse «Mantener en el servidor» (se recuerda por proyecto)
+  y una que ya tenías en el Mac se puede «Continuar en el servidor». Sus permisos pendientes
+  y avisos de «terminó» entran en la bandeja.
+- **«Agentes en este servidor» (Mac, iPhone/iPad y Android).** Todos los agentes de Argos
+  del servidor con su memoria e inactividad, para detener uno, detener todos o hibernar los
+  inactivos.
+- **Reposo automático de los agentes persistentes.** Un agente que lleva horas quieto se
+  hiberna solo para liberar memoria; al escribirle, se reanuda con su conversación. En
+  Android el plazo se elige por dispositivo y las filas en reposo se distinguen en la lista.
+- **Guardia de memoria.** Antes de lanzar otro agente, Argos avisa si el servidor va corto
+  de memoria o ya hay 6 o más vivos, y deja seguir bajo confirmación (Mac, iPhone/iPad y
+  Android).
+- **«Detener» el turno sin cerrar la conversación (Mac y Android).** En el Mac, «Detener»
+  y Esc interrumpen lo que Claude está haciendo y la conversación sigue abierta; en Android
+  hay un botón «Detener el turno» en el chat. En el Mac, las conversaciones cerradas o
+  terminadas se pueden reanudar, y cerrar una con Claude trabajando o esperando un permiso
+  pide confirmación.
+- **Mac: el formulario de servidor dice qué clave admite.** Al elegir el archivo avisa en el
+  momento si no es Ed25519 (y cómo crear una), solo pide passphrase si la clave está
+  cifrada y, si «Probar conexión» falla por eso, lo explica en vez de mostrar un error
+  técnico.
+- **Archivos: hojas de cálculo.** Los `.xlsx`, `.xlsm`, `.xls` y `.numbers` se abren con
+  Vista Rápida en el Mac y en el iPhone/iPad (hasta 30 MB; más grandes, a descargar) y con
+  «Abrir con…» en Android.
+- **iPhone/iPad: alta de servidores sin Mac.** Además de la contraseña y del QR, puedes
+  importar o pegar una clave, o crear una en el propio dispositivo («Usar una clave de este
+  iPhone»: Argos instala la pública con tu contraseña y la prueba antes de dejar la
+  contraseña). La clave se revisa al instante y se explica qué falla si no es válida.
+- **iPhone/iPad: menú del servidor** con recursos, indicador de Claude, clave del
+  dispositivo, Doctor y «Olvidar host key». Borrar un servidor olvida también su huella.
+- **iPhone/iPad: hoja de «Avisos».** Explica qué se avisa, cuándo llegan los avisos en
+  segundo plano y el estado real del sistema (permiso, actualización en segundo plano, modo
+  de bajo consumo), con enlace a Ajustes. El permiso de notificaciones se pide cuando lo
+  decides, no por sorpresa. Solo se silencia el aviso de la ventana que estás viendo, y al
+  abrir una sesión se retiran sus avisos ya entregados.
+- **iPhone/iPad: indicador de Claude desde el móvil.** Insignia de Claude y color en las
+  pestañas de las ventanas, y consejos en la lista para activar el indicador, los avisos o
+  pasar a clave del dispositivo. Las ventanas se pueden renombrar y colorear.
+- **iPhone/iPad: buscar, filtrar y plegar proyectos**, y buscar y compartir archivos.
+- **iPhone/iPad: bloqueo con Face ID** (o el código del dispositivo) opcional en Ajustes:
+  pide autenticación al abrir y al volver tras más de un minuto fuera, oculta el contenido en
+  el selector de apps y retiene enlaces y avisos hasta desbloquear.
+- **iPhone/iPad: atajos de Siri y Spotlight.** «Pedir a Claude» (en un proyecto, sin abrir
+  la app: reutiliza el agente en marcha, reanuda el último o crea uno, y le envía el
+  encargo) y «Abrir proyecto». Los proyectos conocidos se indexan en Spotlight. Si el agente
+  actuaría sin preguntar o aceptando ediciones, pide confirmación (salvo que actives
+  «Permitir atajos sin confirmar», desactivado por defecto), vuelve a comprobar el modo antes
+  de enviar y respeta el bloqueo con Face ID. Con el bloqueo activo, los nombres de proyecto
+  no salen en Spotlight ni en Siri salvo que lo permitas.
+- **iPhone/iPad: barra de teclas del terminal más completa.** Mayús+Tab, alt, prefijo de
+  tmux, Inicio/Fin, RePág/AvPág y ocultar el teclado; pellizco para cambiar el tamaño de la
+  letra y trackpad en iPad. Nuevo ajuste «Opción como Meta» para teclados físicos
+  (desactivado por defecto).
+- **iPhone/iPad: más ajustes.** El comando de arranque global (el mismo que en el Mac), los
+  permisos de los agentes y iCloud, y «Restaurar copia anterior» si `projects.json` se dañó.
+- **Android: permiso de red local de Android 17.** Se pide al abrir un servidor con IP
+  privada, `.local` o un nombre que resuelve a tu red; sin él, la app falla al instante con
+  un mensaje claro en vez de esperar, y las comprobaciones en segundo plano saltan ese
+  servidor sin darlo por caído.
+- **Android: indicador y avisos de Claude Code en tmux.** Insignias de trabajando / espera
+  tu respuesta / terminó en proyectos, sesiones y pestañas de ventana, con avisos de los
+  cambios (también en segundo plano) que abren el proyecto en esa ventana; «Activar
+  indicador de Claude…» en el menú del servidor.
+- **Android: adjuntar y compartir al terminal.** Botón Adjuntar (fotos y archivos), pegar
+  una captura y Argos como destino de «Compartir» de otras apps, eligiendo servidor y
+  proyecto; la ruta del archivo subido se escribe en la línea de comandos.
+- **Android: visores de HTML y PDF** en Archivos. El HTML se ve aislado (sin JavaScript, red
+  ni navegación, con «Permitir» solo para esa página) y el PDF se muestra en la app.
+- **Android: monitor de recursos, paneles de tmux** (dividir, moverse, ampliar, cerrar),
+  **«Enviar comando» a varias sesiones**, renombrar y colorear ventanas, búsqueda de
+  proyectos sin distinguir mayúsculas ni tildes, y comando de arranque global con ajustes
+  predefinidos.
+- **Android: Doctor del servidor y «Copiar diagnóstico»**, y el aviso de un agente abre su
+  proyecto → Agentes → su chat.
+
+### Mejorado
+- **No insistir contra un servidor caído ni con credenciales rechazadas.** Una contraseña o
+  clave rechazada, o una host key que cambió, detienen los reintentos hasta que hagas algo
+  (Conectar, Reintentar, ⌘R, «Olvidar host key»); si es la red la que falla, las
+  comprobaciones en segundo plano esperan cada vez más (de 1 a 60 s) en lugar de golpear el
+  servidor 20 o 30 veces por minuto, lo que podía activar fail2ban. Lo que haces tú nunca
+  espera.
+- **Tope de canales adaptativo.** Los comandos cortos de la app usan como mucho 6 canales a
+  la vez, el trabajo de segundo plano como mucho la mitad, y el tope baja (hasta 1) al
+  primer rechazo del servidor, así que servidores con pocos canales (`MaxSessions`) dejan de
+  dar errores de canal. En Android, cancelar un comando ya no deja canales abiertos sin
+  dueño.
+- **Conexiones muertas detectadas.** Los terminales, agentes y túneles, que tienen su propia
+  conexión, se vigilan: si el servidor deja de responder, la conexión se cierra y se
+  reconecta sola. Hacen falta varias comprobaciones sin respuesta seguidas y no se sondea
+  una conexión con tráfico reciente, así que un agente que está hablando no se corta.
+- **Plazo por comando.** Ningún comando al servidor se queda esperando para siempre; las
+  operaciones largas (clonar, commit, push, pull, instalar tmux) tienen más margen. Un tmux
+  colgado se avisa como plazo vencido.
+- **Errores de conexión explicados.** Donde antes salía «(Citadel.SSHClientError error 3)»,
+  ahora se dice qué pasó: contraseña o clave rechazada, servidor inaccesible, tiempo
+  agotado, conexión cerrada, archivo inexistente o permiso denegado. «Conexión perdida» ya no
+  promete «Reconectando…» si no va a hacerlo, y el panel Agente del Mac ofrece «Reanudar
+  conversación».
+- **Mac: una sola ventana y estado de la app.** Cerrar la ventana no pierde nada (servidores,
+  terminales, agentes, avisos y sondeos siguen) y relanzar la app o pulsar el Dock la vuelve a
+  abrir. Al salir, Argos confirma si hay agentes trabajando o envíos en curso y cierra todo
+  en orden con un plazo de 5 s. Tocar un aviso abre la ventana aunque esté cerrada.
+- **Mac: menos comandos al servidor.** Una sola vuelta por servidor resume sesiones, estado
+  de Claude y solicitudes de puertos, y el ritmo se espacia con la ventana tapada o cerrada.
+- **Mac: renombrar un servidor no cierra nada.** Guardar un servidor solo reconecta si cambia
+  a dónde o cómo se conecta. Si el host cambia desde otro dispositivo por iCloud, no se
+  cierra nada: aparece «Este servidor cambió en otro dispositivo · Reconectar». El
+  formulario solo se cierra si el guardado sale bien y muestra el error si no.
+- **iPhone/iPad: girar o redimensionar no te saca de donde estás.** La navegación es una
+  sola y se restaura; los terminales se aparcan unos minutos al cambiar de pestaña y, al
+  volver de segundo plano, se comprueba la conexión con plazo y se refresca sin vaciar la
+  lista (ya no cierra los túneles).
+- **iPhone/iPad: el terminal se reconecta solo** (1, 2, 4, 8, 15 y 30 s) y también al volver
+  la red, sin reintentar lo que necesita tu intervención. Las comprobaciones en segundo
+  plano van en paralelo y con 11 s por servidor, así que uno inalcanzable no agota el tiempo
+  de los demás.
+- **iPhone/iPad: chat de agentes más robusto.** El borrador se conserva hasta que el envío
+  llega, se muestra el estado real de la conexión con reintentos, escribir a un agente en
+  reposo lo reanuda y tocar el aviso de un agente abre su chat.
+- **Android: terminal y chat no se desenganchan al cambiar de pestaña** del proyecto, y cada
+  pestaña conserva su sitio (scroll, carpeta) incluso si el sistema cierra el proceso.
+- **Android: túneles que siguen con el navegador delante.** Mientras haya puertos
+  reenviados, un aviso en primer plano («N puertos reenviados · Cerrar todo») mantiene la
+  app viva aunque salgas del terminal.
+- **Android: agentes al día con iPhone y Mac** (hibernación, parada comprobada, envío largo
+  por stdin, enganche incremental y recarga desde cero) y avisos en segundo plano por
+  WorkManager, con una pantalla de diagnóstico en Ajustes (última comprobación, bucket de
+  App Standby y optimización de batería). La conexión se comprueba al volver a la app y al
+  cambiar de red en vez de cerrarse.
+- **Android: la confirmación de `argos://add-server` avisa si el enlace vino de otra app**
+  y muestra servidor y usuario por separado antes del nombre propuesto.
+- **Agentes persistentes más seguros al parar y rotar.** Parar un agente detiene su grupo de
+  procesos (TERM y, si hace falta, KILL) comprobando antes que el proceso es el suyo; el log
+  se rota sin que pierda el sitio quien lo está siguiendo; y si `claude` muere poco después
+  de arrancar en un servidor cargado, Argos lo detecta a los 2, 6 y 12 s y muestra el final
+  de su registro de errores. Los resultados de herramienta se recortan a 16 000 caracteres.
+
+### Corregido
+- **«Enviar al servidor» deja el proyecto intacto si falla.** Todo se sube a una carpeta
+  temporal y se coloca por lotes sin borrar antes el destino; ante un fallo se limpian los
+  temporales, que además no aparecen en los listados.
+- **`projects.json` ya no pierde datos entre dispositivos ni versiones.** Mac, iPhone/iPad y
+  Android conservan los campos que no conocen, un proyecto ilegible se aparta con aviso en
+  vez de invalidar el archivo, una versión más nueva se lee pero no se sobrescribe («actualiza
+  Argos en este dispositivo»), y si otro dispositivo lo cambió mientras guardabas, se
+  vuelve a leer y se reaplica tu cambio. Si se daña, se puede restaurar la copia anterior.
+- **Commits de miles de archivos.** La lista de archivos se pasa a git por archivo (git 2.26
+  o posterior; con uno más antiguo se explica) y el mensaje sugerido por Claude se acota.
+- **Cambios muestra el diff al día.** Se recarga si el archivo cambió y al volver a
+  pulsarlo, y pide confirmación antes de commitear algo que cambió desde que lo viste.
+- **«Enviar al iPhone» ya no estropea `authorized_keys`.** Si el archivo no terminaba en
+  salto de línea, la clave nueva quedaba pegada a la anterior y ninguna servía (también en
+  Android).
+- **Sesiones con acentos (todas las plataformas).** Una sesión «diseño» se listaba como «dise_o» en
+  servidores sin locale UTF-8 y las acciones sobre ella no la encontraban; el indicador de
+  Claude también.
+- **«Continuar en el servidor» ya no avisa de «terminó».** Al continuar una conversación del
+  Mac, el cierre del historial copiado no genera una notificación en el iPhone ni entra en
+  la bandeja.
+- **iPhone/iPad: descargas seguras.** El nombre que manda el servidor ya no puede sacar un
+  archivo descargado de su carpeta temporal.
+- **Android: hooks de Claude al día** (también fallos de herramienta, permisos denegados y
+  errores de parada) y sin acumular ajustes de tmux en cada conexión.
+
+### Cambiado
+- **Dependencias:** SwiftTerm 1.18 y Sparkle 2.10.1 (Android: Gradle 9.9.0 y slf4j 2.0.20).
+
+### Interno
+- Tests de integración contra un `sshd` real y temporal (`scripts/sshd-test-start.sh`),
+  goldens de paridad Swift → Kotlin generados con el Swift real y comprobados en la CI,
+  puerta de cobertura del núcleo y CI en paralelo; firma Developer ID y notarización
+  opcionales en el release.
+
 ## [1.8.10] - 2026-11-18
 
 ### Corregido
