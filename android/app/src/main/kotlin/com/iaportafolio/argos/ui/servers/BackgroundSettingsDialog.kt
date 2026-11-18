@@ -37,6 +37,7 @@ internal fun BackgroundSettingsDialog(
     keepTerminalAlive: Boolean,
     onAgentNotificationsChange: (Boolean) -> Unit,
     onKeepTerminalAliveChange: (Boolean) -> Unit,
+    onOpenDiagnostics: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -75,6 +76,7 @@ internal fun BackgroundSettingsDialog(
                     checked = keepTerminalAlive,
                     onChange = onKeepTerminalAliveChange,
                 )
+                TextButton(onClick = onOpenDiagnostics) { Text(stringResource(R.string.diagnostics_open)) }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },

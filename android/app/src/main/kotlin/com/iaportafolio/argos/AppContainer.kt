@@ -2,6 +2,16 @@ package com.iaportafolio.argos
 
 import android.content.Context
 import com.iaportafolio.argos.background.ActiveTerminalRegistry
+import com.iaportafolio.argos.background.AppVisibilityCoordinator
+import com.iaportafolio.argos.background.BackgroundCheckSchedule
+import com.iaportafolio.argos.background.BackgroundDiagnosticsStore
+import com.iaportafolio.argos.background.BackgroundServiceProvider
+import com.iaportafolio.argos.background.CIWatchStore
+import com.iaportafolio.argos.background.CheckTrigger
+import com.iaportafolio.argos.background.LocalNetworkPermission
+import com.iaportafolio.argos.background.PortForwardTracker
+import com.iaportafolio.argos.background.SharedConnections
+import com.iaportafolio.argos.background.SystemNetworkMonitor
 import com.iaportafolio.argos.background.AgentNotifier
 import com.iaportafolio.argos.background.AgentWatchStore
 import com.iaportafolio.argos.background.CIWatchService
@@ -22,6 +32,7 @@ import com.iaportafolio.argos.data.EncryptedSecretStore
 import com.iaportafolio.argos.data.FileHostKeyTrustStore
 import com.iaportafolio.argos.data.FileServerRepository
 import com.iaportafolio.argos.data.KeystoreSecretCipher
+import com.iaportafolio.argos.data.LocalNetworkGate
 import com.iaportafolio.argos.data.PortForwardSettingsStore
 import com.iaportafolio.argos.data.ProjectPreferencesStore
 import com.iaportafolio.argos.data.SecretStore
@@ -40,6 +51,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Inyección de dependencias manual (por constructor): un único grafo por proceso, creado en
@@ -65,7 +77,14 @@ class AppContainer(
 
     val serverImporter: ServerImporter by lazy { ServerImporter(servers, secrets, hostKeys) }
 
-    val services: ServiceProvider by lazy { ServiceHub(connector, secrets, hostKeys, io) }
+    /** Permiso de red local de Android 17: se consulta en cada conexión nueva. */
+    val localNetwork: LocalNetworkGate by lazy { LocalNetworkPermission.gate(appContext) }
+
+    private val hub: ServiceHub by lazy {
+        ServiceHub(connector, secrets, hostKeys, io, localNetwork) { serverId -> portForwards.serverDisconnected(serverId) }
+    }
+
+    val services: ServiceProvider get() = hub
 
     val documents: DocumentReader by lazy { ContentResolverDocumentReader(appContext.contentResolver) }
 
@@ -78,6 +97,20 @@ class AppContainer(
     /** Límite del cierre automático de túneles e identidad del teléfono para la skill de Claude. */
     val portForwardSettings: PortForwardSettingsStore by lazy { SharedPreferencesPortForwardSettings(appContext) }
 
+    /** Estado local de avisos (agentes, diagnóstico, CI vigilado): un solo `SharedPreferences`. */
+    private val watchBackend by lazy { SharedPreferencesAgentWatch(appContext) }
+
+    /** Última comprobación en segundo plano (pantalla de diagnóstico). */
+    val diagnostics: BackgroundDiagnosticsStore by lazy { BackgroundDiagnosticsStore(watchBackend) }
+
+    /** Un único trabajo de WorkManager para agentes y CI. */
+    val backgroundSchedule: BackgroundCheckSchedule by lazy {
+        BackgroundCheckSchedule(
+            WorkManagerAgentCheckScheduler(appContext),
+            listOf({ agentNotifier.hasWatchedServers() }, { ciWatches.isWatching }),
+        )
+    }
+
     val agentNotifier: AgentNotifier by lazy {
         AgentNotifier(
             servers = servers,
@@ -85,22 +118,67 @@ class AppContainer(
             hostKeys = hostKeys,
             connector = connector,
             tokens = claudeTokens,
-            store = AgentWatchStore(SharedPreferencesAgentWatch(appContext)),
+            store = AgentWatchStore(watchBackend),
             alerts = SystemAgentAlerts(appContext),
-            scheduler = WorkManagerAgentCheckScheduler(appContext),
+            scheduler = backgroundSchedule.asScheduler,
             io = io,
+            live = { server -> hub.cached(server) },
+            localNetwork = localNetwork,
+            diagnostics = diagnostics,
         )
     }
 
-    /** Ámbito de la aplicación (vive lo que el proceso) para los avisos de CI. */
+    /** Ámbito de la aplicación (vive lo que el proceso) para CI, túneles y primer plano. */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    val ciWatches: CIWatchService by lazy { CIWatchService(servers, services, SystemCIAlerts(appContext), appScope, io) }
+    val ciWatches: CIWatchService by lazy {
+        CIWatchService(
+            servers,
+            services,
+            SystemCIAlerts(appContext),
+            appScope,
+            io,
+            store = CIWatchStore(watchBackend),
+            isVisible = { visibility.visible.value },
+            onWatchesChanged = { backgroundSchedule.sync() },
+        )
+    }
 
     val activeTerminals: ActiveTerminalRegistry by lazy {
         ActiveTerminalRegistry(TerminalKeepAliveService.host(appContext)) {
             terminalSettings.settings.value.keepAliveInBackground
         }
+    }
+
+    /** Túneles abiertos, para el servicio en primer plano. */
+    val portForwards: PortForwardTracker by lazy { PortForwardTracker(activeTerminals, servers, hub, io) }
+
+    /** Entrar y salir de primer plano (lo marca [MainActivity]). */
+    val visibility: AppVisibilityCoordinator by lazy {
+        AppVisibilityCoordinator(
+            scope = appScope,
+            connections = object : SharedConnections {
+                override suspend fun probeAll(timeoutMillis: Long) = hub.probeAll(timeoutMillis)
+                override suspend fun closeAll() = hub.closeAll()
+            },
+            checkAgents = { full -> agentNotifier.check(CheckTrigger.FOREGROUND, liveOnly = !full) },
+            onVisible = { ciWatches.resume() },
+            isKeepingAlive = { activeTerminals.isServiceRunning || activeTerminals.tunnelCount.value > 0 },
+        )
+    }
+
+    /** Conexiones para una pasada del worker (cerrarlas con `closeAll`). */
+    fun backgroundServices() = BackgroundServiceProvider(hub, connector, secrets, hostKeys, localNetwork, io)
+
+    /** «Cerrar todo» o la app cerrada desde recientes: en el ámbito de la app, no del servicio. */
+    fun closeAllPortForwards() {
+        appScope.launch { portForwards.closeAll() }
+    }
+
+    /** Al arrancar el proceso: primer plano y cambios de red. */
+    fun startMonitors() {
+        visibility.start()
+        SystemNetworkMonitor(appContext) { appScope.launch { hub.closeAll() } }.start()
     }
 
     private companion object {

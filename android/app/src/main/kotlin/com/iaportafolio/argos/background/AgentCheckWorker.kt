@@ -10,11 +10,25 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.iaportafolio.argos.ArgosApplication
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-/** Comprobación periódica de los agentes. Los fallos ya están aislados por servidor en el notificador. */
+/**
+ * Comprobación periódica en segundo plano: avisos de agentes y CI vigilado. Los fallos ya están
+ * aislados por servidor; el resultado queda en el diagnóstico de Ajustes.
+ */
 class AgentCheckWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
-        (applicationContext as ArgosApplication).container.agentNotifier.check()
+        val container = (applicationContext as ArgosApplication).container
+        container.agentNotifier.check(CheckTrigger.BACKGROUND)
+        val provider = container.backgroundServices()
+        try {
+            // El vigilante de CI vive en el hilo principal (como en primer plano).
+            withContext(Dispatchers.Main) { container.ciWatches.pollWith(provider) }
+        } finally {
+            provider.closeAll()
+        }
+        container.backgroundSchedule.sync()
         return Result.success()
     }
 }

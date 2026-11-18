@@ -8,6 +8,7 @@ import com.iaportafolio.argos.core.agent.AgentAttentionPlanner
 import com.iaportafolio.argos.core.agent.PersistentAgentScript
 import com.iaportafolio.argos.data.ArgosLog
 import com.iaportafolio.argos.data.ClaudeTokenStore
+import com.iaportafolio.argos.data.LocalNetworkGate
 import com.iaportafolio.argos.data.ReadOnlyHostKeyTrustStore
 import com.iaportafolio.argos.data.SecretStore
 import com.iaportafolio.argos.data.ServerRepository
@@ -42,9 +43,12 @@ enum class AgentCheckOutcome {
  * Avisos de los agentes: «terminó» y «espera tu permiso» (port de `AgentNotifier.swift`). Sin
  * servidores intermedios ni push: se lee el final del log de los agentes y se avisa de lo nuevo.
  *
- * Cada servidor abre una conexión NUEVA (no la de `ServiceHub`) que siempre se cierra. Nunca confía
- * en una huella nueva: un endpoint sin huella guardada se salta hasta que el usuario conecte desde
- * la app. Un servidor que falla no afecta a los demás y se registra sin secretos ni contenido.
+ * Si la app ya tiene abierta la conexión del servidor ([live], la del `ServiceHub`), la reutiliza y
+ * no la cierra; si no, abre una NUEVA que siempre se cierra. Nunca confía en una huella nueva: un
+ * endpoint sin huella guardada se salta hasta que el usuario conecte desde la app. Un servidor de la
+ * red local sin el permiso de Android 17 ([localNetwork]) se salta sin contarlo como caído. Un
+ * servidor que falla no afecta a los demás y se registra sin secretos ni contenido. Cada
+ * comprobación queda en [diagnostics] para la pantalla de diagnóstico.
  */
 class AgentNotifier(
     private val servers: ServerRepository,
@@ -59,6 +63,10 @@ class AgentNotifier(
     private val serverTimeoutMillis: Long = SERVER_TIMEOUT_MILLIS,
     private val clock: () -> Instant = Instant::now,
     private val log: (String) -> Unit = { ArgosLog.warn(ArgosLog.TAG_AGENT, it) },
+    /** Conexión ya abierta por la app (no se cierra al terminar). */
+    private val live: (Server) -> SSHServicing? = { null },
+    private val localNetwork: LocalNetworkGate = LocalNetworkGate.NotRequired,
+    private val diagnostics: BackgroundDiagnosticsStore? = null,
 ) : AgentAttentionTracker {
 
     private val trust = ReadOnlyHostKeyTrustStore(hostKeys)
@@ -67,31 +75,42 @@ class AgentNotifier(
 
     override val notificationsEnabled: StateFlow<Boolean> = store.notificationsEnabled
 
-    /** Revisa los servidores apuntados. Si ya hay otra comprobación, no se solapa. */
-    suspend fun check(): AgentCheckOutcome {
+    /**
+     * Revisa los servidores apuntados. Si ya hay otra comprobación, no se solapa. Con [liveOnly]
+     * solo los que ya tienen una conexión abierta en la app (el sondeo de cada minuto a la vista: no
+     * abre conexiones nuevas); sin nada que revisar no se registra en el diagnóstico.
+     */
+    suspend fun check(trigger: CheckTrigger = CheckTrigger.BACKGROUND, liveOnly: Boolean = false): AgentCheckOutcome {
         if (!checking.tryLock()) return AgentCheckOutcome.BUSY
         return try {
-            runCheck()
+            val (outcome, results) = runCheck(liveOnly)
+            if (!(liveOnly && results.isEmpty())) {
+                diagnostics?.record(CheckRecord(clock(), trigger, outcome, results.groupingBy { it }.eachCount()))
+            }
+            outcome
         } finally {
             checking.unlock()
         }
     }
 
-    private suspend fun runCheck(): AgentCheckOutcome {
-        if (!store.notificationsEnabled.value) return AgentCheckOutcome.DISABLED
-        if (!alerts.canNotify()) return AgentCheckOutcome.BLOCKED
+    /** ¿Hay algo que revisar? (avisos activados y algún servidor apuntado). */
+    fun hasWatchedServers(): Boolean = store.notificationsEnabled.value && store.watchedServers().isNotEmpty()
+
+    private suspend fun runCheck(liveOnly: Boolean): Pair<AgentCheckOutcome, List<ServerCheckResult>> {
+        if (!store.notificationsEnabled.value) return AgentCheckOutcome.DISABLED to emptyList()
+        if (!alerts.canNotify()) return AgentCheckOutcome.BLOCKED to emptyList()
         val configured = servers.servers.value
         val watched = store.watchedServers()
         // Se limpia aquí también por si se borró un servidor con la app a medias.
         (watched - configured.map { it.id }.toSet()).forEach(::serverDeleted)
-        val targets = configured.filter { it.id in watched }
-        if (targets.isEmpty()) return AgentCheckOutcome.CHECKED
+        val targets = configured.filter { it.id in watched && (!liveOnly || live(it) != null) }
+        if (targets.isEmpty()) return AgentCheckOutcome.CHECKED to emptyList()
         val redactor = SecretRedactor(readToken())
-        targets.forEach { checkServer(it, redactor) }
+        val results = targets.map { checkServer(it, redactor) }
         // Si ya no queda ninguno que revisar, se cancela el trabajo periódico. Al final: hacerlo
         // a mitad cortaría los servidores que faltan.
         if (store.watchedServers().isEmpty()) scheduler.cancel()
-        return AgentCheckOutcome.CHECKED
+        return AgentCheckOutcome.CHECKED to results
     }
 
     /** Sin el token no se puede tapar el exacto, pero sigue tapándose lo que tenga su forma. */
@@ -104,12 +123,20 @@ class AgentNotifier(
         null
     }
 
-    private suspend fun checkServer(server: Server, redactor: SecretRedactor) {
-        try {
-            withContext(io) {
-                if (trust.trustedFingerprint(server.endpoint) == null) {
+    private suspend fun checkServer(server: Server, redactor: SecretRedactor): ServerCheckResult = try {
+        withContext(io) {
+            val shared = live(server)
+            when {
+                shared != null -> readAndNotify(server, shared, redactor)
+                localNetwork.blocks(server.host) -> {
+                    log("Servidor ${server.id} en la red local sin permiso: no se revisa")
+                    ServerCheckResult.LOCAL_NETWORK_BLOCKED
+                }
+                trust.trustedFingerprint(server.endpoint) == null -> {
                     log("Servidor ${server.id} sin huella guardada: no se revisa en segundo plano")
-                } else {
+                    ServerCheckResult.UNTRUSTED
+                }
+                else -> {
                     val service = connector.service(server, secrets.credentials(server), trust)
                     try {
                         readAndNotify(server, service, redactor)
@@ -118,19 +145,20 @@ class AgentNotifier(
                     }
                 }
             }
-        } catch (cancel: CancellationException) {
-            throw cancel
-        } catch (error: Exception) {
-            log("No se pudo revisar el servidor ${server.id} (${error::class.java.simpleName})")
         }
+    } catch (cancel: CancellationException) {
+        throw cancel
+    } catch (error: Exception) {
+        log("No se pudo revisar el servidor ${server.id} (${error::class.java.simpleName})")
+        ServerCheckResult.FAILED
     }
 
-    private suspend fun readAndNotify(server: Server, service: SSHServicing, redactor: SecretRedactor) {
+    private suspend fun readAndNotify(server: Server, service: SSHServicing, redactor: SecretRedactor): ServerCheckResult {
         val mark = store.watchMark()
         val output = withTimeoutOrNull(serverTimeoutMillis) { service.runAgentScript(PersistentAgentScript.snapshots()) }
         if (output == null) {
             log("El servidor ${server.id} no respondió a tiempo")
-            return
+            return ServerCheckResult.NO_RESPONSE
         }
         val before = store.seenBytes(server.id)
         val snapshots = PersistentAgentScript.parseSnapshots(output)
@@ -153,6 +181,7 @@ class AgentNotifier(
         // vivo, y pausar lo dejaría sin avisos.
         val listed = output.lineSequence().count { it.isNotBlank() }
         if (listed == snapshots.size && snapshots.none { it.isAlive }) store.pause(server.id, mark)
+        return ServerCheckResult.CHECKED
     }
 
     /** También si la comprobación se canceló: un socket abierto en segundo plano gasta batería. */

@@ -3,7 +3,12 @@
 
     <!-- SSH saliente. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Terminal vivo en segundo plano y avisos de agentes. -->
+    <!-- Android 17 (target 37): sin él, el TCP hacia un servidor de la Wi-Fi (IP privada, .local)
+         se descarta y acaba en «timeout». Se pide al abrir un servidor de la red local. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <!-- Saber cuándo cambia la red (Wi-Fi → datos) para descartar las conexiones muertas. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Terminal y túneles de puertos vivos en segundo plano; avisos de agentes y de CI. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -54,7 +59,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keeps the user's interactive SSH terminal sessions connected while the app is in the background, so that long-running remote commands stay visible and the session resumes instantly. Runs only while the user has a terminal open, only if the in-app setting is on, always shows an ongoing notification with a Disconnect all action, and stops when the last terminal closes. No suitable foreground service type covers a user-initiated persistent SSH connection." />
+                android:value="Keeps the user's own SSH connections alive while the app is in the background: interactive terminal sessions (so long-running remote commands stay visible and the session resumes instantly) and the local port forwards the user opened to view a web app running on their server in the phone's browser. Runs only while the user has a terminal or a port forward open, only if the in-app setting is on, always shows an ongoing notification with the number of terminals and forwarded ports and a Disconnect all (or Close all) action, and stops when the last one closes. It does no periodic work of its own. No suitable foreground service type covers a user-initiated persistent SSH connection." />
         </service>
     </application>
 </manifest>

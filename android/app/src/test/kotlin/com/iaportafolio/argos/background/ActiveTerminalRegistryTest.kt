@@ -121,4 +121,43 @@ class ActiveTerminalRegistryTest {
         assertEquals(1, terminal.lost)
         assertFalse(registry.keepsAliveInBackground)
     }
+
+    @Test
+    fun `un túnel arranca el servicio y lo mantiene sin terminales`() {
+        registry.setTunnels("S1", 2)
+        assertEquals(1, host.starts)
+        assertEquals(2, registry.tunnelCount.value)
+        assertTrue(registry.isServiceRunning)
+
+        val terminal = Terminal()
+        registry.register(terminal)
+        registry.unregister(terminal)
+        // Sigue habiendo túneles: el servicio no se da por parado.
+        assertTrue(registry.isServiceRunning)
+        assertEquals(1, host.starts)
+
+        registry.setTunnels("S1", 0)
+        assertFalse(registry.isServiceRunning)
+        assertEquals(0, registry.tunnelCount.value)
+        assertTrue(registry.tunnelServers().isEmpty())
+    }
+
+    @Test
+    fun `los túneles se suman por servidor`() {
+        registry.setTunnels("A", 1)
+        registry.setTunnels("B", 2)
+        registry.setTunnels("A", 3)
+        assertEquals(5, registry.tunnelCount.value)
+        assertEquals(setOf("A", "B"), registry.tunnelServers())
+        assertEquals(1, host.starts)
+    }
+
+    @Test
+    fun `con el ajuste desactivado los túneles no arrancan el servicio`() {
+        enabled = false
+        registry.setTunnels("S1", 1)
+        assertEquals(0, host.starts)
+        assertFalse(registry.isServiceRunning)
+        assertEquals(1, registry.tunnelCount.value)
+    }
 }

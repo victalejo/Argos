@@ -113,4 +113,70 @@ class ServiceHubTest {
         hub.service(server())
         assertEquals(2, connector.made.size)
     }
+
+    @Test
+    fun `servidor de la red local sin permiso - error propio sin crear servicio`() = runTest {
+        secrets.write("S1", SecretKind.PASSWORD, "pw")
+        var granted = false
+        val hub = ServiceHub(connector, secrets, trust, StandardTestDispatcher(testScheduler), LocalNetworkGate({ true }, { granted }) { emptyList() })
+
+        val error = assertFailsWith<LocalNetworkPermissionException> { hub.service(server(host = "192.168.1.40")) }
+        assertEquals("192.168.1.40", error.host)
+        assertTrue(error.message.orEmpty().contains("Dispositivos cercanos"))
+        assertTrue(connector.made.isEmpty())
+
+        granted = true
+        hub.service(server(host = "192.168.1.40"))
+        assertEquals(1, connector.made.size)
+    }
+
+    @Test
+    fun `cached no abre conexiones y olvida un servidor editado`() = runTest {
+        secrets.write("S1", SecretKind.PASSWORD, "pw")
+        val hub = hub()
+        assertNull(hub.cached(server()))
+        val service = hub.service(server())
+        assertSame(service, hub.cached(server()))
+        assertNull(hub.cached(server(host = "otro.example.com")))
+        assertEquals(1, connector.made.size)
+    }
+
+    @Test
+    fun `probeAll descarta la conexión que no responde o está caída y conserva la viva`() = runTest {
+        secrets.write("A", SecretKind.PASSWORD, "pw")
+        secrets.write("B", SecretKind.PASSWORD, "pw")
+        secrets.write("C", SecretKind.PASSWORD, "pw")
+        val disconnected = mutableListOf<String>()
+        val hub = ServiceHub(connector, secrets, trust, StandardTestDispatcher(testScheduler), onDisconnected = { disconnected += it })
+        hub.service(server(id = "A"))
+        hub.service(server(id = "B"))
+        hub.service(server(id = "C"))
+        val (a, b, c) = connector.made.map { it.third }
+        a.listGate = kotlinx.coroutines.CompletableDeferred()
+        b.listError = java.io.IOException("roto")
+        c.listError = com.iaportafolio.argos.core.SSHServiceError.TmuxNotInstalled()
+
+        val dead = hub.probeAll(timeoutMillis = 4_000)
+
+        assertEquals(setOf("A", "B"), dead)
+        assertEquals(setOf("C"), hub.connectedServerIds())
+        assertEquals(listOf(1, 1, 0), listOf(a.disconnects, b.disconnects, c.disconnects))
+        assertEquals(setOf("A", "B"), disconnected.toSet())
+    }
+
+    @Test
+    fun `closeAll cierra todo y avisa de cada servidor`() = runTest {
+        secrets.write("A", SecretKind.PASSWORD, "pw")
+        secrets.write("B", SecretKind.PASSWORD, "pw")
+        val disconnected = mutableListOf<String>()
+        val hub = ServiceHub(connector, secrets, trust, StandardTestDispatcher(testScheduler), onDisconnected = { disconnected += it })
+        hub.service(server(id = "A"))
+        hub.service(server(id = "B"))
+
+        hub.closeAll()
+
+        assertTrue(hub.connectedServerIds().isEmpty())
+        assertEquals(listOf("A", "B"), disconnected)
+        assertTrue(connector.made.all { it.third.disconnects == 1 })
+    }
 }

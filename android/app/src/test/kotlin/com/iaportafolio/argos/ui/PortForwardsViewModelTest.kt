@@ -173,4 +173,20 @@ class PortForwardsViewModelTest {
         assertTrue("ocupado" in error.value)
         assertEquals(false, vm.state.value.isOpening)
     }
+
+    @Test
+    fun `cada cambio de túneles se cuenta para el servicio en primer plano`() = runTest(main.dispatcher) {
+        ports.listening = listOf(web)
+        val reported = mutableListOf<Int>()
+        val vm = PortForwardsViewModel("S1", repository, SingleServiceProvider(ports), settings, main.dispatcher) { serverId, forwards ->
+            assertEquals("S1", serverId)
+            reported += forwards.size
+        }
+        runCurrent()
+        vm.startAndOpen(web)
+        runCurrent()
+        vm.stop(vm.state.value.forwards.single())
+        runCurrent()
+        assertEquals(listOf(0, 1, 0), reported)
+    }
 }

@@ -40,9 +40,10 @@ fun interface TerminalKeepAliveHost {
 }
 
 /**
- * Terminales adjuntos de todo el proceso. Arranca el servicio con el primero, mientras la app está
- * en primer plano (Android 12+ lo prohíbe desde segundo plano). No lo para: el servicio observa
- * [count] y termina solo, porque `stopService` antes de su `startForeground` hace caer la app.
+ * Terminales adjuntos y túneles de puertos de todo el proceso: lo que mantiene el servicio en
+ * primer plano. Arranca el servicio con el primero, mientras la app está en primer plano (Android
+ * 12+ lo prohíbe desde segundo plano). No lo para: el servicio observa [count] y [tunnelCount] y
+ * termina solo, porque `stopService` antes de su `startForeground` hace caer la app.
  */
 class ActiveTerminalRegistry(
     private val host: TerminalKeepAliveHost,
@@ -51,14 +52,22 @@ class ActiveTerminalRegistry(
 
     private val lock = Any()
     private var terminals: Set<ActiveTerminal> = emptySet()
+    private var tunnels: Map<String, Int> = emptyMap()
     private var serviceRunning = false
     private val mutableCount = MutableStateFlow(0)
+    private val mutableTunnelCount = MutableStateFlow(0)
 
     /** Terminales adjuntos; la notificación del servicio lo muestra. */
     val count: StateFlow<Int> = mutableCount.asStateFlow()
 
+    /** Túneles de puertos abiertos (todos los servidores); también salen en la notificación. */
+    val tunnelCount: StateFlow<Int> = mutableTunnelCount.asStateFlow()
+
     override val keepsAliveInBackground: Boolean
         get() = synchronized(lock) { serviceRunning } && isEnabled()
+
+    /** ¿Está (o debería estar) el servicio en marcha? */
+    val isServiceRunning: Boolean get() = synchronized(lock) { serviceRunning }
 
     override fun register(terminal: ActiveTerminal) {
         val mustStart = synchronized(lock) {
@@ -66,21 +75,35 @@ class ActiveTerminalRegistry(
             mutableCount.value = terminals.size
             !serviceRunning && isEnabled()
         }
-        if (!mustStart) return
-        val started = host.start()
-        synchronized(lock) { serviceRunning = started && terminals.isNotEmpty() }
-        if (!started) ArgosLog.warn(ArgosLog.TAG_TERMINAL, "Sin servicio: el terminal hará detach en segundo plano")
+        if (mustStart) start()
     }
 
     override fun unregister(terminal: ActiveTerminal) {
         synchronized(lock) {
             terminals = terminals - terminal
             mutableCount.value = terminals.size
-            if (terminals.isEmpty()) serviceRunning = false
+            if (isIdle()) serviceRunning = false
         }
     }
 
-    /** «Desconectar todo». */
+    /**
+     * Túneles abiertos ahora en [serverId] (0 = ninguno). Si es el primero del proceso, arranca el
+     * servicio: llamar con la app en primer plano al abrir un túnel.
+     */
+    fun setTunnels(serverId: String, count: Int) {
+        val mustStart = synchronized(lock) {
+            tunnels = if (count > 0) tunnels + (serverId to count) else tunnels - serverId
+            mutableTunnelCount.value = tunnels.values.sum()
+            if (isIdle()) serviceRunning = false
+            count > 0 && !serviceRunning && isEnabled()
+        }
+        if (mustStart) start()
+    }
+
+    /** Servidores con algún túnel abierto. */
+    fun tunnelServers(): Set<String> = synchronized(lock) { tunnels.keys }
+
+    /** «Desconectar todo» (solo los terminales; los túneles los cierra quien los conoce). */
     fun disconnectAll() = snapshot().forEach { it.disconnectFromBackground() }
 
     /** El servicio no pudo pasar a primer plano o el sistema lo destruyó. */
@@ -88,6 +111,15 @@ class ActiveTerminalRegistry(
         synchronized(lock) { serviceRunning = false }
         snapshot().forEach { it.onKeepAliveLost() }
     }
+
+    private fun start() {
+        val started = host.start()
+        synchronized(lock) { serviceRunning = started && !isIdle() }
+        if (!started) ArgosLog.warn(ArgosLog.TAG_TERMINAL, "Sin servicio: el terminal hará detach en segundo plano")
+    }
+
+    /** Llamar con [lock] tomado. */
+    private fun isIdle(): Boolean = terminals.isEmpty() && tunnels.isEmpty()
 
     private fun snapshot(): Set<ActiveTerminal> = synchronized(lock) { terminals }
 }

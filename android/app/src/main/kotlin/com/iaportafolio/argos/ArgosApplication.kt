@@ -14,6 +14,7 @@ class ArgosApplication : Application() {
         super.onCreate()
         installSecurityProvider()
         container = AppContainer(this, sshConnector())
+        container.startMonitors()
     }
 
     /**

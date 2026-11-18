@@ -3,6 +3,7 @@ package com.iaportafolio.argos.ui.ports
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.background.PortForwardReporter
 import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.ports.ActivePortForward
 import com.iaportafolio.argos.core.ports.ListeningPort
@@ -47,6 +48,8 @@ class PortForwardsViewModel(
     private val services: ServiceProvider,
     private val settings: PortForwardSettingsStore,
     private val io: CoroutineDispatcher,
+    /** Cuenta los túneles para el servicio en primer plano (el navegador los usa fuera de Argos). */
+    private val tunnels: PortForwardReporter = PortForwardReporter.None,
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(PortForwardsUiState(idleMinutes = settings.idleMinutes))
@@ -83,6 +86,7 @@ class PortForwardsViewModel(
         logFailures(ArgosLog.TAG_SSH, "puertos de $serverId") {
             val ops = ports()
             val forwards = withContext(io) { ops.activePortForwards() }
+            tunnels.report(serverId, forwards)
             mutableState.update { it.copy(forwards = forwards) }
             val listening = withContext(io) { ops.listeningPorts() }
             mutableState.update { it.copy(listening = listening, listError = null, hasLoaded = true) }
@@ -136,6 +140,7 @@ class PortForwardsViewModel(
                 val ops = ports()
                 withContext(io) { ops.stopPortForward(forward.id) }
                 val forwards = withContext(io) { ops.activePortForwards() }
+                tunnels.report(serverId, forwards)
                 mutableState.update { it.copy(forwards = forwards) }
             }.onFailure { error -> mutableState.update { it.copy(message = error.toUiText()) } }
             mutableState.update { it.copy(busyPorts = it.busyPorts - forward.remotePort) }
@@ -150,6 +155,7 @@ class PortForwardsViewModel(
             val ops = ports()
             val forward = withContext(io) { ops.startPortForward(remotePort, targetHost, preferredLocalPort = remotePort) }
             val forwards = withContext(io) { ops.activePortForwards() }
+            tunnels.report(serverId, forwards)
             mutableState.update { it.copy(forwards = forwards) }
             forward
         }.onFailure { error -> mutableState.update { it.copy(message = error.toUiText()) } }

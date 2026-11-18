@@ -22,12 +22,18 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
- * Mantiene vivo el proceso mientras haya terminales adjuntos: la conexión y el bombeo al emulador
- * viven en los `TerminalViewModel`, aquí no hay nada de SSH. Mientras dura, revisa también los
- * avisos de agentes más a menudo que WorkManager.
+ * Mantiene vivo el proceso mientras haya terminales adjuntos o túneles de puertos abiertos: la
+ * conexión y el bombeo al emulador viven en los `TerminalViewModel` y los túneles en el
+ * `ServiceHub`; aquí no se abre ninguna conexión. No hace trabajo periódico propio (los avisos de
+ * agentes van por WorkManager): solo, mientras haya túneles, relee cada [TUNNEL_CHECK_INTERVAL_MILLIS]
+ * cuántos siguen abiertos (el cierre automático por inactividad los cierra) para pararse con el último.
  *
  * Sin WifiLock ni WakeLock, a propósito: si el sistema duerme y corta la red, el reintento con
  * backoff del terminal lo resuelve al volver. La notificación nunca muestra contenido de la sesión.
@@ -45,14 +51,21 @@ class TerminalKeepAliveService : Service() {
     override fun onCreate() {
         super.onCreate()
         ArgosNotificationChannels.ensure(this)
+        val registry = container.activeTerminals
         scope.launch {
-            container.activeTerminals.count.collect { count ->
-                if (count > 0) enterForeground(count)
+            combine(registry.count, registry.tunnelCount) { terminals, tunnels -> KeepAliveCounts(terminals, tunnels) }.collect { counts ->
+                if (!counts.isIdle) enterForeground(counts)
                 stopSoonIfIdle()
             }
         }
-        scope.launch { runEvery(AGENT_CHECK_INTERVAL_MILLIS) { container.agentNotifier.check() } }
+        scope.launch {
+            registry.tunnelCount.map { it > 0 }.distinctUntilChanged().collectLatest { hasTunnels ->
+                if (hasTunnels) runEvery(TUNNEL_CHECK_INTERVAL_MILLIS) { container.portForwards.refreshAll() }
+            }
+        }
     }
+
+    private fun currentCounts() = KeepAliveCounts(container.activeTerminals.count.value, container.activeTerminals.tunnelCount.value)
 
     /**
      * Siempre pasa a primer plano antes que nada: cada `startForegroundService` lo exige, aunque
@@ -60,8 +73,10 @@ class TerminalKeepAliveService : Service() {
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lastStartId = startId
-        if (enterForeground(container.activeTerminals.count.value) && intent?.action == ACTION_DISCONNECT_ALL) {
+        if (enterForeground(currentCounts()) && intent?.action == ACTION_DISCONNECT_ALL) {
             container.activeTerminals.disconnectAll()
+            // En el ámbito de la app: si el servicio se para antes, los túneles se cierran igual.
+            container.closeAllPortForwards()
         }
         stopSoonIfIdle()
         // Si el proceso muere, mueren también los terminales: no hay nada que recuperar.
@@ -75,18 +90,18 @@ class TerminalKeepAliveService : Service() {
      */
     private fun stopSoonIfIdle() {
         stopJob?.cancel()
-        if (container.activeTerminals.count.value > 0) return
+        if (!currentCounts().isIdle) return
         stopJob = scope.launch {
             delay(STOP_GRACE_MILLIS)
             if (stopSelfResult(lastStartId)) stoppedOnPurpose = true
         }
     }
 
-    private fun enterForeground(count: Int): Boolean = try {
+    private fun enterForeground(counts: KeepAliveCounts): Boolean = try {
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
-            notification(count),
+            notification(counts),
             // `specialUse` no existe antes de Android 14, donde tampoco hace falta indicar tipo.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0,
         )
@@ -107,9 +122,10 @@ class TerminalKeepAliveService : Service() {
         stopSelf()
     }
 
-    /** La app se cerró desde recientes: detach y fuera. */
+    /** La app se cerró desde recientes: detach, túneles cerrados y fuera. */
     override fun onTaskRemoved(rootIntent: Intent?) {
         container.activeTerminals.disconnectAll()
+        container.closeAllPortForwards()
         stoppedOnPurpose = true
         stopSelf()
         super.onTaskRemoved(rootIntent)
@@ -121,7 +137,7 @@ class TerminalKeepAliveService : Service() {
         super.onDestroy()
     }
 
-    private fun notification(count: Int): Notification {
+    private fun notification(counts: KeepAliveCounts): Notification {
         val open = PendingIntent.getActivity(
             this,
             0,
@@ -137,9 +153,9 @@ class TerminalKeepAliveService : Service() {
         return NotificationCompat.Builder(this, ArgosNotificationChannels.KEEP_ALIVE)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText(resources.getQuantityString(R.plurals.keep_alive_notification, count, count))
+            .setContentText(text(counts))
             .setContentIntent(open)
-            .addAction(R.drawable.ic_stop, getString(R.string.keep_alive_disconnect_all), disconnect)
+            .addAction(R.drawable.ic_stop, getString(if (counts.tunnels > 0) R.string.keep_alive_close_all else R.string.keep_alive_disconnect_all), disconnect)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
@@ -147,11 +163,25 @@ class TerminalKeepAliveService : Service() {
             .build()
     }
 
+    /** «Argos mantiene 1 terminal conectado», «… 2 puertos reenviados» o ambos. */
+    private fun text(counts: KeepAliveCounts): String {
+        val (terminals, tunnels) = counts
+        return when {
+            tunnels == 0 -> resources.getQuantityString(R.plurals.keep_alive_notification, terminals, terminals)
+            terminals == 0 -> resources.getQuantityString(R.plurals.keep_alive_notification_tunnels, tunnels, tunnels)
+            else -> getString(
+                R.string.keep_alive_notification_both,
+                resources.getQuantityString(R.plurals.keep_alive_terminals, terminals, terminals),
+                resources.getQuantityString(R.plurals.keep_alive_tunnels, tunnels, tunnels),
+            )
+        }
+    }
+
     companion object {
         private const val ACTION_DISCONNECT_ALL = "com.iaportafolio.argos.action.DISCONNECT_ALL_TERMINALS"
         private const val NOTIFICATION_ID = 100
         private const val STOP_GRACE_MILLIS = 1_000L
-        private const val AGENT_CHECK_INTERVAL_MILLIS = 60_000L
+        private const val TUNNEL_CHECK_INTERVAL_MILLIS = 60_000L
 
         /** Host real del registro. Falla (`false`) si el sistema no deja arrancarlo ahora. */
         fun host(context: Context) = TerminalKeepAliveHost {
@@ -169,4 +199,9 @@ class TerminalKeepAliveService : Service() {
             }
         }
     }
+}
+
+/** Lo que mantiene vivo el servicio. */
+internal data class KeepAliveCounts(val terminals: Int, val tunnels: Int) {
+    val isIdle: Boolean get() = terminals == 0 && tunnels == 0
 }

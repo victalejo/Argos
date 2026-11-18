@@ -84,12 +84,15 @@ fun ServersScreen(
     onAgentNotificationsChange: (Boolean) -> Unit,
     onKeepTerminalAliveChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    /** Diagnóstico de los avisos (desde «Avisos y segundo plano»). */
+    diagnostics: @Composable (onDismiss: () -> Unit) -> Unit = {},
 ) {
     val snackbar = remember { SnackbarHostState() }
     MessageEffect(state.message, snackbar, onMessageShown)
     var menuOpen by remember { mutableStateOf(false) }
     var editingPermissions by rememberSaveable { mutableStateOf(false) }
     var editingBackground by rememberSaveable { mutableStateOf(false) }
+    var showingDiagnostics by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -199,12 +202,18 @@ fun ServersScreen(
         )
     }
 
+    if (showingDiagnostics) diagnostics { showingDiagnostics = false }
+
     if (editingBackground) {
         BackgroundSettingsDialog(
             agentNotificationsEnabled = state.agentNotificationsEnabled,
             keepTerminalAlive = state.keepTerminalAlive,
             onAgentNotificationsChange = onAgentNotificationsChange,
             onKeepTerminalAliveChange = onKeepTerminalAliveChange,
+            onOpenDiagnostics = {
+                editingBackground = false
+                showingDiagnostics = true
+            },
             onDismiss = { editingBackground = false },
         )
     }

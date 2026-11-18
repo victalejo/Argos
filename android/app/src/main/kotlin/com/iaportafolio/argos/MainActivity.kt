@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.iaportafolio.argos.background.AgentChatLink
 import com.iaportafolio.argos.background.AgentChatTarget
@@ -28,6 +30,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // App de una sola Activity: su ciclo de vida es el «primer plano» de la app.
+        lifecycle.addObserver(
+            object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) = container.visibility.onAppStarted()
+
+                override fun onStop(owner: LifecycleOwner) = container.visibility.onAppStopped()
+            },
+        )
         // Al recrearse o volver desde recientes llega el mismo Intent: el aviso ya se atendió.
         if (savedInstanceState == null) handle(intent)
         setContent {

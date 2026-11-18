@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -29,14 +30,17 @@ import androidx.navigation.toRoute
 import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.background.AgentChatTarget
+import com.iaportafolio.argos.background.CheckTrigger
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.ui.about.AboutScreen
 import com.iaportafolio.argos.ui.about.LicensesScreen
+import com.iaportafolio.argos.ui.agents.AgentChatConnectionEffect
 import com.iaportafolio.argos.ui.agents.AgentChatScreen
 import com.iaportafolio.argos.ui.agents.AgentListEvent
 import com.iaportafolio.argos.ui.agents.AgentListScreen
 import com.iaportafolio.argos.ui.agents.AgentLoginScreen
 import com.iaportafolio.argos.ui.agents.RequestAgentNotificationPermission
+import com.iaportafolio.argos.ui.common.LocalNetworkPermissionPrompt
 import com.iaportafolio.argos.ui.common.StatusMessage
 import com.iaportafolio.argos.ui.files.FilesScreen
 import com.iaportafolio.argos.ui.git.GitChangesScreen
@@ -44,6 +48,7 @@ import com.iaportafolio.argos.ui.git.GitHubSection
 import com.iaportafolio.argos.ui.projects.WorktreesDialog
 import com.iaportafolio.argos.ui.form.ServerFormScreen
 import com.iaportafolio.argos.ui.importer.ImportServerScreen
+import com.iaportafolio.argos.ui.project.ProjectLoad
 import com.iaportafolio.argos.ui.project.ProjectScreen
 import com.iaportafolio.argos.ui.project.WIDE_LAYOUT_MIN_WIDTH
 import com.iaportafolio.argos.ui.ports.PortForwardRequestPrompt
@@ -51,11 +56,15 @@ import com.iaportafolio.argos.ui.ports.PortForwardsScreen
 import com.iaportafolio.argos.ui.projects.FolderPickerDialog
 import com.iaportafolio.argos.ui.projects.ProjectsEvent
 import com.iaportafolio.argos.ui.projects.ProjectsScreen
+import com.iaportafolio.argos.ui.servers.BackgroundDiagnosticsDialog
+import com.iaportafolio.argos.ui.servers.DiagnosticsInput
 import com.iaportafolio.argos.ui.servers.ServersScreen
 import com.iaportafolio.argos.ui.sessions.SessionsLoad
+import com.iaportafolio.argos.ui.terminal.TerminalConnectionEffect
 import com.iaportafolio.argos.ui.terminal.TerminalScreen
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 /** Rutas tipadas de Navigation Compose. */
@@ -220,8 +229,10 @@ fun ArgosNavHost(
         composable<TerminalRoute> { entry ->
             val route = entry.toRoute<TerminalRoute>()
             RequestAgentNotificationPermission(container.agentNotifier, forTerminal = true)
+            val terminal = terminalViewModel(container, route.serverId, route.sessionName)
+            LocalNetworkPermissionPrompt(container.localNetwork, container.servers.server(route.serverId)?.host, terminal::reconnect)
             TerminalScreen(
-                viewModel = terminalViewModel(container, route.serverId, route.sessionName),
+                viewModel = terminal,
                 onBack = { navController.popBackStack() },
                 windows = terminalWindowsViewModel(container, route.serverId, route.sessionName, projectPath = null),
             )
@@ -301,6 +312,7 @@ private fun ServersDestination(
                 onKeepTerminalAliveChange = viewModel::setKeepTerminalAlive,
                 onMessageShown = viewModel::messageShown,
                 modifier = modifier,
+                diagnostics = { onDismiss -> DiagnosticsDestination(container, onDismiss) },
             )
         }
         if (!twoPane) {
@@ -340,6 +352,7 @@ private fun ProjectsDestination(
 ) {
     val viewModel = projectsViewModel(container, serverId)
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LocalNetworkPermissionPrompt(container.localNetwork, container.servers.server(serverId)?.host, viewModel::refresh)
     var worktreesFor by rememberSaveable { mutableStateOf<String?>(null) }
     worktreesFor?.let { projectId ->
         WorktreesDialog(worktreesViewModel(container, serverId, projectId)) {
@@ -394,11 +407,15 @@ private fun ProjectDestination(
 ) {
     val viewModel = projectViewModel(container, serverId, projectId)
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LocalNetworkPermissionPrompt(container.localNetwork, container.servers.server(serverId)?.host, viewModel::reload)
     // Al volver a primer plano la sesión pudo detenerse o arrancar desde otro cliente.
     LifecycleResumeEffect(viewModel) {
         viewModel.reload()
         onPauseOrDispose { }
     }
+    // Chat abierto junto a la lista (pantallas anchas): aquí para seguir conectado en otras pestañas.
+    var selectedAgentId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
+    val isRunning = (state.load as? ProjectLoad.Loaded)?.isRunning == true
     // «Claude quiere mostrarte el puerto N»: solo se abre si el usuario acepta.
     PortForwardRequestPrompt(portForwardRequestsViewModel(container, serverId))
     ProjectScreen(
@@ -412,6 +429,7 @@ private fun ProjectDestination(
                 onBack = onBack,
                 autoShowKeyboard = false,
                 windows = terminalWindowsViewModel(container, serverId, project.sessionName, project.path),
+                ownsConnection = false,
             )
         },
         files = { project, twoPane ->
@@ -426,7 +444,26 @@ private fun ProjectDestination(
             )
         },
         agents = { project, twoPane ->
-            AgentsDestination(container, serverId, project, twoPane, onBack, onOpenAgent, onOpenLogin)
+            AgentsDestination(
+                container,
+                serverId,
+                project,
+                twoPane,
+                selectedAgentId = selectedAgentId,
+                onSelectAgent = { selectedAgentId = it },
+                onBack,
+                onOpenAgent,
+                onOpenLogin,
+            )
+        },
+        // Como el Mac (c131ba1): el terminal y el chat siguen enganchados mientras el proyecto esté
+        // abierto; cambiar de pestaña ya no hace detach ni repite el handshake.
+        keepAlive = { project, twoPane ->
+            if (isRunning && state.terminalOpened) {
+                TerminalConnectionEffect(terminalViewModel(container, serverId, project.sessionName))
+            }
+            val chatId = selectedAgentId
+            if (twoPane && chatId != null) AgentChatConnectionEffect(agentChatViewModel(container, serverId, chatId))
         },
     )
 }
@@ -438,17 +475,21 @@ private fun AgentsDestination(
     serverId: String,
     project: Project,
     twoPane: Boolean,
+    /** Chat seleccionado en pantallas anchas (lo guarda la pantalla del proyecto). */
+    selectedAgentId: String?,
+    onSelectAgent: (String?) -> Unit,
     onBack: () -> Unit,
     onOpenAgent: (String) -> Unit,
     onOpenLogin: () -> Unit,
 ) {
     val viewModel = agentListViewModel(container, serverId, project.name, project.path)
-    var selectedId by rememberSaveable(project.path) { mutableStateOf<String?>(null) }
+    val selectedId = selectedAgentId
     val currentTwoPane by rememberUpdatedState(twoPane)
+    val currentOnSelect by rememberUpdatedState(onSelectAgent)
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
-                is AgentListEvent.OpenAgent -> if (currentTwoPane) selectedId = event.agentId else onOpenAgent(event.agentId)
+                is AgentListEvent.OpenAgent -> if (currentTwoPane) currentOnSelect(event.agentId) else onOpenAgent(event.agentId)
                 AgentListEvent.OpenLogin -> onOpenLogin()
             }
         }
@@ -490,10 +531,41 @@ private fun AgentsDestination(
                 agentId = agentId,
                 onBack = null,
                 onClosed = {
-                    selectedId = null
+                    onSelectAgent(null)
                     viewModel.refresh()
                 },
+                ownsConnection = false,
             )
         }
     }
+}
+
+/** Diagnóstico de avisos (Ajustes → Avisos y segundo plano). */
+@Composable
+private fun DiagnosticsDestination(container: AppContainer, onDismiss: () -> Unit) {
+    val lastCheck by container.diagnostics.lastCheck.collectAsStateWithLifecycle()
+    val ciCount by container.ciWatches.watchCountFlow.collectAsStateWithLifecycle()
+    val enabled by container.agentNotifier.notificationsEnabled.collectAsStateWithLifecycle()
+    var checking by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    BackgroundDiagnosticsDialog(
+        input = DiagnosticsInput(
+            lastCheck = lastCheck,
+            ciWatchCount = ciCount,
+            notificationsEnabled = enabled,
+            hasWatchedWork = container.agentNotifier.hasWatchedServers() || ciCount > 0,
+            isChecking = checking,
+        ),
+        onCheckNow = {
+            checking = true
+            scope.launch {
+                try {
+                    container.agentNotifier.check(CheckTrigger.MANUAL)
+                } finally {
+                    checking = false
+                }
+            }
+        },
+        onDismiss = onDismiss,
+    )
 }

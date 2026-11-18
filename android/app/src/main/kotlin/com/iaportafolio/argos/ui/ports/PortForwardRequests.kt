@@ -15,6 +15,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.background.PortForwardReporter
 import com.iaportafolio.argos.core.ports.PortForwardRequest
 import com.iaportafolio.argos.data.ArgosLog
 import com.iaportafolio.argos.data.ServerRepository
@@ -56,6 +57,8 @@ class PortForwardRequestsViewModel(
     private val repository: ServerRepository,
     private val services: ServiceProvider,
     private val io: CoroutineDispatcher,
+    /** Cuenta los túneles para el servicio en primer plano (el navegador los usa fuera de Argos). */
+    private val tunnels: PortForwardReporter = PortForwardReporter.None,
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(PortForwardRequestsUiState())
@@ -101,6 +104,7 @@ class PortForwardRequestsViewModel(
                 val existing = withContext(io) { ops.activePortForwards() }.firstOrNull { it.remotePort == request.port }
                 val forward = existing
                     ?: withContext(io) { ops.startPortForward(request.port, "localhost", preferredLocalPort = request.port) }
+                tunnels.report(serverId, withContext(io) { ops.activePortForwards() })
                 openChannel.send(forward.localUrl)
             }.onFailure { error -> mutableState.update { it.copy(error = error.toUiText()) } }
             mutableState.update { it.copy(isOpening = false) }

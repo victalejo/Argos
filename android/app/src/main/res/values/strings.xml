@@ -520,7 +520,7 @@
     <string name="notification_channel_agents">Avisos de agentes</string>
     <string name="notification_channel_agents_description">Cuando un agente termina o espera tu permiso.</string>
     <string name="notification_channel_keep_alive">Terminal en segundo plano</string>
-    <string name="notification_channel_keep_alive_description">Indica que Argos mantiene terminales conectados.</string>
+    <string name="notification_channel_keep_alive_description">Indica que Argos mantiene terminales conectados o puertos reenviados.</string>
     <string name="notification_agent_public">Un agente necesita tu atención</string>
     <string name="notification_channel_ci">CI de GitHub</string>
     <string name="notification_channel_ci_description">Cuando termina el CI de un commit que subiste desde Argos.</string>
@@ -531,13 +531,70 @@
         <item quantity="other">Argos mantiene %d terminales conectados</item>
     </plurals>
     <string name="keep_alive_disconnect_all">Desconectar todo</string>
+    <string name="keep_alive_close_all">Cerrar todo</string>
+    <plurals name="keep_alive_notification_tunnels">
+        <item quantity="one">Argos mantiene %d puerto reenviado</item>
+        <item quantity="many">Argos mantiene %d puertos reenviados</item>
+        <item quantity="other">Argos mantiene %d puertos reenviados</item>
+    </plurals>
+    <plurals name="keep_alive_terminals">
+        <item quantity="one">%d terminal conectado</item>
+        <item quantity="many">%d terminales conectados</item>
+        <item quantity="other">%d terminales conectados</item>
+    </plurals>
+    <plurals name="keep_alive_tunnels">
+        <item quantity="one">%d puerto reenviado</item>
+        <item quantity="many">%d puertos reenviados</item>
+        <item quantity="other">%d puertos reenviados</item>
+    </plurals>
+    <string name="keep_alive_notification_both">%1$s · %2$s</string>
     <string name="background_settings_title">Avisos y segundo plano</string>
     <string name="background_agents_title">Avisos de agentes</string>
     <string name="background_agents_detail">Revisa tus servidores cada cierto tiempo para avisarte de que un agente terminó o espera tu permiso.</string>
     <string name="background_notifications_blocked">El sistema tiene bloqueadas las notificaciones de Argos: no verás estos avisos.</string>
     <string name="background_open_system_settings">Abrir ajustes del sistema</string>
     <string name="background_keep_terminal_title">Mantener el terminal conectado en segundo plano</string>
-    <string name="background_keep_terminal_detail">Sigue conectado al cambiar de app, con una notificación permanente. Si el móvil se duerme y corta la red, se reconecta al volver.</string>
+    <string name="background_keep_terminal_detail">El terminal y los puertos reenviados siguen conectados al cambiar de app (p. ej. al navegador), con una notificación permanente. Si el móvil se duerme y corta la red, se reconecta al volver.</string>
+
+    <!-- Diagnóstico de avisos -->
+    <string name="diagnostics_open">Diagnóstico de avisos</string>
+    <string name="diagnostics_title">Diagnóstico de avisos</string>
+    <string name="diagnostics_last_check">Última comprobación</string>
+    <string name="diagnostics_never">Todavía ninguna.</string>
+    <string name="diagnostics_last_check_value">%1$s, %2$s. %3$s</string>
+    <string name="diagnostics_trigger_background">en segundo plano</string>
+    <string name="diagnostics_trigger_foreground">con Argos abierto</string>
+    <string name="diagnostics_trigger_manual">a mano</string>
+    <string name="diagnostics_outcome_checked">Revisados: %1$d · con error: %2$d · saltados: %3$d</string>
+    <string name="diagnostics_outcome_disabled">Los avisos de agentes están desactivados.</string>
+    <string name="diagnostics_outcome_blocked">Las notificaciones están bloqueadas: no se revisó nada.</string>
+    <string name="diagnostics_outcome_busy">Ya había otra comprobación en marcha.</string>
+    <string name="diagnostics_bucket">Uso en segundo plano (App Standby)</string>
+    <string name="diagnostics_bucket_active">Activo: el sistema deja correr las comprobaciones con normalidad.</string>
+    <string name="diagnostics_bucket_working_set">Uso frecuente: las comprobaciones pueden retrasarse un poco.</string>
+    <string name="diagnostics_bucket_frequent">Uso habitual: las comprobaciones pueden retrasarse hasta unas horas.</string>
+    <string name="diagnostics_bucket_rare">Uso poco frecuente: el sistema puede retrasar los avisos muchas horas.</string>
+    <string name="diagnostics_bucket_restricted">Restringido: casi no se deja correr nada en segundo plano.</string>
+    <string name="diagnostics_bucket_unknown">El sistema no lo indica.</string>
+    <string name="diagnostics_battery">Optimización de batería</string>
+    <string name="diagnostics_battery_optimized">Activa: Android puede aplazar las comprobaciones para ahorrar batería.</string>
+    <string name="diagnostics_battery_unrestricted">Sin restricciones para Argos.</string>
+    <string name="diagnostics_ci">CI vigilado</string>
+    <string name="diagnostics_ci_count">Commits pendientes: %1$d</string>
+    <string name="diagnostics_warning_disabled">Los avisos de agentes están desactivados en Argos.</string>
+    <string name="diagnostics_warning_local_network">Algún servidor de tu red local no se revisó: falta el permiso «Dispositivos cercanos».</string>
+    <string name="diagnostics_warning_bucket">El sistema limita a Argos en segundo plano: abrirlo de vez en cuando lo mejora.</string>
+    <string name="diagnostics_warning_stale">Hace más de una hora que no se comprueba nada: el sistema está frenando los avisos.</string>
+    <string name="diagnostics_warning_battery">Con la optimización de batería activa los avisos pueden llegar tarde. Puedes quitarla para Argos en los ajustes de batería.</string>
+    <string name="diagnostics_open_battery">Ajustes de batería</string>
+    <string name="diagnostics_open_app">Ajustes de Argos en el sistema</string>
+    <string name="diagnostics_check_now">Comprobar ahora</string>
+    <string name="diagnostics_checking">Comprobando…</string>
+
+    <!-- Red local (Android 17) -->
+    <string name="local_network_title">Permiso de red local</string>
+    <string name="local_network_denied">%1$s está en tu red local. Desde Android 17, Argos necesita el permiso «Dispositivos cercanos» para conectar con servidores de tu Wi-Fi; sin él la conexión no llega. Concédelo en Ajustes → Permisos → Dispositivos cercanos.</string>
+    <string name="local_network_not_now">Ahora no</string>
 
     <!-- Importar desde el Mac (QR de «Enviar al iPhone…») -->
     <string name="import_title">Añadir desde el Mac</string>

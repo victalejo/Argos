@@ -71,7 +71,7 @@ internal fun portForwardsViewModel(container: AppContainer, serverId: String): P
     key = "ports:$serverId",
     factory = viewModelFactory {
         initializer {
-            PortForwardsViewModel(serverId, container.servers, container.services, container.portForwardSettings, container.io)
+            PortForwardsViewModel(serverId, container.servers, container.services, container.portForwardSettings, container.io, container.portForwards)
         }
     },
 )
@@ -81,7 +81,7 @@ internal fun portForwardsViewModel(container: AppContainer, serverId: String): P
 internal fun portForwardRequestsViewModel(container: AppContainer, serverId: String): PortForwardRequestsViewModel = viewModel(
     key = "port-requests:$serverId",
     factory = viewModelFactory {
-        initializer { PortForwardRequestsViewModel(serverId, container.servers, container.services, container.io) }
+        initializer { PortForwardRequestsViewModel(serverId, container.servers, container.services, container.io, container.portForwards) }
     },
 )
 
