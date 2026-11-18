@@ -19,38 +19,86 @@ class ClaudeStatusTest {
 
     // Parseo y agregación
 
+    private fun snap(output: String) = ClaudeActivitySnapshot.fromListPanes(output)
+
     @Test
-    fun `parsea list-panes ignorando paneles sin estado y nombres con barra vertical`() {
-        val output = listOf("waiting|1|api", "|2|api", "done|1|web|front", "working|3|api", "basura|1|x").joinToString("\n")
-        val snapshot = ClaudeActivitySnapshot.fromListPanes(output)
+    fun `parsea el sondeo ignorando paneles sin estado y nombres con barra vertical`() {
+        val output = listOf(
+            "-|waiting|%1|1|api", "-||%2|2|api", "-|done|%3|1|web|front", "-|working|%4|3|api", "-|basura|%5|1|x",
+            "-|done||1|sin-pane",
+        ).joinToString("\n")
+        val snapshot = snap(output)
         assertEquals(ClaudeActivity.WAITING, snapshot.activity("api"))
         assertEquals(ClaudeActivity.DONE, snapshot.activity("web|front"))
         assertNull(snapshot.activity("x"))
+        assertNull(snapshot.activity("sin-pane"))
         assertEquals(mapOf(1 to ClaudeActivity.WAITING, 3 to ClaudeActivity.WORKING), snapshot.windows("api"))
     }
 
     @Test
     fun `prioridad por sesion esperando sobre terminado sobre trabajando`() {
-        assertEquals(ClaudeActivity.DONE, ClaudeActivitySnapshot.fromListPanes("working|1|s\ndone|2|s").activity("s"))
-        val withWaiting = ClaudeActivitySnapshot.fromListPanes("done|1|s\nwaiting|2|s\nworking|3|s")
+        assertEquals(ClaudeActivity.DONE, snap("-|working|%1|1|s\n-|done|%2|2|s").activity("s"))
+        val withWaiting = snap("-|done|%1|1|s\n-|waiting|%2|2|s\n-|working|%3|3|s")
         assertEquals(ClaudeActivity.WAITING, withWaiting.activity("s"))
         assertEquals(ClaudeActivity.WAITING, withWaiting.activity(listOf("otra", "s")))
     }
 
     @Test
     fun `solo notifica al entrar en esperando o terminado`() {
-        val old = ClaudeActivitySnapshot.fromListPanes("working|1|a\nwaiting|1|b\nworking|1|c")
-        val new = ClaudeActivitySnapshot.fromListPanes("done|1|a\nwaiting|1|b\nworking|1|c\nwaiting|1|d")
+        val old = snap("-|working|%1|1|a\n-|waiting|%2|1|b\n-|working|%3|1|c")
+        val new = snap("-|done|%1|1|a\n-|waiting|%2|1|b\n-|working|%3|1|c\n-|waiting|%4|1|d")
         assertEquals(
-            listOf(ClaudeTransition("a", ClaudeActivity.DONE), ClaudeTransition("d", ClaudeActivity.WAITING)),
+            listOf(ClaudeTransition("a", 1, ClaudeActivity.DONE), ClaudeTransition("d", 1, ClaudeActivity.WAITING)),
             new.notableTransitions(old),
         )
     }
 
     @Test
+    fun `una ventana ya terminada no oculta el aviso de otra de la sesion`() {
+        val old = snap("-|done|%1|1|s\n2|working|%2|2|s")
+        val new = snap("-|done|%1|1|s\n-|done|%2|2|s")
+        assertEquals(listOf(ClaudeTransition("s", 2, ClaudeActivity.DONE)), new.notableTransitions(old))
+        val waiting = snap("-|done|%1|1|s\n-|waiting|%2|2|s")
+        assertEquals(listOf(ClaudeTransition("s", 2, ClaudeActivity.WAITING)), waiting.notableTransitions(new))
+    }
+
+    @Test
+    fun `dos paneles de la misma ventana dan un solo aviso`() {
+        assertEquals(
+            listOf(ClaudeTransition("s", 1, ClaudeActivity.DONE)),
+            snap("-|done|%1|1|s\n-|done|%2|1|s").notableTransitions(ClaudeActivitySnapshot.EMPTY),
+        )
+    }
+
+    @Test
+    fun `interrumpido con Esc pasa a terminado sin avisar`() {
+        val old = snap("2|working|%1|1|s")
+        val new = snap("0|working|%1|1|s")
+        assertEquals(ClaudeActivity.DONE, new.activity("s"))
+        assertTrue(new.notableTransitions(old).isEmpty())
+        assertEquals(
+            listOf(ClaudeTransition("s", 1, ClaudeActivity.DONE)),
+            snap("-|done|%1|1|s").notableTransitions(snap("2|working|%1|1|s")),
+        )
+    }
+
+    @Test
+    fun `correccion con la pantalla`() {
+        val cases = listOf(
+            Triple("working", "2", ClaudeActivity.WORKING), Triple("working", "1", ClaudeActivity.WORKING),
+            Triple("working", "0", ClaudeActivity.DONE), Triple("working", "-", ClaudeActivity.WORKING),
+            Triple("waiting", "2", ClaudeActivity.WORKING), Triple("waiting", "1", ClaudeActivity.WAITING),
+            Triple("waiting", "0", ClaudeActivity.WAITING), Triple("done", "0", ClaudeActivity.DONE),
+        )
+        for ((hook, screen, expected) in cases) {
+            assertEquals(expected, snap("$screen|$hook|%1|1|s").activity("s"), "$hook/$screen")
+        }
+    }
+
+    @Test
     fun `sin servidor tmux el estado queda vacio`() {
-        assertEquals(ClaudeActivitySnapshot.EMPTY, ClaudeStatusCommands.parseActivity(1, "waiting|1|api"))
-        assertEquals(ClaudeActivity.WAITING, ClaudeStatusCommands.parseActivity(0, "waiting|1|api").activity("api"))
+        assertEquals(ClaudeActivitySnapshot.EMPTY, ClaudeStatusCommands.parseActivity(1, "-|waiting|%1|1|api"))
+        assertEquals(ClaudeActivity.WAITING, ClaudeStatusCommands.parseActivity(0, "-|waiting|%1|1|api").activity("api"))
     }
 
     // Hooks en settings.json
