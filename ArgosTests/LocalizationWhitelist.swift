@@ -39,6 +39,17 @@ enum LocalizationWhitelist {
         "leer el estado de Claude",
         "releer las sesiones",
         "sondear el servidor",
+        // Contexto de los errores de los puntos de restauración: solo va al registro.
+        "Vista previa de la restauración",
+        "Detener a Claude",
+        "Activar puntos de restauración",
+        "Desactivar puntos de restauración",
+        "Guardar extractos",
+        "Borrar puntos",
+        "Quitar del servidor",
+        "Crear punto",
+        // Etiqueta de la instantánea manual: se guarda en el servidor (mensaje del commit).
+        "Punto creado a mano",
         // Nombre de archivo del script de Terminal de la variante App Store (se guarda en disco).
         "Abrir en Terminal.scpt",
     ]

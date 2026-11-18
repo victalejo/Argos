@@ -276,12 +276,12 @@ enum CheckpointParser {
 
     static func noopText(_ reason: String) -> String {
         if let kind = CheckpointIssue.Kind(rawValue: reason) {
-            return "No se tocó: \(CheckpointIssue(kind: kind, path: "").explanation)."
+            return String(localized: "No se tocó: \(CheckpointIssue(kind: kind, path: "").explanation).")
         }
         switch reason {
-        case "invalid": return "No se tocó: la ruta no es válida dentro del repositorio."
-        case "absent": return "No había nada que restaurar: el archivo no existe ni existía en ese punto."
-        default: return "No se tocó nada (\(reason))."
+        case "invalid": return String(localized: "No se tocó: la ruta no es válida dentro del repositorio.")
+        case "absent": return String(localized: "No había nada que restaurar: el archivo no existe ni existía en ese punto.")
+        default: return String(localized: "No se tocó nada (\(reason)).")
         }
     }
 
@@ -309,10 +309,10 @@ enum CheckpointParser {
             if line == "ARGOS_CP_GITOLD" { throw CheckpointError.gitTooOld }
             if let detail = line.value(after: "ARGOS_CP_FAILED ") { throw CheckpointError.failed(detail) }
             if line == "ARGOS_CP_NOREPO" {
-                throw CheckpointError.unexpectedOutput("La carpeta ya no es un repositorio git.")
+                throw CheckpointError.unexpectedOutput(String(localized: "La carpeta ya no es un repositorio git."))
             }
             if line == "ARGOS_CP_NOGIT" {
-                throw CheckpointError.unexpectedOutput("git no está instalado en el servidor.")
+                throw CheckpointError.unexpectedOutput(String(localized: "git no está instalado en el servidor."))
             }
         }
     }

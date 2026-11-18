@@ -106,11 +106,11 @@ private struct CheckpointRestoreSheet: View {
         NavigationStack {
             List {
                 CheckpointRestoreHeaderSection(model: model, preview: preview)
-                CheckpointIssueSectioniOS(title: "No se puede restaurar", issues: preview.conflicts)
-                CheckpointPathSectioniOS(title: "Se modificarán", paths: preview.modifies)
-                CheckpointPathSectioniOS(title: "Se borrarán", paths: preview.deletes)
-                CheckpointPathSectioniOS(title: "Se recrearán", paths: preview.recreates)
-                CheckpointPathSectioniOS(title: "No se tocan (ignorados o repositorios anidados)", paths: preview.untouched)
+                CheckpointIssueSectioniOS(title: String(localized: "No se puede restaurar"), issues: preview.conflicts)
+                CheckpointPathSectioniOS(title: String(localized: "Se modificarán"), paths: preview.modifies)
+                CheckpointPathSectioniOS(title: String(localized: "Se borrarán"), paths: preview.deletes)
+                CheckpointPathSectioniOS(title: String(localized: "Se recrearán"), paths: preview.recreates)
+                CheckpointPathSectioniOS(title: String(localized: "No se tocan (ignorados o repositorios anidados)"), paths: preview.untouched)
             }
             .navigationTitle("¿Deshacer hasta aquí?")
             .navigationBarTitleDisplayMode(.inline)

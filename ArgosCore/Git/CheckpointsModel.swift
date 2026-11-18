@@ -52,8 +52,8 @@ enum CheckpointComparison: String, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .turn: return "Este turno"
-        case .sinceThen: return "Hasta ahora"
+        case .turn: return String(localized: "Este turno")
+        case .sinceThen: return String(localized: "Hasta ahora")
         }
     }
 }
@@ -261,7 +261,7 @@ final class CheckpointsModel {
             case .heavy(let reason):
                 pendingHeavy = CheckpointHeavyPreview(checkpoint: checkpoint, reason: reason)
             case .ready(let preview) where preview.isEmpty && preview.issues.isEmpty:
-                notice = "Los archivos ya están como en ese punto: no hay nada que restaurar."
+                notice = String(localized: "Los archivos ya están como en ese punto: no hay nada que restaurar.")
             case .ready(let preview):
                 pendingRestore = preview
             }
@@ -287,8 +287,7 @@ final class CheckpointsModel {
         )
         let outcome = await perform(.restore, command)
         if outcome == .changed {
-            errorMessage = "Los archivos cambiaron mientras revisabas la lista (¿sigue trabajando Claude?). "
-                + "No se tocó nada: revisa la nueva lista."
+            errorMessage = String(localized: "Los archivos cambiaron mientras revisabas la lista (¿sigue trabajando Claude?). No se tocó nada: revisa la nueva lista.")
             await prepareRestore(preview.checkpoint)
         }
     }
@@ -305,7 +304,7 @@ final class CheckpointsModel {
             root: listing.root, commit: checkpoint.commit, expectedTree: currentTree, path: path
         )
         if await perform(.restoreFile(path), command) == .changed {
-            errorMessage = "Los archivos cambiaron desde que los miraste: revisa el diff y vuelve a intentarlo."
+            errorMessage = String(localized: "Los archivos cambiaron desde que los miraste: revisa el diff y vuelve a intentarlo.")
         }
     }
 
@@ -329,7 +328,7 @@ final class CheckpointsModel {
             try? await Task.sleep(for: .seconds(1))
         }
         if claudeIsWorking {
-            errorMessage = "Claude sigue trabajando. Espera a que termine o detenlo en su terminal y vuelve a intentarlo."
+            errorMessage = String(localized: "Claude sigue trabajando. Espera a que termine o detenlo en su terminal y vuelve a intentarlo.")
             return false
         }
         return true
@@ -354,14 +353,14 @@ final class CheckpointsModel {
         switch outcome {
         case .done:
             if case .restoreFile(let path) = op {
-                notice = "«\((path as NSString).lastPathComponent)» restaurado. Antes se guardó un punto con el estado anterior."
+                notice = String(localized: "«\((path as NSString).lastPathComponent)» restaurado. Antes se guardó un punto con el estado anterior.")
             } else {
-                notice = "Restaurado. Si te arrepientes, restaura el punto «Antes de restaurar…»."
+                notice = String(localized: "Restaurado. Si te arrepientes, restaura el punto «Antes de restaurar…».")
             }
         case .partial(_, let skipped) where skipped.contains(where: \.isConflict):
             errorMessage = CheckpointTexts.partialMessage(skipped)
         case .partial:
-            notice = "Restaurado, salvo archivos que git ignora o repositorios anidados, que nunca se tocan."
+            notice = String(localized: "Restaurado, salvo archivos que git ignora o repositorios anidados, que nunca se tocan.")
         case .conflict(let issues):
             errorMessage = CheckpointTexts.conflictMessage(issues)
         case .nothing(let reason):
@@ -399,7 +398,7 @@ final class CheckpointsModel {
         guard let listing else { return }
         await performSettings("Borrar puntos") {
             try await self.expectOK(CheckpointCommands.purge(root: listing.root))
-            self.notice = "Se borraron todos los puntos de este proyecto."
+            self.notice = String(localized: "Se borraron todos los puntos de este proyecto.")
         }
     }
 
@@ -409,7 +408,7 @@ final class CheckpointsModel {
         await performSettings("Quitar del servidor") {
             try await self.expectOK(CheckpointCommands.disable(root: listing.root))
             try await self.hooks.uninstall()
-            self.notice = "Hook de captura quitado del servidor. Los demás proyectos dejan de guardar puntos."
+            self.notice = String(localized: "Hook de captura quitado del servidor. Los demás proyectos dejan de guardar puntos.")
         }
     }
 
@@ -420,7 +419,7 @@ final class CheckpointsModel {
             let created = try CheckpointParser.parseSnapshot(
                 try await output(CheckpointCommands.snapshot(root: listing.root, label: "Punto creado a mano"))
             )
-            notice = created == nil ? "No hay cambios desde el último punto." : "Punto de restauración creado."
+            notice = created == nil ? String(localized: "No hay cambios desde el último punto.") : String(localized: "Punto de restauración creado.")
         } catch {
             report(error, "Crear punto")
         }
@@ -456,7 +455,7 @@ final class CheckpointsModel {
         let result = try await run(command)
         if result.exitCode != 0, !result.stdout.contains("ARGOS_CP_") {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-            throw CheckpointError.failed(detail.isEmpty ? "código \(result.exitCode)" : String(detail.suffix(300)))
+            throw CheckpointError.failed(detail.isEmpty ? String(localized: "código \(String(result.exitCode))") : String(detail.suffix(300)))
         }
         return result.stdout
     }

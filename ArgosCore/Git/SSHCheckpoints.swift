@@ -40,7 +40,7 @@ extension SSHService {
         }
         let output = try await runCheckpointCommand(CheckpointCommands.removeScript())
         guard output.stdout.contains("ARGOS_CP_OK") else {
-            throw CheckpointError.failed("no se pudo borrar el script de los puntos")
+            throw CheckpointError.failed(String(localized: "no se pudo borrar el script de los puntos"))
         }
     }
 
@@ -94,7 +94,7 @@ extension SessionsViewModel {
         guard !panes.isEmpty else { return }
         let output = try await service.runCheckpointCommand(Self.interruptClaudeCommand(panes: panes))
         guard output.exitCode == 0 else {
-            throw CheckpointError.failed("no se pudo interrumpir a Claude en tmux")
+            throw CheckpointError.failed(String(localized: "no se pudo interrumpir a Claude en tmux"))
         }
     }
 

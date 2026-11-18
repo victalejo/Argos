@@ -1673,6 +1673,46 @@
         }
       }
     },
+    "%lld mensajes no se guardaron" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld message wasn’t saved"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld messages weren’t saved"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld mensaje no se guardó"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld mensajes no se guardaron"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld núcleos · carga %@" : {
       "localizations" : {
         "en" : {
@@ -2073,6 +2113,22 @@
         }
       }
     },
+    "(sin mensaje)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(no message)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(sin mensaje)"
+          }
+        }
+      }
+    },
     "(sin salida)" : {
       "localizations" : {
         "en" : {
@@ -2213,6 +2269,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : ">_"
+          }
+        }
+      }
+    },
+    "A este punto le faltan datos (git los borró antes de guardarlos aparte). No se puede restaurar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This restore point is missing data (git deleted it before it was saved separately). It can’t be restored."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A este punto le faltan datos (git los borró antes de guardarlos aparte). No se puede restaurar."
           }
         }
       }
@@ -2825,6 +2897,22 @@
         }
       }
     },
+    "Activados en este proyecto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On for this project"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activados en este proyecto"
+          }
+        }
+      }
+    },
     "Activar" : {
       "localizations" : {
         "en" : {
@@ -2853,6 +2941,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Activar avisos"
+          }
+        }
+      }
+    },
+    "Activar en este proyecto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn On for This Project"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar en este proyecto"
           }
         }
       }
@@ -3381,6 +3485,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ampliar / restaurar panel"
+          }
+        }
+      }
+    },
+    "Antes se guarda un punto con el estado actual, así que se puede deshacer. Los archivos ignorados por git (.env, node_modules…) y los repositorios anidados nunca se tocan, y la rama y los commits no se mueven." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A restore point with the current state is saved first, so it can be undone. Files ignored by git (.env, node_modules…) and nested repositories are never touched, and the branch and commits don’t move."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes se guarda un punto con el estado actual, así que se puede deshacer. Los archivos ignorados por git (.env, node_modules…) y los repositorios anidados nunca se tocan, y la rama y los commits no se mueven."
           }
         }
       }
@@ -4201,6 +4321,22 @@
         }
       }
     },
+    "Aún no hay puntos de restauración" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Restore Points Yet"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay puntos de restauración"
+          }
+        }
+      }
+    },
     "Aún no hay sesiones" : {
       "localizations" : {
         "en" : {
@@ -4357,6 +4493,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Borrar servidor"
+          }
+        }
+      }
+    },
+    "Borrar todos los puntos…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete All Restore Points…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Borrar todos los puntos…"
           }
         }
       }
@@ -5833,6 +5985,22 @@
         }
       }
     },
+    "Claude está trabajando en este proyecto: no se restaura mientras pueda seguir cambiando archivos. Espera a que termine o detenlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude is working on this project: nothing is restored while it can still change files. Wait until it finishes or stop it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude está trabajando en este proyecto: no se restaura mientras pueda seguir cambiando archivos. Espera a que termine o detenlo."
+          }
+        }
+      }
+    },
     "Claude está trabajando en «%@». Si la cierras, se detiene a medias." : {
       "localizations" : {
         "en" : {
@@ -6041,6 +6209,22 @@
         }
       }
     },
+    "Claude sigue trabajando. Espera a que termine o detenlo en su terminal y vuelve a intentarlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude is still working. Wait until it finishes or stop it in its terminal, and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude sigue trabajando. Espera a que termine o detenlo en su terminal y vuelve a intentarlo."
+          }
+        }
+      }
+    },
     "Claude tardó demasiado en responder." : {
       "localizations" : {
         "en" : {
@@ -6085,6 +6269,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude terminó de responder"
+          }
+        }
+      }
+    },
+    "Claude terminó · Ver lo que cambió en este turno" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude finished · See what changed in this turn"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude terminó · Ver lo que cambió en este turno"
           }
         }
       }
@@ -6541,6 +6741,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Comparando el Mac con el servidor…"
+          }
+        }
+      }
+    },
+    "Comparar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compare"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparar"
+          }
+        }
+      }
+    },
+    "Comparar con el estado actual costaría mucho (%@). Compara entre puntos o ignora esos archivos en git." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparing with the current state would be very costly (%@). Compare between restore points or ignore those files in git."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparar con el estado actual costaría mucho (%@). Compara entre puntos o ignora esos archivos en git."
           }
         }
       }
@@ -7937,6 +8169,22 @@
         }
       }
     },
+    "Crear punto ahora" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create Restore Point Now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear punto ahora"
+          }
+        }
+      }
+    },
     "Crear rama" : {
       "localizations" : {
         "en" : {
@@ -8205,6 +8453,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Decide qué puede hacer Claude sin preguntarte."
+          }
+        }
+      }
+    },
+    "Deja los archivos como estaban justo antes de este mensaje (pide confirmación)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puts the files back as they were right before this message (asks for confirmation)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deja los archivos como estaban justo antes de este mensaje (pide confirmación)"
           }
         }
       }
@@ -8689,6 +8953,22 @@
         }
       }
     },
+    "Desde este punto %@. La rama no se moverá: solo cambian los archivos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Since this restore point, %@. The branch won’t move: only the files change."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desde este punto %@. La rama no se moverá: solo cambian los archivos."
+          }
+        }
+      }
+    },
     "Desde que miraste los cambios, %@. Revisa la lista antes de hacer el commit o hazlo igualmente." : {
       "localizations" : {
         "en" : {
@@ -8717,6 +8997,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Desfase de %@: correcto."
+          }
+        }
+      }
+    },
+    "Deshacer hasta aquí…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo to Here…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer hasta aquí…"
           }
         }
       }
@@ -8781,6 +9077,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Detener"
+          }
+        }
+      }
+    },
+    "Detener a Claude y restaurar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Claude and Restore"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener a Claude y restaurar"
           }
         }
       }
@@ -8861,6 +9173,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Detener todos"
+          }
+        }
+      }
+    },
+    "Detener y restaurar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop and Restore"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener y restaurar"
           }
         }
       }
@@ -10449,6 +10777,22 @@
         }
       }
     },
+    "El servidor no respondió como se esperaba. Vuelve a intentarlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server didn’t respond as expected. Try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor no respondió como se esperaba. Vuelve a intentarlo."
+          }
+        }
+      }
+    },
     "El servidor no respondió hace poco; se volverá a intentar en %lld s.%@" : {
       "localizations" : {
         "en" : {
@@ -10637,6 +10981,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El árbol de trabajo coincide con el último commit."
+          }
+        }
+      }
+    },
+    "El último mensaje no se guardó: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The last message wasn’t saved: %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El último mensaje no se guardó: %@."
           }
         }
       }
@@ -10977,6 +11337,22 @@
         }
       }
     },
+    "Elige un turno" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a Turn"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige un turno"
+          }
+        }
+      }
+    },
     "Elige una carpeta o escribe una ruta completa que empiece por /." : {
       "localizations" : {
         "en" : {
@@ -11309,6 +11685,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "En escucha en el servidor"
+          }
+        }
+      }
+    },
+    "En este turno %@ (%@): el diff puede incluir varios mensajes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In this turn, %@ (%@): the diff may include several messages."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En este turno %@ (%@): el diff puede incluir varios mensajes."
           }
         }
       }
@@ -12113,6 +12505,22 @@
         }
       }
     },
+    "Ese punto de restauración ya no existe en el servidor. Recarga la lista." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That restore point no longer exists on the server. Reload the list."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese punto de restauración ya no existe en el servidor. Recarga la lista."
+          }
+        }
+      }
+    },
     "Ese servidor ya no está en Argos. Elige otro proyecto." : {
       "localizations" : {
         "en" : {
@@ -12353,6 +12761,22 @@
         }
       }
     },
+    "Este turno" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Turn"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este turno"
+          }
+        }
+      }
+    },
     "Está en el Mac «%@»" : {
       "localizations" : {
         "en" : {
@@ -12365,6 +12789,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Está en el Mac «%@»"
+          }
+        }
+      }
+    },
+    "Están desactivados en este proyecto. Actívalos para guardar un punto cada vez que envíes un mensaje a Claude Code y poder deshacer un turno." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "They’re off for this project. Turn them on to save a restore point every time you send a message to Claude Code and be able to undo a turn."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Están desactivados en este proyecto. Actívalos para guardar un punto cada vez que envíes un mensaje a Claude Code y poder deshacer un turno."
           }
         }
       }
@@ -12946,6 +13386,22 @@
         }
       }
     },
+    "Guarda una instantánea del proyecto cada vez que envías un mensaje a Claude Code, en una carpeta privada dentro de .git que no viaja con push ni con «Enviar al Mac». Al activarlo por primera vez se instala un hook en ~/.claude/settings.json del servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves a snapshot of the project every time you send a message to Claude Code, in a private folder inside .git that isn’t included in pushes or in “Send to Mac”. The first time you turn it on, a hook is installed in the server’s ~/.claude/settings.json."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guarda una instantánea del proyecto cada vez que envías un mensaje a Claude Code, en una carpeta privada dentro de .git que no viaja con push ni con «Enviar al Mac». Al activarlo por primera vez se instala un hook en ~/.claude/settings.json del servidor."
+          }
+        }
+      }
+    },
     "Guardado: %@" : {
       "localizations" : {
         "en" : {
@@ -12990,6 +13446,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Guardar"
+          }
+        }
+      }
+    },
+    "Guardar el estado actual costará" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving the Current State Will Be Costly"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar el estado actual costará"
+          }
+        }
+      }
+    },
+    "Guardar un extracto de cada mensaje" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save an excerpt of each message"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar un extracto de cada mensaje"
           }
         }
       }
@@ -13090,6 +13578,22 @@
         }
       }
     },
+    "Hasta ahora" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Until Now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hasta ahora"
+          }
+        }
+      }
+    },
     "Hay locales UTF-8, pero el entorno no usa ninguno: una tmux sin UTF-8 rompe los acentos. Define LANG=en_US.UTF-8 en ~/.profile." : {
       "localizations" : {
         "en" : {
@@ -13134,6 +13638,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hay un token guardado"
+          }
+        }
+      }
+    },
+    "Hay una operación de git a medias (%@). Termínala o cancélala en el terminal antes de restaurar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There’s a git operation in progress (%@). Finish or abort it in the terminal before restoring."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay una operación de git a medias (%@). Termínala o cancélala en el terminal antes de restaurar."
           }
         }
       }
@@ -13230,6 +13750,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hoja de cálculo demasiado grande"
+          }
+        }
+      }
+    },
+    "Hook de captura quitado del servidor. Los demás proyectos dejan de guardar puntos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capture hook removed from the server. The other projects stop saving restore points."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hook de captura quitado del servidor. Los demás proyectos dejan de guardar puntos."
           }
         }
       }
@@ -13854,6 +14390,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Instala GitHub CLI (`gh`) en el servidor para ver el PR y el CI aquí."
+          }
+        }
+      }
+    },
+    "Instala git en el servidor para usar los puntos de restauración." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Install git on the server to use restore points."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instala git en el servidor para usar los puntos de restauración."
           }
         }
       }
@@ -14546,6 +15098,22 @@
         }
       }
     },
+    "La carpeta ya no es un repositorio git." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder is no longer a git repository."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La carpeta ya no es un repositorio git."
+          }
+        }
+      }
+    },
     "La clave del iPhone se añadió a ~/.ssh/authorized_keys del servidor como «%@». Puedes revocarla cuando quieras en el menú del servidor → «Dispositivos autorizados…». Tu clave del Mac no sale de este equipo." : {
       "localizations" : {
         "en" : {
@@ -15186,6 +15754,38 @@
         }
       }
     },
+    "Leyendo puntos de restauración…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading restore points…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leyendo puntos de restauración…"
+          }
+        }
+      }
+    },
+    "Leyendo puntos…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading restore points…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leyendo puntos…"
+          }
+        }
+      }
+    },
     "Leyendo recursos…" : {
       "localizations" : {
         "en" : {
@@ -15330,6 +15930,22 @@
         }
       }
     },
+    "Lo deja como estaba en este punto (o lo borra si no existía)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puts it back as it was at this restore point (or deletes it if it didn’t exist)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo deja como estaba en este punto (o lo borra si no existía)"
+          }
+        }
+      }
+    },
     "Lo que te necesita en todos los servidores (⌘J va al siguiente)" : {
       "localizations" : {
         "en" : {
@@ -15342,6 +15958,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lo que te necesita en todos los servidores (⌘J va al siguiente)"
+          }
+        }
+      }
+    },
+    "Los archivos cambiaron desde que los miraste: revisa el diff y vuelve a intentarlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The files changed since you looked at them: review the diff and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los archivos cambiaron desde que los miraste: revisa el diff y vuelve a intentarlo."
+          }
+        }
+      }
+    },
+    "Los archivos cambiaron mientras revisabas la lista (¿sigue trabajando Claude?). No se tocó nada: revisa la nueva lista." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The files changed while you were reviewing the list (is Claude still working?). Nothing was touched: review the new list."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los archivos cambiaron mientras revisabas la lista (¿sigue trabajando Claude?). No se tocó nada: revisa la nueva lista."
+          }
+        }
+      }
+    },
+    "Los archivos ya están como en ese punto: no hay nada que restaurar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The files are already as they were at that restore point: there’s nothing to restore."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los archivos ya están como en ese punto: no hay nada que restaurar."
           }
         }
       }
@@ -15422,6 +16086,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Los proyectos de este servidor los guardó una versión más nueva de Argos (formato %lld). Actualiza Argos en este dispositivo para poder modificarlos."
+          }
+        }
+      }
+    },
+    "Los puntos de restauración necesitan git 2.20 o posterior en el servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore points need git 2.20 or later on the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los puntos de restauración necesitan git 2.20 o posterior en el servidor."
+          }
+        }
+      }
+    },
+    "Los puntos de restauración necesitan git." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore points need git."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los puntos de restauración necesitan git."
+          }
+        }
+      }
+    },
+    "Los puntos de restauración necesitan que la carpeta esté bajo git." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore points need the folder to be under git."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los puntos de restauración necesitan que la carpeta esté bajo git."
+          }
+        }
+      }
+    },
+    "Los puntos de restauración no están disponibles en esta conexión." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore points aren’t available on this connection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los puntos de restauración no están disponibles en esta conexión."
           }
         }
       }
@@ -16082,6 +16810,22 @@
         }
       }
     },
+    "Más opciones" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More Options"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más opciones"
+          }
+        }
+      }
+    },
     "Método" : {
       "localizations" : {
         "en" : {
@@ -16290,6 +17034,22 @@
         }
       }
     },
+    "No cambió ningún archivo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No files changed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No cambió ningún archivo."
+          }
+        }
+      }
+    },
     "No es un repositorio git" : {
       "localizations" : {
         "en" : {
@@ -16318,6 +17078,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No había conversación del Mac que llevar (para que viaje, sal de Claude Code con /exit antes de enviar)."
+          }
+        }
+      }
+    },
+    "No había nada que restaurar: el archivo no existe ni existía en ese punto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There was nothing to restore: the file doesn’t exist and didn’t exist at that restore point."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No había nada que restaurar: el archivo no existe ni existía en ese punto."
           }
         }
       }
@@ -16398,6 +17174,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No hay archivos visibles. Puedes mostrar los archivos ocultos con el botón del ojo."
+          }
+        }
+      }
+    },
+    "No hay cambios desde el último punto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No changes since the last restore point."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay cambios desde el último punto."
           }
         }
       }
@@ -16782,6 +17574,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudieron detener: %@"
+          }
+        }
+      }
+    },
+    "No se pudieron leer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Read"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron leer"
           }
         }
       }
@@ -17330,6 +18138,22 @@
         }
       }
     },
+    "No se pudo completar en el servidor: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t complete on the server: %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo completar en el servidor: %@."
+          }
+        }
+      }
+    },
     "No se pudo completar la operación" : {
       "localizations" : {
         "en" : {
@@ -17854,6 +18678,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo lanzar %@"
+          }
+        }
+      }
+    },
+    "No se pudo leer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t Read"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer"
           }
         }
       }
@@ -18386,6 +19226,22 @@
         }
       }
     },
+    "No se puede deshacer. Los archivos del proyecto no cambian." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This can’t be undone. The project files don’t change."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer. Los archivos del proyecto no cambian."
+          }
+        }
+      }
+    },
     "No se puede mostrar como texto (%@)." : {
       "localizations" : {
         "en" : {
@@ -18434,6 +19290,38 @@
         }
       }
     },
+    "No se puede restaurar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can’t Be Restored"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede restaurar"
+          }
+        }
+      }
+    },
+    "No se restauró nada para no perder datos: %@%@. Muévelos o resuélvelos a mano y vuelve a intentarlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing was restored so no data is lost: %@%@. Move or resolve them manually and try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se restauró nada para no perder datos: %@%@. Muévelos o resuélvelos a mano y vuelve a intentarlo."
+          }
+        }
+      }
+    },
     "No se sabe en qué carpeta trabajar" : {
       "localizations" : {
         "en" : {
@@ -18446,6 +19334,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se sabe en qué carpeta trabajar"
+          }
+        }
+      }
+    },
+    "No se tocan (ignorados o repositorios anidados)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Touched (Ignored or Nested Repositories)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se tocan (ignorados o repositorios anidados)"
+          }
+        }
+      }
+    },
+    "No se tocó nada (%@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing was touched (%@)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se tocó nada (%@)."
+          }
+        }
+      }
+    },
+    "No se tocó: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not touched: %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se tocó: %@."
+          }
+        }
+      }
+    },
+    "No se tocó: la ruta no es válida dentro del repositorio." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not touched: the path isn’t valid inside the repository."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se tocó: la ruta no es válida dentro del repositorio."
           }
         }
       }
@@ -19662,6 +20614,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Para los agentes quietos sin actividad desde hace %@ o más; se reanudan al escribirles."
+          }
+        }
+      }
+    },
+    "Para poder deshacer la restauración hay que guardar antes el estado actual, y eso costará (%@). Puede tardar y ocupar espacio en el servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To be able to undo the restore, the current state has to be saved first, and that will be costly (%@). It may take a while and use space on the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para poder deshacer la restauración hay que guardar antes el estado actual, y eso costará (%@). Puede tardar y ocupar espacio en el servidor."
+          }
+        }
+      }
+    },
+    "Para restaurar un archivo, compara «Hasta ahora»: es exactamente lo que se deshará." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To restore a file, compare “Until Now”: it’s exactly what will be undone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para restaurar un archivo, compara «Hasta ahora»: es exactamente lo que se deshará."
           }
         }
       }
@@ -21090,6 +22074,54 @@
         }
       }
     },
+    "Punto de restauración creado." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore point created."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Punto de restauración creado."
+          }
+        }
+      }
+    },
+    "Puntos de restauración" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Points"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puntos de restauración"
+          }
+        }
+      }
+    },
+    "Puntos de restauración: qué cambió Claude en cada turno y deshacerlo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore points: what Claude changed in each turn, and undo it"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puntos de restauración: qué cambió Claude en cada turno y deshacerlo"
+          }
+        }
+      }
+    },
     "Push" : {
       "localizations" : {
         "en" : {
@@ -21118,6 +22150,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Página aislada: sin JavaScript ni conexiones a internet. Pulsa para permitirlos (solo si confías en ella)."
+          }
+        }
+      }
+    },
+    "Queda como se ve en «Hasta ahora»: como estaba en este punto, o se borra si entonces no existía. Antes se guarda un punto con el estado actual." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It ends up as shown in “Until Now”: as it was at this restore point, or deleted if it didn’t exist then. A restore point with the current state is saved first."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queda como se ve en «Hasta ahora»: como estaba en este punto, o se borra si entonces no existía. Antes se guarda un punto con el estado actual."
           }
         }
       }
@@ -21214,6 +22262,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quitar del commit"
+          }
+        }
+      }
+    },
+    "Quitar el hook de este servidor…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove the Hook from This Server…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar el hook de este servidor…"
           }
         }
       }
@@ -22082,6 +23146,54 @@
         }
       }
     },
+    "Restaurado en parte. No se tocaron: %@. La copia previa tiene el estado anterior." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partially restored. Not touched: %@. The previous copy has the earlier state."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurado en parte. No se tocaron: %@. La copia previa tiene el estado anterior."
+          }
+        }
+      }
+    },
+    "Restaurado, salvo archivos que git ignora o repositorios anidados, que nunca se tocan." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored, except for files git ignores or nested repositories, which are never touched."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurado, salvo archivos que git ignora o repositorios anidados, que nunca se tocan."
+          }
+        }
+      }
+    },
+    "Restaurado. Si te arrepientes, restaura el punto «Antes de restaurar…»." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored. If you change your mind, restore the “Antes de restaurar…” restore point."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurado. Si te arrepientes, restaura el punto «Antes de restaurar…»."
+          }
+        }
+      }
+    },
     "Restaurar" : {
       "localizations" : {
         "en" : {
@@ -22126,6 +23238,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restaurar copia anterior…"
+          }
+        }
+      }
+    },
+    "Restaurar este archivo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore This File"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar este archivo"
+          }
+        }
+      }
+    },
+    "Restaurar este archivo…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore This File…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar este archivo…"
           }
         }
       }
@@ -22498,6 +23642,22 @@
         }
       }
     },
+    "Se borran los puntos de este proyecto y ningún otro proyecto del servidor guardará puntos nuevos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This project’s restore points are deleted and no other project on the server will save new ones."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se borran los puntos de este proyecto y ningún otro proyecto del servidor guardará puntos nuevos."
+          }
+        }
+      }
+    },
     "Se borran sus datos de acceso y su huella de host key de este dispositivo. Las sesiones y proyectos del servidor no se tocan." : {
       "localizations" : {
         "en" : {
@@ -22514,6 +23674,22 @@
         }
       }
     },
+    "Se borraron todos los puntos de este proyecto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All of this project’s restore points were deleted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se borraron todos los puntos de este proyecto."
+          }
+        }
+      }
+    },
     "Se borrará su configuración y su passphrase del Keychain. No afecta al servidor remoto." : {
       "localizations" : {
         "en" : {
@@ -22526,6 +23702,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Se borrará su configuración y su passphrase del Keychain. No afecta al servidor remoto."
+          }
+        }
+      }
+    },
+    "Se borrarán" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Will Be Deleted"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se borrarán"
           }
         }
       }
@@ -22722,6 +23914,22 @@
         }
       }
     },
+    "Se crean solos cada vez que envías un mensaje a Claude Code en este proyecto. También puedes crear uno ahora." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "They’re created automatically every time you send a message to Claude Code in this project. You can also create one now."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se crean solos cada vez que envías un mensaje a Claude Code en este proyecto. También puedes crear uno ahora."
+          }
+        }
+      }
+    },
     "Se creará %@" : {
       "localizations" : {
         "en" : {
@@ -22802,6 +24010,22 @@
         }
       }
     },
+    "Se desactiva y se borran los puntos de este proyecto, y ningún otro proyecto de este servidor guardará puntos nuevos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It’s turned off and this project’s restore points are deleted, and no other project on this server will save new ones."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se desactiva y se borran los puntos de este proyecto, y ningún otro proyecto de este servidor guardará puntos nuevos."
+          }
+        }
+      }
+    },
     "Se detiene al cerrar la pestaña o salir de Argos." : {
       "localizations" : {
         "en" : {
@@ -22862,6 +24086,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Se mandará al agente en marcha de «%@» en %@, en modo «%@»: puede hacer cambios sin pedirte permiso. ¿Enviar el encargo?"
+          }
+        }
+      }
+    },
+    "Se modificarán" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Will Be Modified"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se modificarán"
           }
         }
       }
@@ -23022,6 +24262,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Se reanudará el último agente de «%@» en %@, en modo «%@»: puede hacer cambios sin pedirte permiso. ¿Enviar el encargo?"
+          }
+        }
+      }
+    },
+    "Se recrearán" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Will Be Recreated"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se recrearán"
           }
         }
       }
@@ -23234,6 +24490,22 @@
         }
       }
     },
+    "Selecciona un archivo para ver su diff." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a file to see its diff."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecciona un archivo para ver su diff."
+          }
+        }
+      }
+    },
     "Selecciona un proyecto y continúa donde lo dejaste." : {
       "localizations" : {
         "en" : {
@@ -23246,6 +24518,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Selecciona un proyecto y continúa donde lo dejaste."
+          }
+        }
+      }
+    },
+    "Selecciona un punto para ver qué cambió en ese turno." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a restore point to see what changed in that turn."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecciona un punto para ver qué cambió en ese turno."
           }
         }
       }
@@ -23423,6 +24711,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sesión desconectada"
+          }
+        }
+      }
+    },
+    "Si está desactivado, cada punto se etiqueta solo con su número de turno y la fecha." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If it’s off, each restore point is labeled only with its turn number and date."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si está desactivado, cada punto se etiqueta solo con su número de turno y la fecha."
           }
         }
       }
@@ -25047,6 +26351,22 @@
         }
       }
     },
+    "Turnos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turns"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turnos"
+          }
+        }
+      }
+    },
     "Tus credenciales se guardan de forma segura en el Llavero de macOS." : {
       "localizations" : {
         "en" : {
@@ -25603,6 +26923,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ver fuente"
+          }
+        }
+      }
+    },
+    "Ver lo que cambió en este turno" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See What Changed in This Turn"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver lo que cambió en este turno"
           }
         }
       }
@@ -26431,6 +27767,22 @@
         }
       }
     },
+    "cambió y la copia previa no lo tiene" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "changed and the previous copy doesn’t have it"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "cambió y la copia previa no lo tiene"
+          }
+        }
+      }
+    },
     "carpeta perdida" : {
       "localizations" : {
         "en" : {
@@ -26863,6 +28215,22 @@
         }
       }
     },
+    "en su camino hay un archivo o enlace que git ignora" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "there’s a file or link git ignores in its path"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "en su camino hay un archivo o enlace que git ignora"
+          }
+        }
+      }
+    },
     "error de conexión" : {
       "localizations" : {
         "en" : {
@@ -26891,6 +28259,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "error desconocido"
+          }
+        }
+      }
+    },
+    "es un repositorio anidado: no se toca" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "is a nested repository: not touched"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "es un repositorio anidado: no se toca"
           }
         }
       }
@@ -26959,6 +28343,38 @@
         }
       }
     },
+    "está dentro de un repositorio git anidado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "is inside a nested git repository"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "está dentro de un repositorio git anidado"
+          }
+        }
+      }
+    },
+    "existe y git lo ignora: no se toca" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "exists and git ignores it: not touched"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "existe y git lo ignora: no se toca"
+          }
+        }
+      }
+    },
     "expandido" : {
       "localizations" : {
         "en" : {
@@ -26971,6 +28387,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "expandido"
+          }
+        }
+      }
+    },
+    "falta su contenido en el punto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "its content is missing from the restore point"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "falta su contenido en el punto"
           }
         }
       }
@@ -27135,6 +28567,22 @@
         }
       }
     },
+    "git no está instalado en el servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git isn’t installed on the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git no está instalado en el servidor."
+          }
+        }
+      }
+    },
     "git no está instalado: no funcionarán los cambios, commits, ramas ni clonar." : {
       "localizations" : {
         "en" : {
@@ -27259,6 +28707,22 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "hoy es una carpeta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "is now a folder"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "hoy es una carpeta"
           }
         }
       }
@@ -27487,6 +28951,54 @@
         }
       }
     },
+    "no se pudo borrar el script de los puntos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "couldn’t delete the restore points script"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no se pudo borrar el script de los puntos"
+          }
+        }
+      }
+    },
+    "no se pudo escribir o borrar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "couldn’t be written or deleted"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no se pudo escribir o borrar"
+          }
+        }
+      }
+    },
+    "no se pudo interrumpir a Claude en tmux" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "couldn’t interrupt Claude in tmux"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no se pudo interrumpir a Claude en tmux"
+          }
+        }
+      }
+    },
     "nombre-del-repo" : {
       "localizations" : {
         "en" : {
@@ -27631,6 +29143,46 @@
         }
       }
     },
+    "se hicieron %lld commits" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld commit was made"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld commits were made"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "se hizo %lld commit"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "se hicieron %lld commits"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "se omiten las comprobaciones de integridad opcionales" : {
       "localizations" : {
         "en" : {
@@ -27755,6 +29307,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "terminó con un error"
+          }
+        }
+      }
+    },
+    "tiene permisos restringidos que la copia no guarda" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "has restricted permissions the copy doesn’t keep"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tiene permisos restringidos que la copia no guarda"
           }
         }
       }
@@ -28015,6 +29583,22 @@
         }
       }
     },
+    "y %lld más" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "and %lld more"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "y %lld más"
+          }
+        }
+      }
+    },
     "~/%@ es un enlace simbólico y Argos no lo reemplaza. Sustitúyelo por un archivo normal en el servidor." : {
       "localizations" : {
         "en" : {
@@ -28175,6 +29759,22 @@
         }
       }
     },
+    "«%@» restaurado. Antes se guardó un punto con el estado anterior." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” restored. A restore point with the earlier state was saved first."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» restaurado. Antes se guardó un punto con el estado anterior."
+          }
+        }
+      }
+    },
     "«%@» se eliminó en otro dispositivo mientras lo editabas; no se ha vuelto a crear. Si lo quieres, añádelo de nuevo." : {
       "localizations" : {
         "en" : {
@@ -28251,6 +29851,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "«Enviar al Mac» no podrá listar los archivos del proyecto"
+          }
+        }
+      }
+    },
+    "«Este turno»: lo que cambió hasta el mensaje siguiente. «Hasta ahora»: lo que se desharía." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“This Turn”: what changed up to the next message. “Until Now”: what would be undone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«Este turno»: lo que cambió hasta el mensaje siguiente. «Hasta ahora»: lo que se desharía."
           }
         }
       }
@@ -28351,6 +29967,22 @@
         }
       }
     },
+    "¿Borrar todos los puntos de este proyecto?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete All of This Project’s Restore Points?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Borrar todos los puntos de este proyecto?"
+          }
+        }
+      }
+    },
     "¿Borrar «%@»?" : {
       "localizations" : {
         "en" : {
@@ -28447,6 +30079,22 @@
         }
       }
     },
+    "¿Dejar los archivos como estaban en este punto?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put the Files Back as They Were at This Restore Point?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Dejar los archivos como estaban en este punto?"
+          }
+        }
+      }
+    },
     "¿Descartar los cambios de «%@» y dejarlo como en el último commit?" : {
       "localizations" : {
         "en" : {
@@ -28475,6 +30123,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "¿Descartar los cambios de «%@»?"
+          }
+        }
+      }
+    },
+    "¿Deshacer hasta aquí?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo to Here?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Deshacer hasta aquí?"
           }
         }
       }
@@ -28695,6 +30359,22 @@
         }
       }
     },
+    "¿Quitar el hook de captura del servidor?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove the Capture Hook from the Server?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Quitar el hook de captura del servidor?"
+          }
+        }
+      }
+    },
     "¿Quitar el proyecto '%@'?" : {
       "localizations" : {
         "en" : {
@@ -28803,6 +30483,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "¿Restaurar la copia anterior de los proyectos?"
+          }
+        }
+      }
+    },
+    "¿Restaurar «%@» como estaba en este punto?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore “%@” as It Was at This Restore Point?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Restaurar «%@» como estaba en este punto?"
           }
         }
       }

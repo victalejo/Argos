@@ -292,7 +292,7 @@ private struct CheckpointFilesView: View {
                                    description: Text("No cambió ningún archivo."))
         case .loaded(let files):
             List(selection: selection) {
-                Section("\(files.count) archivo\(files.count == 1 ? "" : "s")") {
+                Section("\(files.count) archivos") {
                     ForEach(files) { file in
                         CheckpointFileRow(file: file).tag(file.path)
                     }

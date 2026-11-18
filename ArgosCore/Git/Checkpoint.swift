@@ -42,7 +42,7 @@ struct Checkpoint: Identifiable, Hashable, Sendable {
 
     var title: String {
         switch kind {
-        case .prompt, .unknown, .manual: return label.isEmpty ? "(sin mensaje)" : label
+        case .prompt, .unknown, .manual: return label.isEmpty ? String(localized: "(sin mensaje)") : label
         case .restore: return label
         }
     }
@@ -137,15 +137,15 @@ struct CheckpointIssue: Hashable, Sendable {
 
     var explanation: String {
         switch kind {
-        case .directoryInTheWay: return "hoy es una carpeta"
-        case .nestedRepository: return "está dentro de un repositorio git anidado"
-        case .blockedPath: return "en su camino hay un archivo o enlace que git ignora"
-        case .missingContent: return "falta su contenido en el punto"
-        case .changedOnDisk: return "cambió y la copia previa no lo tiene"
-        case .permissions: return "tiene permisos restringidos que la copia no guarda"
-        case .writeFailed: return "no se pudo escribir o borrar"
-        case .unprotected: return "existe y git lo ignora: no se toca"
-        case .nestedUntouched: return "es un repositorio anidado: no se toca"
+        case .directoryInTheWay: return String(localized: "hoy es una carpeta")
+        case .nestedRepository: return String(localized: "está dentro de un repositorio git anidado")
+        case .blockedPath: return String(localized: "en su camino hay un archivo o enlace que git ignora")
+        case .missingContent: return String(localized: "falta su contenido en el punto")
+        case .changedOnDisk: return String(localized: "cambió y la copia previa no lo tiene")
+        case .permissions: return String(localized: "tiene permisos restringidos que la copia no guarda")
+        case .writeFailed: return String(localized: "no se pudo escribir o borrar")
+        case .unprotected: return String(localized: "existe y git lo ignora: no se toca")
+        case .nestedUntouched: return String(localized: "es un repositorio anidado: no se toca")
         }
     }
 }
@@ -212,24 +212,23 @@ enum CheckpointError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .busy(let operation):
-            return "Hay una operación de git a medias (\(Self.describe(operation))). "
-                + "Termínala o cancélala en el terminal antes de restaurar."
+            return String(localized: "Hay una operación de git a medias (\(Self.describe(operation))). Termínala o cancélala en el terminal antes de restaurar.")
         case .badReference:
-            return "Ese punto de restauración ya no existe en el servidor. Recarga la lista."
+            return String(localized: "Ese punto de restauración ya no existe en el servidor. Recarga la lista.")
         case .failed(let detail):
-            return "No se pudo completar en el servidor: \(detail)."
+            return String(localized: "No se pudo completar en el servidor: \(detail).")
         case .unexpectedOutput(let detail):
             return detail.isEmpty
-                ? "El servidor no respondió como se esperaba. Vuelve a intentarlo."
+                ? String(localized: "El servidor no respondió como se esperaba. Vuelve a intentarlo.")
                 : detail
         case .unavailable:
-            return "Los puntos de restauración no están disponibles en esta conexión."
+            return String(localized: "Los puntos de restauración no están disponibles en esta conexión.")
         case .damaged:
-            return "A este punto le faltan datos (git los borró antes de guardarlos aparte). No se puede restaurar."
+            return String(localized: "A este punto le faltan datos (git los borró antes de guardarlos aparte). No se puede restaurar.")
         case .gitTooOld:
-            return "Los puntos de restauración necesitan git 2.20 o posterior en el servidor."
+            return String(localized: "Los puntos de restauración necesitan git 2.20 o posterior en el servidor.")
         case .heavy(let reason):
-            return "Comparar con el estado actual costaría mucho (\(reason)). Compara entre puntos o ignora esos archivos en git."
+            return String(localized: "Comparar con el estado actual costaría mucho (\(reason)). Compara entre puntos o ignora esos archivos en git.")
         }
     }
 

@@ -89,11 +89,11 @@ struct CheckpointRestoreConfirmation: View {
             Text(preview.checkpoint.title).foregroundStyle(.secondary).lineLimit(2)
             CheckpointRestoreWarnings(model: model, preview: preview)
             List {
-                CheckpointIssueSection(title: "No se puede restaurar", issues: preview.conflicts)
-                CheckpointPathSection(title: "Se modificarán", paths: preview.modifies)
-                CheckpointPathSection(title: "Se borrarán", paths: preview.deletes)
-                CheckpointPathSection(title: "Se recrearán", paths: preview.recreates)
-                CheckpointPathSection(title: "No se tocan (ignorados o repositorios anidados)", paths: preview.untouched)
+                CheckpointIssueSection(title: String(localized: "No se puede restaurar"), issues: preview.conflicts)
+                CheckpointPathSection(title: String(localized: "Se modificarán"), paths: preview.modifies)
+                CheckpointPathSection(title: String(localized: "Se borrarán"), paths: preview.deletes)
+                CheckpointPathSection(title: String(localized: "Se recrearán"), paths: preview.recreates)
+                CheckpointPathSection(title: String(localized: "No se tocan (ignorados o repositorios anidados)"), paths: preview.untouched)
             }
             .frame(minHeight: 220)
             Text(CheckpointTexts.restoreFootnote).font(.caption).foregroundStyle(.secondary)
