@@ -13,7 +13,8 @@ import os
 
 /// Puntos de entrada de logging por categoría funcional.
 enum Log {
-    private static let subsystem = "com.iaportafolio.argos"
+    /// Subsistema de todos los logs de Argos (lo usa también el lector de «Copiar diagnóstico»).
+    static let subsystem = "com.iaportafolio.argos"
 
     /// Conexión SSH y ejecución de comandos.
     static let ssh = Logger(subsystem: subsystem, category: "ssh")

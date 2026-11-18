@@ -30,6 +30,9 @@ struct SettingsView: View {
             AgentSettingsView()
                 .tabItem { Label("Agente", systemImage: "sparkles") }
 
+            DiagnosticSettingsView()
+                .tabItem { Label("Diagnóstico", systemImage: "stethoscope") }
+
             // Un `#if` por pestaña y con UNA sola vista: si un bloque `#if` agrupa
             // varias, el TabView de Ajustes en macOS solo muestra la última.
             #if APPSTORE
