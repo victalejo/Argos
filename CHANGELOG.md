@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.10] - 2026-11-18
+
+### Corregido
+- **«Enviar al servidor» seguía fallando con «El servidor rechazó abrir un canal SSH
+  nuevo».** Los comandos cortos de la app (sondeos de Claude, git, puertos…) y las
+  subidas en paralelo podían coincidir y superar el límite de canales por conexión del
+  servidor (`MaxSessions`). Ahora la app abre como mucho 6 a la vez, el resto espera su
+  turno, y si el servidor aun así rechaza un canal se reintenta solo.
+
 ## [1.8.9] - 2026-11-18
 
 ### Añadido
