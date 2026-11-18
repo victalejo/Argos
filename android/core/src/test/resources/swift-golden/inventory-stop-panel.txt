@@ -1,0 +1,7 @@
+pm() { c=$(ps -o comm= -p "$1" 2>/dev/null); case "${c##*/}" in ''|sh|bash|dash|zsh|ksh|fish|grep|sed|awk|ps|ssh|sshd|tail|cat) return 1;; esac; a=$(ps -o args= -p "$1" 2>/dev/null); case "$a" in *--replay-user-messages*) return 1;; *'--input-format stream-json'*) ;; *) return 1;; esac; printf '%s\n' "$a" | grep -qi -- "$2"; }
+K=
+for e in 4242:11111111-2222-3333-4444-555555555555; do pm "${e%%:*}" "${e#*:}" && K="$K $e"; done
+for e in $K; do pm "${e%%:*}" "${e#*:}" && kill -s TERM "${e%%:*}" 2>/dev/null; done
+i=0; while [ -n "$K" ] && [ $i -lt 10 ]; do v=0; for e in $K; do pm "${e%%:*}" "${e#*:}" && v=1; done; [ $v = 0 ] && break; sleep 0.5; i=$((i+1)); done
+for e in $K; do pm "${e%%:*}" "${e#*:}" && kill -s KILL "${e%%:*}" 2>/dev/null; done
+true

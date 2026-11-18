@@ -1,0 +1,7 @@
+{
+  "createdAt" : "2027-01-15T08:00:00Z",
+  "hibernatedAt" : "2027-01-15T09:00:00Z",
+  "permissionMode" : "plan",
+  "title" : "tienda \"ñ\" a/b",
+  "workingDirectory" : "~/proyectos/tienda"
+}

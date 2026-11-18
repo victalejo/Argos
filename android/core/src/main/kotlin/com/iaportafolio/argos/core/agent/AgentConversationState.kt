@@ -84,7 +84,7 @@ object AgentReducer {
         is AgentStreamEvent.User -> event.blocks.fold(state) { current, block ->
             when {
                 block is AgentContentBlock.ToolResult ->
-                    current.appending(AgentTranscriptItem.Kind.ToolResult(block.text, block.isError))
+                    current.appending(AgentTranscriptItem.Kind.ToolResult(AgentTranscriptLimits.clip(block.text), block.isError))
                 block is AgentContentBlock.Text && echoesUserMessages && block.text.isNotEmpty() ->
                     userSent(block.text, current)
                 else -> current
@@ -124,6 +124,31 @@ object AgentReducer {
                 if (block.text.isNotEmpty()) state.appending(AgentTranscriptItem.Kind.Thinking(block.text)) else state
             is AgentContentBlock.ToolUse -> state.appending(AgentTranscriptItem.Kind.ToolUse(block.name, block.input))
             is AgentContentBlock.ToolResult ->
-                state.appending(AgentTranscriptItem.Kind.ToolResult(block.text, block.isError))
+                state.appending(AgentTranscriptItem.Kind.ToolResult(AgentTranscriptLimits.clip(block.text), block.isError))
         }
+}
+
+/**
+ * Topes de lo que la conversación guarda en memoria (port de `AgentTranscriptLimits`). Un `Read`
+ * o un `Bash` pueden devolver cientos de KB; la interfaz solo enseña unas líneas, así que se
+ * conserva el principio y el final con una indicación de lo omitido (el resultado completo
+ * sigue en el servidor). Se cuentan CARACTERES VISIBLES (clusters de grafemas), como Swift.
+ */
+object AgentTranscriptLimits {
+    /** Caracteres máximos por resultado de herramienta. */
+    const val MAX_TOOL_RESULT_CHARACTERS = 16_000
+    const val KEPT_HEAD_CHARACTERS = 12_000
+    const val KEPT_TAIL_CHARACTERS = 2_000
+
+    fun clip(text: String): String {
+        // Cada grafema ocupa al menos una unidad UTF-16: lo corto no hace falta contarlo.
+        if (text.length <= MAX_TOOL_RESULT_CHARACTERS) return text
+        val boundaries = SwiftText.graphemeBoundaries(text)
+        val count = boundaries.size - 1
+        if (count <= MAX_TOOL_RESULT_CHARACTERS) return text
+        val omitted = count - KEPT_HEAD_CHARACTERS - KEPT_TAIL_CHARACTERS
+        return text.substring(0, boundaries[KEPT_HEAD_CHARACTERS]) +
+            "\n\n… [recortado: $omitted caracteres omitidos] …\n\n" +
+            text.substring(boundaries[count - KEPT_TAIL_CHARACTERS])
+    }
 }

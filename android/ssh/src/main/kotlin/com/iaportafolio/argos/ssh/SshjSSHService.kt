@@ -341,6 +341,7 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
         if (result.exitCode == 0) return result.stdout
         val detail = result.stderr.trim()
         if (AgentExecCommands.isAgentDead(detail)) throw PersistentAgentException(PersistentAgentError.NOT_RUNNING)
+        if (AgentExecCommands.isAgentStuck(detail)) throw PersistentAgentException(PersistentAgentError.STUCK)
         throw AgentExecException(if (detail.isEmpty()) "código de salida ${result.exitCode}" else detail.takeLast(AGENT_DETAIL_LIMIT))
     }
 

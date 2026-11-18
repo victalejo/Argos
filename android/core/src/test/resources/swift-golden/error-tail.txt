@@ -1,0 +1,1 @@
+tail -c 1500 "$HOME/.config/argos/agents/6a55640d-ac70-41ab-8426-6eb72d4fb5eb"/err.log 2>/dev/null; true

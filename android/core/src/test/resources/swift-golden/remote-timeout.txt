@@ -1,0 +1,1 @@
+if command -v timeout >/dev/null 2>&1; then timeout -k 5 60 sh -c 'tmux list-sessions -F '\''#{session_name}'\'' | grep "$x"'; else sh -c 'tmux list-sessions -F '\''#{session_name}'\'' | grep "$x"'; fi

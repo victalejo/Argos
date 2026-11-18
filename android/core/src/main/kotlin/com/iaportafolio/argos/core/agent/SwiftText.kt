@@ -60,6 +60,21 @@ internal object SwiftText {
         return text.substring(0, index)
     }
 
+    /**
+     * Índices UTF-16 donde empieza cada cluster de grafemas, más `text.length` al final (misma
+     * segmentación que [graphemePrefix]): `size - 1` es el `count` de Swift.
+     */
+    fun graphemeBoundaries(text: String): IntArray {
+        val boundaries = ArrayList<Int>(text.length + 1)
+        var index = 0
+        boundaries += 0
+        while (index < text.length) {
+            index = nextClusterEnd(text, index)
+            boundaries += index
+        }
+        return boundaries.toIntArray()
+    }
+
     private fun nextClusterEnd(text: String, start: Int): Int {
         val first = text.codePointAt(start)
         var index = start + Character.charCount(first)

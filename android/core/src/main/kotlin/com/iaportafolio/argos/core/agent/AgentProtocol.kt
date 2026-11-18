@@ -179,18 +179,33 @@ class NdjsonLineBuffer private constructor(private val pending: ByteArray) {
     /** Resultado de [append]: el buffer con el resto parcial y las líneas completas. */
     data class Appended(val buffer: NdjsonLineBuffer, val lines: List<String>)
 
+    /** Una línea completa: su texto (`null` si no es UTF-8 válido) y los bytes que ocupaba con su `\n`. */
+    data class CountedLine(val text: String?, val byteCount: Int)
+
+    /** Resultado de [appendCountingBytes]. */
+    data class AppendedCounted(val buffer: NdjsonLineBuffer, val lines: List<CountedLine>)
+
     /** Añade un chunk de bytes y devuelve las líneas completas disponibles. */
     fun append(bytes: ByteArray): Appended {
+        val counted = appendCountingBytes(bytes)
+        return Appended(counted.buffer, counted.lines.mapNotNull { it.text })
+    }
+
+    /**
+     * Como [append], pero cada línea completa trae los bytes que ocupaba (con su `\n`): así se
+     * sabe hasta qué byte se ha procesado, aunque una línea no sea UTF-8 válido.
+     */
+    fun appendCountingBytes(bytes: ByteArray): AppendedCounted {
         val data = pending + bytes
-        val lines = mutableListOf<String>()
+        val lines = mutableListOf<CountedLine>()
         var start = 0
         var newline = data.indexOf(start)
         while (newline >= 0) {
-            decodeUtf8(data.copyOfRange(start, newline))?.let(lines::add)
+            lines += CountedLine(decodeUtf8(data.copyOfRange(start, newline)), newline - start + 1)
             start = newline + 1
             newline = data.indexOf(start)
         }
-        return Appended(NdjsonLineBuffer(data.copyOfRange(start, data.size)), lines)
+        return AppendedCounted(NdjsonLineBuffer(data.copyOfRange(start, data.size)), lines)
     }
 
     private fun ByteArray.indexOf(from: Int): Int {

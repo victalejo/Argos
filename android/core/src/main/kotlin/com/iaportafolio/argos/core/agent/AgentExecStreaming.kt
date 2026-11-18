@@ -28,4 +28,8 @@ interface AgentExecStreaming {
 class AgentExecException(val detail: String) : Exception(AgentExecCommands.agentExecErrorMessage(detail))
 
 /** Error del agente persistente (port de `PersistentAgentError` como excepción). */
-class PersistentAgentException(val error: PersistentAgentError) : Exception(error.message)
+class PersistentAgentException(
+    val error: PersistentAgentError,
+    /** Final de `err.log` en [PersistentAgentError.LAUNCH_FAILED]. */
+    val detail: String? = null,
+) : Exception(error.describe(detail))

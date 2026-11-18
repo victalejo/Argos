@@ -1,0 +1,4 @@
+Poca memoria libre en el servidor|Quedan 500,0 MB libres y cada agente de Claude ocupa unos 0,5 GB. Detén o hiberna agentes que no uses para liberar memoria.
+Poca memoria libre en el servidor|Quedan 850 KB libres y cada agente de Claude ocupa unos 0,5 GB. Detén o hiberna agentes que no uses para liberar memoria.
+Ya hay 7 agentes en marcha|Cada agente de Claude ocupa unos 0,5 GB en el servidor. Detén o hiberna alguno antes de abrir otro, o continúa si sabes que hay memoria.
+Ya hay 6 agentes en marcha|Cada agente de Claude ocupa unos 0,5 GB en el servidor. Detén o hiberna alguno antes de abrir otro, o continúa si sabes que hay memoria.

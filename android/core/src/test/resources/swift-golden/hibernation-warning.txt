@@ -1,0 +1,1 @@
+En reposo se detiene el agente y todo lo que lanzó en segundo plano (servidores de desarrollo, compilaciones). Si algo suyo sigue usando la CPU, no se pone en reposo.

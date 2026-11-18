@@ -1,0 +1,1 @@
+if command -v timeout >/dev/null 2>&1; then timeout -k 5 1 sh -c 'true'; else sh -c 'true'; fi

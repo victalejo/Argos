@@ -25,6 +25,26 @@ enum class PersistentAgentError(val message: String) {
     NOT_RUNNING("El agente ya no está en marcha en el servidor. Reanúdalo para seguir la conversación."),
     CLAUDE_MISSING("Claude Code no está instalado en el servidor (no se encontró el comando «claude»)."),
     BUSY("Otro dispositivo está arrancando este agente ahora mismo. Inténtalo de nuevo en unos segundos."),
+
+    /** claude murió nada más arrancar; el detalle es el final de su `err.log`. */
+    LAUNCH_FAILED("Claude se cerró nada más arrancar en el servidor y no dejó ningún mensaje."),
+
+    /** El proceso no murió ni con KILL: la carpeta se conserva. */
+    STUCK("El agente no responde a la orden de parar. Inténtalo de nuevo; si sigue, reinicia el servidor."),
+
+    /** La línea no llegó entera al servidor (conexión cortada a medio envío). */
+    TRUNCATED_SEND("El mensaje no llegó entero al servidor (se cortó la conexión). Vuelve a enviarlo."),
+    ;
+
+    /** Mensaje para la interfaz; [detail] solo cuenta en [LAUNCH_FAILED]. */
+    fun describe(detail: String?): String {
+        val trimmed = detail?.let(SwiftText::trimWhitespaceAndNewlines).orEmpty()
+        return if (this == LAUNCH_FAILED && trimmed.isNotEmpty()) {
+            "Claude se cerró nada más arrancar en el servidor:\n$trimmed"
+        } else {
+            message
+        }
+    }
 }
 
 /**
@@ -140,4 +160,7 @@ object AgentExecCommands {
 
     /** ¿Indica este stderr que el agente persistente ya no corre? */
     fun isAgentDead(stderr: String): Boolean = stderr.contains(AGENT_DEAD_MARKER)
+
+    /** ¿Indica este stderr que el agente no murió ni con KILL? */
+    fun isAgentStuck(stderr: String): Boolean = stderr.contains(PersistentAgentShell.STUCK_MARKER)
 }

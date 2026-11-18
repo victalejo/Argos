@@ -76,7 +76,7 @@ class PersistentAgentScriptTest {
     @Test
     fun `el tail muere al cerrarse el canal`() {
         val command = PersistentAgentScript.attach(id)
-        assertTrue(command.contains("tail -c +1 -F"))
+        assertTrue(command.contains("tail -c +\"\$s\" -F"))
         assertTrue(command.contains("cat > /dev/null; kill \$T"))
     }
 
@@ -117,11 +117,14 @@ class PersistentAgentScriptTest {
 
     @Test
     fun `la respuesta del lanzador distingue arrancado, ocupado y fallo`() {
-        assertEquals(PersistentAgentLaunchReply.RUNNING, PersistentAgentScript.parseLaunchReply("4242\n"))
-        assertEquals(PersistentAgentLaunchReply.RUNNING, PersistentAgentScript.parseLaunchReply("ARGOS_AGENT_ALIVE\n"))
-        assertEquals(PersistentAgentLaunchReply.BUSY, PersistentAgentScript.parseLaunchReply("ARGOS_AGENT_BUSY\n"))
-        assertEquals(PersistentAgentLaunchReply.FAILED, PersistentAgentScript.parseLaunchReply("sh: error\n"))
-        assertEquals(PersistentAgentLaunchReply.FAILED, PersistentAgentScript.parseLaunchReply(""))
+        PersistentAgentScript.parseLaunchReply("4242")
+        PersistentAgentScript.parseLaunchReply("ARGOS_AGENT_ALIVE")
+        assertEquals(
+            PersistentAgentError.BUSY,
+            assertFailsWith<PersistentAgentException> { PersistentAgentScript.parseLaunchReply("ARGOS_AGENT_BUSY") }.error,
+        )
+        assertFailsWith<AgentExecException> { PersistentAgentScript.parseLaunchReply("sh: error") }
+        assertFailsWith<AgentExecException> { PersistentAgentScript.parseLaunchReply("") }
     }
 
     @Test
@@ -150,7 +153,7 @@ class PersistentAgentScriptTest {
             val localMeta = PersistentAgentMeta(home.path, "t", Instant.now())
             // Como claude, el proceso lleva el id en su línea de comandos (huella de «vivo»).
             val invocation = "${ShellQuoting.singleQuoted(fake.path)} --session-id $id"
-            val launch = PersistentAgentScript.launch(id, localMeta, invocation)
+            val launch = PersistentAgentScript.launch(id, localMeta, invocation, PersistentAgentHibernation.ofHours(0))
             val pid = shell(launch, home, stdin = "tok-secreto\n").trim()
             assertNotNull(pid.toIntOrNull(), "pid: $pid")
             // Relanzar con el agente vivo no crea otro proceso.
