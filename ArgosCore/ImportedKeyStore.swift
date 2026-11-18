@@ -10,6 +10,8 @@
 //  al reinstalar o restaurar).
 //
 
+import Citadel
+import Crypto
 import Foundation
 
 enum ImportedKeyStore {
@@ -42,6 +44,31 @@ enum ImportedKeyStore {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix(header) else { throw ImportError.notOpenSSHKey }
         return trimmed + "\n"
+    }
+
+    /// Validación estricta para el formulario: además de la cabecera, comprueba que es
+    /// una clave Ed25519 OpenSSH (ver `SSHKeyInspector`) y devuelve el texto
+    /// normalizado y si lleva passphrase. Lanza `SSHKeyProblem` con un mensaje claro.
+    static func validateSupported(_ data: Data) throws -> (text: String, isEncrypted: Bool) {
+        switch SSHKeyInspector.inspect(data: data) {
+        case .supported(let isEncrypted, let text): return (text, isEncrypted)
+        case .unsupported(let problem): throw problem
+        }
+    }
+
+    /// Línea pública (`authorized_keys`) de la clave importada del servidor, para
+    /// enseñarla o copiarla. `nil` si no hay clave o lleva passphrase (no se puede
+    /// derivar sin ella).
+    static func publicKeyLine(for serverID: UUID, comment: String, in directory: URL = defaultDirectory()) -> String? {
+        let url = keyURL(for: serverID, in: directory)
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        do {
+            let key = try Curve25519.Signing.PrivateKey(sshEd25519: text)
+            return OpenSSHKeyWriter.authorizedKeyLine(key.publicKey, comment: comment)
+        } catch {
+            Log.store.notice("No se pudo derivar la clave pública importada: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     /// Guarda la clave del servidor y devuelve su ruta absoluta.
@@ -94,7 +121,7 @@ enum ImportedKeyStore {
 
     /// Pista para «no se pudo leer la clave» en iPhone/iPad.
     static let missingKeyHint = "Las claves SSH no viajan por iCloud: importa en este dispositivo "
-        + "una copia de la clave de este servidor (Editar servidor → Importar clave privada)."
+        + "una copia de la clave de este servidor, o crea una nueva (Editar servidor → Elegir clave privada)."
 
     static func keyURL(for serverID: UUID, in directory: URL) -> URL {
         directory.appendingPathComponent(serverID.uuidString, isDirectory: false)

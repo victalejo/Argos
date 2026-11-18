@@ -76,3 +76,27 @@ enum OpenSSHKeyWriter {
         data.append(value)
     }
 }
+
+// MARK: - Clave creada en el dispositivo
+
+/// Par de claves Ed25519 creado en el propio dispositivo («Crear clave en este iPhone»):
+/// la privada en formato OpenSSH (para `ImportedKeyStore`) y la línea pública para
+/// `authorized_keys`. El comentario es el de los dispositivos de Argos
+/// (`argos-iphone-AAAAMMDD-<uuid>`), así «Dispositivos autorizados» del Mac la lista y
+/// puede revocarla.
+struct DeviceKeyPair: Sendable, Equatable {
+    let privateKeyPEM: String
+    let authorizedKeyLine: String
+    let comment: String
+
+    init(key: Curve25519.Signing.PrivateKey, comment: String) {
+        self.privateKeyPEM = OpenSSHKeyWriter.privateKeyPEM(key, comment: comment)
+        self.authorizedKeyLine = OpenSSHKeyWriter.authorizedKeyLine(key.publicKey, comment: comment)
+        self.comment = comment
+    }
+
+    /// Clave nueva con un comentario de dispositivo recién creado.
+    static func generate(date: Date = Date()) -> DeviceKeyPair {
+        DeviceKeyPair(key: Curve25519.Signing.PrivateKey(), comment: ServerTransfer.makeKeyComment(date: date))
+    }
+}
