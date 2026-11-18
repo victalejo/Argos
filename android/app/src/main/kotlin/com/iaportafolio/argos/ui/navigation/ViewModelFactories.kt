@@ -1,6 +1,7 @@
 package com.iaportafolio.argos.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -97,7 +98,15 @@ internal fun projectViewModel(container: AppContainer, serverId: String, project
     key = "project:$serverId:$projectId",
     factory = viewModelFactory {
         initializer {
-            ProjectViewModel(serverId, projectId, container.servers, container.services, container.projectPreferences, container.io)
+            ProjectViewModel(
+                serverId,
+                projectId,
+                container.servers,
+                container.services,
+                container.projectPreferences,
+                container.io,
+                createSavedStateHandle(),
+            )
         }
     },
 )

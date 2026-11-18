@@ -90,6 +90,8 @@ fun AgentChatScreen(
     agentId: String,
     onBack: (() -> Unit)?,
     onClosed: () -> Unit,
+    /** `false` cuando la pantalla del proyecto mantiene la conexión ([AgentChatConnectionEffect]). */
+    ownsConnection: Boolean = true,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Estado local y síncrono, con la composición del IME: nunca pasa por el ViewModel, o se
@@ -98,10 +100,7 @@ fun AgentChatScreen(
     var follow by rememberSaveable(agentId) { mutableStateOf(true) }
     val currentOnClosed by rememberUpdatedState(onClosed)
 
-    LifecycleStartEffect(viewModel) {
-        viewModel.onStart()
-        onStopOrDispose { viewModel.onStop() }
-    }
+    if (ownsConnection) AgentChatConnectionEffect(viewModel)
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
@@ -484,5 +483,14 @@ private fun Composer(state: AgentChatUiState, draft: TextFieldValue, onDraftChan
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.agents_chat_send))
             }
         }
+    }
+}
+
+/** Conectado al log del agente mientras este punto de la composición viva y su pantalla esté iniciada. */
+@Composable
+fun AgentChatConnectionEffect(viewModel: AgentChatViewModel) {
+    LifecycleStartEffect(viewModel) {
+        viewModel.onStart()
+        onStopOrDispose { viewModel.onStop() }
     }
 }

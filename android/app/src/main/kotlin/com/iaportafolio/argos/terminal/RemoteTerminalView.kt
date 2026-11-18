@@ -108,10 +108,13 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
         target.listener = sessionListener
         topRow = 0
         updateSize(force = true)
+        // Al volver a la pestaña Terminal, donde se dejó el scroll (si no cambió el tamaño).
+        topRow = target.savedTopRow.coerceIn(-target.emulator.screen.activeTranscriptRows, 0)
         invalidate()
     }
 
     fun detach() {
+        session?.savedTopRow = topRow
         session?.listener = null
         session = null
         actionMode?.finish()

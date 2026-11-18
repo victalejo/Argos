@@ -34,6 +34,9 @@ class RemoteTerminalSession(transcriptRows: Int = TRANSCRIPT_ROWS) : TerminalSin
     /** La vista enganchada (o `null`): se limpia al soltarla para no filtrarla. */
     var listener: Listener? = null
 
+    /** Desplazamiento de la última vista (filas hacia atrás, ≤ 0): la siguiente lo retoma. */
+    var savedTopRow: Int = 0
+
     private val output = object : TerminalOutput() {
         override fun write(data: ByteArray, offset: Int, count: Int) {
             responder(data.copyOfRange(offset, offset + count))

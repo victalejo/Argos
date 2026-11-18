@@ -2,6 +2,7 @@
 
 package com.iaportafolio.argos.ui
 
+import androidx.lifecycle.SavedStateHandle
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.agent.RemoteDirectoryListing
 import com.iaportafolio.argos.core.projects.ProjectError
@@ -44,7 +45,7 @@ class ProjectViewModelTest {
     private val api = project(1, "api", group = "web")
 
     private fun TestScope.loaded(projectId: String = api.id) =
-        ProjectViewModel("S1", projectId, repository, provider, InMemoryProjectPreferences(), main.dispatcher)
+        ProjectViewModel("S1", projectId, repository, provider, InMemoryProjectPreferences(), main.dispatcher, SavedStateHandle())
             .also { advanceUntilIdle() }
 
     @Test
@@ -167,5 +168,38 @@ class ProjectViewModelTest {
         legacy.start("")
         advanceUntilIdle()
         assertEquals(UiText.res(R.string.files_unsupported), legacy.state.value.error)
+    }
+
+    @Test
+    fun `la pestaña activa sobrevive a la muerte del proceso`() = runTest(main.dispatcher) {
+        ssh.projects = listOf(api)
+        val saved = SavedStateHandle()
+        val first = ProjectViewModel("S1", api.id, repository, provider, InMemoryProjectPreferences(), main.dispatcher, saved)
+        assertTrue(first.state.value.terminalOpened)
+        first.selectTab(ProjectTab.CHANGES)
+
+        val restored = ProjectViewModel("S1", api.id, repository, provider, InMemoryProjectPreferences(), main.dispatcher, saved)
+        advanceUntilIdle()
+        assertEquals(ProjectTab.CHANGES, restored.state.value.tab)
+        // Venía de la pestaña Terminal: el terminal se vuelve a enganchar aunque no esté a la vista.
+        assertTrue(restored.state.value.terminalOpened)
+    }
+
+    @Test
+    fun `restaurado en otra pestaña no engancha el terminal hasta abrirlo`() = runTest(main.dispatcher) {
+        val saved = SavedStateHandle(mapOf("project.tab" to "FILES"))
+        val vm = ProjectViewModel("S1", api.id, repository, provider, InMemoryProjectPreferences(), main.dispatcher, saved)
+        assertEquals(ProjectTab.FILES, vm.state.value.tab)
+        assertFalse(vm.state.value.terminalOpened)
+        vm.selectTab(ProjectTab.TERMINAL)
+        vm.selectTab(ProjectTab.AGENTS)
+        assertTrue(vm.state.value.terminalOpened)
+    }
+
+    @Test
+    fun `una pestaña guardada que ya no existe vuelve al terminal`() = runTest(main.dispatcher) {
+        val saved = SavedStateHandle(mapOf("project.tab" to "MONITOR"))
+        val vm = ProjectViewModel("S1", api.id, repository, provider, InMemoryProjectPreferences(), main.dispatcher, saved)
+        assertEquals(ProjectTab.TERMINAL, vm.state.value.tab)
     }
 }

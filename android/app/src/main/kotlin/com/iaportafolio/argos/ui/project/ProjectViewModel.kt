@@ -1,5 +1,6 @@
 package com.iaportafolio.argos.ui.project
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
@@ -45,6 +46,8 @@ data class ProjectUiState(
     val tab: ProjectTab = ProjectTab.TERMINAL,
     val isStarting: Boolean = false,
     val message: UiText? = null,
+    /** Ya se abrió la pestaña Terminal: desde entonces sigue enganchado al cambiar de pestaña. */
+    val terminalOpened: Boolean = tab == ProjectTab.TERMINAL,
 ) {
     val project: Project? get() = (load as? ProjectLoad.Loaded)?.project
 }
@@ -52,6 +55,7 @@ data class ProjectUiState(
 /**
  * Detalle de un proyecto (port de `ProjectScreen` de iOS): elige pestaña y sabe si su sesión
  * corre. Si está detenido, el terminal ofrece arrancarlo con `ProjectLifecycle.startRequest`.
+ * La pestaña activa se guarda en [savedState]: sobrevive a la muerte del proceso.
  */
 class ProjectViewModel(
     private val serverId: String,
@@ -60,9 +64,18 @@ class ProjectViewModel(
     private val services: ServiceProvider,
     private val preferences: ProjectPreferencesStore,
     private val io: CoroutineDispatcher,
+    private val savedState: SavedStateHandle,
 ) : ViewModel() {
 
-    private val mutableState = MutableStateFlow(ProjectUiState(serverName = repository.server(serverId)?.name.orEmpty()))
+    private val mutableState = MutableStateFlow(
+        restoredTab().let { tab ->
+            ProjectUiState(
+                serverName = repository.server(serverId)?.name.orEmpty(),
+                tab = tab,
+                terminalOpened = tab == ProjectTab.TERMINAL || savedState.get<Boolean>(KEY_TERMINAL_OPENED) == true,
+            )
+        },
+    )
     val state: StateFlow<ProjectUiState> = mutableState.asStateFlow()
 
     private var loadJob: Job? = null
@@ -71,10 +84,18 @@ class ProjectViewModel(
     private var sessions: List<TmuxSession> = emptyList()
 
     init {
+        if (state.value.terminalOpened) savedState[KEY_TERMINAL_OPENED] = true
         reload()
     }
 
-    fun selectTab(tab: ProjectTab) = mutableState.update { it.copy(tab = tab) }
+    fun selectTab(tab: ProjectTab) {
+        savedState[KEY_TAB] = tab.name
+        if (tab == ProjectTab.TERMINAL) savedState[KEY_TERMINAL_OPENED] = true
+        mutableState.update { it.copy(tab = tab, terminalOpened = it.terminalOpened || tab == ProjectTab.TERMINAL) }
+    }
+
+    private fun restoredTab(): ProjectTab =
+        savedState.get<String>(KEY_TAB)?.let { name -> ProjectTab.entries.firstOrNull { it.name == name } } ?: ProjectTab.TERMINAL
 
     /** Relee el proyecto y si su sesión corre (al abrir y al volver a primer plano). */
     fun reload() {
@@ -130,6 +151,9 @@ class ProjectViewModel(
     fun messageShown() = mutableState.update { it.copy(message = null) }
 
     companion object {
+        private const val KEY_TAB = "project.tab"
+        private const val KEY_TERMINAL_OPENED = "project.terminalOpened"
+
         /** Recurso del título de cada pestaña (UI y accesibilidad). */
         fun titleOf(tab: ProjectTab): Int = when (tab) {
             ProjectTab.TERMINAL -> R.string.project_tab_terminal

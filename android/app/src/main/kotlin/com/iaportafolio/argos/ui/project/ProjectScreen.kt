@@ -31,6 +31,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -52,6 +53,10 @@ val WIDE_LAYOUT_MIN_WIDTH = 840.dp
  * Detalle de un proyecto (equivale a `ProjectScreen` de iOS): Terminal · Archivos · Cambios · Agentes.
  * En móvil, barra de pestañas inferior (el teclado la tapa al escribir en el terminal); en
  * pantallas anchas, carril lateral. Cada pestaña trae su propia barra superior con «atrás».
+ *
+ * Cada pestaña conserva su estado guardable (scroll, carpeta, selección) al cambiar de una a otra
+ * ([rememberSaveableStateHolder]). [keepAlive] se compone mientras el proyecto esté cargado, sea
+ * cual sea la pestaña: ahí la navegación mantiene enganchados el terminal y el chat.
  */
 @Composable
 fun ProjectScreen(
@@ -62,27 +67,32 @@ fun ProjectScreen(
     files: @Composable (project: Project, twoPane: Boolean) -> Unit,
     changes: @Composable (project: Project, twoPane: Boolean) -> Unit,
     agents: @Composable (project: Project, twoPane: Boolean) -> Unit,
+    keepAlive: @Composable (project: Project, twoPane: Boolean) -> Unit = { _, _ -> },
 ) {
     val snackbar = remember { SnackbarHostState() }
+    val tabStates = rememberSaveableStateHolder()
     MessageEffect(state.message, snackbar, viewModel::messageShown)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WIDE_LAYOUT_MIN_WIDTH
         val project = state.project
+        if (project != null) keepAlive(project, wide)
         val content = @Composable { modifier: Modifier ->
             Box(modifier) {
                 if (project == null) {
                     ProjectLoadContent(state, viewModel, onBack)
                 } else {
-                    when (state.tab) {
-                        ProjectTab.TERMINAL -> if ((state.load as? ProjectLoad.Loaded)?.isRunning == true) {
-                            terminal(project)
-                        } else {
-                            StoppedProject(project, state.isStarting, viewModel::start, onBack)
+                    tabStates.SaveableStateProvider(state.tab.name) {
+                        when (state.tab) {
+                            ProjectTab.TERMINAL -> if ((state.load as? ProjectLoad.Loaded)?.isRunning == true) {
+                                terminal(project)
+                            } else {
+                                StoppedProject(project, state.isStarting, viewModel::start, onBack)
+                            }
+                            ProjectTab.FILES -> files(project, wide)
+                            ProjectTab.CHANGES -> changes(project, wide)
+                            ProjectTab.AGENTS -> agents(project, wide)
                         }
-                        ProjectTab.FILES -> files(project, wide)
-                        ProjectTab.CHANGES -> changes(project, wide)
-                        ProjectTab.AGENTS -> agents(project, wide)
                     }
                 }
             }

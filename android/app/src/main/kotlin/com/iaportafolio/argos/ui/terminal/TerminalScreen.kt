@@ -81,6 +81,11 @@ fun TerminalScreen(
     autoShowKeyboard: Boolean = true,
     /** Pestañas de las ventanas tmux; `null` = sin barra de ventanas. */
     windows: TerminalWindowsViewModel? = null,
+    /**
+     * `false` cuando otro (la pantalla del proyecto, con [TerminalConnectionEffect]) mantiene el
+     * attach: así cambiar de pestaña no hace detach ni repinta.
+     */
+    ownsConnection: Boolean = true,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val windowsState = windows?.state?.collectAsStateWithLifecycle()?.value
@@ -98,19 +103,7 @@ fun TerminalScreen(
     }
     var terminalView by remember { mutableStateOf<RemoteTerminalView?>(null) }
 
-    // Esta pantalla también se detiene al navegar o cambiar de pestaña dentro de la app: solo es
-    // segundo plano si se detuvo la Activity. La sesión sigue viva en tmux en cualquier caso.
-    val activityLifecycle = (LocalActivity.current as? LifecycleOwner)?.lifecycle
-    LifecycleStartEffect(viewModel) {
-        viewModel.onStart()
-        onStopOrDispose {
-            if (activityLifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED) == false) {
-                viewModel.onStop()
-            } else {
-                viewModel.onLeave()
-            }
-        }
-    }
+    if (ownsConnection) TerminalConnectionEffect(viewModel)
 
     Scaffold(
         containerColor = TerminalColors.Background,
@@ -151,6 +144,26 @@ fun TerminalScreen(
                 StatusOverlay(state.status, onReconnect = viewModel::reconnect, onBack = onBack)
             }
             ExtraKeysRow(state.modifiers, onKey = viewModel::pressExtraKey)
+        }
+    }
+}
+
+/**
+ * Engancha el terminal mientras este punto de la composición esté vivo y su pantalla iniciada.
+ * La pantalla también se detiene al navegar dentro de la app: solo es segundo plano si se detuvo
+ * la Activity. La sesión sigue viva en tmux en cualquier caso.
+ */
+@Composable
+fun TerminalConnectionEffect(viewModel: TerminalViewModel<RemoteTerminalSession>) {
+    val activityLifecycle = (LocalActivity.current as? LifecycleOwner)?.lifecycle
+    LifecycleStartEffect(viewModel) {
+        viewModel.onStart()
+        onStopOrDispose {
+            if (activityLifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED) == false) {
+                viewModel.onStop()
+            } else {
+                viewModel.onLeave()
+            }
         }
     }
 }
