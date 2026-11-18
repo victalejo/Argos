@@ -96,6 +96,7 @@ final class ProjectSyncJob {
         } catch is CancellationError {
             return
         } catch {
+            Log.store.error("Preparar el envío de \(self.project.name, privacy: .public) falló: \(String(describing: error), privacy: .public)")
             phase = .failed(error.userMessage)
         }
     }
@@ -112,6 +113,7 @@ final class ProjectSyncJob {
             } catch is CancellationError {
                 finish(.failed("Cancelado. La copia del Mac puede haber quedado a medias: bórrala antes de reintentar."))
             } catch {
+                Log.store.error("Envío de \(self.project.name, privacy: .public) falló: \(String(describing: error), privacy: .public)")
                 finish(.failed(error.userMessage))
             }
         }
@@ -180,6 +182,7 @@ final class ProjectSyncJob {
             } catch is CancellationError {
                 finish(.failed("Cancelado. Parte de los cambios pueden haberse subido; vuelve a «Enviar al servidor» para terminar."))
             } catch {
+                Log.store.error("Envío de \(self.project.name, privacy: .public) falló: \(String(describing: error), privacy: .public)")
                 finish(.failed(error.userMessage))
             }
         }

@@ -35,15 +35,36 @@ enum FileBrowserError: LocalizedError, Equatable {
 extension SSHService {
 
     /// SFTP del explorador, reutilizado mientras la conexión SSH siga siendo la misma.
+    ///
+    /// El actor es reentrante: sin coordinar la apertura, N transferencias simultáneas
+    /// abrían N canales SFTP y solo se guardaba uno; los demás quedaban abiertos en la
+    /// conexión compartida hasta agotar `MaxSessions` (el servidor rechaza entonces
+    /// cualquier canal nuevo con `NIOSSHError`).
     func browserSFTPClient() async throws -> SFTPClient {
         let client = try await connectedClient()
-        if let sftp = fileSFTP, sftp.isActive, fileSFTPOwner == ObjectIdentifier(client) {
+        let owner = ObjectIdentifier(client)
+        if let sftp = fileSFTP, sftp.isActive, fileSFTPOwner == owner {
             return sftp
         }
-        let sftp = try await client.openSFTP()
-        fileSFTP = sftp
-        fileSFTPOwner = ObjectIdentifier(client)
-        return sftp
+        if let opening = fileSFTPOpening {
+            return try await opening.value
+        }
+        if let stale = fileSFTP {
+            fileSFTP = nil
+            fileSFTPOwner = nil
+            Task { try? await stale.close() }
+        }
+        // Se guarda DENTRO de la tarea (aislada al actor): así quien espera la apertura
+        // nunca ve el hueco entre abrir y guardar, ni abre otro.
+        let opening = Task { () async throws -> SFTPClient in
+            let sftp = try await client.openSFTP()
+            self.fileSFTP = sftp
+            self.fileSFTPOwner = owner
+            return sftp
+        }
+        fileSFTPOpening = opening
+        defer { if fileSFTPOpening == opening { fileSFTPOpening = nil } }
+        return try await opening.value
     }
 
     /// Ruta real (symlinks resueltos) comprobando que queda dentro de `root`.

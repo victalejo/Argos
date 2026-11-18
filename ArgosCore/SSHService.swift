@@ -121,6 +121,9 @@ actor SSHService {
     /// sería lento) y la conexión SSH a la que pertenece (al reconectar, se reabre).
     var fileSFTP: SFTPClient?
     var fileSFTPOwner: ObjectIdentifier?
+    /// Apertura en curso del SFTP compartido: las transferencias en paralelo la esperan
+    /// en vez de abrir cada una su canal (quedaban huérfanos y agotaban `MaxSessions`).
+    var fileSFTPOpening: Task<SFTPClient, Error>?
 
     /// Tarea de heartbeat de la conexión actual (keep-alive). Ver `startHeartbeat`.
     private var heartbeatTask: Task<Void, Never>?
@@ -219,6 +222,8 @@ actor SSHService {
         for dedicatedClient in dedicated {
             try? await dedicatedClient.close()
         }
+        fileSFTPOpening?.cancel()
+        fileSFTPOpening = nil
         try? await fileSFTP?.close()
         fileSFTP = nil
         fileSFTPOwner = nil
