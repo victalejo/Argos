@@ -24,6 +24,11 @@ struct RootView: View {
     /// restaurada de una ejecución anterior (`@SceneStorage` sobrevive entre lanzamientos
     /// en el mismo simulador).
     static let resetStateArgument = "-ArgosResetNavigation"
+    /// Tests de interfaz: `-ArgosOpenURL <enlace>` entrega el enlace al arrancar por el
+    /// mismo camino que `onOpenURL`. Algunos simuladores de la CI (iOS 18.5 recién
+    /// arrancado) no entregan `XCUIApplication.open(_:)`: mandan la app a segundo plano y
+    /// SpringBoard se queda en la pantalla de inicio.
+    static let openURLArgument = "-ArgosOpenURL"
 
     @Environment(ServerHub.self) private var hub
     @SceneStorage("argos.navigation") private var savedNavigation = ""
@@ -34,6 +39,9 @@ struct RootView: View {
     /// (iPhone con otra columna visible o con la navegación restaurada).
     @State private var linkImport: ImportRequest?
     @State private var linkError: String?
+    @Environment(AppLock.self) private var lock
+    /// Enlace recibido con la app bloqueada: se atiende al desbloquear.
+    @State private var deferredLink: URL?
 
     private var server: Server? { navigation.serverID.flatMap { hub.store.server(withID: $0) } }
 
@@ -74,6 +82,11 @@ struct RootView: View {
             if navigation.serverID != route.serverID { navigation.selectServer(route.serverID) }
         }
         .onOpenURL(perform: handleLink)
+        .onChange(of: lock.isLocked) { _, locked in
+            guard !locked, let url = deferredLink else { return }
+            deferredLink = nil
+            handleLink(url)
+        }
         .sheet(item: $linkImport) { request in
             ImportServerSheet(transfer: request.transfer)
         }
@@ -90,6 +103,10 @@ struct RootView: View {
     /// Un enlace nuevo no sustituye una confirmación ya abierta (se podría cambiar el
     /// servidor que el usuario está revisando sin que lo note).
     private func handleLink(_ url: URL) {
+        if let deferred = AppLockPolicy.deferring(url, enabled: lock.isEnabled, isLocked: lock.isLocked) {
+            deferredLink = deferred
+            return
+        }
         guard linkImport == nil else {
             Log.store.notice("Se ignora un enlace de alta: ya hay una confirmación abierta")
             return
@@ -105,8 +122,13 @@ struct RootView: View {
     private func restoreOnce() {
         guard !restored else { return }
         restored = true
-        if ProcessInfo.processInfo.arguments.contains(Self.resetStateArgument) { savedNavigation = "" }
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains(Self.resetStateArgument) { savedNavigation = "" }
         navigation.restore(from: savedNavigation)
+        if let index = arguments.firstIndex(of: Self.openURLArgument), index + 1 < arguments.count,
+           let url = URL(string: arguments[index + 1]) {
+            handleLink(url)
+        }
         navigation.dropMissingServer { hub.store.server(withID: $0) != nil }
     }
 }

@@ -17,11 +17,24 @@ final class ImportServerLinkTests: XCTestCase {
 
     /// Arranca sin la navegación restaurada de otra ejecución (el enlace debe funcionar
     /// igual, pero así cada prueba empieza en la lista de servidores).
-    private static func launchClean() -> XCUIApplication {
+    private static func launchClean(extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += ["-ArgosResetNavigation"]
+        app.launchArguments += ["-ArgosResetNavigation"] + extra
         app.launch()
         return app
+    }
+
+    /// Abre el enlace como la cámara del sistema. Si el simulador no lo entrega (en la
+    /// CI, iOS 18.5 recién arrancado manda la app a segundo plano y SpringBoard se queda
+    /// en la pantalla de inicio), se relanza la app con el enlace como argumento: llega
+    /// al mismo `handleLink` que `onOpenURL`.
+    private func open(_ url: URL, in app: XCUIApplication, expecting element: @escaping (XCUIApplication) -> XCUIElement) -> XCUIApplication {
+        app.open(url)
+        if element(app).waitForExistence(timeout: 8) { return app }
+        XCTContext.runActivity(named: "El sistema no entregó el enlace (estado \(app.state.rawValue)); se relanza con -ArgosOpenURL") { _ in }
+        app.terminate()
+        let relaunched = Self.launchClean(extra: ["-ArgosOpenURL", url.absoluteString])
+        return relaunched
     }
 
     /// Mismo formato que `ServerTransfer.urlString()` (la app no se importa aquí).
@@ -44,9 +57,7 @@ final class ImportServerLinkTests: XCTestCase {
 
     func testEnlaceDelQRMuestraConfirmacionYAnadeServidor() throws {
         let name = "qr-\(Int(Date().timeIntervalSince1970))"
-        let app = Self.launchClean()
-
-        app.open(try transferLink(name: name))
+        let app = open(try transferLink(name: name), in: Self.launchClean()) { $0.navigationBars["Añadir desde el Mac"] }
 
         XCTAssertTrue(app.navigationBars["Añadir desde el Mac"].waitForExistence(timeout: 10),
                       "No se abrió la hoja de importación")
@@ -70,9 +81,8 @@ final class ImportServerLinkTests: XCTestCase {
     }
 
     func testEnlaceCaducadoAvisa() throws {
-        let app = Self.launchClean()
-
-        app.open(try transferLink(name: "caducado", createdAt: Date().addingTimeInterval(-600)))
+        let link = try transferLink(name: "caducado", createdAt: Date().addingTimeInterval(-600))
+        let app = open(link, in: Self.launchClean()) { $0.alerts["No se pudo añadir el servidor"] }
 
         XCTAssertTrue(app.alerts["No se pudo añadir el servidor"].waitForExistence(timeout: 10))
         snapshot("qr-3-caducado", app)
