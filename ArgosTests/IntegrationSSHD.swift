@@ -30,6 +30,13 @@ enum IntegrationSSHD {
     /// Hace falta además el directorio del sshd para poder matarlo y reiniciarlo.
     static var canRestart: Bool { enabled && env["ARGOS_E2E_SSHD_DIR"] != nil }
 
+    /// El sshd corre en ESTA máquina (su directorio es local): solo entonces se puede mirar
+    /// el resultado en el disco o en la tabla de procesos locales.
+    static var isLocalServer: Bool {
+        guard enabled, let dir = sshdDirectory else { return false }
+        return FileManager.default.fileExists(atPath: dir + "/sshd_config")
+    }
+
     static var host: String { env["ARGOS_E2E_SSH_HOST"] ?? "127.0.0.1" }
     static var port: Int { Int(env["ARGOS_E2E_SSH_PORT"] ?? "") ?? 22 }
     /// `MaxSessions` del sshd de prueba (10 es el valor por defecto de OpenSSH).

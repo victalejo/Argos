@@ -37,7 +37,9 @@ struct IntegrationSSHDTests {
         #expect(outputs.allSatisfy { $0.value == "burst-\($0.key)" })
     }
 
-    @Test("Subidas SFTP en paralelo no dejan canales abiertos", .timeLimit(.minutes(2)))
+    @Test("Subidas SFTP en paralelo no dejan canales abiertos",
+          .enabled(if: IntegrationSSHD.isLocalServer, "Mira el disco y los procesos locales: solo con el sshd local"),
+          .timeLimit(.minutes(2)))
     func parallelUploadsLeaveNoChannels() async throws {
         let service = IntegrationSSHD.service()
         defer { Task { await service.disconnect(); IntegrationSSHD.forgetHostKey() } }
