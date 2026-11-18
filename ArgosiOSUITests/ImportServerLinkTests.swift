@@ -15,6 +15,15 @@ final class ImportServerLinkTests: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// Arranca sin la navegación restaurada de otra ejecución (el enlace debe funcionar
+    /// igual, pero así cada prueba empieza en la lista de servidores).
+    private static func launchClean() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments += ["-ArgosResetNavigation"]
+        app.launch()
+        return app
+    }
+
     /// Mismo formato que `ServerTransfer.urlString()` (la app no se importa aquí).
     private func transferLink(name: String, createdAt: Date = Date()) throws -> URL {
         func base64URL(_ data: Data) -> String {
@@ -35,8 +44,7 @@ final class ImportServerLinkTests: XCTestCase {
 
     func testEnlaceDelQRMuestraConfirmacionYAnadeServidor() throws {
         let name = "qr-\(Int(Date().timeIntervalSince1970))"
-        let app = XCUIApplication()
-        app.launch()
+        let app = Self.launchClean()
 
         app.open(try transferLink(name: name))
 
@@ -62,8 +70,7 @@ final class ImportServerLinkTests: XCTestCase {
     }
 
     func testEnlaceCaducadoAvisa() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = Self.launchClean()
 
         app.open(try transferLink(name: "caducado", createdAt: Date().addingTimeInterval(-600)))
 
