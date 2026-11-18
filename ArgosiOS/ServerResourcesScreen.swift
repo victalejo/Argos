@@ -77,7 +77,12 @@ struct ServerResourcesScreen: View {
             } description: {
                 Text(errorMessage)
             } actions: {
-                Button("Reintentar") { Task { await readOnce() } }
+                Button("Reintentar") {
+                    Task {
+                        await service.resetConnectionHealth()
+                        await readOnce()
+                    }
+                }
             }
         } else {
             ProgressView("Leyendo recursos…")
@@ -115,7 +120,8 @@ struct ServerResourcesScreen: View {
 
     private func poll() async {
         while !Task.isCancelled {
-            await readOnce()
+            // Refresco periódico = sondeo de fondo: tras un fallo espera en vez de insistir.
+            await ConnectionPriority.background { await readOnce() }
             do { try await Task.sleep(for: Self.refreshInterval) } catch { return }
         }
     }
@@ -131,7 +137,7 @@ struct ServerResourcesScreen: View {
         } catch is CancellationError {
             return
         } catch {
-            Log.ssh.error("Monitor de recursos: \(error.userMessage, privacy: .public)")
+            Log.ssh.error("Monitor de recursos: \(error.userMessage, privacy: .private)")
             errorMessage = error.userMessage
         }
     }

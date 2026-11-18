@@ -4,7 +4,8 @@
 //
 //  Ajustes de la app en iPhone/iPad: iCloud, comando de arranque de los proyectos (el
 //  mismo ajuste y almacenamiento que «Ajustes → Proyectos» del Mac: `ProjectSettings`),
-//  permisos de los agentes, avisos y bloqueo con Face ID / Touch ID.
+//  permisos de los agentes, avisos, atajos, Doctor de cada servidor y bloqueo con Face ID /
+//  Touch ID.
 //
 
 import SwiftUI
@@ -15,7 +16,10 @@ struct SettingsView: View {
     @AppStorage(CloudServerSync.enabledKey) private var cloudSyncEnabled = true
     @AppStorage(AgentPermissionPreferences.globalKey)
     private var agentPermissionMode = AgentPermissionPreferences.fallback.rawValue
+    @AppStorage(ShortcutPreferences.allowsUnconfirmedKey) private var shortcutsWithoutConfirmation = false
     @State private var projectSettings = ProjectSettings.shared
+    @State private var doctorServer: Server?
+    @Environment(ServerHub.self) private var hub
 
     var body: some View {
         NavigationStack {
@@ -44,6 +48,33 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Toggle(isOn: $shortcutsWithoutConfirmation) {
+                        Label("Permitir atajos sin confirmar", systemImage: "bolt.badge.checkmark")
+                    }
+                } header: {
+                    Text("Atajos y Siri")
+                } footer: {
+                    Text("«Pedir a Claude» confirma antes de mandar un encargo a un agente que trabaja sin preguntar o que acepta ediciones solo. Actívalo solo si usas esos atajos en automatizaciones y sabes lo que hacen.")
+                }
+
+                if !hub.store.servers.isEmpty {
+                    Section {
+                        ForEach(hub.store.servers) { server in
+                            Button {
+                                doctorServer = server
+                            } label: {
+                                Label(server.name, systemImage: "stethoscope")
+                            }
+                            .disabled(ImportedKeyStore.needsImport(server))
+                        }
+                    } header: {
+                        Text("Doctor del servidor")
+                    } footer: {
+                        Text("Comprueba la conexión, tmux, Claude Code y los avisos de un servidor, y copia un diagnóstico.")
+                    }
+                }
+
+                Section {
                     Toggle(isOn: $cloudSyncEnabled) {
                         Label("Sincronizar con iCloud", systemImage: "icloud")
                     }
@@ -60,6 +91,9 @@ struct SettingsView: View {
                 } footer: {
                     Text("Argos da acceso a tus servidores. Con esto activado, pide \(AppLock.biometryName) al abrir la app y al volver tras más de un minuto fuera, y oculta su contenido en el selector de apps.")
                 }
+            }
+            .sheet(item: $doctorServer) { server in
+                DoctorScreen(service: hub.viewModel(for: server).service, serverName: server.name, knownServers: hub.store.servers)
             }
             .navigationTitle("Ajustes")
             .navigationBarTitleDisplayMode(.inline)

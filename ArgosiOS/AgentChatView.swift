@@ -113,19 +113,24 @@ struct AgentChatView: View {
         isSending = true
         Task {
             defer { isSending = false }
+            await session.liftConnectionBlock()
             handle(await session.send(text), text: text)
         }
     }
 
     private func confirmedResume() {
         guard let text = pendingResumeText else {
-            Task { await session.resume() }
+            Task {
+                await session.liftConnectionBlock()
+                await session.resume()
+            }
             return
         }
         pendingResumeText = nil
         isSending = true
         Task {
             defer { isSending = false }
+            await session.liftConnectionBlock()
             handle(await session.send(text, confirmedResume: true), text: text)
         }
     }
@@ -218,11 +223,19 @@ struct AgentChatView: View {
                         if session.meta.resumeRequiresConfirmation {
                             confirmResume = true
                         } else {
-                            Task { await session.resume() }
+                            Task {
+                                await session.liftConnectionBlock()
+                                await session.resume()
+                            }
                         }
                     }
                 }
-                Button("Recargar", systemImage: "arrow.clockwise") { session.reload() }
+                Button("Recargar", systemImage: "arrow.clockwise") {
+                    Task {
+                        await session.liftConnectionBlock()
+                        session.reload()
+                    }
+                }
                 Divider()
                 Button("Borrar conversación", systemImage: "trash", role: .destructive) { confirmDelete = true }
             }

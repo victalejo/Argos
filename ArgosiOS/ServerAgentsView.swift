@@ -35,7 +35,12 @@ struct ServerAgentsView: View {
                 } description: {
                     Text(errorMessage)
                 } actions: {
-                    Button("Reintentar") { Task { await load() } }
+                    Button("Reintentar") {
+                        Task {
+                            await service.resetConnectionHealth()
+                            await load()
+                        }
+                    }
                 }
             } else {
                 ProgressView()

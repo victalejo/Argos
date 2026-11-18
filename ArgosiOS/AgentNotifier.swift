@@ -9,7 +9,8 @@
 //  Apple: los avisos son notificaciones LOCALES. Con la app en segundo plano, iOS deja a
 //  Argos refrescar de vez en cuando (BGAppRefreshTask; la frecuencia la decide iOS): en
 //  cada refresco se lee el final del log de los agentes y el estado de Claude en tmux, y
-//  se avisa de lo nuevo. Tocar un aviso abre su servidor (y su sesión, si la tiene).
+//  se avisa de lo nuevo. Tocar un aviso abre su servidor y su sesión o, si es de un agente
+//  persistente, el chat de ese agente.
 //
 
 import BackgroundTasks
@@ -28,6 +29,8 @@ final class AgentNotifier {
     private static let claudeSnapshotsKey = "claude.snapshots" // [servidor: snapshot JSON]
 
     private weak var hub: ServerHub?
+    /// Destino pedido (atajo, aviso) antes de que la app registrara su `ServerHub`.
+    private var routeBeforeRegistration: NotificationRoute?
     /// La app pasó de verdad por segundo plano (no solo por `.inactive`: Centro de control,
     /// Face ID…). Solo entonces lo guardado es más reciente que lo que hay en memoria.
     private var wasInBackground = false
@@ -37,6 +40,10 @@ final class AgentNotifier {
 
     func register(hub: ServerHub) {
         self.hub = hub
+        if let route = routeBeforeRegistration {
+            routeBeforeRegistration = nil
+            hub.follow(route)
+        }
         UNUserNotificationCenter.current().delegate = ForegroundNotificationPresenter.shared
         BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.taskIdentifier, using: .main) { task in
             guard let refresh = task as? BGAppRefreshTask else { return }
@@ -244,8 +251,9 @@ final class AgentNotifier {
 
     private func check(_ server: Server, item: BackgroundCheckPlanner.Item) async {
         let service = server.makeService()
+        // Sondeo de fondo: no se salta la espera tras un fallo ni el cupo de canales.
         let reading = await Deadline.value(within: BackgroundCheckPlanner.perServerTimeout) {
-            await Self.read(service, item: item)
+            await ConnectionPriority.background { await Self.read(service, item: item) }
         }
         // Sin esperar: con una conexión colgada, el cierre tampoco respondería.
         Task { await service.disconnect() }
@@ -265,14 +273,14 @@ final class AgentNotifier {
             do {
                 reading.agentOutput = try await service.runAgentScript(PersistentAgentScript.snapshots())
             } catch {
-                Log.agent.notice("Avisos de agentes en segundo plano: \(error.userMessage, privacy: .public)")
+                Log.agent.notice("Avisos de agentes en segundo plano: \(error.userMessage, privacy: .private)")
             }
         }
         if item.checkClaude, !Task.isCancelled {
             do {
                 reading.claude = try await service.claudeActivity()
             } catch {
-                Log.agent.notice("Avisos de Claude en segundo plano: \(error.userMessage, privacy: .public)")
+                Log.agent.notice("Avisos de Claude en segundo plano: \(error.userMessage, privacy: .private)")
             }
         }
         return reading
@@ -284,12 +292,12 @@ final class AgentNotifier {
         let key = server.id.uuidString
         if let output = reading.agentOutput {
             var seen = seenBytes()
-            let plan = AgentAttentionPlanner.notices(
-                snapshots: PersistentAgentScript.parseSnapshots(output), seenBytes: seen[key] ?? [:]
-            )
+            let snapshots = PersistentAgentScript.parseSnapshots(output)
+            let plan = AgentAttentionPlanner.notices(snapshots: snapshots, seenBytes: seen[key] ?? [:])
             seen[key] = plan.seen
             defaults.set(seen, forKey: Self.seenKey)
-            for notice in plan.notices { post(notice, server: server) }
+            let folders = Dictionary(snapshots.map { ($0.id, $0.workingDirectory) }, uniquingKeysWith: { first, _ in first })
+            for notice in plan.notices { post(notice, server: server, workingDirectory: folders[notice.agentID]) }
         }
         if let fresh = reading.claude {
             var snapshots = claudeSnapshots()
@@ -324,9 +332,14 @@ final class AgentNotifier {
         defaults.set(try? JSONEncoder().encode(snapshots), forKey: Self.claudeSnapshotsKey)
     }
 
-    /// Notificación tocada: se apunta el destino para que la interfaz lo abra.
+    /// Notificación tocada (o atajo «Abrir proyecto»): se apunta el destino para que la
+    /// interfaz lo abra. `ServerHub.follow` lo retiene si la app está bloqueada.
     func open(_ route: NotificationRoute) {
-        hub?.follow(route)
+        guard let hub else {
+            routeBeforeRegistration = route
+            return
+        }
+        hub.follow(route)
     }
 
     nonisolated static let claudePrefix = "claude-"
@@ -348,14 +361,19 @@ final class AgentNotifier {
         }
     }
 
-    private func post(_ notice: AgentAttentionPlanner.Notice, server: Server) {
+    /// Tocarlo abre el chat de ese agente (en su proyecto), tras Face ID si está activo.
+    private func post(_ notice: AgentAttentionPlanner.Notice, server: Server, workingDirectory: String?) {
         let content = UNMutableNotificationContent()
         content.title = notice.title
         content.subtitle = server.name
         content.body = notice.body
         content.sound = .default
         content.threadIdentifier = notice.agentID
-        content.userInfo = NotificationRoute(serverID: server.id).userInfo
+        content.userInfo = NotificationRoute(
+            serverID: server.id,
+            projectPath: workingDirectory.flatMap { $0.isEmpty ? nil : $0 },
+            agentID: notice.agentID
+        ).userInfo
         let request = UNNotificationRequest(identifier: "\(notice.agentID)-\(UUID().uuidString)", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }

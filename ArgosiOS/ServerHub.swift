@@ -38,9 +38,14 @@ final class ServerHub {
 
     /// Destino pedido al tocar una notificación. Lo consume la vista que lo resuelve.
     var pendingRoute: NotificationRoute?
+    /// Chat de agente persistente que abrir en cuanto su proyecto muestre los agentes (lo
+    /// consume `AgentsView`).
+    var pendingAgentID: String?
     @ObservationIgnored private var routeExpiry: Task<Void, Never>?
-    /// Con la app bloqueada (Face ID) los avisos tocados esperan aquí al desbloqueo.
-    @ObservationIgnored private var isLocked = false
+    /// Con la app bloqueada (Face ID) los avisos tocados esperan aquí al desbloqueo. Arranca
+    /// bloqueada si el bloqueo está activo (como `AppLock`): un atajo o aviso que llegue
+    /// antes de pintar la interfaz no se abre sin la cara.
+    @ObservationIgnored private var isLocked = UserDefaults.standard.bool(forKey: AppLockPolicy.enabledKey)
     @ObservationIgnored private var deferredRoute: NotificationRoute?
     /// Terminal (sesión y ventana) que hay en pantalla: de esa ventana no se avisa con la
     /// app delante. Con dueño: al girar, la vista nueva aparece antes de que se vaya la
@@ -230,7 +235,7 @@ final class ServerHub {
                 // Una tarea por servidor: uno con la conexión colgada no retrasa a los demás.
                 let polls = self.loadedViewModels().map { server, viewModel in
                     Task { @MainActor [weak self] in
-                        let transitions = await viewModel.refreshClaudeActivity()
+                        let transitions = await ConnectionPriority.background { await viewModel.refreshClaudeActivity() }
                         // Parado mientras respondía (paso a segundo plano): no se avisa.
                         guard let self, self.pollGeneration == generation else { return }
                         if viewModel.claudeActivity != .empty { AgentNotifier.shared.didSeeClaude(on: server) }

@@ -45,7 +45,12 @@ struct AgentsView: View {
                 } description: {
                     Text(errorMessage)
                 } actions: {
-                    Button("Reintentar") { Task { await load() } }
+                    Button("Reintentar") {
+                        Task {
+                            await service.resetConnectionHealth()
+                            await load()
+                        }
+                    }
                 }
             } else if agents == nil {
                 ProgressView()
@@ -141,7 +146,27 @@ struct AgentsView: View {
         .task {
             await load()
             if !mine.isEmpty { AgentNotifier.shared.didUseAgents(on: server) }
+            openPendingAgent()
         }
+        // Aviso tocado con esta vista ya abierta: se relee la lista y se abre su chat.
+        .onChange(of: hub.pendingAgentID) { _, id in
+            guard id != nil else { return }
+            Task {
+                await load()
+                openPendingAgent()
+            }
+        }
+    }
+
+    /// Abre el chat que pidió un aviso o un atajo (si el agente sigue existiendo).
+    private func openPendingAgent() {
+        guard let id = hub.pendingAgentID, let agents else { return }
+        hub.pendingAgentID = nil
+        guard let info = agents.first(where: { $0.id == id }) else {
+            Log.agent.notice("El agente del aviso ya no existe en el servidor")
+            return
+        }
+        opened = AgentRoute(serverID: server.id, info: info)
     }
 
     private func load() async {
@@ -157,6 +182,10 @@ struct AgentsView: View {
         isLaunching = true
         Task {
             defer { isLaunching = false }
+            // Crear un agente es una acción del usuario: levanta el bloqueo de conexión y
+            // es el momento de pedir el permiso de avisos («terminó / espera tu permiso»).
+            await service.resetConnectionHealth()
+            await AgentNotifier.shared.requestAuthorizationFromUserAction()
             do {
                 guard try await isClaudeReady() else {
                     launchAfterLogin = true

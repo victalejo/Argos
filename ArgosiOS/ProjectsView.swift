@@ -14,6 +14,9 @@ struct ProjectsView: View {
     /// Proyecto/sesión abierto en el detalle (lo gestiona `AppNavigation`; en iPhone la
     /// vista dividida colapsada lo muestra encima de la lista).
     @Binding var selection: ProjectTarget?
+    /// Pestaña del detalle (para abrir un proyecto desde un aviso o un atajo en la pestaña
+    /// pedida). `nil` en vistas que no la controlan.
+    var mode: Binding<DetailMode>? = nil
     @Environment(ServerHub.self) private var hub
 
     @State private var busyProject: Project.ID?
@@ -30,6 +33,8 @@ struct ProjectsView: View {
     @State private var statusFilter: ProjectStatusFilter = .all
     @State private var collapsedGroups = CollapsedSessionGroups.shared
     @State private var showingResources = false
+    @State private var confirmRestore = false
+    @State private var isRestoring = false
 
     private enum SessionPrompt: Identifiable {
         case create
@@ -81,6 +86,9 @@ struct ProjectsView: View {
             .task { await pollGitSummaries() }
             .onChange(of: hub.pendingRoute, initial: true) { _, _ in followPendingRoute() }
             .onChange(of: viewModel.sessions) { _, _ in followPendingRoute() }
+            // Atajos, Siri y Spotlight listan los proyectos sin red.
+            .onChange(of: viewModel.projects, initial: true) { _, _ in updateShortcutIndex() }
+            .onChange(of: isLoaded) { _, _ in updateShortcutIndex() }
             // La vuelta de segundo plano la gestiona `ServerHub.didBecomeActive`: sondea la
             // conexión y refresca sin vaciar la lista (antes cualquier paso de inactivo a
             // activo, como abrir el Centro de control, la cambiaba por «Conectando…»).
@@ -129,6 +137,17 @@ struct ProjectsView: View {
             }
             .sheet(isPresented: $scanningQR, onDismiss: reloadAfterKeyChange) {
                 ImportServerSheet()
+            }
+            .confirmationDialog(
+                "¿Restaurar la copia anterior de los proyectos?",
+                isPresented: $confirmRestore,
+                titleVisibility: .visible
+            ) {
+                Button("Restaurar copia anterior") { restoreBackup() }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Se recupera projects.json.argos-backup de \(currentServer.name). El archivo dañado se guarda aparte "
+                     + "(projects.json.argos-damaged) por si lo necesitas; los cambios hechos después de esa copia se pierden.")
             }
             .alert("Algo salió mal", isPresented: errorBinding) {
                 Button("OK", role: .cancel) {}
@@ -212,9 +231,22 @@ struct ProjectsView: View {
         return List {
             ServerTipsSection(server: currentServer, viewModel: viewModel)
             if let projectsError = viewModel.projectsError {
-                Label(projectsError, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
-                    .font(.footnote)
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(projectsError, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                        .font(.footnote)
+                    if projectsError == ProjectError.invalidFile.errorDescription {
+                        Button {
+                            confirmRestore = true
+                        } label: {
+                            HStack {
+                                Label("Restaurar copia anterior", systemImage: "clock.arrow.circlepath")
+                                if isRestoring { ProgressView() }
+                            }
+                        }
+                        .disabled(isRestoring)
+                    }
+                }
             }
             ForEach(visible.groups) { group in
                 Section {
@@ -482,17 +514,36 @@ struct ProjectsView: View {
 
     private func open(_ target: ProjectTarget) {
         selection = target
+        if let path = target.path {
+            ProjectShortcutIndex.markUsed(CachedProject.identifier(serverID: server.id, path: path))
+        }
     }
 
-    /// Notificación tocada: abre su sesión (y su ventana) en cuanto la lista está cargada.
+    /// Una lista vacía solo cuenta si la carga terminó bien: con `projects.json` dañado o
+    /// sin conexión se conserva lo último conocido.
+    private func updateShortcutIndex() {
+        let projects = viewModel.projects
+        guard !projects.isEmpty || (isLoaded && viewModel.projectsError == nil) else { return }
+        ProjectShortcutIndex.update(serverID: server.id, projects: projects)
+    }
+
+    private var isLoaded: Bool {
+        if case .loaded = viewModel.state { return true }
+        return false
+    }
+
+    /// Notificación tocada (o atajo, Spotlight…): abre su proyecto o sesión (y su ventana,
+    /// pestaña o agente) en cuanto la lista está cargada.
     private func followPendingRoute() {
         guard let route = hub.pendingRoute, route.serverID == server.id else { return }
-        guard let session = route.session else {
+        guard route.session != nil || route.projectPath != nil else {
             hub.pendingRoute = nil   // el aviso solo señalaba el servidor
             return
         }
-        guard case .loaded = viewModel.state else { return }   // se reintenta al cargar
+        guard isLoaded else { return }   // se reintenta al cargar
         hub.pendingRoute = nil
+        if let path = route.projectPath, followProject(route, path: path) { return }
+        guard let session = route.session else { return }
         if let entry = viewModel.projectListing.entries.first(where: { $0.project.sessionName == session }) {
             show(entry.project)
         } else if viewModel.session(withID: session) != nil {
@@ -508,6 +559,37 @@ struct ProjectsView: View {
                 } catch {
                     Log.terminal.notice("No se pudo ir a la ventana del aviso: \(error.userMessage, privacy: .public)")
                 }
+            }
+        }
+    }
+
+    /// Abre el proyecto de la carpeta `path` en la pestaña pedida; con agente, deja su chat
+    /// pendiente para que lo abra `AgentsView`. `false` si el proyecto ya no está.
+    private func followProject(_ route: NotificationRoute, path: String) -> Bool {
+        let folder = ShortcutAgentPlanner.normalized(path)
+        let entries = viewModel.projectListing.entries
+        guard let entry = entries.first(where: { ShortcutAgentPlanner.normalized($0.project.path) == folder })
+            ?? entries.first(where: { $0.project.sessionName == route.session }) else { return false }
+        let tab = route.tab ?? .terminal
+        if tab == .terminal, !entry.isRunning {
+            open(entry)   // el terminal necesita su sesión: se arranca como al tocarlo
+        } else {
+            show(entry.project)
+        }
+        mode?.wrappedValue = tab.detailMode
+        if let agentID = route.agentID { hub.pendingAgentID = agentID }
+        return true
+    }
+
+    private func restoreBackup() {
+        isRestoring = true
+        Task {
+            defer { isRestoring = false }
+            do {
+                try await viewModel.restoreProjectsBackup()
+            } catch {
+                Log.store.error("Restaurar proyectos: \(error.userMessage, privacy: .private)")
+                errorMessage = error.userMessage
             }
         }
     }

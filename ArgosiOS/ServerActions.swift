@@ -2,7 +2,7 @@
 //  ServerActions.swift
 //  ArgosiOS
 //
-//  Acciones del menú de un servidor en la lista (mantener pulsado): recursos,
+//  Acciones del menú de un servidor en la lista (mantener pulsado): recursos, Doctor,
 //  indicador de Claude, pasar a una clave de este iPhone y «Olvidar host key» (a la que
 //  remite el aviso de huella cambiada al escanear un QR). Cada una con su confirmación.
 //
@@ -12,6 +12,7 @@ import SwiftUI
 /// Acción pendiente de confirmar o mostrar.
 enum ServerAction: Identifiable {
     case resources(Server)
+    case doctor(Server)
     case installHooks(Server)
     case deviceKey(Server)
     case forgetHostKey(Server)
@@ -19,6 +20,7 @@ enum ServerAction: Identifiable {
     var id: String {
         switch self {
         case .resources(let server): return "recursos-\(server.id)"
+        case .doctor(let server): return "doctor-\(server.id)"
         case .installHooks(let server): return "hooks-\(server.id)"
         case .deviceKey(let server): return "clave-\(server.id)"
         case .forgetHostKey(let server): return "huella-\(server.id)"
@@ -27,7 +29,8 @@ enum ServerAction: Identifiable {
 
     var server: Server {
         switch self {
-        case .resources(let server), .installHooks(let server), .deviceKey(let server), .forgetHostKey(let server):
+        case .resources(let server), .doctor(let server), .installHooks(let server), .deviceKey(let server),
+             .forgetHostKey(let server):
             return server
         }
     }
@@ -40,6 +43,8 @@ struct ServerActionItems: View {
 
     var body: some View {
         Button("Recursos del servidor", systemImage: "gauge.with.dots.needle.50percent") { perform(.resources(server)) }
+            .disabled(ImportedKeyStore.needsImport(server))
+        Button("Doctor del servidor", systemImage: "stethoscope") { perform(.doctor(server)) }
             .disabled(ImportedKeyStore.needsImport(server))
         Button("Activar indicador de Claude…", systemImage: "sparkles") { perform(.installHooks(server)) }
             .disabled(ImportedKeyStore.needsImport(server))
@@ -55,20 +60,30 @@ struct ServerActionsModifier: ViewModifier {
     @Binding var pending: ServerAction?
     @Environment(ServerHub.self) private var hub
     @State private var resources: Server?
+    @State private var doctor: Server?
     @State private var isWorking = false
     @State private var resultMessage: String?
 
+    /// Recursos y Doctor abren su hoja directamente; el resto pide confirmación.
     private var confirming: ServerAction? {
-        if case .resources = pending { return nil }
-        return pending
+        switch pending {
+        case .resources, .doctor, nil: return nil
+        default: return pending
+        }
     }
 
     func body(content: Content) -> some View {
         content
             .onChange(of: pending?.id) { _, _ in
-                if case .resources(let server) = pending {
+                switch pending {
+                case .resources(let server):
                     resources = server
                     pending = nil
+                case .doctor(let server):
+                    doctor = server
+                    pending = nil
+                default:
+                    break
                 }
             }
             .confirmationDialog(
@@ -85,6 +100,9 @@ struct ServerActionsModifier: ViewModifier {
             .sheet(item: $resources) { server in
                 ServerResourcesScreen(serverName: server.name, service: hub.viewModel(for: server).service)
             }
+            .sheet(item: $doctor) { server in
+                DoctorScreen(service: hub.viewModel(for: server).service, serverName: server.name, knownServers: hub.store.servers)
+            }
             .overlay {
                 if isWorking {
                     ProgressView().padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -99,7 +117,7 @@ struct ServerActionsModifier: ViewModifier {
 
     private func title(for action: ServerAction) -> String {
         switch action {
-        case .resources: return ""
+        case .resources, .doctor: return ""
         case .installHooks(let server): return "¿Activar el indicador de Claude Code en «\(server.name)»?"
         case .deviceKey(let server): return "¿Usar una clave de este iPhone en «\(server.name)»?"
         case .forgetHostKey(let server): return "¿Olvidar la host key de «\(server.name)»?"
@@ -108,7 +126,7 @@ struct ServerActionsModifier: ViewModifier {
 
     private func confirmLabel(for action: ServerAction) -> String {
         switch action {
-        case .resources: return ""
+        case .resources, .doctor: return ""
         case .installHooks: return "Activar"
         case .deviceKey: return "Crear e instalar la clave"
         case .forgetHostKey: return "Olvidar host key"
@@ -117,7 +135,7 @@ struct ServerActionsModifier: ViewModifier {
 
     private func message(for action: ServerAction) -> String {
         switch action {
-        case .resources: return ""
+        case .resources, .doctor: return ""
         case .installHooks: return ClaudeHooksCopy.explanation
         case .deviceKey: return DeviceKeyCopy.explanation
         case .forgetHostKey(let server):
@@ -133,6 +151,8 @@ struct ServerActionsModifier: ViewModifier {
         switch action {
         case .resources:
             resources = server
+        case .doctor:
+            doctor = server
         case .forgetHostKey:
             hub.forgetHostKey(of: server)
             resultMessage = "Se olvidó la huella de \(server.host). La próxima conexión guardará la nueva."

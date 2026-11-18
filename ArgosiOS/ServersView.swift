@@ -11,6 +11,7 @@
 //  host key (`ServerActions`).
 //
 
+import CoreSpotlight
 import SwiftUI
 
 /// Alta desde el QR del Mac (con el código ya leído si llegó por enlace).
@@ -56,7 +57,7 @@ struct RootView: View {
                 ProjectsView(server: server, selection: Binding(
                     get: { navigation.target },
                     set: { navigation.open($0) }
-                ))
+                ), mode: $navigation.mode)
                 .id(server.id)
             } else {
                 ContentUnavailableView("Elige un servidor", systemImage: "server.rack")
@@ -82,6 +83,12 @@ struct RootView: View {
             if navigation.serverID != route.serverID { navigation.selectServer(route.serverID) }
         }
         .onOpenURL(perform: handleLink)
+        // Proyecto tocado en Spotlight: mismo camino que un aviso (respeta Face ID).
+        .onContinueUserActivity(CSSearchableItemActionType) { activity in
+            guard let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String,
+                  let route = ProjectShortcutIndex.route(forSpotlightIdentifier: id) else { return }
+            hub.follow(route)
+        }
         .onChange(of: lock.isLocked) { _, locked in
             guard !locked, let url = deferredLink else { return }
             deferredLink = nil
