@@ -77,6 +77,9 @@ class PersistentAgentSession(
     @Volatile
     private var retryJob: Job? = null
 
+    @Volatile
+    private var startupJob: Job? = null
+
     // MARK: Crear / reanudar
 
     /**
@@ -90,7 +93,8 @@ class PersistentAgentSession(
             val current = mutableState.value
             val fresh = current.meta.copy(hibernatedAt = null)
             val hasConversation = maxOf(listedLogBytes, current.receivedBytes) > 0 || current.conversation.items.isNotEmpty()
-            start(service, exec, id, fresh, hasConversation, oauthToken, hibernation())
+            val launched = start(service, exec, id, fresh, hasConversation, oauthToken, hibernation())
+            if (launched) watchStartup()
             mutableState.update { it.copy(meta = fresh, isAlive = true, lastError = null) }
             // Solo si la vista seguía abierta: reanudar no debe reengancharse a escondidas.
             if (mutableState.value.isAttached) attach()
@@ -102,6 +106,33 @@ class PersistentAgentSession(
             return false
         } finally {
             mutableState.update { it.copy(isResuming = false) }
+        }
+    }
+
+    /**
+     * Tras lanzar: si el proceso muere al poco, lo marca como parado y muestra el porqué (final
+     * de `err.log`), igual que si el lanzador lo hubiera visto morir. El lanzador solo espera 1 s:
+     * en un servidor cargado, un claude que no puede arrancar tarda más en morir y el lanzador ya
+     * lo habría dado por arrancado. Se vuelve a mirar a los plazos [checksMillis] (acumulados: 2, 6
+     * y 12 s, como `PersistentAgentSession.watchStartup()` de Swift) sin retrasar el arranque.
+     */
+    fun watchStartup(checksMillis: List<Long> = STARTUP_CHECKS_MILLIS) {
+        startupJob?.cancel()
+        startupJob = scope.launch {
+            for (wait in checksMillis) {
+                delay(wait)
+                if (!refreshInfo() || mutableState.value.isAlive) continue
+                val tail = try {
+                    service.runAgentScript(PersistentAgentScript.errorTail(id))
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    ""
+                }
+                val message = PersistentAgentError.LAUNCH_FAILED.describe(tail.takeLast(PersistentAgentScript.ERROR_TAIL_BYTES))
+                mutableState.update { it.copy(lastError = message) }
+                return@launch
+            }
         }
     }
 
@@ -421,7 +452,7 @@ class PersistentAgentSession(
         val bytes = "$line\n".toByteArray(Charsets.UTF_8)
         val replies = setOf(
             PersistentAgentScript.SENT_REPLY, PersistentAgentScript.DEAD_REPLY,
-            PersistentAgentScript.SHORT_REPLY, PersistentAgentScript.TIMEOUT_REPLY,
+            PersistentAgentScript.SHORT_REPLY, PersistentAgentScript.TIMEOUT_REPLY, PersistentAgentScript.BUSY_REPLY,
         )
         val reply = AgentStdinExchange.firstLine(
             exec,
@@ -434,6 +465,7 @@ class PersistentAgentSession(
             PersistentAgentScript.SENT_REPLY -> Unit
             PersistentAgentScript.DEAD_REPLY -> throw PersistentAgentException(PersistentAgentError.NOT_RUNNING)
             PersistentAgentScript.SHORT_REPLY -> throw PersistentAgentException(PersistentAgentError.TRUNCATED_SEND)
+            PersistentAgentScript.BUSY_REPLY -> throw PersistentAgentException(PersistentAgentError.BUSY)
             else -> throw AgentExchangeTimeoutException()
         }
     }
@@ -458,6 +490,9 @@ class PersistentAgentSession(
         private const val ERROR_TAIL_SHOWN = 600
         private const val LAUNCH_FAILED_MESSAGE = "No se pudo arrancar el agente en el servidor."
 
+        /** Plazos entre comprobaciones del arranque ([watchStartup]): a los 2, 6 y 12 s. */
+        val STARTUP_CHECKS_MILLIS: List<Long> = listOf(2_000L, 4_000L, 6_000L)
+
         /** Prefijo del `request_id` de las interrupciones (como Swift). */
         const val INTERRUPT_REQUEST_PREFIX = "argos-interrupt-"
         const val HIBERNATE_BUSY_MESSAGE =
@@ -477,8 +512,10 @@ class PersistentAgentSession(
         ): PersistentAgentSession {
             val id = UUID.randomUUID().toString().lowercase()
             val meta = PersistentAgentMeta(workingDirectory, title, now, permissionMode.rawValue)
-            start(service, exec, id, meta, resume = false, oauthToken = oauthToken, hibernation = hibernation)
-            return PersistentAgentSession(service, exec, PersistentAgentInfo(id, true, 0, meta), scope, hibernation = { hibernation })
+            val launched = start(service, exec, id, meta, resume = false, oauthToken = oauthToken, hibernation = hibernation)
+            val session = PersistentAgentSession(service, exec, PersistentAgentInfo(id, true, 0, meta), scope, hibernation = { hibernation })
+            if (launched) session.watchStartup()
+            return session
         }
 
         suspend fun list(service: SSHServicing): List<PersistentAgentInfo> =
@@ -492,7 +529,7 @@ class PersistentAgentSession(
             resume: Boolean,
             oauthToken: String?,
             hibernation: PersistentAgentHibernation,
-        ) {
+        ): Boolean {
             val claudePath = service.locateClaude() ?: throw PersistentAgentException(PersistentAgentError.CLAUDE_MISSING)
             val invocation = ClaudeAgentCommand.persistent(claudePath, id, resume, meta.resolvedPermissionMode)
             val command = PersistentAgentScript.launch(id, meta, invocation, hibernation)
@@ -516,6 +553,8 @@ class PersistentAgentSession(
                 throw AgentExecException(LAUNCH_FAILED_MESSAGE)
             }
             PersistentAgentScript.parseLaunchReply(reply)
+            // `true` si lanzó un proceso nuevo (`false` si ya estaba vivo).
+            return reply != PersistentAgentScript.ALIVE_REPLY
         }
     }
 }
