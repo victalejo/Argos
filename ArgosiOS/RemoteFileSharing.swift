@@ -108,17 +108,6 @@ extension View {
     }
 }
 
-/// Hoja de compartir de iOS (guardar en Archivos, AirDrop, abrir con otra app…).
-struct ActivityView: UIViewControllerRepresentable {
-    let items: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
-}
-
 // MARK: - Buscar por nombre
 
 struct FileSearchSheet: View {
