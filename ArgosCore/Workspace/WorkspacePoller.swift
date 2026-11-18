@@ -131,8 +131,9 @@ final class WorkspacePoller {
     }
 
     private func poll(_ target: Target) async {
+        // Una vuelta cancelada a medias devuelve `nil` (no avisa) o solo los avisos de Claude
+        // ya aplicados (ver `SessionsViewModel.pollWorkspace`): esos se entregan igualmente.
         guard let result = await target.viewModel.pollWorkspace(WorkspacePollPlan.sections) else { return }
-        guard !Task.isCancelled else { return }
         roundCounts[target.server.id, default: 0] += 1
         // El servidor pudo cambiar de nombre durante la vuelta: se avisa con el actual.
         let server = targets().first { $0.server.id == target.server.id }?.server ?? target.server

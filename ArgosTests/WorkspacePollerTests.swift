@@ -20,19 +20,21 @@ struct WorkspacePollPlanTests {
     @Test("Intervalo según la actividad; en reposo, pausa")
     func intervals() {
         #expect(timing.interval(for: .active) == .seconds(3))
-        #expect(timing.interval(for: .inactive)! > timing.interval(for: .active)!)
-        #expect(timing.interval(for: .hidden)! > timing.interval(for: .inactive)!)
+        // Tapada detrás de otra app (lo habitual): unos 5 s, no 20.
+        #expect(timing.interval(for: .inactive) == .seconds(5))
+        #expect(timing.interval(for: .hidden) == .seconds(5))
+        #expect(timing.interval(for: .windowClosed) == .seconds(20))
         #expect(timing.interval(for: .asleep) == nil)
     }
 
     @Test("La primera vuelta va enseguida; las siguientes esperan su intervalo")
     func dueAfterInterval() {
         let now = clock.now
-        #expect(WorkspacePollPlan.isDue(lastRound: nil, now: now, activity: .hidden, nudged: false, timing: timing))
+        #expect(WorkspacePollPlan.isDue(lastRound: nil, now: now, activity: .windowClosed, nudged: false, timing: timing))
         #expect(!WorkspacePollPlan.isDue(lastRound: now - .seconds(2), now: now, activity: .active, nudged: false, timing: timing))
         #expect(WorkspacePollPlan.isDue(lastRound: now - .seconds(3), now: now, activity: .active, nudged: false, timing: timing))
-        // Oculta: 10 s no bastan.
-        #expect(!WorkspacePollPlan.isDue(lastRound: now - .seconds(10), now: now, activity: .hidden, nudged: false, timing: timing))
+        // Ventana cerrada: 10 s no bastan.
+        #expect(!WorkspacePollPlan.isDue(lastRound: now - .seconds(10), now: now, activity: .windowClosed, nudged: false, timing: timing))
     }
 
     @Test("Un empujón adelanta la vuelta, salvo con el equipo dormido")
@@ -70,7 +72,8 @@ struct WorkspacePollerTests {
     }
 
     private static let fast = WorkspacePollTiming(
-        active: .milliseconds(20), inactive: .milliseconds(20), hidden: .milliseconds(20), tick: .milliseconds(5)
+        active: .milliseconds(20), inactive: .milliseconds(20), hidden: .milliseconds(20),
+        windowClosed: .milliseconds(20), tick: .milliseconds(5)
     )
 
     private func loadedTarget(_ name: String) async -> (WorkspacePoller.Target, MockSSHService) {

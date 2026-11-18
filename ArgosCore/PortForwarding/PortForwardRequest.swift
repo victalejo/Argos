@@ -77,9 +77,13 @@ final class PortForwardRequestsModel {
 
     static let pollInterval: Duration = .seconds(5)
 
-    init(service: any SSHServicing) {
+    init(service: any SSHServicing, handled: Set<Int> = []) {
         self.service = service
+        self.handled = handled
     }
+
+    /// Puertos ya respondidos (para conservarlos si se rehace la conexión).
+    var handledPorts: Set<Int> { handled }
 
     func refresh() async {
         guard !isOpening else { return }

@@ -30,9 +30,17 @@ extension SessionsViewModel {
             noteBackgroundFailure(error, during: "sondear el servidor")
             return nil
         }
+        // Cancelada mientras esperaba (view model rehecho, sondeo parado): nada de lo leído
+        // se aplica y no se lanza nada más con este servicio.
+        guard !Task.isCancelled else { return nil }
         absorbSessions(output.sessions, readOver: before)
         var transitions: [ClaudeTransition] = []
         if let claude = output.claude { transitions = await absorbClaudeActivity(claude) }
+        // Cancelada ya con el estado de Claude aplicado: sus avisos se entregan (si no, un
+        // «terminó» se perdería) pero no se usa más el servicio.
+        guard !Task.isCancelled else {
+            return WorkspacePollRound(transitions: transitions, ciResults: [], portRequests: nil)
+        }
         // Si Claude acaba de terminar, el resumen git se relee ya: el aviso dice cuántos
         // archivos cambió y la fila del proyecto se actualiza al momento.
         await refreshGitSummaries(force: transitions.contains { $0.activity == .done })

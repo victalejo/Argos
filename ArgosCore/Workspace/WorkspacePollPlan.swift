@@ -15,8 +15,11 @@ enum WorkspaceActivity: Sendable, Equatable {
     case active
     /// Abierta pero otra app está delante.
     case inactive
-    /// Oculta, minimizada, tapada o con la ventana cerrada: solo importan los avisos.
+    /// Ventana tapada (otra app a pantalla completa), minimizada o la app oculta: lo
+    /// habitual con Argos detrás; los avisos deben seguir llegando enseguida.
     case hidden
+    /// Sin ventana (cerrada): la app solo vive para avisar.
+    case windowClosed
     /// El equipo duerme: no se abre ninguna conexión.
     case asleep
 }
@@ -26,11 +29,14 @@ struct WorkspacePollTiming: Sendable, Equatable {
     var active: Duration
     var inactive: Duration
     var hidden: Duration
+    var windowClosed: Duration
     var tick: Duration
 
-    /// 3 s delante (como antes el estado de Claude), más lento detrás y oculta.
+    /// 3 s delante (como antes el estado de Claude), 5 s detrás o tapada y 20 s solo con
+    /// la ventana cerrada.
     static let standard = WorkspacePollTiming(
-        active: .seconds(3), inactive: .seconds(8), hidden: .seconds(20), tick: .milliseconds(500)
+        active: .seconds(3), inactive: .seconds(5), hidden: .seconds(5), windowClosed: .seconds(20),
+        tick: .milliseconds(500)
     )
 
     /// Intervalo entre vueltas; `nil` = en pausa.
@@ -39,6 +45,7 @@ struct WorkspacePollTiming: Sendable, Equatable {
         case .active: return active
         case .inactive: return inactive
         case .hidden: return hidden
+        case .windowClosed: return windowClosed
         case .asleep: return nil
         }
     }
@@ -73,5 +80,15 @@ enum WorkspacePollPlan {
         let stop = Set(running.compactMap { id, token in wanted[id] == token ? nil : id })
         let start = Set(wanted.compactMap { id, token in running[id] == token ? nil : id })
         return (stop, start)
+    }
+}
+
+/// De qué sesión NO se avisa porque el usuario la está mirando (lógica pura): solo con la
+/// app delante y la ventana a la vista. La selección sobrevive a cerrar la ventana, así que
+/// sin esta condición se silenciaban los avisos de la última sesión elegida.
+enum NoticeViewing {
+    static func viewingSession(selected: SessionHandle?, serverID: Server.ID, activity: WorkspaceActivity) -> String? {
+        guard activity == .active, let selected, selected.serverID == serverID else { return nil }
+        return selected.sessionID
     }
 }

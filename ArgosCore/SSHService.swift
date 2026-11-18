@@ -177,6 +177,8 @@ actor SSHService {
     /// Sube en cada `disconnect()`: una apertura que termina después de desconectar no
     /// debe instalarse (dejaría una conexión y un heartbeat sin dueño).
     var connectionEpoch = 0
+    /// Retirado para siempre (`retire()`): ya no abre conexiones (ver `SSHServiceRetiredError`).
+    var isRetired = false
 
     /// Formato exacto requerido para `tmux list-sessions -F`.
     static let sessionFormat =
@@ -530,6 +532,7 @@ actor SSHService {
     /// Respeta la salud de la conexión: con credenciales rechazadas no toca la red hasta
     /// `resetConnectionHealth()`, y tras un fallo de red los sondeos de fondo esperan.
     func openClient() async throws -> SSHClient {
+        if isRetired { throw SSHServiceRetiredError(host: configuration.host) }
         try admitConnectionAttempt()
         do {
             let fresh = try await connectNewClient()

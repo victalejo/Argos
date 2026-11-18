@@ -242,6 +242,9 @@ protocol SSHServicing: Sendable {
     /// de puertos (ver `WorkspacePollCommand`). Hay una implementación por defecto con las
     /// llamadas sueltas (`SSHWorkspacePoll.swift`) para los dobles de prueba.
     func workspacePoll(_ sections: Set<WorkspacePollSection>) async throws -> WorkspacePollOutput
+    /// Desconecta y no vuelve a conectar nunca (su view model se descartó). Por defecto,
+    /// `disconnect()` (`SSHServiceRetirement.swift`).
+    func retire() async
 }
 
 extension SSHServicing {

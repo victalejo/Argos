@@ -44,7 +44,11 @@ final class TerminalReconnectScheduler {
     /// red). Con el equipo dormido no se programa nada (se reintenta al despertar).
     func didFail(_ error: Error?, isAsleep: Bool, reconnect: @escaping @MainActor () -> Void) {
         guard !isAsleep, pending == nil else { return }
-        switch policy.decision(after: error ?? TransportFailure(), attempt: attempt) {
+        // Servicio retirado (servidor borrado o con conexión nueva): reintentar no sirve.
+        let decision: ReconnectPolicy.Decision = error is SSHServiceRetiredError
+            ? .giveUp(.needsUserAction)
+            : policy.decision(after: error ?? TransportFailure(), attempt: attempt)
+        switch decision {
         case .retry(let delay):
             schedule(after: delay, reconnect: reconnect)
         case .giveUp(let reason):

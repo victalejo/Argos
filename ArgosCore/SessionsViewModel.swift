@@ -162,14 +162,23 @@ final class SessionsViewModel {
         guard case .loaded = state else { return [] }
         let isFirstPoll = !hasPolledClaude
         hasPolledClaude = true
-        if isFirstPoll { await upgradeClaudeHooks() }
-        guard fresh != claudeActivity else { return [] }
-        let transitions = isFirstPoll ? [] : fresh.notableTransitions(since: claudeActivity)
+        // Primero el estado (sin esperas): lo leído y sus transiciones van siempre juntos,
+        // aunque la tarea se cancele después.
+        let transitions = isFirstPoll || fresh == claudeActivity ? [] : fresh.notableTransitions(since: claudeActivity)
         claudeActivity = fresh
+        if isFirstPoll { await upgradeClaudeHooks() }
         return transitions
     }
 
     private var hasPolledClaude = false
+
+    /// View model nuevo del MISMO servidor (otra conexión): parte de lo último que vio el
+    /// anterior, así un «terminó» que caiga durante la reconstrucción sí se avisa.
+    func seedClaudeBaseline(from previous: SessionsViewModel) {
+        guard previous.hasPolledClaude, !hasPolledClaude else { return }
+        claudeActivity = previous.claudeActivity
+        hasPolledClaude = true
+    }
 
     /// Toma `snapshot` como lo último conocido SIN avisar: lo que ya se notificó por otra
     /// vía (la comprobación en segundo plano del iPhone) no debe avisarse otra vez al volver.
