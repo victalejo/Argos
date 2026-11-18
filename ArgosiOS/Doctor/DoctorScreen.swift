@@ -19,6 +19,7 @@ struct DoctorScreen: View {
 
     @State private var model: DoctorModel
     @State private var includesPersonalData = false
+    @State private var includesTechnicalDetail = false
     @State private var isPreparing = false
     @State private var copied = false
     @State private var shared: SharedReport?
@@ -93,6 +94,7 @@ struct DoctorScreen: View {
     private var reportSection: some View {
         Section {
             Toggle("Incluir nombres, usuarios e IPs", isOn: $includesPersonalData)
+            Toggle("Incluir detalle técnico del registro", isOn: $includesTechnicalDetail)
             Button {
                 Task { await prepare(share: false) }
             } label: {
@@ -109,7 +111,8 @@ struct DoctorScreen: View {
             Text("Informe para un issue")
         } footer: {
             Text("Por defecto los servidores, usuarios e IPs se sustituyen por marcadores como «servidor-1». "
-                 + "Las claves, tokens y contraseñas nunca se incluyen.")
+                 + "Argos oculta los secretos que reconoce, pero no puede garantizar que no se escape alguno: "
+                 + "revisa el texto antes de publicarlo. El detalle técnico (depuración y agente) puede contener texto del servidor.")
         }
     }
 
@@ -123,7 +126,8 @@ struct DoctorScreen: View {
         let text = await DiagnosticReport.collect(
             doctor: model.result, serverName: model.serverName,
             knownServers: knownServers.map(DiagnosticRedactor.KnownServer.init),
-            includePersonalData: includesPersonalData
+            includePersonalData: includesPersonalData,
+            includesTechnicalDetail: includesTechnicalDetail
         )
         if share {
             shared = SharedReport(text: text)

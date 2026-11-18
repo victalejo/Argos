@@ -12,6 +12,7 @@ import SwiftUI
 
 struct DiagnosticSettingsView: View {
     @State private var includesPersonalData = false
+    @State private var includesTechnicalDetail = false
     @State private var state: CopyState = .idle
 
     private enum CopyState { case idle, working, copied }
@@ -20,12 +21,14 @@ struct DiagnosticSettingsView: View {
         Form {
             Section {
                 Toggle("Incluir nombres de servidor, usuarios e IPs", isOn: $includesPersonalData)
+                Toggle("Incluir detalle técnico del registro (puede contener texto del servidor)", isOn: $includesTechnicalDetail)
             } header: {
                 Text("Informe de diagnóstico")
             } footer: {
                 Text("Incluye la versión de Argos, tu sistema y los últimos minutos del registro de la app. "
                      + "Por defecto los servidores, usuarios e IPs se sustituyen por marcadores como «servidor-1». "
-                     + "Las claves, tokens y contraseñas nunca se incluyen. Para añadir el estado de un servidor, "
+                     + "Argos oculta las claves, tokens y contraseñas que reconoce, pero no puede garantizar que no se escape alguno: "
+                     + "revisa el texto antes de publicarlo. Para añadir el estado de un servidor, "
                      + "abre su Doctor desde el menú del servidor.")
             }
             Section {
@@ -50,7 +53,8 @@ struct DiagnosticSettingsView: View {
         // Solo se leen los nombres para redactarlos; esta instancia nunca escribe.
         let servers = ServerStore().servers.map(DiagnosticRedactor.KnownServer.init)
         let text = await DiagnosticReport.collect(
-            doctor: nil, serverName: nil, knownServers: servers, includePersonalData: includesPersonalData
+            doctor: nil, serverName: nil, knownServers: servers, includePersonalData: includesPersonalData,
+            includesTechnicalDetail: includesTechnicalDetail
         )
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)

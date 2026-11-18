@@ -19,6 +19,7 @@ struct DoctorSheet: View {
 
     @State private var model: DoctorModel
     @State private var includesPersonalData = false
+    @State private var includesTechnicalDetail = false
     @State private var copyState: CopyState = .idle
     @Environment(\.dismiss) private var dismiss
 
@@ -95,9 +96,13 @@ struct DoctorSheet: View {
 
     private var footer: some View {
         HStack(spacing: 12) {
-            Toggle("Incluir nombres, usuarios e IPs", isOn: $includesPersonalData)
-                .toggleStyle(.checkbox)
-                .help("Por defecto el diagnóstico los sustituye por marcadores como «servidor-1». Los secretos nunca se incluyen.")
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("Incluir nombres, usuarios e IPs", isOn: $includesPersonalData)
+                    .help("Por defecto el diagnóstico los sustituye por marcadores como «servidor-1». Argos oculta los secretos que reconoce; revisa el texto antes de publicarlo.")
+                Toggle("Incluir detalle técnico del registro", isOn: $includesTechnicalDetail)
+                    .help("Añade entradas de depuración y del agente, que pueden contener texto del servidor.")
+            }
+            .toggleStyle(.checkbox)
             Spacer()
             Button {
                 Task { await copyDiagnostic() }
@@ -126,7 +131,8 @@ struct DoctorSheet: View {
         let text = await DiagnosticReport.collect(
             doctor: model.result, serverName: model.serverName,
             knownServers: knownServers.map(DiagnosticRedactor.KnownServer.init),
-            includePersonalData: includesPersonalData
+            includePersonalData: includesPersonalData,
+            includesTechnicalDetail: includesTechnicalDetail
         )
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)

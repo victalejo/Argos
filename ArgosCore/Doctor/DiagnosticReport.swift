@@ -84,7 +84,9 @@ enum DiagnosticReport {
 
     /// Compone el informe. `redactor` se comparte entre secciones para que los marcadores
     /// («servidor-1») sean los mismos en todo el informe.
-    static func compose(_ input: DiagnosticInput, redactor: inout DiagnosticRedactor) -> String {
+    static func compose(
+        _ input: DiagnosticInput, policy: DiagnosticLogPolicy = DiagnosticLogPolicy(), redactor: inout DiagnosticRedactor
+    ) -> String {
         var sections: [String] = []
 
         sections.append([
@@ -95,7 +97,7 @@ enum DiagnosticReport {
             "Dispositivo: \(input.app.deviceModel)",
             "Generado: \(timestamp(input.generatedAt))",
             redactor.includesPersonalData
-                ? "Datos personales: incluidos a petición del usuario (secretos siempre omitidos)."
+                ? "Datos personales: incluidos a petición del usuario (los secretos que Argos reconoce se omiten siempre)."
                 : "Datos personales: ocultos (servidores, usuarios e IPs sustituidos por marcadores).",
         ].joined(separator: "\n"))
 
@@ -106,24 +108,41 @@ enum DiagnosticReport {
             sections.append("## Doctor del servidor\nSin servidor conectado: no se ejecutó.")
         }
 
-        sections.append(logSection(input.log, redactor: &redactor))
-        return sections.joined(separator: "\n\n") + "\n"
+        sections.append(logSection(input.log, policy: policy, redactor: &redactor))
+        sections.append(reviewReminder)
+        // Pasada final sobre todo el informe: los secretos no dependen de ninguna sección.
+        return DiagnosticSecretScrubber.scrub(sections.joined(separator: "\n\n")) + "\n"
     }
 
-    private static func logSection(_ log: DiagnosticLogExcerpt, redactor: inout DiagnosticRedactor) -> String {
+    private static func logSection(
+        _ log: DiagnosticLogExcerpt, policy: DiagnosticLogPolicy, redactor: inout DiagnosticRedactor
+    ) -> String {
+        let title = "## Registro de la app (últimos \(DiagnosticLogFormatter.defaultMinutes) min)"
         switch log {
         case .unavailable(let reason):
             return "## Registro de la app\nNo disponible en este dispositivo: \(redactor.redact(reason)). "
                 + "El resto del informe es válido."
-        case .lines(let lines, let truncated):
-            guard !lines.isEmpty else {
-                return "## Registro de la app (últimos \(DiagnosticLogFormatter.defaultMinutes) min)\nSin entradas."
+        case .entries(let entries):
+            let admitted = entries.filter(policy.admits)
+            let omitted = entries.count - admitted.count
+            // Orden: filtrar → redactar → recortar cada línea → recortar el total (siempre al final).
+            let redacted = admitted.map {
+                DiagnosticLogFormatter.clip(redactor.redact(DiagnosticLogFormatter.format($0)), to: policy.maxLineCharacters)
             }
-            let note = truncated ? " (recortado a lo más reciente)" : ""
-            let body = lines.map { redactor.redact($0) }.joined(separator: "\n")
-            return "## Registro de la app (últimos \(DiagnosticLogFormatter.defaultMinutes) min)\(note)\n" + body
+            let (kept, truncated) = DiagnosticLogFormatter.newest(of: redacted, maxBytes: policy.maxBytes)
+            var notes: [String] = []
+            if truncated { notes.append("recortado a lo más reciente") }
+            if omitted > 0 {
+                notes.append("\(omitted) entradas de depuración o del agente omitidas: pueden contener texto del servidor")
+            }
+            let header = title + (notes.isEmpty ? "" : " (\(notes.joined(separator: "; ")))")
+            return kept.isEmpty ? header + "\nSin entradas." : header + "\n" + kept.joined(separator: "\n")
         }
     }
+
+    static let reviewReminder =
+        "Revisa este texto antes de publicarlo: Argos oculta los secretos y datos personales que reconoce, "
+        + "pero no puede garantizar que no se escape alguno."
 
     private static func timestamp(_ date: Date) -> String {
         let formatter = ISO8601DateFormatter()
@@ -134,13 +153,14 @@ enum DiagnosticReport {
     /// Reúne los datos reales y compone el informe. Nunca lanza: lo que falle queda indicado en el texto.
     static func collect(
         doctor: DoctorResult?, serverName: String?, knownServers: [DiagnosticRedactor.KnownServer],
-        includePersonalData: Bool
+        includePersonalData: Bool,
+        includesTechnicalDetail: Bool = false
     ) async -> String {
         let log = await DiagnosticLogReader.read()
         let input = DiagnosticInput(
             app: .current(), generatedAt: Date(), serverName: serverName, doctor: doctor, log: log
         )
         var redactor = DiagnosticRedactor(knownServers: knownServers, includesPersonalData: includePersonalData)
-        return compose(input, redactor: &redactor)
+        return compose(input, policy: DiagnosticLogPolicy(includesTechnicalDetail: includesTechnicalDetail), redactor: &redactor)
     }
 }

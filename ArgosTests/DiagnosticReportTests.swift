@@ -116,6 +116,10 @@ struct DiagnosticReportTests {
         version: "1.9.0", build: "64", variant: "GitHub (Sparkle)", system: "macOS 15.4", deviceModel: "Mac14,2"
     )
 
+    private func logEntry(_ message: String, level: String = "error", category: String = "ssh", at seconds: Double = 0) -> DiagnosticLogLine {
+        DiagnosticLogLine(date: Date(timeIntervalSince1970: 1_800_000_000 + seconds), level: level, category: category, message: message)
+    }
+
     private func input(log: DiagnosticLogExcerpt, doctor: DoctorResult? = nil) -> DiagnosticInput {
         DiagnosticInput(app: app, generatedAt: Date(timeIntervalSince1970: 1_800_000_000),
                         serverName: "Producción", doctor: doctor, log: log)
@@ -124,13 +128,14 @@ struct DiagnosticReportTests {
     @Test("Cabecera con versión, variante, sistema y modelo")
     func header() {
         var redactor = DiagnosticRedactor()
-        let text = DiagnosticReport.compose(input(log: .lines([], truncated: false)), redactor: &redactor)
+        let text = DiagnosticReport.compose(input(log: .entries([])), redactor: &redactor)
         #expect(text.contains("Versión: 1.9.0 (build 64)"))
         #expect(text.contains("Variante: GitHub (Sparkle)"))
         #expect(text.contains("Sistema: macOS 15.4"))
         #expect(text.contains("Dispositivo: Mac14,2"))
         #expect(text.contains("Datos personales: ocultos"))
         #expect(text.contains("Sin servidor conectado"))
+        #expect(text.contains("Revisa este texto antes de publicarlo"))
     }
 
     @Test("El Doctor y el registro salen redactados con los mismos marcadores")
@@ -139,7 +144,7 @@ struct DiagnosticReportTests {
             checks: [DoctorCheck(.clock, "Reloj del servidor", .warning, "Desfase en 203.0.113.7", fix: .copyCommand("ssh root@203.0.113.7"))],
             finishedAt: Date()
         )
-        let log = DiagnosticLogExcerpt.lines(["10:00:00.000 [error] ssh: fallo con victor@prod.miempresa.com"], truncated: false)
+        let log = DiagnosticLogExcerpt.entries([logEntry("fallo con victor@prod.miempresa.com")])
         var redactor = DiagnosticRedactor(knownServers: [.init(name: "Producción", host: "prod.miempresa.com", username: "victor")])
         let text = DiagnosticReport.compose(input(log: log, doctor: doctor), redactor: &redactor)
         #expect(text.contains("Doctor del servidor: servidor-1"))
@@ -162,7 +167,7 @@ struct DiagnosticReportTests {
 
     @Test("Un secreto en el registro no sale ni con datos personales incluidos")
     func secretInLog() {
-        let log = DiagnosticLogExcerpt.lines(["x [error] agent: token=sk-ant-oat01-ZZZZZZZZZZZZ en /Users/a/.ssh/id_rsa"], truncated: false)
+        let log = DiagnosticLogExcerpt.entries([logEntry("token=sk-ant-oat01-ZZZZZZZZZZZZ en /Users/a/.ssh/id_rsa")])
         var redactor = DiagnosticRedactor(includesPersonalData: true)
         let text = DiagnosticReport.compose(input(log: log), redactor: &redactor)
         #expect(!text.contains("ZZZZ"))
@@ -174,8 +179,8 @@ struct DiagnosticReportTests {
 @Suite("DiagnosticLogFormatter")
 struct DiagnosticLogFormatterTests {
 
-    private func line(_ seconds: Double, _ message: String) -> DiagnosticLogLine {
-        DiagnosticLogLine(date: Date(timeIntervalSince1970: 1_800_000_000 + seconds), level: "error", category: "ssh", message: message)
+    private func line(_ seconds: Double, _ message: String, level: String = "error", category: String = "ssh") -> DiagnosticLogLine {
+        DiagnosticLogLine(date: Date(timeIntervalSince1970: 1_800_000_000 + seconds), level: level, category: category, message: message)
     }
 
     @Test("Formato de una línea y saltos de línea aplanados")
@@ -187,31 +192,93 @@ struct DiagnosticLogFormatterTests {
 
     @Test("Tope de tamaño: se quedan las líneas más recientes, en orden")
     func truncation() {
-        let lines = (0..<10).map { line(Double($0), "mensaje número \($0)") }
-        guard case .lines(let kept, let truncated) = DiagnosticLogFormatter.excerpt(from: lines.shuffled(), maxBytes: 200) else {
-            Issue.record("debía haber líneas"); return
-        }
+        let lines = (0..<10).map { "línea \($0) con relleno" }
+        let (kept, truncated) = DiagnosticLogFormatter.newest(of: lines, maxBytes: 100)
         #expect(truncated)
-        #expect(kept.count < 10 && !kept.isEmpty)
-        #expect(kept.last?.hasSuffix("mensaje número 9") == true)
-        #expect(kept == kept.sorted())
-        #expect(kept.reduce(0) { $0 + $1.utf8.count + 1 } <= 200)
+        #expect(!kept.isEmpty && kept.count < 10)
+        #expect(kept.last == "línea 9 con relleno")
+        #expect(kept.reduce(0) { $0 + $1.utf8.count + 1 } <= 100)
+        let all = DiagnosticLogFormatter.newest(of: lines, maxBytes: 10_000)
+        #expect(!all.truncated && all.lines == lines)
     }
 
-    @Test("Sin recorte cuando cabe todo")
-    func noTruncation() {
-        guard case .lines(let kept, let truncated) = DiagnosticLogFormatter.excerpt(from: [line(1, "x"), line(0, "y")]) else {
-            Issue.record("debía haber líneas"); return
-        }
-        #expect(!truncated && kept.count == 2)
-        #expect(kept[0].hasSuffix("y"))
+    @Test("Una línea enorme se recorta con aviso")
+    func clip() {
+        let clipped = DiagnosticLogFormatter.clip(String(repeating: "x", count: 5_000), to: 600)
+        #expect(clipped.count < 700 && clipped.hasSuffix("[recortado]"))
+        #expect(DiagnosticLogFormatter.clip("corta", to: 600) == "corta")
     }
 
-    @Test("El lector real nunca lanza: devuelve líneas o «no disponible»")
+    @Test("Por defecto no entran las entradas debug ni la categoría del agente")
+    func policy() {
+        let policy = DiagnosticLogPolicy()
+        #expect(policy.admits(line(0, "x", level: "error", category: "ssh")))
+        #expect(!policy.admits(line(0, "x", level: "debug", category: "ssh")))
+        #expect(!policy.admits(line(0, "x", level: "error", category: "agent")))
+        #expect(DiagnosticLogPolicy(includesTechnicalDetail: true).admits(line(0, "x", level: "debug", category: "agent")))
+    }
+
+    @Test("El lector real nunca lanza: devuelve entradas o «no disponible»")
     func readerNeverThrows() async {
-        let excerpt = await DiagnosticLogReader.read(minutes: 1)
-        switch excerpt {
-        case .lines, .unavailable: break
+        switch await DiagnosticLogReader.read(minutes: 1) {
+        case .entries, .unavailable: break
         }
+    }
+}
+
+@Suite("DiagnosticReport: filtrado y recorte del registro")
+struct DiagnosticReportLogTests {
+
+    private func entry(_ message: String, level: String = "error", category: String = "ssh", at seconds: Double = 0) -> DiagnosticLogLine {
+        DiagnosticLogLine(date: Date(timeIntervalSince1970: 1_800_000_000 + seconds), level: level, category: category, message: message)
+    }
+
+    private func compose(_ lines: [DiagnosticLogLine], policy: DiagnosticLogPolicy = .init(), personal: Bool = false) -> String {
+        let app = DiagnosticAppInfo(version: "1", build: "1", variant: "v", system: "s", deviceModel: "m")
+        let input = DiagnosticInput(app: app, generatedAt: Date(timeIntervalSince1970: 0), serverName: nil, doctor: nil, log: .entries(lines))
+        var redactor = DiagnosticRedactor(includesPersonalData: personal)
+        return DiagnosticReport.compose(input, policy: policy, redactor: &redactor)
+    }
+
+    @Test("El stderr del agente y las entradas debug quedan fuera salvo opción explícita")
+    func technicalDetailOptIn() {
+        let lines = [
+            entry("claude stderr: volcado remoto", level: "debug", category: "agent"),
+            entry("detalle interno", level: "debug"),
+            entry("fallo normal"),
+        ]
+        let text = compose(lines)
+        #expect(text.contains("fallo normal"))
+        #expect(!text.contains("volcado remoto") && !text.contains("detalle interno"))
+        #expect(text.contains("2 entradas de depuración o del agente omitidas"))
+        let full = compose(lines, policy: DiagnosticLogPolicy(includesTechnicalDetail: true))
+        #expect(full.contains("volcado remoto") && full.contains("detalle interno"))
+    }
+
+    @Test("El tope se aplica DESPUÉS de redactar: nunca queda media clave a la vista")
+    func clipAfterRedaction() {
+        // El secreto empieza antes del límite de línea y termina después: redactar primero lo elimina entero.
+        let secret = "sk-ant-oat01-" + String(repeating: "Z9", count: 40)
+        let message = String(repeating: "a", count: 560) + " " + secret + " fin"
+        let policy = DiagnosticLogPolicy(includesTechnicalDetail: false, maxBytes: 30_000, maxLineCharacters: 600)
+        let text = compose([entry(message)], policy: policy)
+        #expect(!text.contains("Z9Z9"))
+        #expect(!text.contains("sk-ant-oat01"))
+        #expect(text.contains(DiagnosticSecretScrubber.marker))
+    }
+
+    @Test("El tope total conserva lo más reciente")
+    func totalCap() {
+        let lines = (0..<200).map { entry("mensaje \($0) " + String(repeating: "p", count: 80), at: Double($0)) }
+        let text = compose(lines, policy: DiagnosticLogPolicy(maxBytes: 2_000))
+        #expect(text.contains("mensaje 199"))
+        #expect(!text.contains("mensaje 0 "))
+        #expect(text.contains("recortado a lo más reciente"))
+    }
+
+    @Test("El recordatorio de revisar el texto va al pie")
+    func reminder() {
+        let text = compose([])
+        #expect(text.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("no puede garantizar que no se escape alguno."))
     }
 }

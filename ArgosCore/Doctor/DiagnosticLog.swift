@@ -19,10 +19,26 @@ struct DiagnosticLogLine: Equatable, Sendable {
     let message: String
 }
 
-/// Lo que el informe sabe del registro.
+/// Lo que el informe sabe del registro (sin recortar: el tope se aplica DESPUÉS de redactar).
 enum DiagnosticLogExcerpt: Equatable, Sendable {
-    case lines([String], truncated: Bool)
+    case entries([DiagnosticLogLine])
     case unavailable(String)
+}
+
+/// Qué parte del registro entra en el informe y con qué topes.
+struct DiagnosticLogPolicy: Equatable, Sendable {
+    /// Incluye las entradas `debug` y la categoría `agent` (stderr crudo de `claude` y otros
+    /// textos que vienen del servidor). Por defecto NO: pueden llevar datos sin control.
+    var includesTechnicalDetail = false
+    var maxBytes = DiagnosticLogFormatter.defaultMaxBytes
+    var maxLineCharacters = DiagnosticLogFormatter.defaultMaxLineCharacters
+
+    /// Categorías cuyo texto puede venir del servidor sin control.
+    static let remoteTextCategories: Set<String> = ["agent"]
+
+    func admits(_ line: DiagnosticLogLine) -> Bool {
+        includesTechnicalDetail || (line.level != "debug" && !Self.remoteTextCategories.contains(line.category))
+    }
 }
 
 enum DiagnosticLogFormatter {
@@ -30,6 +46,8 @@ enum DiagnosticLogFormatter {
     static let defaultMinutes = 10
     /// Tope del texto del registro (UTF-8): un informe pegable en un issue.
     static let defaultMaxBytes = 30_000
+    /// Una línea de registro con un volcado enorme de un comando no debe ocupar el informe.
+    static let defaultMaxLineCharacters = 600
 
     /// `HH:mm:ss.SSS [nivel] categoría: mensaje` (hora en UTC: el informe es comparable entre equipos).
     static func format(_ line: DiagnosticLogLine) -> String {
@@ -37,19 +55,22 @@ enum DiagnosticLogFormatter {
         return "\(timeFormatter.string(from: line.date)) [\(line.level)] \(line.category): \(flat)"
     }
 
-    /// Conserva las líneas MÁS RECIENTES que quepan en `maxBytes` (en orden cronológico).
-    static func excerpt(from lines: [DiagnosticLogLine], maxBytes: Int = defaultMaxBytes) -> DiagnosticLogExcerpt {
+    /// Recorta una línea YA redactada (cortar antes podría dejar media clave a la vista).
+    static func clip(_ line: String, to limit: Int) -> String {
+        line.count <= limit ? line : String(line.prefix(limit)) + "… [recortado]"
+    }
+
+    /// Conserva las líneas MÁS RECIENTES que quepan en `maxBytes` (en el orden recibido).
+    static func newest(of lines: [String], maxBytes: Int) -> (lines: [String], truncated: Bool) {
         var kept: [String] = []
         var used = 0
-        var truncated = false
-        for line in lines.sorted(by: { $0.date < $1.date }).reversed() {
-            let text = format(line)
-            let cost = text.utf8.count + 1
-            if used + cost > maxBytes { truncated = true; break }
-            kept.append(text)
+        for line in lines.reversed() {
+            let cost = line.utf8.count + 1
+            if used + cost > maxBytes { return (kept.reversed(), true) }
+            kept.append(line)
             used += cost
         }
-        return .lines(kept.reversed(), truncated: truncated)
+        return (kept.reversed(), false)
     }
 
     private static var timeFormatter: DateFormatter {
@@ -63,10 +84,12 @@ enum DiagnosticLogFormatter {
 
 enum DiagnosticLogReader {
 
+    /// Entradas más recientes que se leen del almacén antes de filtrar y redactar.
+    static let rawEntryLimit = 3_000
+
     /// Lee los últimos `minutes` minutos del registro de Argos. Nunca lanza: devuelve `.unavailable`.
     static func read(
         minutes: Int = DiagnosticLogFormatter.defaultMinutes,
-        maxBytes: Int = DiagnosticLogFormatter.defaultMaxBytes,
         now: Date = Date()
     ) async -> DiagnosticLogExcerpt {
         await Task.detached(priority: .utility) {
@@ -81,7 +104,8 @@ enum DiagnosticLogReader {
                         date: log.date, level: levelName(log.level), category: log.category, message: log.composedMessage
                     )
                 }
-                return DiagnosticLogFormatter.excerpt(from: lines, maxBytes: maxBytes)
+                // Tope de seguridad de lo que se lee; el recorte del informe va después de redactar.
+                return .entries(Array(lines.sorted { $0.date < $1.date }.suffix(rawEntryLimit)))
             } catch {
                 Log.store.notice("diagnóstico: registro no disponible: \(error.localizedDescription, privacy: .public)")
                 return .unavailable(error.localizedDescription)

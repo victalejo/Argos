@@ -76,40 +76,17 @@ struct DiagnosticRedactor {
 
     /// Marcador para un nombre de servidor concreto (el del encabezado del informe).
     mutating func serverLabel(_ name: String) -> String {
-        includesPersonalData ? name : redact(name)
+        includesPersonalData ? Self.scrubSecrets(name) : redact(name)
     }
 
     // MARK: - Secretos (siempre)
 
-    static let keyPathMarker = "[ruta-de-clave]"
-    static let secretMarker = "[secreto]"
+    static let keyPathMarker = DiagnosticSecretScrubber.keyPathMarker
+    static let secretMarker = DiagnosticSecretScrubber.marker
 
+    /// Quita secretos (siempre, antes que nada y sin depender de ninguna opción).
     static func scrubSecrets(_ text: String) -> String {
-        var result = text
-        // Tokens con prefijo conocido.
-        result = replace(#"sk-ant-[A-Za-z0-9_\-]{8,}"#, in: result, with: secretMarker)
-        result = replace(#"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}"#, in: result, with: secretMarker)
-        result = replace(#"(?i)bearer\s+[A-Za-z0-9._~+/=\-]{8,}"#, in: result, with: "Bearer \(secretMarker)")
-        // `CLAUDE_CODE_OAUTH_TOKEN=…`, `password: …`, `passphrase=…`, `api_key=…`.
-        result = replace(
-            #"(?i)\b([A-Za-z0-9_]*(?:token|password|passwd|passphrase|secret|api[_-]?key))\b(\s*[=:]\s*)("[^"]*"|'[^']*'|[^\s,;]+)"#,
-            in: result, with: "$1$2\(secretMarker)"
-        )
-        // Rutas de claves: bajo `.ssh/`, `id_*` o con extensión de clave.
-        result = replace(#"(?:~|/)[^\s"'<>]*"#, in: result) { path in
-            looksLikeKeyPath(path) ? keyPathMarker : path
-        }
-        return result
-    }
-
-    static func looksLikeKeyPath(_ path: String) -> Bool {
-        let lower = path.lowercased()
-        if lower.contains("/.ssh/") || lower.hasPrefix("~/.ssh") { return true }
-        let name = lower.split(separator: "/").last.map(String.init) ?? lower
-        if name.hasPrefix("id_rsa") || name.hasPrefix("id_ed25519") || name.hasPrefix("id_ecdsa") || name.hasPrefix("id_dsa") {
-            return true
-        }
-        return [".pem", ".key", ".ppk"].contains { name.hasSuffix($0) }
+        DiagnosticSecretScrubber.scrub(text)
     }
 
     // MARK: - Datos personales
