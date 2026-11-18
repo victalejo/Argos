@@ -27,6 +27,14 @@ Argos no tiene servidores propios ni SDK de terceros que envíen nada:
   inicio de sesión de Claude) se abren en el navegador del sistema **solo tras confirmar la URL**.
 - El token de suscripción de Claude (si el usuario lo pega) solo sale del dispositivo hacia el
   servidor SSH del propio usuario, por la conexión cifrada, al lanzar un agente.
+- Las fotos y archivos que el usuario adjunta al terminal (selector de fotos o de archivos del
+  sistema, una captura pegada o «Compartir» desde otra app) se suben **solo a SU servidor**, por SFTP
+  dentro de la conexión SSH, a una ruta privada (permisos 600). No se piden permisos de almacenamiento
+  ni de fotos: el selector del sistema solo da acceso a lo elegido. Solo se aceptan `content://`.
+- El visor HTML del explorador es un `WebView` aislado: por defecto sin JavaScript, sin ninguna
+  petición de red (ni imágenes ni CSS remotos) y sin acceso a archivos; solo si el usuario pulsa
+  «Permitir» en esa página se cargan JavaScript y recursos externos (peticiones de la página hacia
+  donde ella diga, no hacia el desarrollador). Los enlaces se abren en el navegador tras confirmar.
 
 **Punto discutible (para que lo decidas tú):** lo que el usuario escribe en el terminal o al agente
 viaja a SU servidor. Es el propósito de la app (como cualquier cliente SSH) y no llega al
@@ -48,6 +56,8 @@ dispositivos.
 | Huellas de host (TOFU, SHA-256) | Almacenamiento privado | Sandbox de Android |
 | Preferencias (tamaño de letra, permisos de agentes, avisos, agentes vigilados) | SharedPreferences privadas | Sandbox de Android |
 | Archivos descargados del servidor | Donde el usuario elija con el selector del sistema (SAF) | Lo decide el usuario |
+| Copias temporales para ver un PDF o abrir una hoja de cálculo con otra app | Caché privada (`cache/previews/`, `cache/pdf-*.pdf`); se borran al cerrar el PDF o a la hora | Solo la app elegida en «Abrir con…» recibe permiso de lectura puntual de esa copia (`PreviewFileProvider`, no exportado) |
+| Última lectura del estado de Claude por servidor (para avisar de lo nuevo) | SharedPreferences privadas | Sandbox de Android |
 | Imágenes de la cámara | Solo en memoria, para decodificar el QR del Mac; no se guardan | — |
 
 ## Permisos y para qué

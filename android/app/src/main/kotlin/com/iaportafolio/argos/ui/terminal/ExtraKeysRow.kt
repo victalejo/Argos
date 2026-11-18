@@ -3,6 +3,7 @@ package com.iaportafolio.argos.ui.terminal
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -42,7 +45,7 @@ import kotlinx.coroutines.launch
 
 /** Orden de la fila (desplazable en horizontal si no cabe). */
 private val ROW_KEYS = listOf(
-    ExtraKey.ESC, ExtraKey.TAB, ExtraKey.CTRL, ExtraKey.ALT,
+    ExtraKey.ESC, ExtraKey.TAB, ExtraKey.SHIFT_TAB, ExtraKey.CTRL, ExtraKey.ALT,
     ExtraKey.LEFT, ExtraKey.UP, ExtraKey.DOWN, ExtraKey.RIGHT,
     ExtraKey.PIPE, ExtraKey.TILDE, ExtraKey.SLASH, ExtraKey.DASH,
     ExtraKey.TMUX_PREFIX, ExtraKey.HOME, ExtraKey.END, ExtraKey.PAGE_UP, ExtraKey.PAGE_DOWN,
@@ -53,7 +56,13 @@ private const val REPEAT_INTERVAL_MS = 50L
 
 /** Fila de teclas extra sobre el teclado (Esc, Tab, Ctrl/Alt pegajosos, flechas, prefijo tmux…). */
 @Composable
-fun ExtraKeysRow(modifiers: StickyModifiers, onKey: (ExtraKey) -> Unit, modifier: Modifier = Modifier) {
+fun ExtraKeysRow(
+    modifiers: StickyModifiers,
+    onKey: (ExtraKey) -> Unit,
+    modifier: Modifier = Modifier,
+    /** «Ocultar teclado» al final de la fila (`null` = sin botón). */
+    onHideKeyboard: (() -> Unit)? = null,
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -70,6 +79,24 @@ fun ExtraKeysRow(modifiers: StickyModifiers, onKey: (ExtraKey) -> Unit, modifier
             }
             ExtraKeyButton(key, latch, onKey)
         }
+        onHideKeyboard?.let { hide -> HideKeyboardButton(hide) }
+    }
+}
+
+@Composable
+private fun HideKeyboardButton(onClick: () -> Unit) {
+    val description = stringResource(R.string.key_hide_keyboard_description)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .height(40.dp)
+            .widthIn(min = 44.dp)
+            .background(TerminalColors.Key, RoundedCornerShape(6.dp))
+            .clickable(role = Role.Button, onClickLabel = description, onClick = onClick)
+            .semantics { contentDescription = description }
+            .padding(horizontal = 10.dp),
+    ) {
+        Icon(painterResource(R.drawable.ic_keyboard_hide), contentDescription = null, tint = Color.White)
     }
 }
 
@@ -135,6 +162,7 @@ private fun ExtraKeyButton(key: ExtraKey, latch: ModifierLatch?, onKey: (ExtraKe
 private fun ExtraKey.labelRes(): Int = when (this) {
     ExtraKey.ESC -> R.string.key_esc
     ExtraKey.TAB -> R.string.key_tab
+    ExtraKey.SHIFT_TAB -> R.string.key_shift_tab
     ExtraKey.CTRL -> R.string.key_ctrl
     ExtraKey.ALT -> R.string.key_alt
     ExtraKey.LEFT -> R.string.key_left
@@ -156,6 +184,7 @@ private fun ExtraKey.labelRes(): Int = when (this) {
 private fun ExtraKey.descriptionRes(): Int = when (this) {
     ExtraKey.ESC -> R.string.key_esc_description
     ExtraKey.TAB -> R.string.key_tab_description
+    ExtraKey.SHIFT_TAB -> R.string.key_shift_tab_description
     ExtraKey.CTRL -> R.string.key_ctrl_description
     ExtraKey.ALT -> R.string.key_alt_description
     ExtraKey.LEFT -> R.string.key_left_description

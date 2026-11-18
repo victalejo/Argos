@@ -137,6 +137,10 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
         if (visible) imm.hideSoftInputFromWindow(windowToken, 0) else showKeyboard()
     }
 
+    fun hideKeyboard() {
+        context.getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(windowToken, 0)
+    }
+
     fun showKeyboard() {
         requestFocus()
         context.getSystemService(InputMethodManager::class.java)?.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)

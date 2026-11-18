@@ -50,7 +50,27 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="argos" android:host="add-server" />
             </intent-filter>
+            <!-- «Compartir» → Argos: fotos o archivos de otra app se suben al servidor y su ruta se
+                 escribe en el terminal del proyecto que elija el usuario. Solo content://. -->
+            <intent-filter android:label="@string/share_target_label">
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
         </activity>
+
+        <!-- «Abrir con…» de una hoja de cálculo del servidor: solo copias temporales de cache/previews/,
+             sin exportar y con permiso de lectura puntual para la app elegida. -->
+        <provider
+            android:name=".ui.files.PreviewFileProvider"
+            android:authorities="${applicationId}.previews"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/preview_paths" />
+        </provider>
 
         <!-- Lo que justifica la excepción ante Google Play: ver android/README.md. -->
         <service

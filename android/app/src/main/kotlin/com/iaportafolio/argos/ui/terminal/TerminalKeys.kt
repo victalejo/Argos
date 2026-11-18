@@ -4,6 +4,9 @@ package com.iaportafolio.argos.ui.terminal
 enum class ExtraKey(val repeats: Boolean = false) {
     ESC,
     TAB,
+
+    /** Mayús+Tab (`ESC [ Z`): en Claude Code cambia de modo (plan, aceptar ediciones…). */
+    SHIFT_TAB,
     CTRL,
     ALT,
     LEFT(repeats = true),
@@ -77,6 +80,7 @@ object TerminalKeyEncoder {
         ExtraKey.CTRL, ExtraKey.ALT -> ByteArray(0)
         ExtraKey.ESC -> withAlt(byteArrayOf(ESC.toByte()), alt)
         ExtraKey.TAB -> withAlt(byteArrayOf('\t'.code.toByte()), alt)
+        ExtraKey.SHIFT_TAB -> withAlt("\u001B[Z".toByteArray(Charsets.US_ASCII), alt)
         ExtraKey.TMUX_PREFIX -> byteArrayOf(TMUX_PREFIX.toByte())
         ExtraKey.UP -> cursor('A', ctrl, alt, cursorKeysApplicationMode)
         ExtraKey.DOWN -> cursor('B', ctrl, alt, cursorKeysApplicationMode)

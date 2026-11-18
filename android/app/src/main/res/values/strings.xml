@@ -418,8 +418,6 @@
     <string name="files_truncated">Archivo grande: se muestra solo el principio. Descárgalo para verlo entero.</string>
     <string name="files_binary_title">Archivo binario</string>
     <string name="files_binary_body">No se puede previsualizar. Descárgalo para abrirlo con otra app.</string>
-    <string name="files_pdf_title">Documento PDF</string>
-    <string name="files_pdf_body">Descárgalo para abrirlo con tu lector de PDF.</string>
     <string name="files_image_invalid">Imagen no válida</string>
     <string name="files_image_description">Vista previa de la imagen</string>
     <string name="files_link_title">¿Abrir este enlace?</string>
@@ -467,6 +465,7 @@
     <!-- Fila de teclas extra: etiqueta visible y descripción para lectores de pantalla -->
     <string name="key_esc" translatable="false">Esc</string>
     <string name="key_tab" translatable="false">Tab</string>
+    <string name="key_shift_tab" translatable="false">⇧Tab</string>
     <string name="key_ctrl" translatable="false">Ctrl</string>
     <string name="key_alt" translatable="false">Alt</string>
     <string name="key_left" translatable="false">←</string>
@@ -484,6 +483,8 @@
     <string name="key_page_down">AvPág</string>
     <string name="key_esc_description">Escape</string>
     <string name="key_tab_description">Tabulador</string>
+    <string name="key_shift_tab_description">Mayúsculas y tabulador (cambia de modo en Claude Code)</string>
+    <string name="key_hide_keyboard_description">Ocultar teclado</string>
     <string name="key_ctrl_description">Control</string>
     <string name="key_alt_description">Alt</string>
     <string name="key_left_description">Flecha izquierda</string>
@@ -690,8 +691,83 @@
     <string name="claude_hooks_already">El indicador ya estaba activo en %1$s.</string>
     <string name="claude_hooks_failed">No se pudo activar el indicador: %1$s</string>
 
+    <!-- Ventanas tmux: renombrar y color -->
+    <string name="terminal_window_options">Opciones de la ventana</string>
+    <string name="terminal_window_rename">Renombrar…</string>
+    <string name="terminal_window_rename_title">Renombrar la ventana %1$d</string>
+    <string name="terminal_window_no_color">Sin color</string>
+
+    <!-- Paneles de tmux -->
+    <string name="terminal_panes">Paneles</string>
+    <string name="terminal_pane_split_side">Dividir: panel al lado</string>
+    <string name="terminal_pane_split_below">Dividir: panel debajo</string>
+    <string name="terminal_pane_up">Ir al panel de arriba</string>
+    <string name="terminal_pane_down">Ir al panel de abajo</string>
+    <string name="terminal_pane_left">Ir al panel de la izquierda</string>
+    <string name="terminal_pane_right">Ir al panel de la derecha</string>
+    <string name="terminal_pane_zoom">Ampliar o restaurar el panel</string>
+    <string name="terminal_pane_kill">Cerrar el panel</string>
+    <string name="terminal_pane_last">Es el único panel de la ventana: para cerrarlo, cierra la ventana.</string>
+
+    <!-- Enviar comando a sesiones -->
+    <string name="send_command_menu">Enviar comando…</string>
+    <string name="send_command_title">Enviar comando</string>
+    <string name="send_command_label">Comando (se teclea con Intro)</string>
+    <string name="send_command_send">Enviar</string>
+    <string name="send_command_sent">Comando enviado (%1$d)</string>
+
+    <!-- Monitor de recursos -->
+    <string name="monitor_menu">Recursos del servidor</string>
+    <string name="monitor_title">Recursos</string>
+    <string name="monitor_loading">Leyendo los recursos…</string>
+    <string name="monitor_failed">No se pudieron leer los recursos</string>
+    <string name="monitor_load">Carga (1 · 5 · 15 min, %1$d núcleos)</string>
+    <string name="monitor_cpu">CPU</string>
+    <string name="monitor_memory">Memoria</string>
+    <string name="monitor_swap">Swap</string>
+    <string name="monitor_disk">Disco (/)</string>
+    <string name="monitor_uptime">Encendido</string>
+    <string name="monitor_processes">Procesos con más CPU</string>
+
+    <!-- Comando de arranque predeterminado -->
+    <string name="startup_command_menu">Comando de arranque…</string>
+    <string name="startup_command_title">Comando de arranque</string>
+    <string name="startup_command_help">Se escribe en el terminal al abrir un proyecto que no tenga uno propio.</string>
+    <string name="startup_command_custom">Otro</string>
+
     <!-- Búsqueda de proyectos -->
     <string name="projects_search">Buscar proyectos y sesiones</string>
     <string name="projects_search_clear">Borrar la búsqueda</string>
     <string name="projects_search_empty">Nada coincide con «%1$s»</string>
+    <!-- Adjuntar al terminal y «Compartir» -->
+    <string name="terminal_attach">Adjuntar</string>
+    <string name="terminal_attach_photo">Foto o captura</string>
+    <string name="terminal_attach_file">Archivo</string>
+    <string name="terminal_uploading">Subiendo «%1$s»…</string>
+    <string name="terminal_uploaded">«%1$s» subido: su ruta está en la línea de comandos</string>
+    <string name="terminal_uploaded_not_typed">Subido a %1$s (el terminal no estaba conectado para escribir la ruta)</string>
+    <string name="share_target_label">Terminal de Argos</string>
+    <plurals name="share_title">
+        <item quantity="one">Enviar %d archivo</item>
+        <item quantity="many">Enviar %d archivos</item>
+        <item quantity="other">Enviar %d archivos</item>
+    </plurals>
+    <string name="share_pick_server">Elige el servidor. Se subirá a una carpeta privada y su ruta se escribirá en el terminal del proyecto: %1$s</string>
+    <string name="share_pick_project">Elige el proyecto o la sesión cuyo terminal recibirá la ruta.</string>
+    <string name="share_loading">Leyendo los proyectos…</string>
+    <string name="share_no_servers">Añade un servidor para enviarle archivos</string>
+    <string name="share_no_projects">Este servidor no tiene proyectos ni sesiones abiertas</string>
+    <!-- Visores de archivos -->
+    <string name="files_html_view">Vista</string>
+    <string name="files_html_source">Fuente</string>
+    <string name="files_html_isolated">Vista aislada: sin JavaScript ni contenido externo.</string>
+    <string name="files_html_allow">Permitir</string>
+    <string name="files_pdf_invalid">No se pudo abrir este PDF (dañado o protegido con contraseña)</string>
+    <string name="files_pdf_page">Página %1$d de %2$d</string>
+    <string name="files_too_large_title">Demasiado grande para verlo aquí</string>
+    <string name="files_too_large_body">Descárgalo para abrirlo con otra app.</string>
+    <string name="files_spreadsheet_body">Hoja de cálculo: ábrela con otra app (recibe una copia temporal) o descárgala.</string>
+    <string name="files_open_with">Abrir con…</string>
+    <string name="files_open_with_title">Abrir «%1$s» con</string>
+    <string name="files_open_with_none">Ninguna app de este teléfono abre hojas de cálculo. Descárgala o instala una.</string>
 </resources>

@@ -321,8 +321,17 @@ open class FakeSSHService : SSHServicing, ClaudeActivityReading, ClaudeHookMaint
 
     override suspend fun installedCodingAgents(): Set<CodingAgent> = installedAgents
     override suspend fun gitBranch(path: String): String? = unused()
-    override suspend fun renameWindow(session: String, index: Int, name: String) = unused()
-    override suspend fun setWindowColor(session: String, index: Int, color: WindowColor?) = unused()
+    override suspend fun renameWindow(session: String, index: Int, name: String) {
+        calls += "renameWindow:$session:$index:$name"
+        windowActionError?.let { throw it }
+        windows = windows.map { if (it.index == index) it.copy(name = name) else it }
+    }
+
+    override suspend fun setWindowColor(session: String, index: Int, color: WindowColor?) {
+        calls += "windowColor:$session:$index:${color?.rawValue}"
+        windowActionError?.let { throw it }
+        windows = windows.map { if (it.index == index) it.copy(color = color) else it }
+    }
     override suspend fun killWindow(session: String, index: Int) {
         calls += "killWindow:$session:$index"
         windowActionError?.let { throw it }
@@ -330,13 +339,43 @@ open class FakeSSHService : SSHServicing, ClaudeActivityReading, ClaudeHookMaint
     }
     override suspend fun authorizeKey(line: String) = unused()
     override suspend fun revokeKey(comment: String) = unused()
-    override suspend fun splitPane(session: String, vertical: Boolean) = unused()
-    override suspend fun selectPane(session: String, direction: TmuxPaneDirection) = unused()
-    override suspend fun zoomPane(session: String) = unused()
-    override suspend fun killPane(session: String) = unused()
-    override suspend fun sendKeys(session: String, keys: String, enter: Boolean) = unused()
-    override suspend fun uploadPastedFile(data: ByteArray, fileExtension: String): String = unused()
-    override suspend fun uploadDroppedFile(data: ByteArray, originalName: String): String = unused()
+    override suspend fun splitPane(session: String, vertical: Boolean) {
+        calls += "splitPane:$session:$vertical"
+    }
+
+    override suspend fun selectPane(session: String, direction: TmuxPaneDirection) {
+        calls += "selectPane:$session:${direction.name}"
+    }
+
+    override suspend fun zoomPane(session: String) {
+        calls += "zoomPane:$session"
+    }
+
+    override suspend fun killPane(session: String) {
+        calls += "killPane:$session"
+    }
+
+    var sendKeysError: Exception? = null
+
+    override suspend fun sendKeys(session: String, keys: String, enter: Boolean) {
+        calls += "sendKeys:$session:$keys:$enter"
+        sendKeysError?.let { throw it }
+    }
+    /** Subidas recibidas: (nombre o extensión, bytes). */
+    val uploads = mutableListOf<Pair<String, ByteArray>>()
+    var uploadError: Exception? = null
+
+    override suspend fun uploadPastedFile(data: ByteArray, fileExtension: String): String {
+        uploadError?.let { throw it }
+        uploads += "pasted.$fileExtension" to data
+        return "/tmp/argos-pasted-1.$fileExtension"
+    }
+
+    override suspend fun uploadDroppedFile(data: ByteArray, originalName: String): String {
+        uploadError?.let { throw it }
+        uploads += originalName to data
+        return "/tmp/argos-1-$originalName"
+    }
     override suspend fun locateClaude(): String? = unused()
     override suspend fun killAgentProcess(pid: Int) = unused()
     override suspend fun availableMemoryKB(): Int? = unused()

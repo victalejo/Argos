@@ -282,14 +282,18 @@ class RemoteFilesViewModel(
             when (val kind = FilePreview.kind(name, file.data)) {
                 FilePreviewKind.Markdown -> PreviewContent.Markdown(FilePreview.text(file.data))
                 is FilePreviewKind.Code -> code(file, kind.language)
-                // Hasta que haya visor HTML renderizado, su fuente resaltada.
-                FilePreviewKind.Html -> code(file, "html")
+                FilePreviewKind.Html -> {
+                    val source = code(file, "html")
+                    PreviewContent.Html(source.text, source)
+                }
                 FilePreviewKind.Image -> PreviewContent.Image(file.data)
-                FilePreviewKind.Pdf -> PreviewContent.Pdf
-                FilePreviewKind.Spreadsheet, FilePreviewKind.Binary -> PreviewContent.Binary
+                // Un PDF o una hoja de cálculo a medias no se puede abrir.
+                FilePreviewKind.Pdf -> if (file.isTruncated) PreviewContent.TooLarge else PreviewContent.Pdf(file.data)
+                FilePreviewKind.Spreadsheet -> if (file.isTruncated) PreviewContent.TooLarge else PreviewContent.Spreadsheet(file.data)
+                FilePreviewKind.Binary -> PreviewContent.Binary
             }
 
-        private fun code(file: RemoteFileContent, language: String?): PreviewContent {
+        private fun code(file: RemoteFileContent, language: String?): PreviewContent.Code {
             val text = FilePreview.text(file.data)
             val tokens = if (text.length <= MAX_UI_HIGHLIGHT) SyntaxHighlighter.tokens(text, language) else emptyList()
             return PreviewContent.Code(text, language, tokens)

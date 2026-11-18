@@ -24,6 +24,7 @@ import com.iaportafolio.argos.data.ArgosLog
 import com.iaportafolio.argos.data.ProjectPreferencesStore
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceProvider
+import com.iaportafolio.argos.ui.common.UiText
 import com.iaportafolio.argos.ui.common.logFailures
 import com.iaportafolio.argos.ui.common.toUiText
 import com.iaportafolio.argos.ui.sessions.ConnectStep
@@ -533,6 +534,9 @@ class ProjectsViewModel(
     // MARK: - Varios
 
     override fun messageShown() = mutableState.update { it.copy(message = null) }
+
+    /** Aviso de otra parte de la pantalla (p. ej. «Comando enviado») en el mismo snackbar. */
+    fun showMessage(text: UiText) = mutableState.update { it.copy(message = text) }
 
     private fun emit(event: ProjectsEvent) {
         eventChannel.trySend(event)

@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,6 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -37,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -44,11 +50,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.core.userMessage
+import com.iaportafolio.argos.data.ArgosLog
 import com.iaportafolio.argos.ui.common.ProgressMessage
 import com.iaportafolio.argos.ui.common.StatusMessage
 import com.iaportafolio.argos.ui.common.asString
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 
 /** Vista previa de un archivo (equivale a `FilePreviewScreen` de iOS). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,10 +139,13 @@ private fun PreviewBody(preview: FilePreviewState, viewModel: RemoteFilesViewMod
             }
         }
         is PreviewContent.Image -> ImageView(content.bytes, onDownload = download)
-        PreviewContent.Pdf -> StatusMessage(
-            icon = painterResource(R.drawable.ic_pdf),
-            title = stringResource(R.string.files_pdf_title),
-            body = stringResource(R.string.files_pdf_body),
+        is PreviewContent.Html -> HtmlPreview(content, preview.path) { CodeView(it) }
+        is PreviewContent.Pdf -> PdfPreview(content.bytes, onDownload = download)
+        is PreviewContent.Spreadsheet -> SpreadsheetView(preview.name, content.bytes, onDownload = download)
+        PreviewContent.TooLarge -> StatusMessage(
+            icon = painterResource(R.drawable.ic_archive),
+            title = stringResource(R.string.files_too_large_title),
+            body = stringResource(R.string.files_too_large_body),
         ) { DownloadButton(download) }
         PreviewContent.Binary -> StatusMessage(
             icon = painterResource(R.drawable.ic_archive),
@@ -145,6 +158,37 @@ private fun PreviewBody(preview: FilePreviewState, viewModel: RemoteFilesViewMod
 @Composable
 private fun DownloadButton(onClick: () -> Unit) {
     Button(onClick = onClick) { Text(stringResource(R.string.files_download)) }
+}
+
+/** Hoja de cálculo: «Abrir con…» otra app con una copia temporal propia (como Quick Look en iOS). */
+@Composable
+private fun SpreadsheetView(name: String, bytes: ByteArray, onDownload: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val chooserTitle = stringResource(R.string.files_open_with_title, name)
+    var failed by remember(name) { mutableStateOf<String?>(null) }
+    val noApp = stringResource(R.string.files_open_with_none)
+    StatusMessage(
+        icon = painterResource(R.drawable.ic_spreadsheet),
+        title = name,
+        body = failed ?: stringResource(R.string.files_spreadsheet_body),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = {
+                scope.launch {
+                    val uri = try {
+                        withContext(Dispatchers.IO) { PreviewFiles.write(context, name, bytes) }
+                    } catch (error: IOException) {
+                        ArgosLog.warn(ArgosLog.TAG_UI, "No se pudo preparar la hoja de cálculo", error)
+                        failed = error.userMessage
+                        return@launch
+                    }
+                    if (!PreviewFiles.openWith(context, uri, name, chooserTitle)) failed = noApp
+                }
+            }) { Text(stringResource(R.string.files_open_with)) }
+            OutlinedButton(onClick = onDownload) { Text(stringResource(R.string.files_download)) }
+        }
+    }
 }
 
 /** Código con resaltado, una línea por elemento (perezoso) y texto seleccionable. */

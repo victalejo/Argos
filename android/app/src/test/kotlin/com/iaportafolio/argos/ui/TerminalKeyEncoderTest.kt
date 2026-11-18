@@ -44,6 +44,8 @@ class TerminalKeyEncoderTest {
         assertEquals("\u001B", key(ExtraKey.ESC))
         assertEquals("\u001B\u001B", key(ExtraKey.ESC, alt = true))
         assertEquals("\t", key(ExtraKey.TAB))
+        assertEquals("\u001B[Z", key(ExtraKey.SHIFT_TAB))
+        assertEquals("\u001B\u001B[Z", key(ExtraKey.SHIFT_TAB, alt = true))
         assertContentEquals(byteArrayOf(0x02), TerminalKeyEncoder.key(ExtraKey.TMUX_PREFIX, ctrl = true, alt = true, cursorKeysApplicationMode = false))
         assertEquals("|", key(ExtraKey.PIPE))
         assertEquals("~", key(ExtraKey.TILDE))

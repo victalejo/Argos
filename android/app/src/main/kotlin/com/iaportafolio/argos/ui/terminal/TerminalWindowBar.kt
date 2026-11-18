@@ -14,10 +14,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -25,6 +28,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,7 +57,9 @@ import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.status.ClaudeActivity
 import com.iaportafolio.argos.core.tmux.CodingAgent
 import com.iaportafolio.argos.ui.claude.ClaudeActivityBadge
+import com.iaportafolio.argos.ui.claude.CodingAgentIcon
 import com.iaportafolio.argos.core.tmux.TmuxWindow
+import com.iaportafolio.argos.core.tmux.WindowColor
 import com.iaportafolio.argos.core.tmux.WindowTabs
 
 /**
@@ -69,6 +75,8 @@ fun TerminalWindowBar(
     onNewAgent: (CodingAgent) -> Unit,
     onClose: (TmuxWindow) -> Unit,
     modifier: Modifier = Modifier,
+    onRename: (TmuxWindow) -> Unit = {},
+    onColor: (TmuxWindow, WindowColor?) -> Unit = { _, _ -> },
 ) {
     val repeated = remember(state.windows, state.claudeWindows) {
         WindowTabs.repeatedAgents(state.windows, claudeReported = state.claudeWindows.keys)
@@ -89,6 +97,8 @@ fun TerminalWindowBar(
                     canClose = state.windows.size > 1,
                     onSelect = onSelect,
                     onClose = onClose,
+                    onRename = onRename,
+                    onColor = onColor,
                 )
             }
         }
@@ -105,6 +115,8 @@ private fun WindowTab(
     canClose: Boolean,
     onSelect: (TmuxWindow) -> Unit,
     onClose: (TmuxWindow) -> Unit,
+    onRename: (TmuxWindow) -> Unit,
+    onColor: (TmuxWindow, WindowColor?) -> Unit,
 ) {
     val agent = WindowTabs.agent(window, claudeReported = claude != null)
     val title = WindowTabs.title(window, agent)
@@ -126,9 +138,8 @@ private fun WindowTab(
                 .combinedClickable(
                     role = Role.Tab,
                     onClick = { onSelect(window) },
-                    // Cerrar la última ventana mataría la sesión: sin menú que ofrecer.
-                    onLongClick = if (canClose) ({ menuOpen = true }) else null,
-                    onLongClickLabel = if (canClose) closeLabel else null,
+                    onLongClick = { menuOpen = true },
+                    onLongClickLabel = stringResource(R.string.terminal_window_options),
                 )
                 .padding(horizontal = 10.dp)
                 .semantics(mergeDescendants = true) {
@@ -139,7 +150,7 @@ private fun WindowTab(
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             if (agent != null) {
-                Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null, tint = content, modifier = Modifier.size(14.dp))
+                CodingAgentIcon(agent, size = 13.dp)
             } else {
                 Text(
                     ">_",
@@ -168,13 +179,29 @@ private fun WindowTab(
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(
-                text = { Text(closeLabel) },
-                leadingIcon = { Icon(Icons.Filled.Close, contentDescription = null) },
+                text = { Text(stringResource(R.string.terminal_window_rename)) },
+                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
                 onClick = {
                     menuOpen = false
-                    onClose(window)
+                    onRename(window)
                 },
             )
+            WindowColorItems(window) { color ->
+                menuOpen = false
+                onColor(window, color)
+            }
+            // Cerrar la última ventana mataría la sesión.
+            if (canClose) {
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text(closeLabel) },
+                    leadingIcon = { Icon(Icons.Filled.Close, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        onClose(window)
+                    },
+                )
+            }
         }
     }
 }
@@ -205,7 +232,7 @@ private fun AddMenu(installedAgents: Set<CodingAgent>?, onNew: () -> Unit, onNew
                 }
                 DropdownMenuItem(
                     text = { Text(label) },
-                    leadingIcon = { Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null) },
+                    leadingIcon = { CodingAgentIcon(agent, size = 18.dp) },
                     enabled = installed,
                     onClick = {
                         open = false
@@ -215,6 +242,56 @@ private fun AddMenu(installedAgents: Set<CodingAgent>?, onNew: () -> Unit, onNew
             }
         }
     }
+}
+
+/** Colores de la pestaña (los de `WindowColor`, como el Mac) y «Sin color». */
+@Composable
+private fun WindowColorItems(window: TmuxWindow, onPick: (WindowColor?) -> Unit) {
+    HorizontalDivider()
+    WindowColor.entries.forEach { color ->
+        DropdownMenuItem(
+            text = { Text(color.displayName) },
+            leadingIcon = { Box(Modifier.size(14.dp).background(color.swatch(), CircleShape)) },
+            trailingIcon = if (window.color == color) ({ Icon(Icons.Filled.Check, contentDescription = null) }) else null,
+            onClick = { onPick(color) },
+        )
+    }
+    if (window.color != null) {
+        DropdownMenuItem(text = { Text(stringResource(R.string.terminal_window_no_color)) }, onClick = { onPick(null) })
+    }
+}
+
+/** Tono de cada color de pestaña (paleta de sistema de Apple). */
+internal fun WindowColor.swatch(): Color = when (this) {
+    WindowColor.RED -> Color(0xFFFF453A)
+    WindowColor.ORANGE -> Color(0xFFFF9F0A)
+    WindowColor.YELLOW -> Color(0xFFFFD60A)
+    WindowColor.GREEN -> Color(0xFF30D158)
+    WindowColor.MINT -> Color(0xFF66D4CF)
+    WindowColor.BLUE -> Color(0xFF0A84FF)
+    WindowColor.PURPLE -> Color(0xFFBF5AF2)
+    WindowColor.PINK -> Color(0xFFFF375F)
+    WindowColor.GRAY -> Color(0xFF98989D)
+}
+
+/** «Renombrar ventana» con la validación de tmux en vivo. */
+@Composable
+fun RenameWindowDialog(rename: WindowRename, onText: (String) -> Unit, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.terminal_window_rename_title, rename.window.index)) },
+        text = {
+            OutlinedTextField(
+                value = rename.text,
+                onValueChange = onText,
+                singleLine = true,
+                isError = rename.error != null,
+                supportingText = rename.error?.let { error -> { Text(error) } },
+            )
+        },
+        confirmButton = { TextButton(onClick = onConfirm, enabled = rename.text.isNotBlank() && rename.error == null) { Text(stringResource(R.string.action_save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 /** Confirmación de cierre de una ventana en la que corre algo. */

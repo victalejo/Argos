@@ -5,6 +5,8 @@ package com.iaportafolio.argos.ui
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.tmux.CodingAgent
 import com.iaportafolio.argos.core.tmux.TmuxWindow
+import com.iaportafolio.argos.core.tmux.WindowColor
+import com.iaportafolio.argos.core.tmux.WindowNameValidator
 import com.iaportafolio.argos.testing.FakeServiceProvider
 import com.iaportafolio.argos.testing.InMemoryServerRepository
 import com.iaportafolio.argos.testing.MainDispatcherExtension
@@ -230,5 +232,58 @@ class TerminalWindowsViewModelTest {
         assertIs<UiText.Plain>(vm.state.value.message)
         vm.messageShown()
         assertNull(vm.state.value.message)
+    }
+
+    @Test
+    fun `renombra con el nombre validado y colorea la pestana`() = runTest(main.dispatcher) {
+        ssh.windows = listOf(shell, claude)
+        val vm = viewModel()
+        polling(vm)
+
+        vm.requestRename(shell)
+        vm.onRenameText("-malo")
+        assertEquals(WindowNameValidator.ValidationError.LeadingDash.message, vm.state.value.renaming?.error)
+        vm.confirmRename()
+        assertTrue(ssh.calls.none { it.startsWith("renameWindow") })
+
+        vm.onRenameText("  servidor  ")
+        vm.confirmRename()
+        runCurrent()
+        assertEquals(null, vm.state.value.renaming)
+        assertTrue("renameWindow:web/api:1:servidor" in ssh.calls)
+
+        vm.setColor(claude, WindowColor.GREEN)
+        assertEquals(WindowColor.GREEN, vm.state.value.windows.first { it.index == 2 }.color)
+        runCurrent()
+        assertTrue("windowColor:web/api:2:green" in ssh.calls)
+        vm.setColor(claude, null)
+        runCurrent()
+        assertTrue("windowColor:web/api:2:null" in ssh.calls)
+    }
+
+    @Test
+    fun `cuenta qué ventana se mira mientras está visible y deja de hacerlo al salir`() = runTest(main.dispatcher) {
+        val seen = mutableListOf<String>()
+        val source = object : com.iaportafolio.argos.background.ClaudeActivitySource {
+            override val activity = kotlinx.coroutines.flow.MutableStateFlow(
+                mapOf("S1" to com.iaportafolio.argos.core.status.ClaudeActivitySnapshot.fromListPanes("-|done|%1|2|web/api")),
+            )
+            override fun setViewing(window: com.iaportafolio.argos.background.ViewedWindow) {
+                seen += "ver:${window.window}"
+            }
+            override fun clearViewing(window: com.iaportafolio.argos.background.ViewedWindow) {
+                seen += "dejar:${window.window}"
+            }
+        }
+        ssh.windows = listOf(shell, claude)
+        val vm = TerminalWindowsViewModel("S1", "web/api", "/srv/api", repository, provider, main.dispatcher, source)
+        val job = backgroundScope.launch { vm.pollWhileVisible() }
+        runCurrent()
+        assertEquals(mapOf(2 to com.iaportafolio.argos.core.status.ClaudeActivity.DONE), vm.state.value.claudeWindows)
+        vm.select(claude)
+        runCurrent()
+        job.cancel()
+        runCurrent()
+        assertEquals(listOf("ver:null", "ver:1", "ver:2", "dejar:2"), seen)
     }
 }

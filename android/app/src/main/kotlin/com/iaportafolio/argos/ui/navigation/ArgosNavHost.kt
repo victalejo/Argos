@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,17 +54,23 @@ import com.iaportafolio.argos.ui.git.GitHubSection
 import com.iaportafolio.argos.ui.projects.WorktreesDialog
 import com.iaportafolio.argos.ui.form.ServerFormScreen
 import com.iaportafolio.argos.ui.importer.ImportServerScreen
+import com.iaportafolio.argos.ui.monitor.ResourceMonitorScreen
 import com.iaportafolio.argos.ui.project.ProjectLoad
 import com.iaportafolio.argos.ui.project.ProjectScreen
+import com.iaportafolio.argos.ui.project.ProjectTab
+import com.iaportafolio.argos.ui.share.ShareEvent
+import com.iaportafolio.argos.ui.share.ShareTargetScreen
 import com.iaportafolio.argos.ui.project.WIDE_LAYOUT_MIN_WIDTH
 import com.iaportafolio.argos.ui.ports.PortForwardRequestPrompt
 import com.iaportafolio.argos.ui.ports.PortForwardsScreen
 import com.iaportafolio.argos.ui.projects.FolderPickerDialog
 import com.iaportafolio.argos.ui.projects.ProjectsEvent
 import com.iaportafolio.argos.ui.projects.ProjectsScreen
+import com.iaportafolio.argos.ui.projects.SendCommandDialog
 import com.iaportafolio.argos.ui.servers.BackgroundDiagnosticsDialog
 import com.iaportafolio.argos.ui.servers.DiagnosticsInput
 import com.iaportafolio.argos.ui.servers.ServersScreen
+import com.iaportafolio.argos.ui.servers.StartupCommandDialog
 import com.iaportafolio.argos.ui.sessions.SessionsLoad
 import com.iaportafolio.argos.ui.terminal.TerminalConnectionEffect
 import com.iaportafolio.argos.ui.terminal.TerminalScreen
@@ -88,6 +97,9 @@ data class ProjectRoute(val serverId: String, val projectId: String, val tab: St
 data class PortsRoute(val serverId: String)
 
 @Serializable
+data class MonitorRoute(val serverId: String)
+
+@Serializable
 data class TerminalRoute(val serverId: String, val sessionName: String)
 
 @Serializable
@@ -102,6 +114,10 @@ data class AgentLoginRoute(val serverId: String)
  */
 @Serializable
 data object ImportServerRoute
+
+/** «Compartir» → Argos. Sin argumentos: los `content://` van en memoria (sus permisos duran lo que la Activity). */
+@Serializable
+data object ShareRoute
 
 @Serializable
 data object AboutRoute
@@ -131,10 +147,14 @@ fun ArgosNavHost(
     /** Ventana con Claude que pidió abrir un aviso (ya validada); [onClaudeTargetConsumed] al atenderla. */
     claudeTarget: ClaudeTarget? = null,
     onClaudeTargetConsumed: () -> Unit = {},
+    /** Archivos compartidos desde otra app (ya filtrados); [onSharedUrisConsumed] al abrir el selector. */
+    sharedUris: List<String>? = null,
+    onSharedUrisConsumed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     // Solo en memoria (no `rememberSaveable`): lleva la semilla de la clave.
     var pendingImportLink by remember { mutableStateOf<String?>(null) }
+    var pendingShare by remember { mutableStateOf<List<String>?>(null) }
     val openProject = { serverId: String, projectId: String -> navController.navigate(ProjectRoute(serverId, projectId)) }
     val openTerminal = { serverId: String, session: String -> navController.navigate(TerminalRoute(serverId, session)) }
     NavHost(navController = navController, startDestination = ServersRoute) {
@@ -153,6 +173,7 @@ fun ArgosNavHost(
                 onOpenProject = openProject,
                 onOpenTerminal = openTerminal,
                 onOpenPorts = { id -> navController.navigate(PortsRoute(id)) },
+                onOpenMonitor = { id -> navController.navigate(MonitorRoute(id)) },
             )
         }
         composable<ServerFormRoute> { entry ->
@@ -180,6 +201,26 @@ fun ArgosNavHost(
             }
             ImportServerScreen(state = state, actions = viewModel, onClose = { navController.popBackStack() })
         }
+        composable<ShareRoute> {
+            val share = shareTargetViewModel(container)
+            val shareState by share.state.collectAsStateWithLifecycle()
+            LaunchedEffect(pendingShare) {
+                pendingShare?.let {
+                    share.setShared(it)
+                    pendingShare = null
+                }
+            }
+            LaunchedEffect(share) {
+                share.events.collect { event ->
+                    navController.popBackStack<ShareRoute>(inclusive = true)
+                    when (event) {
+                        is ShareEvent.OpenProject -> navController.navigate(ProjectRoute(event.serverId, event.projectId, tab = ProjectTab.TERMINAL.name))
+                        is ShareEvent.OpenSession -> navController.navigate(TerminalRoute(event.serverId, event.session))
+                    }
+                }
+            }
+            ShareTargetScreen(shareState, share, onClose = { navController.popBackStack() })
+        }
         composable<AboutRoute> {
             AboutScreen(onBack = { navController.popBackStack() }, onOpenLicenses = { navController.navigate(LicensesRoute) })
         }
@@ -195,7 +236,12 @@ fun ArgosNavHost(
                 onOpenProject = { openProject(route.serverId, it) },
                 onOpenTerminal = { openTerminal(route.serverId, it) },
                 onOpenPorts = { navController.navigate(PortsRoute(route.serverId)) },
+                onOpenMonitor = { navController.navigate(MonitorRoute(route.serverId)) },
             )
+        }
+        composable<MonitorRoute> { entry ->
+            val route = entry.toRoute<MonitorRoute>()
+            ResourceMonitorScreen(resourceMonitorViewModel(container, route.serverId), onBack = { navController.popBackStack() })
         }
         composable<PortsRoute> { entry ->
             val route = entry.toRoute<PortsRoute>()
@@ -258,6 +304,13 @@ fun ArgosNavHost(
             navController.openClaudeWindow(target, container.servers, container.services, container.io)
         }
     }
+    LaunchedEffect(sharedUris) {
+        sharedUris?.let {
+            pendingShare = it
+            if (navController.currentBackStackEntry?.destination?.hasRoute<ShareRoute>() != true) navController.navigate(ShareRoute)
+            onSharedUrisConsumed()
+        }
+    }
     LaunchedEffect(importLink) {
         importLink?.let {
             pendingImportLink = it
@@ -290,11 +343,21 @@ private fun ServersDestination(
     onOpenProject: (serverId: String, projectId: String) -> Unit,
     onOpenTerminal: (serverId: String, sessionName: String) -> Unit,
     onOpenPorts: (serverId: String) -> Unit,
+    onOpenMonitor: (serverId: String) -> Unit,
 ) {
     val viewModel = serversViewModel(container)
     val state by viewModel.state.collectAsStateWithLifecycle()
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var claudeHooksFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var editingStartup by rememberSaveable { mutableStateOf(false) }
+    if (editingStartup) {
+        val preferences by container.projectPreferences.preferences.collectAsStateWithLifecycle()
+        StartupCommandDialog(
+            current = preferences.defaultStartupCommand,
+            onSave = container.projectPreferences::setDefaultStartupCommand,
+            onDismiss = { editingStartup = false },
+        )
+    }
     claudeHooksFor?.let { id -> ClaudeHooksHost(container, id, onDone = { claudeHooksFor = null }) }
     // Un servidor borrado deja de estar seleccionado.
     val selected = selectedId?.takeIf { id -> state.servers.any { it.id == id } }
@@ -329,6 +392,16 @@ private fun ServersDestination(
                 modifier = modifier,
                 diagnostics = { onDismiss -> DiagnosticsDestination(container, onDismiss) },
                 onEnableClaude = { server -> claudeHooksFor = server.id },
+                extraSettings = { closeMenu ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.startup_command_menu)) },
+                        leadingIcon = { Icon(painterResource(R.drawable.ic_terminal), contentDescription = null) },
+                        onClick = {
+                            closeMenu()
+                            editingStartup = true
+                        },
+                    )
+                },
             )
         }
         if (!twoPane) {
@@ -350,6 +423,7 @@ private fun ServersDestination(
                         onOpenProject = { onOpenProject(selected, it) },
                         onOpenTerminal = { onOpenTerminal(selected, it) },
                         onOpenPorts = { onOpenPorts(selected) },
+                        onOpenMonitor = { onOpenMonitor(selected) },
                     )
                 }
             }
@@ -365,6 +439,7 @@ private fun ProjectsDestination(
     onOpenProject: (projectId: String) -> Unit,
     onOpenTerminal: (sessionName: String) -> Unit,
     onOpenPorts: () -> Unit,
+    onOpenMonitor: () -> Unit,
 ) {
     val viewModel = projectsViewModel(container, serverId)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -396,12 +471,24 @@ private fun ProjectsDestination(
     // Con la conexión ya abierta: ¿tiene Claude pero no el indicador?
     LaunchedEffect(hooks, state.load) { if (state.load == SessionsLoad.Loaded) hooks.checkHint() }
     ClaudeHooksDialogs(hooksState, hooks)
+    val sendCommand = sendCommandViewModel(container, serverId)
+    val sendState by sendCommand.state.collectAsStateWithLifecycle()
+    sendState?.let { SendCommandDialog(it, sendCommand) }
+    val sent by sendCommand.message.collectAsStateWithLifecycle()
+    LaunchedEffect(sent) {
+        sent?.let {
+            viewModel.showMessage(it)
+            sendCommand.messageShown()
+        }
+    }
     ProjectsScreen(
         state = state,
         actions = viewModel,
         sessionActions = viewModel,
         onBack = onBack,
         onOpenPorts = onOpenPorts,
+        onOpenMonitor = onOpenMonitor,
+        onSendCommand = { sendCommand.open(state.sessions.map { it.name }) },
         onEnableClaude = hooks::requestInstall,
         claudeHint = { if (hooksState.showHint) ClaudeHooksHint(onEnable = hooks::requestInstall, onDismiss = hooks::dismissHint) },
         folderPicker = { startPath, onPick, onDismiss ->

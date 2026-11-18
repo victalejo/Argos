@@ -98,6 +98,10 @@ fun ProjectsScreen(
     modifier: Modifier = Modifier,
     /** «Activar indicador de Claude» del menú (`null` = no se ofrece). */
     onEnableClaude: (() -> Unit)? = null,
+    /** «Recursos del servidor» del menú (`null` = no se ofrece). */
+    onOpenMonitor: (() -> Unit)? = null,
+    /** «Enviar comando…» a sesiones en marcha (`null` = no se ofrece). */
+    onSendCommand: (() -> Unit)? = null,
     /** Sugerencia contextual sobre el indicador de Claude, encima de la lista. */
     claudeHint: @Composable () -> Unit = {},
 ) {
@@ -106,7 +110,7 @@ fun ProjectsScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = { ProjectsTopBar(state, actions, onBack, onOpenPorts, onEnableClaude) },
+        topBar = { ProjectsTopBar(state, actions, onBack, onOpenPorts, ProjectsMenuExtras(onEnableClaude, onOpenMonitor, onSendCommand)) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) { ProjectsContent(state, actions, claudeHint) }
@@ -123,7 +127,7 @@ private fun ProjectsTopBar(
     actions: ProjectsActions,
     onBack: (() -> Unit)?,
     onOpenPorts: () -> Unit,
-    onEnableClaude: (() -> Unit)?,
+    extras: ProjectsMenuExtras,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val ready = state.load == SessionsLoad.Loaded && !state.isBusy
@@ -164,7 +168,22 @@ private fun ProjectsTopBar(
                         leadingIcon = { Icon(painterResource(R.drawable.ic_server), contentDescription = null) },
                         onClick = { menuOpen = false; onOpenPorts() },
                     )
-                    if (onEnableClaude != null) {
+                    extras.onSendCommand?.let { send ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.send_command_menu)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_terminal), contentDescription = null) },
+                            enabled = state.sessions.isNotEmpty(),
+                            onClick = { menuOpen = false; send() },
+                        )
+                    }
+                    extras.onOpenMonitor?.let { onOpenMonitor ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.monitor_menu)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_server), contentDescription = null) },
+                            onClick = { menuOpen = false; onOpenMonitor() },
+                        )
+                    }
+                    extras.onEnableClaude?.let { onEnableClaude ->
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.claude_hooks_menu)) },
                             leadingIcon = { Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null) },
@@ -176,6 +195,9 @@ private fun ProjectsTopBar(
         },
     )
 }
+
+/** Entradas opcionales del menú «Más» de la lista. */
+private class ProjectsMenuExtras(val onEnableClaude: (() -> Unit)?, val onOpenMonitor: (() -> Unit)?, val onSendCommand: (() -> Unit)?)
 
 @Composable
 private fun ProjectsContent(state: ProjectsUiState, actions: ProjectsActions, claudeHint: @Composable () -> Unit) {

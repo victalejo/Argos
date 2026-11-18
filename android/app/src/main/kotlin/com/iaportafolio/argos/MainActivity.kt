@@ -1,6 +1,7 @@
 package com.iaportafolio.argos
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -8,7 +9,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.core.content.IntentCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.iaportafolio.argos.ui.share.ShareIntent
 import com.iaportafolio.argos.background.AgentChatLink
 import com.iaportafolio.argos.background.AgentChatTarget
 import com.iaportafolio.argos.background.ClaudeLink
@@ -32,6 +35,9 @@ class MainActivity : ComponentActivity() {
     /** Ventana con Claude que pidió abrir un aviso, hasta que la navegación la atiende. */
     private val claudeTarget = MutableStateFlow<ClaudeTarget?>(null)
 
+    /** `content://` compartidos con Argos desde otra app, hasta que la navegación abre el selector de destino. */
+    private val sharedUris = MutableStateFlow<List<String>?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -49,6 +55,7 @@ class MainActivity : ComponentActivity() {
             val target by chatTarget.collectAsStateWithLifecycle()
             val link by importLink.collectAsStateWithLifecycle()
             val claude by claudeTarget.collectAsStateWithLifecycle()
+            val shared by sharedUris.collectAsStateWithLifecycle()
             ArgosTheme {
                 ArgosNavHost(
                     container,
@@ -58,6 +65,8 @@ class MainActivity : ComponentActivity() {
                     onImportLinkConsumed = { importLink.value = null },
                     claudeTarget = claude,
                     onClaudeTargetConsumed = { claudeTarget.value = null },
+                    sharedUris = shared,
+                    onSharedUrisConsumed = { sharedUris.value = null },
                 )
             }
         }
@@ -71,7 +80,25 @@ class MainActivity : ComponentActivity() {
     private fun handle(intent: Intent) {
         openChatFrom(intent)
         openClaudeFrom(intent)
+        openShareFrom(intent)
         openImportFrom(intent)
+    }
+
+    private fun openShareFrom(intent: Intent) {
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+        if (!ShareIntent.isShare(intent.action)) return
+        val uris = try {
+            val streams = if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
+                IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+            } else {
+                listOfNotNull(IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
+            }
+            ShareIntent.accepted(intent.action, streams.map { it.toString() })
+        } catch (error: RuntimeException) {
+            ArgosLog.warn(ArgosLog.TAG_UI, "Intent de «Compartir» ilegible (${error::class.java.simpleName})")
+            emptyList()
+        }
+        if (uris.isNotEmpty()) sharedUris.value = uris else ArgosLog.warn(ArgosLog.TAG_UI, "«Compartir» sin archivos que subir")
     }
 
     private fun openClaudeFrom(intent: Intent) {

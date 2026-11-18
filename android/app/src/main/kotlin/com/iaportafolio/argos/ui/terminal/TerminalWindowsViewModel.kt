@@ -8,7 +8,10 @@ import com.iaportafolio.argos.background.ViewedWindow
 import com.iaportafolio.argos.core.status.ClaudeActivity
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.tmux.CodingAgent
+import com.iaportafolio.argos.core.tmux.TmuxPaneDirection
 import com.iaportafolio.argos.core.tmux.TmuxWindow
+import com.iaportafolio.argos.core.tmux.WindowColor
+import com.iaportafolio.argos.core.tmux.WindowNameValidator
 import com.iaportafolio.argos.core.tmux.WindowCloseDecision
 import com.iaportafolio.argos.core.tmux.WindowTabs
 import com.iaportafolio.argos.data.ArgosLog
@@ -41,7 +44,12 @@ data class TerminalWindowsUiState(
     val message: UiText? = null,
     /** Estado de Claude Code por índice de ventana (insignia de cada pestaña). */
     val claudeWindows: Map<Int, ClaudeActivity> = emptyMap(),
+    /** Ventana que se está renombrando (diálogo abierto). */
+    val renaming: WindowRename? = null,
 )
+
+/** Diálogo «Renombrar ventana»: el error es el del validador de tmux, en vivo. */
+data class WindowRename(val window: TmuxWindow, val text: String, val error: String? = null)
 
 /**
  * Pestañas de las ventanas tmux de una sesión (port de la parte de ventanas de `TerminalScreen`
@@ -209,6 +217,55 @@ class TerminalWindowsViewModel(
     }
 
     fun dismissClose() = mutableState.update { it.copy(closing = null) }
+
+    // MARK: - Paneles (ventana activa)
+
+    /** Divide el panel activo: [vertical] = uno encima de otro; si no, lado a lado. */
+    fun splitPane(vertical: Boolean) = run("dividir el panel") { it.splitPane(sessionName, vertical) }
+
+    fun selectPane(direction: TmuxPaneDirection) = run("cambiar de panel") { it.selectPane(sessionName, direction) }
+
+    /** Amplía el panel activo a toda la ventana (o lo devuelve a su sitio). */
+    fun zoomPane() = run("ampliar el panel") { it.zoomPane(sessionName) }
+
+    /** Cierra el panel activo; nunca el único de la ventana (para eso, cerrar la ventana). */
+    fun killPane() {
+        val active = state.value.windows.firstOrNull { it.isActive }
+        if (active != null && active.paneCount <= 1) {
+            mutableState.update { it.copy(message = UiText.res(R.string.terminal_pane_last)) }
+            return
+        }
+        run("cerrar el panel") { it.killPane(sessionName) }
+    }
+
+    // MARK: - Renombrar y color
+
+    fun requestRename(window: TmuxWindow) = mutableState.update { it.copy(renaming = WindowRename(window, window.name)) }
+
+    fun onRenameText(text: String) = mutableState.update { state ->
+        state.renaming?.let { state.copy(renaming = it.copy(text = text, error = WindowNameValidator.liveValidationMessage(text))) } ?: state
+    }
+
+    fun dismissRename() = mutableState.update { it.copy(renaming = null) }
+
+    /** Renombra con el nombre validado (como el Mac: `WindowNameValidator` antes de enviar nada). */
+    fun confirmRename() {
+        val rename = state.value.renaming ?: return
+        val name = try {
+            WindowNameValidator.validate(rename.text)
+        } catch (invalid: WindowNameValidator.ValidationError) {
+            return mutableState.update { it.copy(renaming = rename.copy(error = invalid.message)) }
+        }
+        mutableState.update { it.copy(renaming = null) }
+        if (name == rename.window.name) return
+        run("renombrar la ventana ${rename.window.index}") { it.renameWindow(sessionName, rename.window.index, name) }
+    }
+
+    /** Color de la pestaña (`null` = quitarlo); se guarda en tmux (`@argos_color`) y lo ven todos los dispositivos. */
+    fun setColor(window: TmuxWindow, color: WindowColor?) {
+        mutableState.update { state -> state.copy(windows = state.windows.map { if (it.index == window.index) it.copy(color = color) else it }) }
+        run("cambiar el color de la ventana ${window.index}") { it.setWindowColor(sessionName, window.index, color) }
+    }
 
     fun messageShown() = mutableState.update { it.copy(message = null) }
 

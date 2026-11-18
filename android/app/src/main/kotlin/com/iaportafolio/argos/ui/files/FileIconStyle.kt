@@ -12,6 +12,7 @@ internal fun FileIcon.drawable(): Int = when (this) {
     FileIcon.SYMLINK -> R.drawable.ic_link
     FileIcon.IMAGE -> R.drawable.ic_image
     FileIcon.PDF -> R.drawable.ic_pdf
+    FileIcon.SPREADSHEET -> R.drawable.ic_spreadsheet
     FileIcon.ARCHIVE -> R.drawable.ic_archive
     FileIcon.MEDIA -> R.drawable.ic_media
     FileIcon.DATABASE_FILE -> R.drawable.ic_database

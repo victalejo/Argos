@@ -12,6 +12,9 @@ import com.iaportafolio.argos.core.TerminalControlEvent
 import com.iaportafolio.argos.core.TerminalStreaming
 import com.iaportafolio.argos.core.userMessage
 import com.iaportafolio.argos.data.ArgosLog
+import com.iaportafolio.argos.data.AttachmentSource
+import com.iaportafolio.argos.data.PickedAttachment
+import com.iaportafolio.argos.ui.common.logFailures
 import com.iaportafolio.argos.data.ServerRepository
 import com.iaportafolio.argos.data.ServiceProvider
 import com.iaportafolio.argos.data.TerminalSettingsStore
@@ -77,6 +80,10 @@ class TerminalViewModel<S : TerminalSink>(
     /** Observa la salida ya volcada al emulador (el login busca en ella su enlace). */
     private val outputTap: (List<ByteArray>) -> Unit = {},
     private val keepAlive: TerminalKeepAlive = TerminalKeepAlive.None,
+    /** Lector de lo adjuntado (fotos, archivos, portapapeles); `null` = sin adjuntar. */
+    private val attachments: AttachmentSource? = null,
+    /** Lo compartido desde otra app para esta sesión, que se sube al conectar. */
+    private val pendingShares: PendingShares? = null,
 ) : ViewModel(), ActiveTerminal {
 
     private val mutableState = MutableStateFlow(
@@ -238,6 +245,7 @@ class TerminalViewModel<S : TerminalSink>(
                 if (!connected) {
                     connected = true
                     setStatus(TerminalStatus.Connected)
+                    takePendingShares()
                 }
             }
             AttachOutcome(null, connected)
@@ -374,6 +382,66 @@ class TerminalViewModel<S : TerminalSink>(
     fun paste(text: String) {
         if (text.isNotEmpty()) screen.paste(text)
     }
+
+    // MARK: - Adjuntos
+
+    private val uploads = attachments?.let { TerminalUploads(it, io) }
+
+    /** Cola de subidas: de una en una, en el orden en que se eligieron. */
+    private val uploadQueue = Channel<Pair<PickedAttachment, AttachmentKind>>(Channel.UNLIMITED)
+
+    init {
+        uploads?.let { uploader ->
+            viewModelScope.launch { for ((attachment, kind) in uploadQueue) runUpload(uploader, attachment, kind) }
+        }
+    }
+
+    /** ¿Se puede adjuntar en este terminal? (no en el del login de Claude). */
+    val canAttach: Boolean get() = uploads != null && target == TerminalTarget.TmuxSession
+
+    /** Fotos o archivos elegidos: se suben a una ruta privada del servidor y se teclea su ruta. */
+    fun attach(picked: List<PickedAttachment>, kind: AttachmentKind) {
+        if (!canAttach) return
+        picked.forEach { uploadQueue.trySend(it to kind) }
+    }
+
+    /** `content://` elegidos con un selector del sistema: se describen (nombre, tipo, tamaño) y se adjuntan. */
+    fun attachUris(uris: List<String>, kind: AttachmentKind) {
+        val source = attachments ?: return
+        if (!canAttach || uris.isEmpty()) return
+        viewModelScope.launch {
+            val described = withContext(io) { uris.map(source::describe) }
+            attach(described, kind)
+        }
+    }
+
+    /** Imagen del portapapeles (captura copiada): se sube como `argos-pasted-…` con su extensión. */
+    fun attachPastedImage(uri: String, mimeType: String) =
+        attach(listOf(PickedAttachment(uri, displayName = null, mimeType = mimeType, size = null)), AttachmentKind.PASTED_IMAGE)
+
+    /** Lo compartido desde otra app (en la cola de [pendingShares]) se sube en cuanto hay terminal. */
+    private fun takePendingShares() {
+        val shares = pendingShares?.take(serverId, sessionName).orEmpty()
+        if (shares.isNotEmpty()) attach(shares, AttachmentKind.FILE)
+    }
+
+    private suspend fun runUpload(uploader: TerminalUploads, attachment: PickedAttachment, kind: AttachmentKind) {
+        val result = logFailures(ArgosLog.TAG_TERMINAL, "Adjunto al terminal de «$sessionName»") {
+            val server = repository.server(serverId) ?: throw TerminalServerMissingException()
+            val service = services.service(server)
+            uploader.upload(service, attachment, kind, notify = ::showNotice) { text ->
+                val open = control != null
+                if (open) sendInput(text.toByteArray(Charsets.UTF_8))
+                open
+            }
+        }
+        result.onFailure { error -> showNotice(TerminalNotice.Failed(error.userMessage)) }
+    }
+
+    private fun showNotice(notice: TerminalNotice) = mutableState.update { it.copy(notice = notice) }
+
+    /** La pantalla ya enseñó el aviso final (el de «subiendo» se queda hasta que acabe). */
+    fun noticeShown(notice: TerminalNotice) = mutableState.update { if (it.notice == notice) it.copy(notice = null) else it }
 
     // MARK: - Ajustes
 

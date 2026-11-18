@@ -41,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -100,8 +101,13 @@ fun TerminalScreen(
         windowsState?.closing?.let { closing ->
             CloseWindowDialog(closing, onConfirm = windows::confirmClose, onDismiss = windows::dismissClose)
         }
+        windowsState?.renaming?.let { rename ->
+            RenameWindowDialog(rename, onText = windows::onRenameText, onConfirm = windows::confirmRename, onDismiss = windows::dismissRename)
+        }
     }
     var terminalView by remember { mutableStateOf<RemoteTerminalView?>(null) }
+    val context = LocalContext.current
+    val attach = rememberTerminalAttachLaunchers(viewModel)
 
     if (ownsConnection) TerminalConnectionEffect(viewModel)
 
@@ -115,7 +121,10 @@ fun TerminalScreen(
                 state = state,
                 onBack = onBack,
                 onToggleKeyboard = { terminalView?.toggleKeyboard() },
-                onPaste = { terminalView?.pasteFromClipboard() },
+                // Una captura copiada se sube y se teclea su ruta; el texto se pega como siempre.
+                onPaste = { if (!pasteImageIfAny(context, viewModel)) terminalView?.pasteFromClipboard() },
+                attach = if (viewModel.canAttach) attach else null,
+                panes = windows,
                 onReconnect = viewModel::reconnect,
                 onFontSize = viewModel::setFontSize,
                 onKeepScreenOn = viewModel::setKeepScreenOn,
@@ -137,13 +146,16 @@ fun TerminalScreen(
                     onNew = windows::newWindow,
                     onNewAgent = windows::newAgentWindow,
                     onClose = { windows.requestClose(it.index) },
+                    onRename = windows::requestRename,
+                    onColor = windows::setColor,
                 )
             }
             Box(Modifier.weight(1f)) {
                 TerminalHost(viewModel, state, onViewCreated = { terminalView = it }, autoShowKeyboard = autoShowKeyboard)
                 StatusOverlay(state.status, onReconnect = viewModel::reconnect, onBack = onBack)
+                NoticeBanner(state.notice, onShown = viewModel::noticeShown, modifier = Modifier.align(Alignment.TopCenter))
             }
-            ExtraKeysRow(state.modifiers, onKey = viewModel::pressExtraKey)
+            ExtraKeysRow(state.modifiers, onKey = viewModel::pressExtraKey, onHideKeyboard = { terminalView?.hideKeyboard() })
         }
     }
 }
@@ -216,6 +228,8 @@ private fun TerminalTopBar(
     onBack: () -> Unit,
     onToggleKeyboard: () -> Unit,
     onPaste: () -> Unit,
+    attach: TerminalAttachLaunchers?,
+    panes: TerminalWindowsViewModel?,
     onReconnect: () -> Unit,
     onFontSize: (Int) -> Unit,
     onKeepScreenOn: (Boolean) -> Unit,
@@ -251,6 +265,7 @@ private fun TerminalTopBar(
             IconButton(onClick = onToggleKeyboard) {
                 Icon(painterResource(R.drawable.ic_keyboard), contentDescription = stringResource(R.string.terminal_keyboard))
             }
+            if (attach != null) AttachButton(attach)
             IconButton(onClick = onPaste) {
                 Icon(painterResource(R.drawable.ic_paste), contentDescription = stringResource(R.string.terminal_paste))
             }
@@ -278,6 +293,7 @@ private fun TerminalTopBar(
                         trailingIcon = { Checkbox(checked = state.settings.keepScreenOn, onCheckedChange = null) },
                         onClick = { onKeepScreenOn(!state.settings.keepScreenOn) },
                     )
+                    if (panes != null) PaneMenuItems(panes) { menuOpen = false }
                 }
             }
         },

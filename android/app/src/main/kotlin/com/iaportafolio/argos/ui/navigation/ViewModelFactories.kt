@@ -8,6 +8,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.ui.agents.AgentChatViewModel
 import com.iaportafolio.argos.ui.claude.ClaudeHooksViewModel
+import com.iaportafolio.argos.ui.monitor.ResourceMonitorViewModel
+import com.iaportafolio.argos.ui.share.ShareTargetViewModel
 import com.iaportafolio.argos.ui.agents.AgentListViewModel
 import com.iaportafolio.argos.ui.agents.AgentLoginViewModel
 import com.iaportafolio.argos.ui.files.RemoteFilesViewModel
@@ -20,6 +22,7 @@ import com.iaportafolio.argos.ui.ports.PortForwardRequestsViewModel
 import com.iaportafolio.argos.ui.ports.PortForwardsViewModel
 import com.iaportafolio.argos.ui.projects.FolderPickerViewModel
 import com.iaportafolio.argos.ui.projects.ProjectsViewModel
+import com.iaportafolio.argos.ui.projects.SendCommandViewModel
 import com.iaportafolio.argos.ui.projects.WorktreesViewModel
 import com.iaportafolio.argos.ui.servers.ServersViewModel
 import com.iaportafolio.argos.terminal.RemoteTerminalSession
@@ -71,6 +74,28 @@ internal fun projectsViewModel(container: AppContainer, serverId: String): Proje
                 container.claudeActivity,
             )
         }
+    },
+)
+
+/** «Enviar comando» a sesiones de un servidor. */
+@Composable
+internal fun sendCommandViewModel(container: AppContainer, serverId: String): SendCommandViewModel = viewModel(
+    key = "send-command:$serverId",
+    factory = viewModelFactory { initializer { SendCommandViewModel(serverId, container.servers, container.services, container.io) } },
+)
+
+/** «Recursos del servidor». */
+@Composable
+internal fun resourceMonitorViewModel(container: AppContainer, serverId: String): ResourceMonitorViewModel = viewModel(
+    key = "monitor:$serverId",
+    factory = viewModelFactory { initializer { ResourceMonitorViewModel(serverId, container.servers, container.services, container.io) } },
+)
+
+/** «Compartir» → Argos: elegir servidor y proyecto para lo compartido. */
+@Composable
+internal fun shareTargetViewModel(container: AppContainer): ShareTargetViewModel = viewModel(
+    factory = viewModelFactory {
+        initializer { ShareTargetViewModel(container.servers, container.services, container.attachments, container.pendingShares, container.io) }
     },
 )
 
@@ -199,6 +224,8 @@ internal fun terminalViewModel(
                 screen = RemoteTerminalSession(),
                 io = container.io,
                 keepAlive = container.activeTerminals,
+                attachments = container.attachments,
+                pendingShares = container.pendingShares,
             )
         }
     },

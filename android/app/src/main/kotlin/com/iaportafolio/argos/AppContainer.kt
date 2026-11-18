@@ -28,7 +28,10 @@ import com.iaportafolio.argos.background.WorkManagerAgentCheckScheduler
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHConnector
 import com.iaportafolio.argos.data.AgentPermissionStore
+import com.iaportafolio.argos.data.AttachmentSource
 import com.iaportafolio.argos.data.ClaudeTokenStore
+import com.iaportafolio.argos.data.ContentResolverAttachmentSource
+import com.iaportafolio.argos.ui.terminal.PendingShares
 import com.iaportafolio.argos.data.ContentResolverDocumentReader
 import com.iaportafolio.argos.data.ContentResolverDocumentWriter
 import com.iaportafolio.argos.data.DocumentReader
@@ -95,6 +98,12 @@ class AppContainer(
     val documents: DocumentReader by lazy { ContentResolverDocumentReader(appContext.contentResolver) }
 
     val terminalSettings: TerminalSettingsStore by lazy { SharedPreferencesTerminalSettings(appContext) }
+
+    /** Fotos y archivos adjuntados al terminal (selector, portapapeles o «Compartir»). */
+    val attachments: AttachmentSource by lazy { ContentResolverAttachmentSource(appContext.contentResolver) }
+
+    /** Lo compartido desde otra app, a la espera del terminal de su sesión. */
+    val pendingShares: PendingShares by lazy { PendingShares() }
 
     val documentWriter: DocumentWriter by lazy { ContentResolverDocumentWriter(appContext.contentResolver) }
 

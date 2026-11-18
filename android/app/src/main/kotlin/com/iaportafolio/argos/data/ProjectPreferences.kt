@@ -23,6 +23,9 @@ interface ProjectPreferencesStore {
     val preferences: StateFlow<ProjectPreferences>
     fun toggleCollapsed(serverId: String, group: String)
     fun setStatusFilter(filter: ProjectStatusFilter)
+
+    /** Comando de arranque predeterminado (`""` = no lanzar nada); se guarda recortado. */
+    fun setDefaultStartupCommand(command: String)
 }
 
 /** [ProjectPreferencesStore] sobre `SharedPreferences`, con las mismas claves que Apple. */
@@ -47,6 +50,12 @@ class SharedPreferencesProjectPreferences(context: Context) : ProjectPreferences
     override fun setStatusFilter(filter: ProjectStatusFilter) {
         state.update { it.copy(statusFilter = filter) }
         prefs.edit { putString(KEY_FILTER, filter.id) }
+    }
+
+    override fun setDefaultStartupCommand(command: String) {
+        val trimmed = command.trim()
+        state.update { it.copy(defaultStartupCommand = trimmed) }
+        prefs.edit { putString(ProjectDefaults.DEFAULTS_KEY, trimmed) }
     }
 
     private companion object {

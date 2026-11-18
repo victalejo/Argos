@@ -234,7 +234,30 @@ class RemoteFilesViewModelTest {
 
         vm.openFile("$root/doc.pdf", "doc.pdf", null)
         advanceUntilIdle()
-        assertEquals(PreviewContent.Pdf, vm.state.value.preview?.content)
+        assertContentEquals("%PDF-1.7".toByteArray(), assertIs<PreviewContent.Pdf>(vm.state.value.preview?.content).bytes)
+    }
+
+    @Test
+    fun `html renderizable con su fuente y hoja de calculo para abrir con otra app`() = runTest(main.dispatcher) {
+        files.files["$root/index.html"] = "<h1>Hola</h1>".toByteArray()
+        files.files["$root/ventas.xlsx"] = byteArrayOf(0x50, 0x4B, 0x03, 0x04, 1, 2)
+        files.files["$root/falso.xlsx"] = "no soy un zip".toByteArray()
+        val vm = loaded()
+
+        vm.openFile("$root/index.html", "index.html", null)
+        advanceUntilIdle()
+        val html = assertIs<PreviewContent.Html>(vm.state.value.preview?.content)
+        assertEquals("<h1>Hola</h1>", html.html)
+        assertEquals("html", html.source.language)
+
+        vm.openFile("$root/ventas.xlsx", "ventas.xlsx", null)
+        advanceUntilIdle()
+        assertEquals(6, assertIs<PreviewContent.Spreadsheet>(vm.state.value.preview?.content).bytes.size)
+        assertEquals(FilePreview.MAX_SPREADSHEET_BYTES, files.reads.last().second)
+
+        vm.openFile("$root/falso.xlsx", "falso.xlsx", null)
+        advanceUntilIdle()
+        assertEquals(PreviewContent.Binary, vm.state.value.preview?.content)
     }
 
     @Test

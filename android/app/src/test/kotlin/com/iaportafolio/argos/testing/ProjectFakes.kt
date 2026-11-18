@@ -35,4 +35,6 @@ class InMemoryProjectPreferences(initial: ProjectPreferences = ProjectPreference
         state.update { it.copy(collapsed = it.collapsed.toggled(serverId, group)) }
 
     override fun setStatusFilter(filter: ProjectStatusFilter) = state.update { it.copy(statusFilter = filter) }
+
+    override fun setDefaultStartupCommand(command: String) = state.update { it.copy(defaultStartupCommand = command.trim()) }
 }

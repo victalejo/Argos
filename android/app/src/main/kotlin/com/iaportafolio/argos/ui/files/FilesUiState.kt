@@ -27,8 +27,17 @@ sealed interface PreviewContent {
     /** Bytes de la imagen; la vista la decodifica con muestreo (no es `data class`: array). */
     class Image(val bytes: ByteArray) : PreviewContent
 
-    /** PDF: sin visor integrado todavía; se ofrece descargarlo. */
-    data object Pdf : PreviewContent
+    /** Página HTML: vista renderizada aislada ([html]) o su fuente resaltada ([source]). */
+    class Html(val html: String, val source: Code) : PreviewContent
+
+    /** PDF completo: se pinta página a página con `PdfRenderer`. */
+    class Pdf(val bytes: ByteArray) : PreviewContent
+
+    /** Hoja de cálculo completa: se ofrece «Abrir con…» otra app mediante un archivo temporal propio. */
+    class Spreadsheet(val bytes: ByteArray) : PreviewContent
+
+    /** Más grande de lo que el visor puede mostrar (PDF u hoja de cálculo): se ofrece descargarlo. */
+    data object TooLarge : PreviewContent
 
     data object Binary : PreviewContent
 }
