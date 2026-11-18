@@ -1,0 +1,52 @@
+{
+  "sourceLanguage" : "es",
+  "strings" : {
+    "Abrir ${project} en ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Open ${project} in ${applicationName}",
+              "Open a ${applicationName} project"
+            ]
+          }
+        },
+        "es" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Abrir ${project} en ${applicationName}",
+              "Abrir un proyecto de ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Pedir a Claude en ${project} con ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Ask Claude in ${project} with ${applicationName}",
+              "Give Claude a task in ${project} with ${applicationName}",
+              "Ask Claude with ${applicationName}"
+            ]
+          }
+        },
+        "es" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Pedir a Claude en ${project} con ${applicationName}",
+              "Encargar a Claude en ${project} con ${applicationName}",
+              "Pedir a Claude con ${applicationName}"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

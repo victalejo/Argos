@@ -66,6 +66,8 @@ targetTemplates:
       # Vistas SwiftUI compartidas Mac + iPhone/iPad (sin AppKit/UIKit): mascota e
       # iconos de agentes.
       - path: ArgosUI
+      # Catálogos de cadenas (español de origen + inglés), compartidos por las tres apps.
+      - path: Localization
     settings:
       base:
         PRODUCT_NAME: Argos
@@ -74,6 +76,10 @@ targetTemplates:
         ENABLE_APP_SANDBOX: "YES"
         ENABLE_HARDENED_RUNTIME: "YES"
         SWIFT_VERSION: "5.0"
+        # Localización: el compilador extrae las cadenas (.stringsdata) que
+        # scripts/localization.sh vuelca en Localization/Localizable.xcstrings.
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        LOCALIZATION_PREFERS_STRING_CATALOGS: "YES"
         # Concurrencia estricta (data-race safety) en modo Swift 5: comprueba NUESTRO
         # código como WARNINGS. Los tipos no-Sendable de Citadel (SSHClient, PTY) se
         # reconocen con `@preconcurrency import Citadel`. Queda 1 fricción conocida de
@@ -136,9 +142,14 @@ targets:
         CFBundleIconName: AppIcon
         # App en español: hace que AppKit muestre los menús estándar (Archivo, Edición,
         # Visualización, Ventana, Ayuda…) y diálogos del sistema en español.
-        CFBundleDevelopmentRegion: es
+        # Idiomas: español (el de origen del catálogo) e inglés. La región de desarrollo
+        # es el INGLÉS a propósito: es el idioma de reserva para quien no tiene el sistema
+        # ni en español ni en inglés (AppKit/UIKit caen en ella). Quien lo tiene en español
+        # sigue viendo la app, los menús estándar y los diálogos en español (es.lproj).
+        CFBundleDevelopmentRegion: en
         CFBundleLocalizations:
           - es
+          - en
         # --- Sparkle (auto-actualización) ---
         SUFeedURL: https://github.com/victalejo/Argos/releases/latest/download/appcast.xml
         SUPublicEDKey: Sud7aRbwmy3N+CGAncEQdku4gCAEY6wYOMPHCM0SAN4=
@@ -180,9 +191,14 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         NSHumanReadableCopyright: "© 2026 Victor Alejandro · Licencia Apache-2.0"
         CFBundleIconName: AppIcon
-        CFBundleDevelopmentRegion: es
+        # Idiomas: español (el de origen del catálogo) e inglés. La región de desarrollo
+        # es el INGLÉS a propósito: es el idioma de reserva para quien no tiene el sistema
+        # ni en español ni en inglés (AppKit/UIKit caen en ella). Quien lo tiene en español
+        # sigue viendo la app, los menús estándar y los diálogos en español (es.lproj).
+        CFBundleDevelopmentRegion: en
         CFBundleLocalizations:
           - es
+          - en
         NSAppleEventsUsageDescription: "Argos abre Terminal en la copia local de tu proyecto y arranca Claude Code."
         # Cifrado: solo SSH con algoritmos estándar (open source) → exento (mercado
         # masivo, EAR Cat. 5 Parte 2). Evita la pregunta de cumplimiento en cada build.
@@ -208,6 +224,7 @@ targets:
           - "*.entitlements"
       - path: ArgosCore
       - path: ArgosUI
+      - path: Localization
     entitlements:
       path: ArgosiOS/ArgosiOS.entitlements
       properties:
@@ -226,6 +243,8 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        LOCALIZATION_PREFERS_STRING_CATALOGS: "YES"
         SWIFT_STRICT_CONCURRENCY: complete
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: L6WGLNT9XZ
@@ -236,6 +255,11 @@ targets:
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Ver la nota de idiomas del Mac: inglés de reserva, español e inglés.
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations:
+          - es
+          - en
         CFBundleURLTypes:
           - CFBundleURLName: com.iaportafolio.argos.add-server
             CFBundleURLSchemes: [argos]
@@ -315,6 +339,10 @@ schemes:
     test:
       config: Debug
       gatherCoverageData: true
+      # Los tests comparan cientos de mensajes en español: se ejecutan SIEMPRE en español
+      # (la CI corre en un runner en inglés). Los de inglés fuerzan su idioma ellos mismos.
+      language: es
+      region: ES
       targets:
         - ArgosTests
     profile:
