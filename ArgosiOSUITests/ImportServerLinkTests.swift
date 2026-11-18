@@ -19,6 +19,9 @@ final class ImportServerLinkTests: XCTestCase {
     /// igual, pero así cada prueba empieza en la lista de servidores).
     private static func launchClean(extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
+        // La app sigue el idioma del simulador (en la CI, inglés) y estos tests buscan los
+        // textos en español: se fija el idioma de la app al lanzarla.
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launchArguments += ["-ArgosResetNavigation"] + extra
         app.launch()
         return app

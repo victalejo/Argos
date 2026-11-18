@@ -50,6 +50,8 @@ final class DemoServerFlowTests: XCTestCase {
     func testAltaProyectosTerminalYSegundoPlano() throws {
         let demo = try demoAccount()
         app = XCUIApplication()
+        // Los textos que buscan estos tests están en español (la app sigue el idioma del simulador).
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
 
         addServerIfNeeded(demo)
@@ -109,6 +111,8 @@ final class DemoServerFlowTests: XCTestCase {
     func testArchivosYAgentePersistente() throws {
         let demo = try demoAccount()
         app = XCUIApplication()
+        // Los textos que buscan estos tests están en español (la app sigue el idioma del simulador).
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
         addServerIfNeeded(demo)
 
@@ -154,6 +158,8 @@ final class DemoServerFlowTests: XCTestCase {
         guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("Solo en iPad.") }
         XCUIDevice.shared.orientation = .landscapeLeft
         app = XCUIApplication()
+        // Los textos que buscan estos tests están en español (la app sigue el idioma del simulador).
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
         addServerIfNeeded(demo)
 
@@ -185,6 +191,8 @@ final class DemoServerFlowTests: XCTestCase {
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
         if isPad { XCUIDevice.shared.orientation = .landscapeLeft }
         app = XCUIApplication()
+        // Los textos que buscan estos tests están en español (la app sigue el idioma del simulador).
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launch()
         addServerIfNeeded(demo)
 
