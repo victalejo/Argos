@@ -23,6 +23,17 @@
 #                         con una entrada enorme) en vez de responder
 # Además anexa a `.argos-fake-calls` del directorio de trabajo una línea por invocación
 # (sus argumentos) y por mensaje recibido (`recv <bytes de la línea>`).
+#
+# Hooks `UserPromptSubmit`: antes de responder a cada mensaje (stream-json o el modo
+# interactivo de abajo) ejecuta, como documenta Claude Code, los comandos de ese evento de
+# ~/.claude/settings.json y de .claude/settings{,.local}.json del directorio de trabajo con
+# `/bin/sh -c`, la entrada JSON por stdin (session_id, transcript_path, cwd,
+# permission_mode, hook_event_name, prompt) y su `timeout` (60 s por defecto). Anota
+# `hook UserPromptSubmit rc=<código> out=<bytes de stdout>`; un código 2 bloquea el
+# mensaje (no responde). NO es el Claude real: lo que este no reproduzca queda sin probar.
+#
+#   claude [--continue]   (sin stream-json) modo interactivo mínimo para las sesiones tmux:
+#       cada línea de stdin es un mensaje; dispara los hooks y responde `eco: <texto>`.
 import json
 import os
 import signal
@@ -84,6 +95,71 @@ def start_child(token, busy):
     )
 
 
+def settings_files():
+    home = os.path.expanduser("~")
+    return [os.path.join(home, ".claude", "settings.json"),
+            os.path.join(".claude", "settings.json"), os.path.join(".claude", "settings.local.json")]
+
+
+def prompt_hooks():
+    commands = []
+    for path in settings_files():
+        try:
+            with open(path, encoding="utf-8") as handle:
+                settings = json.load(handle)
+        except (OSError, ValueError):
+            continue
+        for group in (settings.get("hooks") or {}).get("UserPromptSubmit") or []:
+            for handler in group.get("hooks") or []:
+                if handler.get("type") == "command" and handler.get("command"):
+                    commands.append((handler["command"], handler.get("timeout") or 60))
+    return commands
+
+
+def run_prompt_hooks(sid, text, mode):
+    """Devuelve False si un hook bloquea el mensaje (código 2)."""
+    payload = json.dumps({
+        "session_id": sid or "simulada", "transcript_path": os.path.abspath(".argos-fake-transcript.jsonl"),
+        "cwd": os.getcwd(), "permission_mode": mode, "hook_event_name": "UserPromptSubmit", "prompt": text,
+    })
+    allowed = True
+    for command, timeout in prompt_hooks():
+        try:
+            done = subprocess.run(["/bin/sh", "-c", command], input=payload.encode("utf-8"),
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+            code, out = done.returncode, len(done.stdout)
+        except subprocess.TimeoutExpired:
+            code, out = "timeout", 0
+        log_call("hook UserPromptSubmit rc=%s out=%d" % (code, out))
+        if code == 2:
+            allowed = False
+    return allowed
+
+
+def permission_mode(argv):
+    if "--permission-mode" in argv:
+        index = argv.index("--permission-mode")
+        if index + 1 < len(argv):
+            return argv[index + 1]
+    return "default"
+
+
+def interactive(argv):
+    log_call("args " + " ".join(argv))
+    mode = permission_mode(argv)
+    while True:
+        raw = sys.stdin.readline()
+        if not raw:
+            return 0
+        text = raw.strip()
+        if not text:
+            continue
+        log_call("recv %d" % len(raw.encode("utf-8")))
+        if run_prompt_hooks("", text, mode):
+            sys.stdout.write("eco: %s\n" % text[:40])
+            sys.stdout.flush()
+
+
 def reply(sid, text, line_bytes, modes):
     if "permission" in modes and "PERMISO" in text:
         emit({
@@ -135,7 +211,8 @@ def stream(argv):
             continue
         if replay:
             emit(message)
-        reply(sid, user_text(message), len(raw), modes)
+        if run_prompt_hooks(sid, user_text(message), permission_mode(argv)):
+            reply(sid, user_text(message), len(raw), modes)
 
 
 def main(argv):
@@ -147,6 +224,8 @@ def main(argv):
         return 0
     if "stream-json" in argv:
         return stream(argv)
+    if argv in ([], ["--continue"]):
+        return interactive(argv)
     sys.stderr.write("claude simulado: invocación no soportada\n")
     return 2
 
