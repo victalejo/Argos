@@ -12,6 +12,9 @@
 //  portapapeles del iPhone (`TouchTerminalController.clipboardCopy`). Tocar sigue
 //  llegando como clic.
 //
+//  En iPad el trackpad y la rueda del ratón desplazan igual que el dedo, y pellizcar
+//  cambia el tamaño de letra.
+//
 
 import SwiftTerm
 import UIKit
@@ -22,6 +25,18 @@ final class ScrollingTerminalView: TerminalView, UIGestureRecognizerDelegate {
     private lazy var wheelPan: UIPanGestureRecognizer = {
         let gesture = UIPanGestureRecognizer(target: self, action: #selector(handleWheelPan))
         gesture.maximumNumberOfTouches = 1
+        // Trackpad y rueda del ratón en iPad (sin esto, solo el dedo).
+        gesture.allowedScrollTypesMask = .all
+        gesture.delegate = self
+        return gesture
+    }()
+
+    /// Pellizco: cambia el tamaño de letra. `onFontSizeChange` recibe el tamaño final al
+    /// soltar (para guardarlo); durante el gesto se aplica en vivo.
+    var onFontSizeChange: ((Double) -> Void)?
+    private var pinchStartSize: Double?
+    private lazy var fontPinch: UIPinchGestureRecognizer = {
+        let gesture = UIPinchGestureRecognizer(target: self, action: #selector(handleFontPinch))
         gesture.delegate = self
         return gesture
     }()
@@ -52,6 +67,23 @@ final class ScrollingTerminalView: TerminalView, UIGestureRecognizerDelegate {
         }
         addGestureRecognizer(selectPress)
         addGestureRecognizer(wheelPan)
+        addGestureRecognizer(fontPinch)
+    }
+
+    @objc private func handleFontPinch(_ gesture: UIPinchGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            pinchStartSize = Double(font.pointSize)
+        case .changed:
+            guard let start = pinchStartSize else { return }
+            let size = TerminalFontSizing.pinched(from: start, scale: Double(gesture.scale))
+            if abs(Double(font.pointSize) - size) >= 0.5 { font = TerminalAppearance.font(size: CGFloat(size)) }
+        case .ended:
+            if pinchStartSize != nil { onFontSizeChange?(Double(font.pointSize)) }
+            pinchStartSize = nil
+        default:
+            pinchStartSize = nil
+        }
     }
 
     /// No se llama a `super`: así SwiftTerm no instala su gesto de arrastre de ratón
@@ -116,6 +148,7 @@ final class ScrollingTerminalView: TerminalView, UIGestureRecognizerDelegate {
     /// horizontal; si no, se deja el comportamiento de SwiftTerm.
     override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === selectPress { return mouseReportingActive }
+        if gestureRecognizer === fontPinch { return true }
         guard gestureRecognizer === wheelPan else {
             return super.gestureRecognizerShouldBegin(gestureRecognizer)
         }

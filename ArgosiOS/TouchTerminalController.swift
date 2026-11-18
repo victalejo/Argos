@@ -7,7 +7,10 @@
 //
 //  iOS suspende la app en segundo plano y el SSH muere; la sesión tmux sigue viva en
 //  el servidor. Por eso el controlador se puede `reconnect()`ar al volver a primer
-//  plano: reabre el PTY y tmux repinta la pantalla tal como estaba.
+//  plano: reabre el PTY y tmux repinta la pantalla tal como estaba. Si la conexión se
+//  cae con la app delante, reintenta solo (`ReconnectPolicy`: 1-2-4-8-15-30 s), salvo
+//  que el fallo exija una acción del usuario (huella, credenciales, sesión que ya no
+//  existe), y en cuanto vuelve la red.
 //
 
 import Foundation
@@ -23,6 +26,15 @@ final class TouchTerminalController: TerminalViewDelegate {
     private(set) var status: LiveTerminalStatus = .connecting
     /// Aviso breve sobre el terminal («Copiado», «Subiendo…», un error).
     private(set) var notice: TerminalNotice?
+    /// Reintento automático programado tras una caída (`nil` si no hay).
+    private(set) var pendingRetry: PendingRetry?
+
+    struct PendingRetry: Equatable {
+        /// Número del reintento (1 = el primero).
+        let attempt: Int
+        let maxAttempts: Int
+        let fireDate: Date
+    }
 
     private let service: any SSHServicing
     private let sessionName: String
@@ -36,10 +48,20 @@ final class TouchTerminalController: TerminalViewDelegate {
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var controlStream: AsyncStream<TerminalControlEvent>
     @ObservationIgnored private var controlContinuation: AsyncStream<TerminalControlEvent>.Continuation
+    @ObservationIgnored private let policy: ReconnectPolicy
+    /// Fallos seguidos desde la última conexión buena.
+    @ObservationIgnored private var failedAttempts = 0
+    @ObservationIgnored private var retryTask: Task<Void, Never>?
 
-    init(service: any SSHServicing, sessionName: String, fontSize: CGFloat = TerminalAppearance.defaultFontSize) {
+    init(
+        service: any SSHServicing,
+        sessionName: String,
+        fontSize: CGFloat = TerminalAppearance.defaultFontSize,
+        policy: ReconnectPolicy = .standard
+    ) {
         self.service = service
         self.sessionName = sessionName
+        self.policy = policy
         (controlStream, controlContinuation) = AsyncStream<TerminalControlEvent>.makeStream()
         terminalView = ScrollingTerminalView(frame: .zero, font: TerminalAppearance.font(size: fontSize))
         // Paleta xterm estándar (ver `LiveTerminalController` del Mac): la generada por
@@ -47,7 +69,27 @@ final class TouchTerminalController: TerminalViewDelegate {
         terminalView.getTerminal().ansi256PaletteStrategy = .xterm
         TerminalAppearance.apply(to: terminalView)
         terminalView.terminalDelegate = self
+        installKeyBar()
         start()
+    }
+
+    /// Barra de teclas propia (sustituye a la de SwiftTerm) y pellizco para la letra.
+    private func installKeyBar() {
+        let bar = TerminalKeyBar(terminalView: terminalView)
+        bar.onSend = { [weak self] bytes in self?.send(bytes) }
+        terminalView.inputAccessoryView = bar
+        (terminalView as? ScrollingTerminalView)?.onFontSizeChange = { size in
+            UserDefaults.standard.set(size, forKey: TerminalAppearance.fontSizeKey)
+        }
+    }
+
+    /// Muestra u oculta el teclado del sistema.
+    func toggleKeyboard() {
+        if terminalView.isFirstResponder {
+            _ = terminalView.resignFirstResponder()
+        } else {
+            _ = terminalView.becomeFirstResponder()
+        }
     }
 
     // MARK: - Ciclo de vida
@@ -101,6 +143,7 @@ final class TouchTerminalController: TerminalViewDelegate {
 
     private func detach() -> Task<Void, Never>? {
         generation += 1
+        cancelRetry()
         controlContinuation.finish()
         revealTask?.cancel()
         revealTask = nil
@@ -110,8 +153,22 @@ final class TouchTerminalController: TerminalViewDelegate {
         return running
     }
 
-    /// Reabre el PTY (tras volver de segundo plano o tras un error de red).
+    /// Reabre el PTY (tras volver de segundo plano, «Reconectar» o un reintento).
     func reconnect() {
+        reopen(resettingAttempts: true)
+    }
+
+    /// Volvió la red: si el terminal estaba caído (o esperando un reintento), se
+    /// reintenta ya, sin esperar al plazo.
+    func networkDidReturn() {
+        guard pendingRetry != nil || needsReconnect else { return }
+        if case .ended = status { return }   // sesión cerrada en el servidor: nada que hacer
+        Log.terminal.info("Volvió la red: se reconecta el terminal de \(self.sessionName, privacy: .public)")
+        reconnect()
+    }
+
+    private func reopen(resettingAttempts: Bool) {
+        if resettingAttempts { failedAttempts = 0 }
         stop()
         (controlStream, controlContinuation) = AsyncStream<TerminalControlEvent>.makeStream()
         terminalView.getTerminal().resetToInitialState()
@@ -207,17 +264,47 @@ final class TouchTerminalController: TerminalViewDelegate {
             try? await Task.sleep(for: .milliseconds(300))
             guard let self, self.generation == current, self.status == .connecting else { return }
             self.status = .connected
+            self.failedAttempts = 0
         }
     }
 
     private func finish(error: Error?, generation finished: Int) {
         guard finished == generation else { return }
         task = nil
-        if let error {
-            status = .failed(error.userMessage)
-        } else {
+        guard let error else {
             status = .ended
+            return
         }
+        status = .failed(error.userMessage)
+        switch policy.decision(after: error, attempt: failedAttempts) {
+        case .retry(let delay):
+            scheduleRetry(after: delay)
+        case .giveUp(let reason):
+            Log.terminal.notice("Terminal de \(self.sessionName, privacy: .public) sin reintento automático (\(String(describing: reason), privacy: .public)): \(error.userMessage, privacy: .public)")
+        }
+    }
+
+    // MARK: - Reintento automático
+
+    private func scheduleRetry(after delay: Duration) {
+        cancelRetry()
+        failedAttempts += 1
+        let seconds = Double(delay.components.seconds) + Double(delay.components.attoseconds) / 1e18
+        pendingRetry = PendingRetry(
+            attempt: failedAttempts, maxAttempts: policy.maxAttempts, fireDate: Date().addingTimeInterval(seconds)
+        )
+        retryTask = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: delay) } catch { return }
+            guard let self, self.pendingRetry != nil else { return }
+            self.retryTask = nil
+            self.reopen(resettingAttempts: false)
+        }
+    }
+
+    private func cancelRetry() {
+        retryTask?.cancel()
+        retryTask = nil
+        pendingRetry = nil
     }
 
     // MARK: - TerminalViewDelegate
@@ -298,6 +385,10 @@ enum TerminalAppearance {
         view.nativeForegroundColor = UIColor(white: 0.92, alpha: 1)
         view.backgroundColor = view.nativeBackgroundColor
         view.keyboardAppearance = .dark
-        view.optionAsMetaKey = true
+        view.optionAsMetaKey = UserDefaults.standard.bool(forKey: optionAsMetaKey)
     }
+
+    /// «Opción como Meta» (teclado físico). Desactivado por defecto: con un teclado
+    /// español `@ # [ ] { } \ | ~` van con Opción, y como Meta no se podrían escribir.
+    static let optionAsMetaKey = "terminal.optionAsMeta"
 }

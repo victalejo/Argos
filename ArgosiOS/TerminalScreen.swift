@@ -4,8 +4,8 @@
 //
 //  Terminal en vivo de una sesión tmux. Arriba, las ventanas de la sesión como
 //  pestañas (`TerminalWindowBar`: terminal o agente, menú «+»); debajo, una cabecera
-//  con lo que corre y la carpeta, y el `TerminalView` de SwiftTerm, que trae su propia
-//  barra de teclas (esc, ctrl, tab, flechas) sobre el teclado. En el iPad, además, una
+//  con lo que corre y la carpeta, y el `TerminalView` de SwiftTerm con la barra de
+//  teclas de Argos sobre el teclado (`TerminalKeyBar`). En el iPad, además, una
 //  barra inferior (servidor · rama · agentes) y atajos de teclado físico (⌘T, ⌘W,
 //  ⌘1…⌘9, ⌘⇧[ / ⌘⇧]).
 //
@@ -23,6 +23,7 @@ struct TerminalScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage(TerminalAppearance.fontSizeKey) private var fontSize = Double(TerminalAppearance.defaultFontSize)
+    @AppStorage(TerminalAppearance.optionAsMetaKey) private var optionAsMeta = false
     @State private var windows: [TmuxWindow] = []
     /// Lo crea `onAppear` (nunca `body`): crear el terminal abre una conexión, y hacerlo
     /// durante el render podría resucitar uno ya cerrado al salir de la pantalla.
@@ -107,13 +108,17 @@ struct TerminalScreen: View {
             if sizeClass == .regular { Task { await refreshBranch() } }
         }
         .onChange(of: fontSize) { _, size in
-            controller?.terminalView.font = TerminalAppearance.font(size: CGFloat(size))
+            let font = TerminalAppearance.font(size: CGFloat(size))
+            if controller?.terminalView.font != font { controller?.terminalView.font = font }
         }
+        .onChange(of: optionAsMeta) { _, enabled in controller?.terminalView.optionAsMetaKey = enabled }
         .onAppear {
             if controller == nil { controller = hub.terminal(for: server, sessionName: sessionName) }
         }
         .onDisappear {
-            hub.closeTerminal(server: server.id, sessionName: sessionName)
+            // Aparcado, no cerrado: volver desde Archivos/Cambios/Agentes, o tras girar o
+            // redimensionar, reutiliza la conexión.
+            hub.parkTerminal(server: server.id, sessionName: sessionName)
             controller = nil
         }
     }
@@ -249,9 +254,19 @@ struct TerminalScreen: View {
 
     private func select(_ window: TmuxWindow) {
         Task {
-            try? await service.selectWindow(session: sessionName, index: window.index)
+            do {
+                try await service.selectWindow(session: sessionName, index: window.index)
+            } catch {
+                report("No se pudo cambiar a la ventana \(window.index)", error)
+            }
             await refreshWindows()
         }
+    }
+
+    /// Fallo de una acción de ventanas: al registro y al aviso sobre el terminal.
+    private func report(_ action: String, _ error: Error) {
+        Log.terminal.error("\(action, privacy: .public): \(error.userMessage, privacy: .public)")
+        controller?.show(.failed("\(action): \(error.userMessage)"))
     }
 
     private func selectAdjacent(_ offset: Int) {
@@ -260,7 +275,11 @@ struct TerminalScreen: View {
 
     private func newWindow() {
         Task {
-            try? await service.newWindow(session: sessionName)
+            do {
+                try await service.newWindow(session: sessionName)
+            } catch {
+                report("No se pudo abrir una ventana", error)
+            }
             await refreshWindows()
         }
     }
@@ -271,7 +290,7 @@ struct TerminalScreen: View {
             do {
                 try await service.newAgentWindow(session: sessionName, agent: agent, directory: projectPath)
             } catch {
-                Log.terminal.error("No se pudo lanzar \(agent.displayName, privacy: .public): \(error.userMessage, privacy: .public)")
+                report("No se pudo lanzar \(agent.displayName)", error)
             }
             await refreshWindows()
         }
@@ -286,7 +305,7 @@ struct TerminalScreen: View {
             do {
                 fresh = try await service.listWindows(session: sessionName)
             } catch {
-                Log.terminal.error("No se pudieron leer las ventanas para cerrar: \(error.userMessage, privacy: .public)")
+                report("No se pudieron leer las ventanas para cerrar", error)
                 return
             }
             windows = fresh
@@ -305,7 +324,7 @@ struct TerminalScreen: View {
             do {
                 try await service.killWindow(session: sessionName, index: window.index)
             } catch {
-                Log.terminal.error("No se pudo cerrar la ventana: \(error.userMessage, privacy: .public)")
+                report("No se pudo cerrar la ventana \(window.index)", error)
             }
             await refreshWindows()
         }
@@ -356,8 +375,32 @@ struct TerminalScreen: View {
         case .ended:
             reconnectPanel(controller, title: "Desconectado", message: "La conexión con la sesión se cerró. La sesión sigue en el servidor.")
         case .failed(let message):
-            reconnectPanel(controller, title: "Error de conexión", message: message)
+            if let retry = controller.pendingRetry {
+                retryPanel(controller, retry: retry, message: message)
+            } else {
+                reconnectPanel(controller, title: "Error de conexión", message: message)
+            }
         }
+    }
+
+    /// Caída con reintento automático en marcha: cuenta atrás y «Reconectar ahora».
+    private func retryPanel(
+        _ controller: TouchTerminalController, retry: TouchTerminalController.PendingRetry, message: String
+    ) -> some View {
+        ContentUnavailableView {
+            Label("Reconectando…", systemImage: "arrow.triangle.2.circlepath")
+        } description: {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let seconds = max(0, Int(retry.fireDate.timeIntervalSince(context.date).rounded(.up)))
+                Text("Reintento \(retry.attempt) de \(retry.maxAttempts) en \(seconds) s.\n\(message)")
+            }
+        } actions: {
+            Button("Reconectar ahora") { controller.reconnect() }
+                .buttonStyle(.borderedProminent)
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(white: 0.07))
     }
 
     private func reconnectPanel(_ controller: TouchTerminalController, title: String, message: String) -> some View {
@@ -377,6 +420,9 @@ struct TerminalScreen: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
+            // Con el ratón de tmux activo, tocar el terminal no abre el teclado: este botón sí.
+            Button("Teclado", systemImage: "keyboard") { controller?.toggleKeyboard() }
+                .disabled(controller == nil)
             Button("Pegar", systemImage: "doc.on.clipboard") { controller?.pasteFromClipboard() }
                 .disabled(controller == nil)
             Menu("Adjuntar", systemImage: "paperclip") {
@@ -390,11 +436,15 @@ struct TerminalScreen: View {
                 Button("Reconectar", systemImage: "arrow.clockwise") { controller?.reconnect() }
                 Divider()
                 Button("Texto más grande", systemImage: "textformat.size.larger") {
-                    fontSize = min(fontSize + 1, 24)
+                    fontSize = TerminalFontSizing.clamped(fontSize + 1)
                 }
                 Button("Texto más pequeño", systemImage: "textformat.size.smaller") {
-                    fontSize = max(fontSize - 1, 8)
+                    fontSize = TerminalFontSizing.clamped(fontSize - 1)
                 }
+                Text("También pellizcando el terminal")
+                Divider()
+                Toggle("Opción como Meta", systemImage: "option", isOn: $optionAsMeta)
+                Text("Con un teclado físico: ⌥ envía Meta (ESC + tecla). Desactívalo para escribir @ # [ ] { } \\ | ~ con ⌥.")
             }
         }
     }
