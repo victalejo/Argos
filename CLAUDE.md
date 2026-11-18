@@ -162,7 +162,7 @@ Capas (archivos pequeños y cohesivos, lógica pura separada de red/UI):
   (passphrases), `TOFUHostKeyValidator` (verificación de host key Trust-On-First-Use).
 - **Datos compartidos en el servidor** (`~/.config/argos/projects.json`, `agents/`, y los
   hooks en `~/.claude/settings.json`): los escriben Mac, iPhone/iPad y Android con cerrojo y
-  comprobación de huella (`RemotePrivateFile`, `PosixChecksum`); conserva claves
+  comprobación de huella (`HomeFileScripts` en `RemotePrivateFile.swift`, `PosixChecksum`); conserva claves
   desconocidas y no escribas un formato más nuevo del que entiendes.
 - **UI**: Mac: `ContentView` (NavigationSplitView), `SessionsColumn`, `SessionTerminalView` +
   `LiveTerminalController`, `ServerFormSheet`…; iOS: `SplitRootView`, `ProjectScreen`… (ver
