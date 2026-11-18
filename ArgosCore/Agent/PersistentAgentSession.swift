@@ -43,6 +43,10 @@ final class PersistentAgentSession {
     /// Tamaño del log según el último listado (sin haberlo leído aún).
     @ObservationIgnored private var listedLogBytes: Int
     @ObservationIgnored private let hibernation: () -> PersistentAgentHibernation
+    /// Todo mensaje va por la entrada estándar del canal, también los cortos (que si no
+    /// viajan en base64 dentro del comando). Lo activan los atajos: el encargo no debe
+    /// aparecer en la lista de procesos del servidor.
+    @ObservationIgnored var sendsOnlyViaStdin = false
 
     init(
         service: any SSHServicing,
@@ -371,7 +375,7 @@ final class PersistentAgentSession {
     /// Las líneas pequeñas van dentro del comando; las grandes, por stdin (límite de
     /// 128 KiB por argumento), con comprobación de que llegaron enteras.
     private func deliver(_ line: String, answering requestID: String?) async throws {
-        guard PersistentAgentScript.needsStdin(line: line) else {
+        guard sendsOnlyViaStdin || PersistentAgentScript.needsStdin(line: line) else {
             _ = try await service.runAgentScript(
                 PersistentAgentScript.send(id: id, line: line, answeredRequestID: requestID)
             )
@@ -403,6 +407,12 @@ final class PersistentAgentSession {
         guard let tail = try? await service.runAgentScript(PersistentAgentScript.errorTail(id: id))
             .trimmingCharacters(in: .whitespacesAndNewlines), !tail.isEmpty else { return base }
         return "\(base)\nÚltimo mensaje del servidor:\n\(tail.suffix(600))"
+    }
+
+    /// Acción explícita del usuario (enviar, reanudar, recargar): olvida el bloqueo de la
+    /// conexión por credenciales rechazadas o host key cambiada para volver a intentarlo.
+    func liftConnectionBlock() async {
+        await service.resetConnectionHealth()
     }
 
     // MARK: - Listado

@@ -201,6 +201,8 @@ struct AgentLogSnapshot: Equatable, Sendable {
     let title: String
     let createdAt: Date
     let tail: String
+    /// Carpeta del agente (para que su aviso abra su chat). Vacía si no se sabe.
+    var workingDirectory: String = ""
 }
 
 extension PersistentAgentScript {
@@ -244,7 +246,8 @@ extension PersistentAgentScript {
             else { return nil }
             let tail = Data(base64Encoded: fields[4]).map { String(decoding: $0, as: UTF8.self) } ?? ""
             return AgentLogSnapshot(id: fields[0], isAlive: fields[1] == "1", logBytes: Int(fields[2]) ?? 0,
-                                    title: meta.title, createdAt: meta.createdAt, tail: tail)
+                                    title: meta.title, createdAt: meta.createdAt, tail: tail,
+                                    workingDirectory: meta.workingDirectory)
         }
     }
 }
