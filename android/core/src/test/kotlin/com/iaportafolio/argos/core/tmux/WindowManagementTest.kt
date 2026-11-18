@@ -5,6 +5,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -120,6 +121,18 @@ class WindowManagementTest {
         assertTrue(TmuxCommands.WRITE_DEFAULT_TMUX_CONFIG.endsWith("\nARGOS_TMUX_CONF\nfi"))
         assertTrue("set -ga terminal-overrides \",*:Ms=\\\\E]52;%p1%s;%p2%s\\\\007\"" in TmuxCommands.DEFAULT_TMUX_CONFIG)
         assertTrue("',*:Ms=\\E]52;%p1%s;%p2%s\\007'" in TmuxCommands.ENABLE_CLIPBOARD_FORWARDING)
+    }
+
+    /**
+     * Byte a byte el de `enableClipboardForwarding()` (`ArgosCore/SSHService.swift`, commits
+     * 65738f0 y 32a9572): golden `clipboard-forwarding.txt`.
+     */
+    @Test
+    fun `portapapeles y color verdadero identicos a Apple y sin acumular overrides`() {
+        val golden = assertNotNull(javaClass.getResource("/swift-golden/clipboard-forwarding.txt")).readText(Charsets.UTF_8)
+        assertEquals(golden, TmuxCommands.ENABLE_CLIPBOARD_FORWARDING)
+        assertTrue("grep -q ':Ms=' ||" in TmuxCommands.ENABLE_CLIPBOARD_FORWARDING)
+        assertTrue("grep -q 'xterm-256color:Tc' ||" in TmuxCommands.ENABLE_CLIPBOARD_FORWARDING)
     }
 
     /** El heredoc de `~/.tmux.conf` es sh válido (se comprueba con `sh -n`). */

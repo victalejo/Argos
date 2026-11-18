@@ -158,8 +158,16 @@ object TmuxCommands {
             "ARGOS_TMUX_CONF\n" +
             "fi"
 
-    /** Habilita OSC 52 en el servidor tmux EN EJECUCIÓN (best-effort, nunca falla). */
+    /**
+     * Habilita OSC 52 en el servidor tmux EN EJECUCIÓN y declara color verdadero (`Tc`) para
+     * los clientes que se enganchen después (best-effort, nunca falla). Byte a byte el de
+     * `enableClipboardForwarding()` de `SSHService.swift`: cada override se añade UNA sola vez,
+     * porque `-ga` acumularía una copia en cada conexión al tmux que se comparte con el Mac.
+     */
     const val ENABLE_CLIPBOARD_FORWARDING =
         "tmux set -g set-clipboard on 2>/dev/null; " +
-            "tmux set -ga terminal-overrides ',*:Ms=\\E]52;%p1%s;%p2%s\\007' 2>/dev/null; true"
+            "tmux show -g terminal-overrides 2>/dev/null | grep -q ':Ms=' " +
+            "|| tmux set -ga terminal-overrides ',*:Ms=\\E]52;%p1%s;%p2%s\\007' 2>/dev/null; " +
+            "tmux show -g terminal-overrides 2>/dev/null | grep -q 'xterm-256color:Tc' " +
+            "|| tmux set -ga terminal-overrides ',xterm-256color:Tc' 2>/dev/null; true"
 }

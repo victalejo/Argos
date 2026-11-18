@@ -1,0 +1,1 @@
+tmux set -g set-clipboard on 2>/dev/null; tmux show -g terminal-overrides 2>/dev/null | grep -q ':Ms=' || tmux set -ga terminal-overrides ',*:Ms=\E]52;%p1%s;%p2%s\007' 2>/dev/null; tmux show -g terminal-overrides 2>/dev/null | grep -q 'xterm-256color:Tc' || tmux set -ga terminal-overrides ',xterm-256color:Tc' 2>/dev/null; true
