@@ -63,7 +63,7 @@ struct PersistentAgentScriptTests {
 
     @Test func elTailMuereAlCerrarseElCanal() {
         let command = PersistentAgentScript.attach(id: id)
-        #expect(command.contains("tail -c +1 -F"))
+        #expect(command.contains("tail -c +\"$s\" -F"))
         #expect(command.contains("cat > /dev/null; kill $T"))
     }
 
@@ -313,7 +313,9 @@ struct PersistentAgentConversationTests {
         await session.resume(oauthToken: nil)
         session.detach()
         let commands = mock.agentCommands
-        #expect(commands.contains { $0.contains("--resume \(session.id)") && $0.contains("--permission-mode plan") })
+        // Sin conversación todavía no hay sesión que reanudar: arranca con su mismo id.
+        #expect(commands.count >= 2)
+        #expect(commands[1].contains("--session-id \(session.id)") && commands[1].contains("--permission-mode plan"))
     }
 
     @MainActor
@@ -323,7 +325,7 @@ struct PersistentAgentConversationTests {
         let info = PersistentAgentInfo(
             id: UUID().uuidString.lowercased(),
             isAlive: false,
-            logBytes: 0,
+            logBytes: 2048,
             meta: PersistentAgentMeta(workingDirectory: "/srv", title: "viejo", createdAt: Date())
         )
         let session = PersistentAgentSession(service: mock, info: info)
@@ -364,9 +366,12 @@ struct PersistentAgentConversationTests {
         try await waitUntil { session.state.items.count == 3 }
         #expect(session.state.items.map(\.kind).prefix(2) == [.userText("lista archivos"), .assistantText("Hay 3.")])
         #expect(session.state.status == .idle)
-        #expect(mock.lastAgentCommand?.contains("tail -c +1 -F") == true)
+        #expect(mock.lastAgentCommand?.contains("tail -c +\"$s\" -F") == true)
+        #expect(mock.lastAgentCommand?.contains("s=$((1 - b))") == true)
 
-        // Reenganchar no duplica: vuelve a construir desde cero.
+        // Reenganchar no duplica: sigue desde lo ya leído (el servidor solo manda la
+        // cabecera porque no hay nada nuevo).
+        mock.agentScript = [#"{"type":"argos_log_base","base":0,"from":\#(session.receivedBytes + 1)}"#]
         session.attach()
         try await waitUntil { session.state.items.count == 3 }
         try await Task.sleep(for: .milliseconds(100))

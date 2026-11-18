@@ -5,7 +5,8 @@
 //  Cliente de un agente persistente (ver `PersistentAgentScript`). El agente corre en
 //  el servidor; esta clase solo se ENGANCHA a su log para pintar la conversación y le
 //  escribe por la FIFO. Desengancharse (segundo plano, cerrar la vista, perder la red)
-//  no para al agente; volver a engancharse relee el log y reconstruye todo.
+//  no para al agente; volver a engancharse sigue el log desde el último byte leído
+//  (incremental) y, si el flujo se corta con la vista abierta, reintenta solo.
 //
 
 import Foundation
@@ -20,24 +21,40 @@ final class PersistentAgentSession {
     private(set) var state = AgentConversationState()
     /// `false` si el proceso de claude terminó (se puede reanudar).
     private(set) var isAlive: Bool
+    /// Se QUIERE estar enganchado (la vista está abierta), aunque el canal esté
+    /// reconectando. El estado real de la conexión es `link`.
     private(set) var isAttached = false
-    /// Bytes del log leídos en el enganche actual (desde el byte 1): lo que el usuario ya
-    /// ha visto. Los avisos en segundo plano solo avisan de lo posterior.
+    private(set) var link: AgentLinkState = .detached
+    /// Reanudando (arrancando claude con `--resume`).
+    private(set) var isResuming = false
+    /// Bytes ABSOLUTOS del log ya procesados (hasta la última línea completa): lo que el
+    /// usuario ya ha visto. Los avisos en segundo plano solo avisan de lo posterior, y el
+    /// siguiente enganche sigue desde aquí.
     @ObservationIgnored private(set) var receivedBytes = 0
     var lastError: String?
 
     @ObservationIgnored private let service: any SSHServicing
     @ObservationIgnored private var task: Task<Void, Never>?
+    @ObservationIgnored private var retryTask: Task<Void, Never>?
     /// Igual que en el terminal: un `tail` viejo que termina tarde no debe tocar el
     /// estado del enganche actual.
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var keepOpen: AsyncStream<[UInt8]>.Continuation?
+    /// Tamaño del log según el último listado (sin haberlo leído aún).
+    @ObservationIgnored private var listedLogBytes: Int
+    @ObservationIgnored private let hibernation: () -> PersistentAgentHibernation
 
-    init(service: any SSHServicing, info: PersistentAgentInfo) {
+    init(
+        service: any SSHServicing,
+        info: PersistentAgentInfo,
+        hibernation: @escaping () -> PersistentAgentHibernation = { AgentHibernationPreferences.current() }
+    ) {
         self.service = service
         self.id = info.id
         self.meta = info.meta
         self.isAlive = info.isAlive
+        self.listedLogBytes = info.logBytes
+        self.hibernation = hibernation
     }
 
     // MARK: - Crear / reanudar
@@ -48,27 +65,42 @@ final class PersistentAgentSession {
         workingDirectory: String,
         title: String,
         permissionMode: ClaudeAgentCommand.PermissionMode = .default,
-        oauthToken: String? = KeychainStore.claudeOAuthToken()
+        oauthToken: String? = KeychainStore.claudeOAuthToken(),
+        hibernation: PersistentAgentHibernation = AgentHibernationPreferences.current()
     ) async throws -> PersistentAgentSession {
         let id = UUID().uuidString.lowercased()
         let meta = PersistentAgentMeta(workingDirectory: workingDirectory, title: title, createdAt: Date(), permissionMode: permissionMode.rawValue)
-        try await start(service: service, id: id, meta: meta, resume: false, oauthToken: oauthToken)
+        try await start(service: service, id: id, meta: meta, resume: false, oauthToken: oauthToken, hibernation: hibernation)
         return PersistentAgentSession(
             service: service,
-            info: PersistentAgentInfo(id: id, isAlive: true, logBytes: 0, meta: meta)
+            info: PersistentAgentInfo(id: id, isAlive: true, logBytes: 0, meta: meta),
+            hibernation: { hibernation }
         )
     }
 
-    /// Relanza el proceso con `--resume` (p. ej. tras reiniciarse el servidor) y se
-    /// vuelve a enganchar.
-    func resume(oauthToken: String? = KeychainStore.claudeOAuthToken()) async {
+    /// Relanza el proceso (tras reiniciarse el servidor o hibernar) y se vuelve a
+    /// enganchar. Con conversación usa `--resume`; un agente que nunca recibió nada no
+    /// tiene sesión que reanudar y arranca con su mismo id.
+    @discardableResult
+    func resume(oauthToken: String? = KeychainStore.claudeOAuthToken()) async -> Bool {
+        isResuming = true
+        defer { isResuming = false }
+        var fresh = meta
+        fresh.hibernatedAt = nil
+        let hasConversation = max(listedLogBytes, receivedBytes) > 0 || !state.items.isEmpty
         do {
-            try await Self.start(service: service, id: id, meta: meta, resume: true, oauthToken: oauthToken)
+            try await Self.start(
+                service: service, id: id, meta: fresh, resume: hasConversation,
+                oauthToken: oauthToken, hibernation: hibernation()
+            )
+            meta = fresh
             isAlive = true
             lastError = nil
             attach()
+            return true
         } catch {
             lastError = error.userMessage
+            return false
         }
     }
 
@@ -77,7 +109,8 @@ final class PersistentAgentSession {
         id: String,
         meta: PersistentAgentMeta,
         resume: Bool,
-        oauthToken: String?
+        oauthToken: String?,
+        hibernation: PersistentAgentHibernation
     ) async throws {
         guard let claudePath = try await service.locateClaude() else {
             throw PersistentAgentError.claudeMissing
@@ -85,87 +118,151 @@ final class PersistentAgentSession {
         let invocation = ClaudeAgentCommand.persistent(
             claudePath: claudePath, sessionID: id, resume: resume, permissionMode: meta.resolvedPermissionMode
         )
-        let command = try PersistentAgentScript.launch(id: id, meta: meta, claudeInvocation: invocation)
+        let command = try PersistentAgentScript.launch(
+            id: id, meta: meta, claudeInvocation: invocation, hibernation: hibernation
+        )
+        // El token va por stdin (primera línea), nunca en la línea de comandos.
+        let reply = try await AgentStdinExchange.firstLine(
+            service: service, command: command, input: ClaudeAgentCommand.tokenLine(oauthToken)
+        )
+        try parseLaunchReply(reply)
+    }
 
-        // El token va por stdin (primera línea), nunca en la línea de comandos. stdin se
-        // cierra en cuanto el lanzador responde (PID o «ya vivo»).
-        let (stdin, input) = AsyncStream<[UInt8]>.makeStream()
-        input.yield(ClaudeAgentCommand.tokenLine(oauthToken))
-        let (outputStream, output) = AsyncStream<[UInt8]>.makeStream()
-        let run = Task { try await service.runAgentExec(command: command, stdin: stdin, output: output) }
-        var reply = ""
-        for await chunk in outputStream {
-            reply += String(decoding: chunk, as: UTF8.self)
-            if reply.contains("\n") { break }
+    /// Interpreta la primera línea del lanzador.
+    nonisolated static func parseLaunchReply(_ reply: String) throws {
+        if reply == PersistentAgentScript.busyReply { throw PersistentAgentError.busy }
+        if reply.hasPrefix(PersistentAgentScript.failedReply) {
+            let encoded = reply.dropFirst(PersistentAgentScript.failedReply.count).trimmingCharacters(in: .whitespaces)
+            let detail = Data(base64Encoded: encoded).map { String(decoding: $0, as: UTF8.self) } ?? ""
+            throw PersistentAgentError.launchFailed(String(detail.suffix(PersistentAgentScript.errorTailBytes)))
         }
-        input.finish()
-        _ = try? await run.value
-        let firstLine = reply.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
-        if firstLine == "ARGOS_AGENT_BUSY" { throw PersistentAgentError.busy }
-        guard firstLine == "ARGOS_AGENT_ALIVE" || Int32(firstLine) != nil else {
-            throw AgentExecError(message: "No se pudo arrancar el agente en el servidor.")
+        guard reply == PersistentAgentScript.aliveReply || Int32(reply) != nil else {
+            throw AgentExecError(message: "No se pudo arrancar el agente en el servidor (respuesta: \(reply.prefix(200))).")
         }
     }
 
     // MARK: - Enganche al log
 
-    /// (Re)engancha: vacía la conversación y relee el log desde el principio.
+    /// (Re)engancha siguiendo el log desde lo último leído: la conversación se conserva y
+    /// solo llega lo nuevo. Si el servidor rotó el log por delante, se reconstruye.
     func attach() {
-        detach()
+        isAttached = true
+        connect(attempt: 0)
+    }
+
+    /// Deja de leer el log. El agente sigue trabajando en el servidor.
+    func detach() {
+        isAttached = false
+        generation += 1
+        retryTask?.cancel()
+        retryTask = nil
+        keepOpen?.finish()
+        keepOpen = nil
+        task?.cancel()
+        task = nil
+        link = .detached
+    }
+
+    private func connect(attempt: Int) {
         generation += 1
         let current = generation
-        state = AgentConversationState()
-        receivedBytes = 0
-        isAttached = true
+        retryTask?.cancel()
+        retryTask = nil
+        keepOpen?.finish()
+        task?.cancel()
+        link = attempt == 0 ? .connecting : .reconnecting(attempt: attempt)
 
         let (outputStream, output) = AsyncStream<[UInt8]>.makeStream()
         // stdin que nunca se cierra: `runAgentExec` termina si su stdin acaba.
         let (stdin, keepOpen) = AsyncStream<[UInt8]>.makeStream()
         self.keepOpen = keepOpen
         let service = self.service
-        let command = PersistentAgentScript.attach(id: id)
+        let command = PersistentAgentScript.attach(id: id, fromByte: receivedBytes + 1)
+        let requested = receivedBytes
 
         task = Task { [weak self] in
             let parser = Task { @MainActor [weak self] in
                 var buffer = NDJSONLineBuffer()
+                var isFirstLine = true
                 for await chunk in outputStream {
                     guard let self, self.generation == current else { continue }
-                    self.receivedBytes += chunk.count
-                    for line in buffer.append(chunk) {
-                        guard let event = AgentProtocol.decode(line: line) else { continue }
+                    if !self.link.isLive { self.link = .live }
+                    for line in buffer.appendCountingBytes(chunk) {
+                        if isFirstLine {
+                            isFirstLine = false
+                            if let text = line.text, let header = PersistentAgentScript.parseLogBase(text) {
+                                self.adoptLogBase(header, requested: requested)
+                                continue
+                            }
+                        }
+                        self.receivedBytes += line.byteCount
+                        guard let text = line.text, let event = AgentProtocol.decode(line: text) else { continue }
                         AgentReducer.apply(event, to: &self.state, echoesUserMessages: true)
                     }
                 }
             }
+            var failure: Error?
             do {
                 try await service.runAgentExec(command: command, stdin: stdin, output: output)
             } catch is CancellationError {
                 // Desenganche normal.
             } catch {
-                if let self, self.generation == current { self.lastError = error.userMessage }
+                failure = error
             }
-            parser.cancel()
-            if let self, self.generation == current { self.isAttached = false }
+            await parser.value
+            self?.connectionEnded(generation: current, attempt: attempt, error: failure)
         }
     }
 
-    /// Deja de leer el log. El agente sigue trabajando en el servidor.
-    func detach() {
-        generation += 1
-        keepOpen?.finish()
-        keepOpen = nil
-        task?.cancel()
-        task = nil
-        isAttached = false
+    /// La cabecera dice desde qué byte absoluto sigue el log. Si no es justo después de lo
+    /// ya leído (el servidor rotó lo que faltaba), se reconstruye desde ahí.
+    private func adoptLogBase(_ header: (base: Int, from: Int), requested: Int) {
+        let start = header.base + header.from - 1
+        guard start != requested else { return }
+        Log.agent.notice("El log del agente se rotó: se reconstruye la conversación desde lo conservado.")
+        state = AgentConversationState()
+        receivedBytes = start
+    }
+
+    private func connectionEnded(generation ended: Int, attempt: Int, error: Error?) {
+        guard ended == generation, isAttached else { return }
+        if let error {
+            Log.agent.notice("Se cortó el log del agente: \(error.localizedDescription, privacy: .public)")
+        }
+        // Con la vista abierta se reintenta solo, cada vez más espaciado.
+        let next = attempt + 1
+        link = .reconnecting(attempt: next)
+        let delay = AgentReconnectPolicy.delaySeconds(attempt: next)
+        retryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self, self.isAttached, self.generation == ended else { return }
+            self.connect(attempt: next)
+        }
     }
 
     // MARK: - Acciones
 
-    func send(_ rawText: String) async {
+    /// Envía un mensaje. El texto solo debe borrarse del campo con `.sent`. Si el agente
+    /// estaba hibernado, se reanuda solo (salvo en un modo que actúa sin preguntar, que
+    /// pide confirmación: ver `PersistentAgentMeta.resumeRequiresConfirmation`).
+    @discardableResult
+    func send(_ rawText: String, confirmedResume: Bool = false) async -> AgentSendOutcome {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        let sent = await write(AgentProtocol.encodeUserMessage(text: text), answering: nil)
+        guard !text.isEmpty else { return .failed }
+        if !isAlive, meta.isHibernated || confirmedResume {
+            if meta.resumeRequiresConfirmation && !confirmedResume { return .needsResumeConfirmation }
+            guard await resume() else { return .failed }
+        }
+        var sent = await write(AgentProtocol.encodeUserMessage(text: text), answering: nil)
+        if !sent, !isAlive, await refreshInfo(), meta.isHibernated {
+            // Lo hibernó el vigilante mientras mirabas: se reanuda y se reintenta.
+            if meta.resumeRequiresConfirmation && !confirmedResume { return .needsResumeConfirmation }
+            if await resume() {
+                sent = await write(AgentProtocol.encodeUserMessage(text: text), answering: nil)
+            }
+        }
         if sent, state.status != .working { state.status = .working }
+        return sent ? .sent : .failed
     }
 
     /// El permiso pendiente solo se retira si la respuesta LLEGÓ al agente: si el envío
@@ -191,33 +288,79 @@ final class PersistentAgentSession {
     }
 
     /// Para el proceso del agente (la conversación se puede reanudar después). Con
-    /// `delete`, borra también su log.
-    func stop(delete: Bool = false) async {
+    /// `delete`, borra también su log (solo si el proceso murió de verdad).
+    @discardableResult
+    func stop(delete: Bool = false) async -> Bool {
         do {
             _ = try await service.runAgentScript(PersistentAgentScript.stop(id: id, delete: delete))
             isAlive = false
             if delete { detach() }
+            return true
         } catch {
             lastError = error.userMessage
+            return false
+        }
+    }
+
+    /// Relee del servidor si sigue vivo y su `meta.json` (p. ej. si se hibernó).
+    @discardableResult
+    func refreshInfo() async -> Bool {
+        do {
+            guard let info = try await Self.list(service: service).first(where: { $0.id == id }) else { return false }
+            meta = info.meta
+            isAlive = info.isAlive
+            listedLogBytes = info.logBytes
+            return true
+        } catch {
+            Log.agent.notice("No se pudo releer el agente: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 
     /// Devuelve si la línea llegó al agente.
-    @discardableResult
     private func write(_ line: String, answering requestID: String?) async -> Bool {
         do {
-            _ = try await service.runAgentScript(
-                PersistentAgentScript.send(id: id, line: line, answeredRequestID: requestID)
-            )
+            try await deliver(line, answering: requestID)
             lastError = nil
             return true
         } catch PersistentAgentError.notRunning {
             isAlive = false
-            lastError = PersistentAgentError.notRunning.userMessage
+            lastError = await notRunningMessage()
         } catch {
             lastError = error.userMessage
         }
         return false
+    }
+
+    /// Las líneas pequeñas van dentro del comando; las grandes, por stdin (límite de
+    /// 128 KiB por argumento), con comprobación de que llegaron enteras.
+    private func deliver(_ line: String, answering requestID: String?) async throws {
+        guard PersistentAgentScript.needsStdin(line: line) else {
+            _ = try await service.runAgentScript(
+                PersistentAgentScript.send(id: id, line: line, answeredRequestID: requestID)
+            )
+            return
+        }
+        let bytes = Array((line + "\n").utf8)
+        let reply = try await AgentStdinExchange.firstLine(
+            service: service,
+            command: PersistentAgentScript.sendViaStdin(id: id, byteCount: bytes.count, answeredRequestID: requestID),
+            input: bytes
+        )
+        switch reply {
+        case PersistentAgentScript.sentReply: return
+        case PersistentAgentScript.deadReply: throw PersistentAgentError.notRunning
+        case PersistentAgentScript.shortReply: throw PersistentAgentError.truncatedSend
+        default: throw AgentExecError(message: "Respuesta inesperada del servidor: \(reply.prefix(200))")
+        }
+    }
+
+    /// «No está en marcha» + el final de `err.log` (por qué murió), si lo hay.
+    private func notRunningMessage() async -> String {
+        let base = PersistentAgentError.notRunning.userMessage
+        guard let tail = try? await service.runAgentScript(PersistentAgentScript.errorTail(id: id))
+            .trimmingCharacters(in: .whitespacesAndNewlines), !tail.isEmpty else { return base }
+        return "\(base)\nÚltimo mensaje del servidor:\n\(tail.suffix(600))"
     }
 
     // MARK: - Listado

@@ -84,7 +84,7 @@ enum AgentReducer {
             for block in blocks {
                 switch block {
                 case .toolResult(_, let text, let isError):
-                    state.append(.toolResult(text: text, isError: isError))
+                    state.append(.toolResult(text: AgentTranscriptLimits.clip(text), isError: isError))
                 case .text(let text) where echoesUserMessages && !text.isEmpty:
                     userSent(text: text, to: &state)
                 default:
@@ -138,7 +138,26 @@ enum AgentReducer {
         case .toolUse(_, let name, let input):
             state.append(.toolUse(name: name, input: input))
         case .toolResult(_, let text, let isError):
-            state.append(.toolResult(text: text, isError: isError))
+            state.append(.toolResult(text: AgentTranscriptLimits.clip(text), isError: isError))
         }
+    }
+}
+
+/// Topes de lo que la conversación guarda en memoria. Un `Read` o un `Bash` pueden
+/// devolver cientos de KB; la interfaz solo enseña unas líneas, así que se conserva el
+/// principio y el final con una indicación de lo omitido (el resultado completo sigue en
+/// el servidor: en el log del agente persistente y en la sesión de Claude).
+enum AgentTranscriptLimits {
+    /// Caracteres máximos por resultado de herramienta.
+    static let maxToolResultCharacters = 16_000
+    static let keptHeadCharacters = 12_000
+    static let keptTailCharacters = 2_000
+
+    static func clip(_ text: String) -> String {
+        guard text.count > maxToolResultCharacters else { return text }
+        let omitted = text.count - keptHeadCharacters - keptTailCharacters
+        return String(text.prefix(keptHeadCharacters))
+            + "\n\n… [recortado: \(omitted) caracteres omitidos] …\n\n"
+            + String(text.suffix(keptTailCharacters))
     }
 }

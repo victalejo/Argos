@@ -32,6 +32,12 @@ enum PersistentAgentError: LocalizedError, Equatable {
     case notRunning
     case claudeMissing
     case busy
+    /// claude murió nada más arrancar; lleva el final de su `err.log`.
+    case launchFailed(String)
+    /// El proceso no murió ni con KILL: la carpeta se conserva.
+    case stuck
+    /// La línea no llegó entera al servidor (conexión cortada a medio envío).
+    case truncatedSend
 
     var errorDescription: String? {
         switch self {
@@ -41,6 +47,15 @@ enum PersistentAgentError: LocalizedError, Equatable {
             return "Claude Code no está instalado en el servidor (no se encontró el comando «claude»)."
         case .busy:
             return "Otro dispositivo está arrancando este agente ahora mismo. Inténtalo de nuevo en unos segundos."
+        case .launchFailed(let detail):
+            let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty
+                ? "Claude se cerró nada más arrancar en el servidor y no dejó ningún mensaje."
+                : "Claude se cerró nada más arrancar en el servidor:\n\(trimmed)"
+        case .stuck:
+            return "El agente no responde a la orden de parar. Inténtalo de nuevo; si sigue, reinicia el servidor."
+        case .truncatedSend:
+            return "El mensaje no llegó entero al servidor (se cortó la conexión). Vuelve a enviarlo."
         }
     }
 }
@@ -145,7 +160,8 @@ extension SSHService {
         let result = try await capture(client, command: ShellQuoting.posixShell(command))
         guard result.exitCode == 0 else {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-            if detail.contains("ARGOS_AGENT_DEAD") { throw PersistentAgentError.notRunning }
+            if detail.contains(PersistentAgentScript.deadReply) { throw PersistentAgentError.notRunning }
+            if detail.contains(PersistentAgentShell.stuckMarker) { throw PersistentAgentError.stuck }
             throw AgentExecError(message: detail.isEmpty ? "código de salida \(result.exitCode)" : String(detail.suffix(600)))
         }
         return result.stdout

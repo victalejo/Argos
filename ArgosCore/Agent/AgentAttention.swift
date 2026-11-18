@@ -6,6 +6,10 @@
 //  (lógica pura): pide permiso si hay un `control_request` sin responder, o terminó si
 //  lo último relevante es un `result`. Lo usan los avisos en segundo plano del iPhone.
 //
+//  El final llega como las últimas líneas RECORTADAS (ver `snapshots`): un permiso de un
+//  `Write` enorme no cabe entero, así que lo que no es JSON válido se lee de forma
+//  tolerante (`AgentLogLineSummary`). Si algo no se pudo evaluar, no se da por visto.
+//
 
 import Foundation
 
@@ -13,38 +17,52 @@ enum AgentAttention: Equatable, Sendable {
     case none
     case needsPermission(tool: String)
     case finished(summary: String?, isError: Bool)
+    /// El final del log no se pudo interpretar (p. ej. un permiso sin `request_id`
+    /// legible): no se avisa, pero tampoco se marca como visto.
+    case undetermined
 
     /// Estado del agente según las últimas líneas de su log.
     static func evaluate(logTail: String) -> AgentAttention {
-        var pending: AgentPermissionRequest?
+        var pending: AgentLogLineSummary?
         var outcome: AgentAttention = .none
-        // La primera línea puede venir cortada (es un trozo del final): se ignora si no
-        // parsea, igual que cualquier ruido.
-        for line in logTail.split(whereSeparator: \.isNewline) {
-            guard let event = AgentProtocol.decode(line: String(line)) else { continue }
-            switch event {
-            case .permissionRequest(let request):
-                pending = request
+        var recognized = false
+        var unreadablePermission = false
+        for raw in logTail.split(whereSeparator: \.isNewline) {
+            guard let line = AgentLogLineSummary(line: String(raw)) else { continue }
+            recognized = true
+            switch line.kind {
+            case .permissionRequest:
+                if line.requestID == nil || line.toolName == nil {
+                    unreadablePermission = true
+                    pending = nil
+                } else {
+                    unreadablePermission = false
+                    pending = line
+                }
                 outcome = .none
-            case .permissionCancel(let id):
-                if pending?.id == id { pending = nil }
-            case .result(let result):
+            case .permissionAnswered, .permissionCancel:
+                if pending?.requestID == line.requestID { pending = nil }
+                if line.requestID != nil { unreadablePermission = false }
+            case .result:
                 pending = nil
-                outcome = .finished(summary: result.text, isError: result.isError)
-            case .user(let blocks) where blocks.contains(where: { if case .text = $0 { return true } else { return false } }):
+                unreadablePermission = false
+                outcome = .finished(summary: line.resultText, isError: line.isError)
+            case .userPrompt:
                 outcome = .none // un prompt nuevo: vuelve a trabajar
-            default:
+            case .other:
                 break
             }
         }
-        if let pending { return .needsPermission(tool: pending.displayName ?? pending.toolName) }
+        if let pending, let tool = pending.toolName { return .needsPermission(tool: pending.displayName ?? tool) }
+        if unreadablePermission { return .undetermined }
+        if !recognized && !logTail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .undetermined }
         return outcome
     }
 
     /// Texto breve para una notificación (o `nil` si no hay nada que avisar).
     func notification(agentTitle: String) -> (title: String, body: String)? {
         switch self {
-        case .none:
+        case .none, .undetermined:
             return nil
         case .needsPermission(let tool):
             return ("\(agentTitle): Claude espera tu permiso", "Quiere usar \(tool). Ábrelo para permitir o denegar.")
@@ -55,10 +73,130 @@ enum AgentAttention: Equatable, Sendable {
     }
 }
 
+/// Lo que importa de una línea del log, aunque venga recortada. Primero se intenta
+/// decodificar entera; si no es JSON válido, se extraen los campos con expresiones
+/// tolerantes (las comillas de dentro de las cadenas JSON van escapadas, así que
+/// `"type":"…"` literal es siempre una clave).
+struct AgentLogLineSummary: Equatable, Sendable {
+    enum Kind: Equatable, Sendable {
+        case permissionRequest
+        case permissionAnswered
+        case permissionCancel
+        case result
+        case userPrompt
+        case other
+    }
+
+    let kind: Kind
+    var requestID: String?
+    var toolName: String?
+    var displayName: String?
+    var isError = false
+    var resultText: String?
+
+    /// `nil` si la línea no tiene ni un `type` reconocible.
+    init?(line: String) {
+        if let event = AgentProtocol.decode(line: line) {
+            self.init(event: event)
+        } else if let type = Self.firstString(after: "\"type\":", in: line) {
+            self.init(type: type, cutLine: line)
+        } else {
+            return nil
+        }
+    }
+
+    /// Lectura tolerante de una línea que no es JSON válido (recortada).
+    private init(type: String, cutLine line: String) {
+        switch type {
+        case "control_request":
+            // Solo cuentan los permisos (otras peticiones de control no esperan al usuario).
+            guard line.contains("\"can_use_tool\"") || !line.contains("\"subtype\":") else {
+                kind = .other
+                return
+            }
+            kind = .permissionRequest
+            requestID = Self.firstString(after: "\"request_id\":", in: line)
+            toolName = Self.firstString(after: "\"tool_name\":", in: line)
+            displayName = Self.firstString(after: "\"display_name\":", in: line)
+        case PersistentAgentScript.answeredEventType:
+            kind = .permissionAnswered
+            requestID = Self.firstString(after: "\"request_id\":", in: line)
+        case "control_cancel_request":
+            kind = .permissionCancel
+            requestID = Self.firstString(after: "\"request_id\":", in: line)
+        case "result":
+            kind = .result
+            isError = line.contains("\"is_error\":true")
+            resultText = Self.firstString(after: "\"result\":", in: line)
+        case "user":
+            // Recortada no se sabe si es un prompt o un resultado de herramienta: los
+            // resultados llevan `tool_result` cerca del principio.
+            let isToolResult = line.contains("\"tool_result\"") || line.contains("\"tool_use_id\"")
+            let isSecondary = line.contains("\"isMeta\":true") || line.contains("\"isSynthetic\":true")
+            kind = isToolResult || isSecondary ? .other : .userPrompt
+        default:
+            kind = .other
+        }
+    }
+
+    private init(event: AgentStreamEvent) {
+        switch event {
+        case .permissionRequest(let request):
+            kind = .permissionRequest
+            requestID = request.id
+            toolName = request.toolName
+            displayName = request.displayName
+        case .permissionCancel(let id):
+            kind = .permissionCancel
+            requestID = id
+        case .result(let result):
+            kind = .result
+            isError = result.isError
+            resultText = result.text
+        case .user(let blocks) where blocks.contains(where: { if case .text = $0 { return true } else { return false } }):
+            kind = .userPrompt
+        default:
+            kind = .other
+        }
+    }
+
+    /// Valor de cadena que sigue a `key` (p. ej. `"type":`), tolerando espacios y
+    /// desescapando lo básico. `nil` si no aparece o la cadena está cortada.
+    static func firstString(after key: String, in line: String) -> String? {
+        guard let keyRange = line.range(of: key) else { return nil }
+        var index = keyRange.upperBound
+        while index < line.endIndex, line[index] == " " { index = line.index(after: index) }
+        guard index < line.endIndex, line[index] == "\"" else { return nil }
+        index = line.index(after: index)
+        var value = ""
+        var escaping = false
+        while index < line.endIndex {
+            let character = line[index]
+            if escaping {
+                switch character {
+                case "n": value.append("\n")
+                case "t": value.append("\t")
+                default: value.append(character)
+                }
+                escaping = false
+            } else if character == "\\" {
+                escaping = true
+            } else if character == "\"" {
+                return value
+            } else {
+                value.append(character)
+            }
+            index = line.index(after: index)
+        }
+        return nil
+    }
+}
+
 /// Instantánea de un agente para los avisos: tamaño del log y su final.
 struct AgentLogSnapshot: Equatable, Sendable {
     let id: String
     let isAlive: Bool
+    /// Bytes ABSOLUTOS del log (incluidos los rotados).
     let logBytes: Int
     let title: String
     let createdAt: Date
@@ -67,10 +205,21 @@ struct AgentLogSnapshot: Equatable, Sendable {
 
 extension PersistentAgentScript {
 
-    /// Bytes del final del log que bastan para saber el estado.
-    static let attentionTailBytes = 16_384
+    /// Líneas del final del log que bastan para saber el estado.
+    static let attentionTailLines = 30
+    /// Cada línea se recorta a esto (un permiso de un `Write` puede ocupar cientos de KB).
+    static let attentionLineBytes = 400
 
-    /// Una línea por agente: `id|vivo|bytes|título en base64|final del log en base64`.
+    /// Recorta las últimas líneas del log: si una lleva `tool_name` lejos del principio,
+    /// se conserva su comienzo (tipo, `request_id`) y ese campo; después se corta a
+    /// `attentionLineBytes`. (`.{1,200}`: los `sed` BSD no admiten repeticiones > 255.)
+    static func attentionTail(_ file: String) -> String {
+        "tail -n \(attentionTailLines) \(file) 2>/dev/null "
+            + "| sed -E '/\"tool_name\":\"/ s/^(.{1,200}).*(\"tool_name\":\"[^\"]*\").*$/\\1 \\2/' "
+            + "| cut -c 1-\(attentionLineBytes)"
+    }
+
+    /// Una línea por agente: `id|vivo|bytes|meta en base64|final recortado en base64`.
     static func snapshots() -> String {
         """
         for d in "$HOME/\(rootRelativePath)"/*/; do \
@@ -78,9 +227,10 @@ extension PersistentAgentScript {
         id=$(basename "$d"); p=$(cat "$d/pid" 2>/dev/null); alive=0; \
         [ -n "$p" ] && ps -o args= -p "$p" 2>/dev/null | grep -q -- "$id" && alive=1; \
         size=$(wc -c < "$d/out.ndjson" 2>/dev/null | tr -d ' '); \
-        printf '%s|%s|%s|' "$id" "$alive" "${size:-0}"; \
+        \(absoluteSize); \
+        printf '%s|%s|%s|' "$id" "$alive" "$size"; \
         base64 < "$d/meta.json" | tr -d '\\n'; printf '|'; \
-        tail -c \(attentionTailBytes) "$d/out.ndjson" 2>/dev/null | base64 | tr -d '\\n'; echo; \
+        \(attentionTail("\"$d/out.ndjson\"")) | base64 | tr -d '\\n'; echo; \
         done
         """
     }
@@ -121,11 +271,16 @@ enum AgentAttentionPlanner {
         var notices: [Notice] = []
         var seen = seenBytes
         for snapshot in snapshots {
-            defer { seen[snapshot.id] = snapshot.logBytes }
             let isRecent = now.timeIntervalSince(snapshot.createdAt) < recentAgentWindow
             guard let previous = seenBytes[snapshot.id] ?? (isRecent ? 0 : nil),
-                  snapshot.logBytes > previous else { continue }
+                  snapshot.logBytes > previous else {
+                seen[snapshot.id] = snapshot.logBytes
+                continue
+            }
             let attention = AgentAttention.evaluate(logTail: snapshot.tail)
+            // Lo que no se pudo evaluar se deja SIN ver: el próximo refresco lo reintenta.
+            guard attention != .undetermined else { continue }
+            seen[snapshot.id] = snapshot.logBytes
             if let text = attention.notification(agentTitle: snapshot.title) {
                 notices.append(Notice(agentID: snapshot.id, title: text.title, body: text.body))
             }

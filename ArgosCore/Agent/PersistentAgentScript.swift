@@ -11,9 +11,10 @@
 //                   claude la abre en lectura-escritura (`0<>`), así nunca ve EOF
 //                   cuando no hay ningún cliente conectado.
 //   - `out.ndjson`  todo lo que emite claude (stream-json) + una marca por cada permiso
-//                   respondido. Reconectar = releer el log desde el principio
-//                   (`tail -c +1 -F`) y reconstruir la conversación.
+//                   respondido. Reconectar = seguir el log (`tail -c +N -F`) desde lo
+//                   último leído y reconstruir la conversación.
 //   - `pid`, `meta.json` (carpeta, título, fecha), `err.log`.
+//   - (aditivos) `log.base` y `"hibernatedAt"` en `meta.json`: ver `PersistentAgentShell`.
 //
 //  Aquí solo se construyen los comandos de shell (lógica pura, testeable).
 //
@@ -24,6 +25,7 @@ import Foundation
 struct PersistentAgentInfo: Identifiable, Equatable, Sendable {
     let id: String
     let isAlive: Bool
+    /// Bytes ABSOLUTOS del log (incluidos los rotados).
     let logBytes: Int
     let meta: PersistentAgentMeta
 }
@@ -37,6 +39,12 @@ struct PersistentAgentMeta: Codable, Equatable, Sendable {
     /// El archivo vive en el servidor y puede editarlo el propio agente: no es de fiar para
     /// dar permisos sin preguntar (ver `resumeRequiresConfirmation`).
     var permissionMode: String? = nil
+    /// Cuándo lo hibernó el vigilante por inactividad (`nil` si no). Lo escribe el
+    /// servidor; al reanudar se quita. Es aditivo: las versiones antiguas lo ignoran.
+    var hibernatedAt: Date? = nil
+
+    /// Hibernado (parado por inactividad): escribirle lo reanuda solo.
+    var isHibernated: Bool { hibernatedAt != nil }
 
     /// Los agentes sin modo guardado se crearon preguntando cada permiso.
     var resolvedPermissionMode: ClaudeAgentCommand.PermissionMode {
@@ -62,6 +70,25 @@ enum PersistentAgentScript {
     /// solo a la FIFO). Releer el log sabe así que ese permiso ya se respondió.
     static let answeredEventType = "argos_permission_answered"
 
+    /// Primera línea que imprime `attach` (no está en el log): base de rotación y byte
+    /// local desde el que sigue. Las versiones antiguas no la piden ni la ven.
+    static let logBaseEventType = "argos_log_base"
+
+    /// Respuestas del lanzador y del envío por stdin (primera línea de stdout).
+    static let aliveReply = "ARGOS_AGENT_ALIVE"
+    static let busyReply = "ARGOS_AGENT_BUSY"
+    static let deadReply = "ARGOS_AGENT_DEAD"
+    static let failedReply = "ARGOS_AGENT_FAILED"
+    static let sentReply = "ARGOS_SENT"
+    static let shortReply = "ARGOS_SEND_SHORT"
+
+    /// Un argumento no puede pasar de 128 KiB (`MAX_ARG_STRLEN` de Linux) y el script
+    /// entero va en UN argumento de `sh -c`. Por encima de esto, la línea viaja por stdin.
+    static let maxInlineCommandBytes = 96 * 1024
+
+    /// Bytes del final de `err.log` que se muestran cuando el agente no arranca.
+    static let errorTailBytes = 1_500
+
     /// `"$HOME/.config/argos/agents/<id>"` (entre comillas dobles: `$HOME` se expande).
     /// Los ids son UUID: cualquier otra cosa es un error de programación (nunca debe
     /// llegar al shell, y menos a un `rm -rf`).
@@ -74,24 +101,32 @@ enum PersistentAgentScript {
         UUID(uuidString: id) != nil
     }
 
-    /// Comprueba que el `pid` guardado es DE VERDAD este agente: tras reiniciarse el
-    /// servidor, ese número puede pertenecer a otro proceso (tmux, un editor…) y no hay
-    /// que darlo por vivo ni matarlo. La línea de comandos de claude lleva el id
-    /// (`--session-id`/`--resume`), que sirve de huella.
-    private static func aliveCheck(_ id: String) -> String {
+    /// Comprueba que el `pid` guardado es DE VERDAD este agente (y lo deja en `$p`): tras
+    /// reiniciarse el servidor, ese número puede pertenecer a otro proceso (tmux, un
+    /// editor…) y no hay que darlo por vivo ni matarlo. La línea de comandos de claude
+    /// lleva el id (`--session-id`/`--resume`), que sirve de huella.
+    static func aliveCheck(_ id: String) -> String {
         let dir = directory(id)
         return "{ p=$(cat \(dir)/pid 2>/dev/null); [ -n \"$p\" ] && ps -o args= -p \"$p\" 2>/dev/null | grep -q -- '\(id)'; }"
     }
 
-    // MARK: - Comandos
+    // MARK: - Lanzar
 
     /// Arranca el agente (o lo REANUDA si su proceso había terminado) en segundo plano e
-    /// imprime su PID; si ya está vivo, no lanza otro e imprime `ARGOS_AGENT_ALIVE`.
+    /// imprime su PID; si ya está vivo, no lanza otro e imprime `ARGOS_AGENT_ALIVE`. Si
+    /// muere nada más arrancar, imprime `ARGOS_AGENT_FAILED <final de err.log en base64>`.
     ///
     /// La PRIMERA línea de stdin es el token OAuth (o vacía): así no viaja en ninguna
     /// línea de comandos (`ps`, auditoría). `claudeInvocation` es `env … claude <flags>`
-    /// (ver `ClaudeAgentCommand.persistent`).
-    static func launch(id: String, meta: PersistentAgentMeta, claudeInvocation: String) throws -> String {
+    /// (ver `ClaudeAgentCommand.persistent`). Con el agente parado y el cerrojo cogido se
+    /// recortan los logs; con `hibernation` activa, un vigilante lo hiberna si se queda
+    /// quieto ese tiempo.
+    static func launch(
+        id: String,
+        meta: PersistentAgentMeta,
+        claudeInvocation: String,
+        hibernation: PersistentAgentHibernation = .standard
+    ) throws -> String {
         let dir = directory(id)
         let metaJSON = String(decoding: try JSONEncoder.projects.encode(meta), as: UTF8.self)
         let metaB64 = Data(metaJSON.utf8).base64EncodedString()
@@ -107,57 +142,149 @@ enum PersistentAgentScript {
         let prepare = "( umask 077 && mkdir -p \(dir) && cd \(dir) && { [ -p in ] || mkfifo in; } "
             + "&& printf '%s' '\(metaB64)' | base64 -d > meta.json && touch out.ndjson err.log )"
         let spawn = "{ command -v setsid >/dev/null 2>&1 && S=setsid || S=; } && "
-            + "{ nohup $S sh -c \(ShellQuoting.singleQuoted(inner)) >/dev/null 2>&1 < /dev/null & echo $! > \(dir)/pid; } && cat \(dir)/pid"
+            + "{ nohup $S sh -c \(ShellQuoting.singleQuoted(inner)) >/dev/null 2>&1 < /dev/null & echo $! > \(dir)/pid; }"
+        // Si claude muere al arrancar (opción desconocida, binario roto…), se dice por qué.
+        let verify = "P=$(cat \(dir)/pid); sleep 1; if ! kill -0 \"$P\" 2>/dev/null; then "
+            + "printf '%s %s\\n' \(failedReply) \"$(tail -c \(errorTailBytes) \(dir)/err.log 2>/dev/null | base64 | tr -d '\\n')\"; "
+            + "rm -f \(dir)/pid; exit 6; fi"
         // `mkdir` como cerrojo atómico: dos «Reanudar» a la vez (Mac e iPhone) no lanzan
         // dos claude sobre la misma FIFO.
         let lock = "\"$HOME/\(rootRelativePath)/.\(id).lock\""
-        return [
+        var lines = [
             "IFS= read -r ARGOS_OAUTH; export ARGOS_OAUTH",
             "mkdir -p \"$HOME/\(rootRelativePath)\" && chmod 700 \"$HOME/\(rootRelativePath)\"",
             // Un cerrojo de más de un minuto es de un lanzamiento que se interrumpió.
             "find \"$HOME/\(rootRelativePath)\" -maxdepth 1 -name '.\(id).lock' -mmin +1 -exec rmdir {} \\; 2>/dev/null",
-            "mkdir \(lock) 2>/dev/null || { echo ARGOS_AGENT_BUSY; exit 4; }",
+            "mkdir \(lock) 2>/dev/null || { echo \(busyReply); exit 4; }",
             "trap 'rmdir \(lock) 2>/dev/null' EXIT",
-            "if \(aliveCheck(id)); then echo ARGOS_AGENT_ALIVE; exit 0; fi",
-            "\(prepare) && \(spawn)",
-        ].joined(separator: "\n")
+            "if \(aliveCheck(id)); then echo \(aliveReply); exit 0; fi",
+            "\(prepare) || exit 1",
+            // Agente parado y cerrojo cogido: momento seguro para recortar los logs.
+            PersistentAgentShell.rotateOutputLog(dir),
+            PersistentAgentShell.trimErrorLog(dir),
+            "\(spawn) || exit 1",
+            verify,
+        ]
+        if hibernation.isEnabled {
+            let watch = PersistentAgentShell.watchdog(
+                id: id, idleSeconds: hibernation.idleSeconds, checkSeconds: hibernation.checkSeconds
+            )
+            lines.append("nohup $S sh -c \(ShellQuoting.singleQuoted(watch)) argos-watch \"$P\" >/dev/null 2>&1 < /dev/null &")
+        }
+        lines.append("echo \"$P\"")
+        return lines.joined(separator: "\n")
     }
+
+    // MARK: - Enviar
 
     /// Escribe una línea NDJSON en la FIFO del agente. Viaja en base64: el contenido
     /// nunca se interpreta en el shell. La FIFO se abre en lectura-escritura, que no se
     /// bloquea aunque claude acabe de morir. Si `answeredRequestID` no es nil (respuesta a
     /// un permiso), DESPUÉS de entregarla se anota en el log que ya se respondió.
+    /// Para líneas grandes (ver `needsStdin`) se usa `sendViaStdin`.
     static func send(id: String, line: String, answeredRequestID: String? = nil) -> String {
         let dir = directory(id)
         let b64 = Data((line + "\n").utf8).base64EncodedString()
-        var command = "\(aliveCheck(id)) || { echo 'ARGOS_AGENT_DEAD' >&2; exit 3; }; "
+        var command = "\(aliveCheck(id)) || { echo '\(deadReply)' >&2; exit 3; }; "
             + "exec 3<>\(dir)/in && printf '%s' '\(b64)' | base64 -d >&3"
         if let answeredRequestID {
-            let marker: [String: String] = ["type": answeredEventType, "request_id": answeredRequestID]
-            let json = (try? JSONSerialization.data(withJSONObject: marker, options: [.sortedKeys])) ?? Data()
-            let markerB64 = (json + Data("\n".utf8)).base64EncodedString()
-            command += " && printf '%s' '\(markerB64)' | base64 -d >> \(dir)/out.ndjson"
+            command += " && " + appendAnsweredMarker(dir: dir, requestID: answeredRequestID)
         }
         return command
     }
 
-    /// Sigue el log desde el byte `fromByte` (1 = desde el principio). El `tail` muere
-    /// cuando se cierra el canal SSH (EOF en stdin): si no, cada reconexión del iPhone
-    /// dejaría un `tail` huérfano en el servidor.
+    /// ¿La línea es demasiado grande para ir dentro del comando? (base64 = 4/3 + margen)
+    static func needsStdin(line: String) -> Bool {
+        (line.utf8.count + 1) * 4 / 3 + 1_024 > maxInlineCommandBytes
+    }
+
+    /// Variante para líneas grandes (un `Write` de 70 KB que aprobar): la línea llega por
+    /// la ENTRADA ESTÁNDAR del canal (una sola línea: el JSON no lleva saltos), se guarda
+    /// en un archivo privado, se comprueba que llegó entera (`byteCount` = bytes de la
+    /// línea con su `\n`) y solo entonces se escribe en la FIFO. Responde por stdout con
+    /// `ARGOS_SENT`, `ARGOS_AGENT_DEAD` o `ARGOS_SEND_SHORT`.
+    static func sendViaStdin(id: String, byteCount: Int, answeredRequestID: String? = nil) -> String {
+        let dir = directory(id)
+        let file = "\(dir)/.send.$$"
+        var lines = [
+            "\(aliveCheck(id)) || { echo \(deadReply); exit 3; }",
+            "( umask 077 && head -n 1 > \(file) )",
+            "n=$(wc -c < \(file) | tr -d ' ')",
+            "if [ \"$n\" != \"\(byteCount)\" ]; then rm -f \(file); echo \(shortReply); exit 7; fi",
+            "exec 3<>\(dir)/in && cat \(file) >&3; r=$?; rm -f \(file); [ $r -eq 0 ] || exit 1",
+        ]
+        if let answeredRequestID {
+            lines.append(appendAnsweredMarker(dir: dir, requestID: answeredRequestID) + " || exit 1")
+        }
+        lines.append("echo \(sentReply)")
+        return lines.joined(separator: "\n")
+    }
+
+    private static func appendAnsweredMarker(dir: String, requestID: String) -> String {
+        let marker: [String: String] = ["type": answeredEventType, "request_id": requestID]
+        let json = (try? JSONSerialization.data(withJSONObject: marker, options: [.sortedKeys])) ?? Data()
+        let markerB64 = (json + Data("\n".utf8)).base64EncodedString()
+        return "printf '%s' '\(markerB64)' | base64 -d >> \(dir)/out.ndjson"
+    }
+
+    // MARK: - Enganche
+
+    /// Sigue el log desde el byte ABSOLUTO `fromByte` (1 = desde el principio). Antes de
+    /// los datos imprime UNA línea `{"type":"argos_log_base","base":B,"from":S}`: `B` son
+    /// los bytes rotados y `S` el byte local desde el que sigue (si lo pedido ya se rotó,
+    /// `S` = 1 y el cliente debe reconstruir desde ahí). El `tail` muere cuando se cierra
+    /// el canal SSH (EOF en stdin): si no, cada reconexión dejaría un `tail` huérfano.
     static func attach(id: String, fromByte: Int = 1) -> String {
-        "tail -c +\(max(1, fromByte)) -F \(directory(id))/out.ndjson 2>/dev/null & T=$!; "
+        let dir = directory(id)
+        return "\(PersistentAgentShell.readBase(dir)); s=$((\(max(1, fromByte)) - b)); [ \"$s\" -ge 1 ] || s=1; "
+            + "printf '{\"type\":\"\(logBaseEventType)\",\"base\":%s,\"from\":%s}\\n' \"$b\" \"$s\"; "
+            + "tail -c +\"$s\" -F \(dir)/out.ndjson 2>/dev/null & T=$!; "
             + "trap 'kill $T 2>/dev/null' EXIT HUP TERM; cat > /dev/null; kill $T 2>/dev/null"
     }
 
-    /// Termina el proceso del agente (solo si es de verdad el agente). Con `delete`,
-    /// borra también su carpeta y log.
-    static func stop(id: String, delete: Bool) -> String {
-        let dir = directory(id)
-        let kill = "{ if \(aliveCheck(id)); then kill \"$p\"; fi; rm -f \(dir)/pid; true; }"
-        return delete ? "\(kill); rm -rf \(dir)" : kill
+    /// Cabecera de `attach`: (base, byte local de inicio), o `nil` si `line` no lo es.
+    static func parseLogBase(_ line: String) -> (base: Int, from: Int)? {
+        guard line.contains(logBaseEventType),
+              let data = line.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              object["type"] as? String == logBaseEventType,
+              let base = object["base"] as? Int, let from = object["from"] as? Int,
+              base >= 0, from >= 1
+        else { return nil }
+        return (base, from)
     }
 
-    /// Una línea por agente: `id|vivo(0/1)|bytes del log|meta.json en base64`.
+    // MARK: - Parar / hibernar
+
+    /// Termina el agente (solo si es de verdad el agente): TERM al grupo, espera, KILL.
+    /// Con `delete`, borra su carpeta, pero SOLO si el proceso murió (si no, sale con
+    /// `ARGOS_AGENT_STUCK` y la carpeta sigue ahí, visible y reintentable).
+    static func stop(id: String, delete: Bool, graceSeconds: Int = PersistentAgentShell.stopGraceSeconds) -> String {
+        let dir = directory(id)
+        let terminate = PersistentAgentShell.terminateProcess(graceSeconds: graceSeconds)
+        let kill = "{ if \(aliveCheck(id)); then \(terminate); fi; rm -f \(dir)/pid; true; }"
+        return delete ? "\(kill) && rm -rf \(dir)" : kill
+    }
+
+    /// Hiberna a demanda («Hibernar inactivos»): lo anota en `meta.json` y lo para.
+    static func hibernate(id: String) -> String {
+        let dir = directory(id)
+        return "if \(aliveCheck(id)); then \(PersistentAgentShell.markHibernated(dir)); "
+            + "\(PersistentAgentShell.terminateProcess()); [ \"$(cat \(dir)/pid 2>/dev/null)\" = \"$p\" ] && rm -f \(dir)/pid; fi; true"
+    }
+
+    /// Final de `err.log` (para explicar por qué el agente no está en marcha).
+    static func errorTail(id: String) -> String {
+        "tail -c \(errorTailBytes) \(directory(id))/err.log 2>/dev/null; true"
+    }
+
+    // MARK: - Listado
+
+    /// `$size` += `log.base` de la carpeta `$d` (dentro de los bucles de listado).
+    static let absoluteSize = "b=$(cat \"$d/log.base\" 2>/dev/null); case \"$b\" in ''|*[!0-9]*) b=0;; esac; size=$(( ${size:-0} + b ))"
+
+    /// Una línea por agente: `id|vivo(0/1)|bytes del log|meta.json en base64`. Los bytes
+    /// son ABSOLUTOS (incluyen los rotados, `log.base`).
     static func list() -> String {
         """
         for d in "$HOME/\(rootRelativePath)"/*/; do \
@@ -165,7 +292,8 @@ enum PersistentAgentScript {
         id=$(basename "$d"); p=$(cat "$d/pid" 2>/dev/null); alive=0; \
         [ -n "$p" ] && ps -o args= -p "$p" 2>/dev/null | grep -q -- "$id" && alive=1; \
         size=$(wc -c < "$d/out.ndjson" 2>/dev/null | tr -d ' '); \
-        printf '%s|%s|%s|' "$id" "$alive" "${size:-0}"; \
+        \(absoluteSize); \
+        printf '%s|%s|%s|' "$id" "$alive" "$size"; \
         base64 < "$d/meta.json" | tr -d '\\n'; echo; \
         done
         """

@@ -208,6 +208,17 @@ enum AgentProtocol {
         ]))
     }
 
+    /// Petición de control `interrupt` del protocolo stream-json (la que manda
+    /// `interrupt()` del Agent SDK): corta el turno en curso sin cerrar la sesión; el CLI
+    /// responde con un `control_response` y cierra el turno con un `result`.
+    static func encodeInterrupt(requestID: String) -> String {
+        encodeLine(.object([
+            "type": .string("control_request"),
+            "request_id": .string(requestID),
+            "request": .object(["subtype": .string("interrupt")])
+        ]))
+    }
+
     private static func encodeLine(_ value: JSONValue) -> String {
         guard let data = try? encoder.encode(value),
               let string = String(data: data, encoding: .utf8) else { return "" }
@@ -222,14 +233,19 @@ struct NDJSONLineBuffer {
 
     /// Añade un chunk de bytes y devuelve las líneas completas disponibles.
     mutating func append(_ bytes: [UInt8]) -> [String] {
+        appendCountingBytes(bytes).compactMap(\.text)
+    }
+
+    /// Como `append`, pero cada línea completa trae los bytes que ocupaba (con su `\n`):
+    /// así se sabe hasta qué byte se ha procesado, aunque una línea no sea UTF-8 válido.
+    mutating func appendCountingBytes(_ bytes: [UInt8]) -> [(text: String?, byteCount: Int)] {
         buffer.append(contentsOf: bytes)
-        var lines: [String] = []
+        var lines: [(text: String?, byteCount: Int)] = []
         while let newline = buffer.firstIndex(of: 0x0A) {
             let lineData = buffer.subdata(in: buffer.startIndex..<newline)
+            let count = buffer.distance(from: buffer.startIndex, to: newline) + 1
             buffer.removeSubrange(buffer.startIndex...newline)
-            if let line = String(data: lineData, encoding: .utf8) {
-                lines.append(line)
-            }
+            lines.append((String(data: lineData, encoding: .utf8), count))
         }
         return lines
     }
