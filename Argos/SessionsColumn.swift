@@ -33,12 +33,13 @@ struct SessionsColumn: View {
     @State private var isShowingResources = false
     @FocusState private var searchFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var collapsedGroups = CollapsedSessionGroups.shared
 
     var body: some View {
         List(selection: $selection) {
             ForEach(servers) { server in
                 Section {
-                    if let vm = vms[server.id] {
+                    if let vm = vms[server.id], !isServerHidden(server) {
                         ServerSessionsSection(
                             server: server,
                             vm: vm,
@@ -177,6 +178,9 @@ struct SessionsColumn: View {
         }
         let group = project?.group ?? (project == nil ? "Sesiones sueltas" : SessionGrouping.ungroupedName)
         let collapsed = CollapsedSessionGroups.shared
+        if collapsed.isServerCollapsed(handle.serverID) {
+            collapsed.toggleServer(handle.serverID)
+        }
         if collapsed.isCollapsed(serverID: handle.serverID, group: group) {
             collapsed.toggle(serverID: handle.serverID, group: group)
         }
@@ -317,7 +321,7 @@ struct SessionsColumn: View {
     private var statusCounts: [ProjectStatusFilter: Int] {
         var statuses: [ProjectStatus] = []
         for server in servers {
-            guard let vm = vms[server.id], case .loaded = vm.state else { continue }
+            guard let vm = vms[server.id], case .loaded = vm.state, !isServerHidden(server) else { continue }
             let listing = vm.projectListing
             statuses += listing.entries.map { terminalStore.status(of: $0, serverID: server.id) }
             statuses += listing.looseSessions.map { terminalStore.status(of: $0, serverID: server.id) }
@@ -336,7 +340,7 @@ struct SessionsColumn: View {
             query.isEmpty || value.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
         }
         for server in servers {
-            guard let vm = vms[server.id], case .loaded = vm.state else { continue }
+            guard let vm = vms[server.id], case .loaded = vm.state, !isServerHidden(server) else { continue }
             let listing = vm.projectListing
             let entries = listing.entries.filter {
                 (matches($0.project.sessionName) || matches($0.project.path))
@@ -480,25 +484,69 @@ struct SessionsColumn: View {
         isShowingBroadcast = true
     }
 
+    /// Un servidor colapsado oculta su contenido, salvo mientras se busca o filtra
+    /// (los resultados nunca quedan escondidos).
+    private func isServerHidden(_ server: Server) -> Bool {
+        searchText.isEmpty && statusFilter == .all && collapsedGroups.isServerCollapsed(server.id)
+    }
+
     @ViewBuilder
     private func serverHeader(_ server: Server) -> some View {
+        let isCollapsed = collapsedGroups.isServerCollapsed(server.id)
         HStack(spacing: 7) {
-            Image(systemName: "server.rack")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-            Text(server.name)
-                .font(.system(size: 12, weight: .semibold))
-                .textCase(nil)
-                .foregroundStyle(.primary)
+            Button {
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
+                    collapsedGroups.toggleServer(server.id)
+                }
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                    Image(systemName: "server.rack")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                    Text(server.name)
+                        .font(.system(size: 12, weight: .semibold))
+                        .textCase(nil)
+                        .foregroundStyle(.primary)
+                    if isCollapsed, let vm = vms[server.id], case .loaded = vm.state {
+                        collapsedServerSummary(vm)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(isCollapsed ? "Expandir \(server.name)" : "Colapsar \(server.name)")
+            .accessibilityLabel("Servidor \(server.name)")
+            .accessibilityValue(isCollapsed ? "colapsado" : "expandido")
             if let vm = vms[server.id], vm.isWorking {
                 ProgressView().controlSize(.mini)
             }
-            Spacer()
             if let vm = vms[server.id], case .loaded = vm.state {
                 serverMenu(server, vm: vm)
             }
         }
         .padding(.vertical, 5)
+    }
+
+    /// Con el servidor colapsado: cuántos proyectos oculta y el aviso de Claude más urgente.
+    @ViewBuilder
+    private func collapsedServerSummary(_ vm: SessionsViewModel) -> some View {
+        let listing = vm.projectListing
+        let count = listing.entries.count + listing.looseSessions.count
+        Text("\(count)")
+            .font(.system(size: 9, weight: .semibold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(Color.secondary.opacity(0.09), in: Capsule())
+        if let claude = vm.claudeActivity.activity(forSessions: vm.sessions.map(\.name)) {
+            ClaudeActivityBadge(activity: claude, size: 10)
+        }
     }
 
     /// Acciones de proyectos del servidor (crear, importar, liberar memoria).
@@ -655,6 +703,7 @@ struct SessionRow: View {
     private var isLoaded: Bool { state == .live || state == .connecting }
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var collapsedGroups = CollapsedSessionGroups.shared
 
     var body: some View {
         HStack(spacing: 10) {

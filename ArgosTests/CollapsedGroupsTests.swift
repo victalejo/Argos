@@ -65,4 +65,19 @@ struct CollapsedGroupsTests {
         #expect(snapshot.activity(forSessions: ["g/a"]) == .working)
         #expect(snapshot.activity(forSessions: ["otra"]) == nil)
     }
+
+    @Test("Un servidor colapsado no colapsa sus grupos y persiste")
+    func serverCollapse() {
+        let defaults = makeDefaults()
+        let store = CollapsedSessionGroups(defaults: defaults)
+        let a = UUID(), b = UUID()
+        #expect(!store.isServerCollapsed(a))
+        store.toggleServer(a)
+        #expect(store.isServerCollapsed(a))
+        #expect(!store.isServerCollapsed(b))
+        #expect(!store.isCollapsed(serverID: a, group: "web"))
+        #expect(CollapsedSessionGroups(defaults: defaults).isServerCollapsed(a))
+        store.toggleServer(a)
+        #expect(!store.isServerCollapsed(a))
+    }
 }
