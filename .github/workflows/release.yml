@@ -5,10 +5,21 @@ name: Release DMG
 #   - Push de un tag v* (p. ej. v1.0.2): además publica un GitHub Release con el DMG
 #     adjunto y notas generadas automáticamente desde los Conventional Commits.
 #
-# Firma AD-HOC ("-"): la app corre en tu propia Mac sin cuenta Apple Developer.
+# Por defecto, firma AD-HOC ("-"): la app corre en tu propia Mac sin cuenta Apple Developer.
 # NO está notarizada, así que tras descargar hay que quitar la cuarentena de Gatekeeper
-# (ver el cuerpo del release). Para distribuir a terceros sin avisos haría falta
-# firma con Developer ID + notarización.
+# (ver el cuerpo del release).
+#
+# NOTARIZACIÓN (opcional): si existen TODOS estos secretos del repositorio, la app se
+# re-firma con Developer ID (equipo L6WGLNT9XZ, hardened runtime, de dentro afuera), se
+# notariza con `notarytool`, se grapa el ticket (`stapler`) y el release deja de pedir el
+# `xattr`. Si falta alguno, el flujo se comporta exactamente como siempre (ad-hoc).
+#   DEVELOPER_ID_CERT_P12       certificado «Developer ID Application» + clave, .p12 en base64
+#                               (`base64 -i cert.p12 | pbcopy`)
+#   DEVELOPER_ID_CERT_PASSWORD  contraseña con la que se exportó el .p12
+#   NOTARY_API_KEY_P8           contenido de la clave API de App Store Connect (AuthKey_XXXX.p8)
+#   NOTARY_API_KEY_ID           ID de esa clave (10 caracteres)
+#   NOTARY_API_ISSUER_ID        Issuer ID de App Store Connect (UUID)
+# Sparkle (firma EdDSA y appcast) no cambia: el ZIP se genera DESPUÉS de grapar.
 
 on:
   workflow_dispatch:
@@ -27,7 +38,12 @@ permissions:
 jobs:
   build-dmg:
     runs-on: macos-15
-    timeout-minutes: 60
+    # La notarización espera a Apple (normalmente minutos, a veces más).
+    timeout-minutes: 90
+    env:
+      # 'true' solo si están TODOS los secretos de firma y notarización.
+      NOTARIZE: ${{ secrets.DEVELOPER_ID_CERT_P12 != '' && secrets.DEVELOPER_ID_CERT_PASSWORD != '' && secrets.NOTARY_API_KEY_P8 != '' && secrets.NOTARY_API_KEY_ID != '' && secrets.NOTARY_API_ISSUER_ID != '' }}
+      DEVELOPER_TEAM_ID: L6WGLNT9XZ
     steps:
       # Acciones fijadas por SHA (Dependabot las mantiene al día): un tag se puede mover.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -92,6 +108,108 @@ jobs:
             exit 1
           fi
           echo "Versión OK: binario $SHORT coincide con el tag $EXPECTED"
+
+      # --- Developer ID + notarización (solo con los secretos; ver la cabecera) ---------
+
+      # Llavero temporal con el certificado. Los secretos viajan por entorno, nunca por
+      # la línea de comandos.
+      - name: Importar certificado Developer ID
+        if: env.NOTARIZE == 'true'
+        env:
+          CERT_P12_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/argos-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          printf '%s' "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/developer-id.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/developer-id.p12" -k "$KEYCHAIN" -P "$CERT_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          # Añade el llavero a la lista de búsqueda sin quitar los existentes.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | grep 'Developer ID Application' | grep "(${DEVELOPER_TEAM_ID})" | head -1 \
+            | sed -E 's/^[^"]*"(.*)"$/\1/')"
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::El .p12 no contiene un «Developer ID Application» del equipo ${DEVELOPER_TEAM_ID}."
+            security find-identity -v -p codesigning "$KEYCHAIN" || true
+            exit 1
+          fi
+          echo "SIGN_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "Identidad de firma: $IDENTITY"
+
+      # Re-firma la app ya compilada (la compilación ad-hoc no cambia) de dentro afuera,
+      # con hardened runtime y sello de tiempo, conservando los entitlements de cada pieza
+      # (Sparkle incluye ejecutables, un .app y XPC propios que Apple exige firmados así).
+      - name: Firmar con Developer ID (hardened runtime)
+        if: env.NOTARIZE == 'true'
+        run: |
+          set -euo pipefail
+          APP="build/dd/Build/Products/Release/Argos.app"
+          sign() {
+            codesign --force --options runtime --timestamp \
+              --keychain "$SIGN_KEYCHAIN" --sign "$SIGN_IDENTITY" \
+              --preserve-metadata=entitlements,identifier "$1"
+          }
+          # 1) Mach-O sueltos (ejecutables, dylibs) más profundos primero, salvo el principal.
+          MAIN="$APP/Contents/MacOS/Argos"
+          find "$APP/Contents" -type f ! -path "$MAIN" -print0 \
+            | while IFS= read -r -d '' file; do
+                if file -b "$file" | grep -q 'Mach-O'; then echo "$file"; fi
+              done \
+            | awk '{ print gsub("/", "/"), $0 }' | sort -rn | cut -d' ' -f2- \
+            | while IFS= read -r file; do sign "$file"; done
+          # 2) Paquetes anidados (.xpc, .app, .framework), también del más profundo al más alto.
+          find "$APP/Contents" \( -name '*.xpc' -o -name '*.app' -o -name '*.framework' \) -type d \
+            | awk '{ print gsub("/", "/"), $0 }' | sort -rn | cut -d' ' -f2- \
+            | while IFS= read -r bundle; do sign "$bundle"; done
+          # 3) La app.
+          sign "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv --verbose=2 "$APP" 2>&1 | grep -E 'Authority|TeamIdentifier|flags'
+
+      - name: Notarizar y grapar (notarytool + stapler)
+        if: env.NOTARIZE == 'true'
+        env:
+          NOTARY_API_KEY_P8: ${{ secrets.NOTARY_API_KEY_P8 }}
+          NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          APP="build/dd/Build/Products/Release/Argos.app"
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$NOTARY_API_KEY_P8" > "$KEY"
+          chmod 600 "$KEY"
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/Argos-notarize.zip"
+          if ! xcrun notarytool submit "$RUNNER_TEMP/Argos-notarize.zip" \
+              --key "$KEY" --key-id "$NOTARY_API_KEY_ID" --issuer "$NOTARY_API_ISSUER_ID" \
+              --wait --timeout 60m --output-format json | tee "$RUNNER_TEMP/notary.json"; then
+            echo "::error::notarytool falló al enviar o esperar."
+            exit 1
+          fi
+          STATUS="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("status",""))' "$RUNNER_TEMP/notary.json")"
+          if [ "$STATUS" != "Accepted" ]; then
+            ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("id",""))' "$RUNNER_TEMP/notary.json")"
+            echo "::error::Apple no aceptó la notarización (estado: ${STATUS:-desconocido})."
+            xcrun notarytool log "$ID" --key "$KEY" --key-id "$NOTARY_API_KEY_ID" --issuer "$NOTARY_API_ISSUER_ID" || true
+            exit 1
+          fi
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+          spctl --assess --type execute --verbose=2 "$APP"
+          rm -f "$KEY"
+          echo "NOTARIZED=true" >> "$GITHUB_ENV"
+
+      - name: Limpiar llavero de firma
+        if: always() && env.NOTARIZE == 'true'
+        run: |
+          security delete-keychain "${SIGN_KEYCHAIN:-$RUNNER_TEMP/argos-signing.keychain-db}" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/developer-id.p12" "$RUNNER_TEMP/AuthKey.p8"
 
       # Empaqueta con hdiutil (sin Finder/AppleScript → fiable en runner headless).
       # La versión sale del tag (v1.0.2 → 1.0.2); en corridas manuales, del Info.plist.
@@ -191,16 +309,22 @@ jobs:
           }
 
           {
-            echo "Build ad-hoc para uso personal (sin notarizar)."
-            echo
-            echo "**Instalación:** abre el \`.dmg\` y arrastra Argos a Applications."
-            echo "En la primera ejecución (Gatekeeper bloquea apps sin notarizar):"
-            echo
-            echo '```sh'
-            echo "xattr -dr com.apple.quarantine /Applications/Argos.app"
-            echo '```'
-            echo
-            echo "o clic derecho sobre la app → **Abrir**."
+            if [[ "${NOTARIZED:-}" == "true" ]]; then
+              echo "Firmada con Developer ID y notarizada por Apple."
+              echo
+              echo "**Instalación:** abre el \`.dmg\` y arrastra Argos a Applications."
+            else
+              echo "Build ad-hoc para uso personal (sin notarizar)."
+              echo
+              echo "**Instalación:** abre el \`.dmg\` y arrastra Argos a Applications."
+              echo "En la primera ejecución (Gatekeeper bloquea apps sin notarizar):"
+              echo
+              echo '```sh'
+              echo "xattr -dr com.apple.quarantine /Applications/Argos.app"
+              echo '```'
+              echo
+              echo "o clic derecho sobre la app → **Abrir**."
+            fi
             echo
             echo "## Cambios"
             echo
