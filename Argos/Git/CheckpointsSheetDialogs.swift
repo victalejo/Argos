@@ -60,8 +60,12 @@ struct CheckpointRestoreFileButton: View {
             .disabled(!model.canRestoreFile)
             .help("Lo deja como estaba en este punto (o lo borra si no existía)")
             .confirmationDialog(CheckpointTexts.restoreFileTitle(path), isPresented: $confirm) {
-                Button(model.claudeIsWorking ? "Restaurar aunque Claude trabaja" : "Restaurar", role: .destructive) {
-                    Task { await model.restoreFile(path, acknowledgingWork: true) }
+                if !model.claudeIsWorking {
+                    Button("Restaurar", role: .destructive) { Task { await model.restoreFile(path) } }
+                } else if model.canStopClaude {
+                    Button(CheckpointTexts.stopAndRestore, role: .destructive) {
+                        Task { await model.stopClaudeAndRestore(file: path) }
+                    }
                 }
             } message: {
                 Text(message)
@@ -78,19 +82,18 @@ struct CheckpointRestoreFileButton: View {
 struct CheckpointRestoreConfirmation: View {
     let model: CheckpointsModel
     let preview: CheckpointRestorePreview
-    @State private var acknowledged = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("¿Dejar los archivos como estaban en este punto?").font(.headline)
             Text(preview.checkpoint.title).foregroundStyle(.secondary).lineLimit(2)
-            CheckpointRestoreWarnings(model: model, preview: preview, acknowledged: $acknowledged)
+            CheckpointRestoreWarnings(model: model, preview: preview)
             List {
                 CheckpointIssueSection(title: "No se puede restaurar", issues: preview.conflicts)
-                CheckpointPathSection(title: "Se modificarán", paths: preview.toModify)
-                CheckpointPathSection(title: "Se borrarán", paths: preview.toDelete)
-                CheckpointPathSection(title: "Se recrearán", paths: preview.toRecreate)
-                CheckpointPathSection(title: "Existen y git los ignora: no se tocan", paths: preview.untouched)
+                CheckpointPathSection(title: "Se modificarán", paths: preview.modifies)
+                CheckpointPathSection(title: "Se borrarán", paths: preview.deletes)
+                CheckpointPathSection(title: "Se recrearán", paths: preview.recreates)
+                CheckpointPathSection(title: "No se tocan (ignorados o repositorios anidados)", paths: preview.untouched)
             }
             .frame(minHeight: 220)
             Text(CheckpointTexts.restoreFootnote).font(.caption).foregroundStyle(.secondary)
@@ -98,26 +101,36 @@ struct CheckpointRestoreConfirmation: View {
                 Spacer()
                 Button("Cancelar", role: .cancel) { model.cancelRestore() }
                     .keyboardShortcut(.cancelAction)
-                Button("Restaurar", role: .destructive) {
-                    Task { await model.confirmRestore(acknowledgingWork: acknowledged) }
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!canConfirm)
+                CheckpointConfirmButton(model: model, preview: preview)
             }
         }
         .padding(20)
         .frame(width: 580)
     }
+}
 
-    private var canConfirm: Bool {
-        preview.canRestore && (!model.claudeIsWorking || acknowledged)
+/// «Restaurar», o «Detener a Claude y restaurar» si está trabajando.
+private struct CheckpointConfirmButton: View {
+    let model: CheckpointsModel
+    let preview: CheckpointRestorePreview
+
+    var body: some View {
+        if model.claudeIsWorking {
+            Button(CheckpointTexts.stopAndRestore, role: .destructive) {
+                Task { await model.stopClaudeAndRestore() }
+            }
+            .disabled(!preview.canRestore || !model.canStopClaude)
+        } else {
+            Button("Restaurar", role: .destructive) { Task { await model.confirmRestore() } }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!preview.canRestore)
+        }
     }
 }
 
 private struct CheckpointRestoreWarnings: View {
     let model: CheckpointsModel
     let preview: CheckpointRestorePreview
-    @Binding var acknowledged: Bool
 
     var body: some View {
         if !preview.canRestore {
@@ -129,7 +142,6 @@ private struct CheckpointRestoreWarnings: View {
         }
         if model.claudeIsWorking {
             Label(CheckpointTexts.workingWarning, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-            Toggle(CheckpointTexts.workingAcknowledgement, isOn: $acknowledged)
         }
     }
 }

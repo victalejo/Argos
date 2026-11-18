@@ -16,9 +16,11 @@ struct CheckpointsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     init(path: String, viewModel: SessionsViewModel, opensLatestTurn: Bool) {
-        _model = State(initialValue: CheckpointsModel(path: path, service: viewModel.service) { [weak viewModel] in
-            viewModel?.claudeActivity(forProjectPath: path)
-        })
+        _model = State(initialValue: CheckpointsModel(
+            path: path, service: viewModel.service,
+            activity: { [weak viewModel] in viewModel?.claudeActivity(forProjectPath: path) },
+            stopClaude: { [weak viewModel] in try await viewModel?.interruptClaude(forProjectPath: path) }
+        ))
         self.opensLatestTurn = opensLatestTurn
     }
 

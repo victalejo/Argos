@@ -65,9 +65,12 @@ struct CheckpointFileDiffScreen: View {
             }
             .confirmationDialog(CheckpointTexts.restoreFileTitle(file.path), isPresented: $confirm,
                                 titleVisibility: .visible) {
-                Button(model.claudeIsWorking ? "Restaurar aunque Claude trabaja" : "Restaurar este archivo",
-                       role: .destructive) {
-                    Task { await model.restoreFile(file.path, acknowledgingWork: true) }
+                if !model.claudeIsWorking {
+                    Button("Restaurar este archivo", role: .destructive) { Task { await model.restoreFile(file.path) } }
+                } else if model.canStopClaude {
+                    Button(CheckpointTexts.stopAndRestore, role: .destructive) {
+                        Task { await model.stopClaudeAndRestore(file: file.path) }
+                    }
                 }
             } message: {
                 Text(message)
@@ -98,17 +101,16 @@ struct CheckpointFileDiffScreen: View {
 private struct CheckpointRestoreSheet: View {
     let model: CheckpointsModel
     let preview: CheckpointRestorePreview
-    @State private var acknowledged = false
 
     var body: some View {
         NavigationStack {
             List {
-                CheckpointRestoreHeaderSection(model: model, preview: preview, acknowledged: $acknowledged)
+                CheckpointRestoreHeaderSection(model: model, preview: preview)
                 CheckpointIssueSectioniOS(title: "No se puede restaurar", issues: preview.conflicts)
-                CheckpointPathSectioniOS(title: "Se modificarán", paths: preview.toModify)
-                CheckpointPathSectioniOS(title: "Se borrarán", paths: preview.toDelete)
-                CheckpointPathSectioniOS(title: "Se recrearán", paths: preview.toRecreate)
-                CheckpointPathSectioniOS(title: "Existen y git los ignora: no se tocan", paths: preview.untouched)
+                CheckpointPathSectioniOS(title: "Se modificarán", paths: preview.modifies)
+                CheckpointPathSectioniOS(title: "Se borrarán", paths: preview.deletes)
+                CheckpointPathSectioniOS(title: "Se recrearán", paths: preview.recreates)
+                CheckpointPathSectioniOS(title: "No se tocan (ignorados o repositorios anidados)", paths: preview.untouched)
             }
             .navigationTitle("¿Deshacer hasta aquí?")
             .navigationBarTitleDisplayMode(.inline)
@@ -117,10 +119,13 @@ private struct CheckpointRestoreSheet: View {
                     Button("Cancelar") { model.cancelRestore() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Restaurar", role: .destructive) {
-                        Task { await model.confirmRestore(acknowledgingWork: acknowledged) }
+                    if model.claudeIsWorking {
+                        Button("Detener y restaurar", role: .destructive) { Task { await model.stopClaudeAndRestore() } }
+                            .disabled(!preview.canRestore || !model.canStopClaude)
+                    } else {
+                        Button("Restaurar", role: .destructive) { Task { await model.confirmRestore() } }
+                            .disabled(!preview.canRestore)
                     }
-                    .disabled(!preview.canRestore || (model.claudeIsWorking && !acknowledged))
                 }
             }
         }
@@ -130,7 +135,6 @@ private struct CheckpointRestoreSheet: View {
 private struct CheckpointRestoreHeaderSection: View {
     let model: CheckpointsModel
     let preview: CheckpointRestorePreview
-    @Binding var acknowledged: Bool
 
     var body: some View {
         Section {
@@ -145,7 +149,6 @@ private struct CheckpointRestoreHeaderSection: View {
             if model.claudeIsWorking {
                 Label(CheckpointTexts.workingWarning, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
-                Toggle(CheckpointTexts.workingAcknowledgement, isOn: $acknowledged)
             }
         } footer: {
             Text(CheckpointTexts.restoreFootnote)
