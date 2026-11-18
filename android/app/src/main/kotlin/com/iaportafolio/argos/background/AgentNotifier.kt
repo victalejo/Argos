@@ -189,6 +189,7 @@ class AgentNotifier(
         val before = store.seenBytes(server.id)
         val snapshots = PersistentAgentScript.parseSnapshots(output)
         val plan = AgentAttentionPlanner.notices(snapshots, before, clock())
+        val folders = snapshots.associate { it.id to it.workingDirectory }
         plan.notices.filterNot { isShown(server.id, it.agentID) }.forEach { notice ->
             alerts.post(
                 AgentAlert(
@@ -197,6 +198,7 @@ class AgentNotifier(
                     agentId = notice.agentID,
                     title = redactor.redact(notice.title),
                     body = redactor.redact(notice.body),
+                    projectPath = folders[notice.agentID]?.takeIf { it.isNotEmpty() },
                 ),
             )
         }

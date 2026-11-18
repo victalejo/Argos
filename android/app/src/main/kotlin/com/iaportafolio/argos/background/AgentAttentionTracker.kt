@@ -40,6 +40,8 @@ data class AgentAlert(
     val agentId: String,
     val title: String,
     val body: String,
+    /** Carpeta del agente: tocar el aviso abre su proyecto → Agentes → su chat. */
+    val projectPath: String? = null,
 )
 
 /** Publica los avisos en el sistema. La implementación real es [SystemAgentAlerts]. */

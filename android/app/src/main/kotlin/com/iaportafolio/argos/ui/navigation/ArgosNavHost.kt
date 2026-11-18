@@ -24,7 +24,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -33,6 +32,8 @@ import androidx.navigation.toRoute
 import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.background.AgentChatTarget
+import com.iaportafolio.argos.ui.doctor.DoctorScreen
+import com.iaportafolio.argos.ui.doctor.doctorViewModel
 import com.iaportafolio.argos.background.CheckTrigger
 import com.iaportafolio.argos.background.ClaudeTarget
 import com.iaportafolio.argos.ui.claude.ClaudeHooksDialogs
@@ -96,6 +97,9 @@ data class ProjectRoute(val serverId: String, val projectId: String, val tab: St
 
 @Serializable
 data class PortsRoute(val serverId: String)
+
+@Serializable
+data class DoctorRoute(val serverId: String)
 
 @Serializable
 data class MonitorRoute(val serverId: String)
@@ -179,6 +183,7 @@ fun ArgosNavHost(
                 onOpenTerminal = openTerminal,
                 onOpenPorts = { id -> navController.navigate(PortsRoute(id)) },
                 onOpenMonitor = { id -> navController.navigate(MonitorRoute(id)) },
+                onOpenDoctor = { id -> navController.navigate(DoctorRoute(id)) },
             )
         }
         composable<ServerFormRoute> { entry ->
@@ -248,6 +253,10 @@ fun ArgosNavHost(
             val route = entry.toRoute<MonitorRoute>()
             ResourceMonitorScreen(resourceMonitorViewModel(container, route.serverId), onBack = { navController.popBackStack() })
         }
+        composable<DoctorRoute> { entry ->
+            val route = entry.toRoute<DoctorRoute>()
+            DoctorScreen(doctorViewModel(container, route.serverId), onBack = { navController.popBackStack() })
+        }
         composable<PortsRoute> { entry ->
             val route = entry.toRoute<PortsRoute>()
             val viewModel = portForwardsViewModel(container, route.serverId)
@@ -303,9 +312,9 @@ fun ArgosNavHost(
     }
     // Después del NavHost: su grafo ya está puesto al ejecutarse el efecto.
     LaunchedEffect(chatTarget) {
-        chatTarget?.let {
-            navController.openChat(it)
+        chatTarget?.let { target ->
             onChatTargetConsumed()
+            navController.openAgentChat(target, container.servers, container.services, container.io)
         }
     }
     LaunchedEffect(claudeTarget) {
@@ -332,13 +341,6 @@ fun ArgosNavHost(
     }
 }
 
-/** Abre el chat del aviso, salvo que ya esté delante. */
-private fun NavController.openChat(target: AgentChatTarget) {
-    val route = AgentChatRoute(target.serverId, target.agentId)
-    val current = currentBackStackEntry?.takeIf { it.destination.hasRoute<AgentChatRoute>() }?.toRoute<AgentChatRoute>()
-    if (current != route) navigate(route)
-}
-
 @Composable
 private fun ServersDestination(
     container: AppContainer,
@@ -354,6 +356,7 @@ private fun ServersDestination(
     onOpenTerminal: (serverId: String, sessionName: String) -> Unit,
     onOpenPorts: (serverId: String) -> Unit,
     onOpenMonitor: (serverId: String) -> Unit,
+    onOpenDoctor: (serverId: String) -> Unit,
 ) {
     val viewModel = serversViewModel(container)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -402,6 +405,7 @@ private fun ServersDestination(
                 modifier = modifier,
                 diagnostics = { onDismiss -> DiagnosticsDestination(container, onDismiss) },
                 onEnableClaude = { server -> claudeHooksFor = server.id },
+                onOpenDoctor = { server -> onOpenDoctor(server.id) },
                 extraSettings = { closeMenu ->
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.startup_command_menu)) },

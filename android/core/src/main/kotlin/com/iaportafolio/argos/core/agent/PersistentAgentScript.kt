@@ -356,7 +356,7 @@ object PersistentAgentScript {
         if (fields.size != 5 || !isValidID(fields[0])) return@mapNotNull null
         val meta = decodeMetaBase64(fields[3]) ?: return@mapNotNull null
         val tail = SwiftText.decodeBase64(fields[4])?.toString(Charsets.UTF_8) ?: ""
-        AgentLogSnapshot(fields[0], fields[1] == "1", fields[2].toLongOrNull() ?: 0, meta.title, meta.createdAt, tail)
+        AgentLogSnapshot(fields[0], fields[1] == "1", fields[2].toLongOrNull() ?: 0, meta.title, meta.createdAt, tail, meta.workingDirectory)
     }
 
     internal fun decodeMetaBase64(text: String): PersistentAgentMeta? =

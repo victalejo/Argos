@@ -95,12 +95,11 @@ class SystemAgentAlerts(context: Context) : AgentAlertSink {
 
     private fun openChat(alert: AgentAlert): PendingIntent {
         val tag = tag(alert.serverId, alert.agentId)
-        val intent = Intent(appContext, MainActivity::class.java)
+        val base = Intent(appContext, MainActivity::class.java)
             .setAction(AgentChatLink.ACTION_OPEN_CHAT)
             // Distingue los `PendingIntent` de cada agente, que si no se pisarían los extras.
             .setIdentifier(tag)
-            .putExtra(AgentChatLink.EXTRA_SERVER_ID, alert.serverId)
-            .putExtra(AgentChatLink.EXTRA_AGENT_ID, alert.agentId)
+        val intent = AgentChatLink.putRoute(base, AgentChatLink.route(alert.serverId, alert.agentId, alert.projectPath))
             // Reutiliza la Activity (y sus terminales) aunque tenga encima un selector de archivos.
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         return PendingIntent.getActivity(appContext, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)

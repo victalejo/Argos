@@ -137,17 +137,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Solo cadenas y enteros: lo demás que traiga un `Intent` ajeno se ignora. */
+    private fun readExtra(extras: Bundle, key: String): Any? =
+        extras.getString(key) ?: extras.getInt(key, Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE }
+
     private fun openChatFrom(intent: Intent) {
         if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
         if (intent.action != AgentChatLink.ACTION_OPEN_CHAT) return
         // Otra app puede lanzarnos con un Bundle malformado: leerlo puede lanzar, y se ignora.
         val target = try {
-            AgentChatLink.parse(
-                intent.action,
-                intent.getStringExtra(AgentChatLink.EXTRA_SERVER_ID),
-                intent.getStringExtra(AgentChatLink.EXTRA_AGENT_ID),
-                container.servers,
-            )
+            val extras = intent.extras
+            AgentChatLink.parse(intent.action, { key -> extras?.let { readExtra(it, key) } }, container.servers)
         } catch (error: RuntimeException) {
             ArgosLog.warn(ArgosLog.TAG_UI, "Intent de aviso ilegible (${error::class.java.simpleName})")
             null
