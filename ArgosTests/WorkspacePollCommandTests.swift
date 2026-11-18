@@ -149,6 +149,7 @@ struct WorkspacePollScriptTests {
 
     /// tmux con dos sesiones; `web` tiene a Claude trabajando y `api` terminado.
     private static let busyTmux = """
+        [ "$1" = -u ] && shift
         case "$1" in
           list-panes) printf 'working|%%1|0|web\\ndone|%%2|1|api\\n' ;;
           capture-pane) printf 'algo\\n  esc to interrupt\\n' ;;
