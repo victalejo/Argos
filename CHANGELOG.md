@@ -6,6 +6,19 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.8.9] - 2026-11-18
+
+### Añadido
+- **Mac: los servidores se pueden colapsar** en la columna de proyectos. Clic en su nombre
+  oculta todos sus proyectos; colapsado muestra cuántos oculta y el aviso de Claude más
+  urgente. Se recuerda entre reinicios y nunca esconde resultados mientras buscas o filtras.
+
+### Corregido
+- **«Enviar al servidor» fallaba con «Error de NIOSSHError 1».** Las transferencias en
+  paralelo dejaban canales SFTP abiertos que agotaban el límite del servidor (`MaxSessions`),
+  y entonces fallaba cualquier operación nueva (envíos, rama git…). Ahora se abre un solo
+  canal, y los errores SSH se explican en vez de mostrar un código.
+
 ## [1.8.8] - 2026-11-15
 
 ### Mejorado
