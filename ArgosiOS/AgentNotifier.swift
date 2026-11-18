@@ -14,6 +14,7 @@
 
 import BackgroundTasks
 import Foundation
+import UIKit
 import UserNotifications
 
 @MainActor
@@ -43,28 +44,91 @@ final class AgentNotifier {
         }
     }
 
-    /// Al crear o abrir un agente: pide permiso de notificaciones (una vez) y apunta el
-    /// servidor para revisarlo en segundo plano.
+    /// Al crear o abrir un agente: apunta el servidor para revisarlo en segundo plano.
+    /// El permiso de notificaciones NO se pide aquí (puede llegar desde una carga, no
+    /// desde un toque): lo pide `requestAuthorizationFromUserAction()`.
     func didUseAgents(on server: Server) {
         var servers = Set(defaults.stringArray(forKey: Self.serversKey) ?? [])
         servers.insert(server.id.uuidString)
         defaults.set(Array(servers), forKey: Self.serversKey)
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 
-    /// Se vio Claude Code en una ventana tmux de este servidor: pide permiso de
-    /// notificaciones (una vez) y lo apunta para revisarlo en segundo plano.
+    /// Se vio Claude Code en una ventana tmux de este servidor (lo detecta el sondeo):
+    /// se apunta para revisarlo en segundo plano. Sin pedir permiso: es un sondeo.
     func didSeeClaude(on server: Server) {
         var servers = Set(defaults.stringArray(forKey: Self.claudeServersKey) ?? [])
         guard servers.insert(server.id.uuidString).inserted else { return }
         defaults.set(Array(servers), forKey: Self.claudeServersKey)
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 
-    /// «Claude terminó / espera tu respuesta» en una ventana tmux. No se avisa de la
-    /// sesión que hay en pantalla (`viewing`): ahí ya se ve.
-    func postClaude(_ transitions: [ClaudeTransition], server: Server, viewing: String?) {
-        for transition in transitions where transition.session != viewing {
+    // MARK: - Permiso (siempre tras una acción del usuario)
+
+    /// Pide el permiso de notificaciones si aún no se pidió. Llamar SOLO desde una
+    /// acción del usuario (botón «Activar avisos», crear un agente, activar el indicador
+    /// de Claude): iOS solo lo pregunta una vez y, pedido a destiempo, se suele denegar.
+    /// Devuelve si los avisos quedan permitidos.
+    @discardableResult
+    func requestAuthorizationFromUserAction() async -> Bool {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .notDetermined else {
+            return Self.permission(settings.authorizationStatus) != .denied
+        }
+        do {
+            return try await center.requestAuthorization(options: [.alert, .sound, .badge])
+        } catch {
+            Log.agent.error("No se pudo pedir el permiso de notificaciones: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+    }
+
+    /// Estado real del sistema para la hoja «Avisos».
+    func readiness() async -> NotificationReadiness {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        let refresh: BackgroundRefreshAvailability = switch UIApplication.shared.backgroundRefreshStatus {
+        case .available: .available
+        case .restricted: .restricted
+        case .denied: .denied
+        @unknown default: .denied
+        }
+        return NotificationReadiness(
+            permission: Self.permission(settings.authorizationStatus),
+            alertsEnabled: settings.alertSetting != .disabled || settings.notificationCenterSetting == .enabled,
+            backgroundRefresh: refresh,
+            lowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled
+        )
+    }
+
+    private static func permission(_ status: UNAuthorizationStatus) -> NotificationPermission {
+        switch status {
+        case .notDetermined: return .notDetermined
+        case .denied: return .denied
+        case .authorized: return .authorized
+        case .provisional, .ephemeral: return .quiet
+        @unknown default: return .denied
+        }
+    }
+
+    /// Al abrir una sesión: retira del Centro de notificaciones sus avisos de Claude (ya
+    /// no hacen falta: el usuario la está mirando).
+    func withdrawDelivered(serverID: Server.ID, session: String) {
+        let thread = Self.claudeThread(serverID: serverID, session: session)
+        let center = UNUserNotificationCenter.current()
+        Task { @MainActor in
+            let delivered = await center.deliveredNotifications()
+            let ids = delivered.filter { $0.request.content.threadIdentifier == thread }.map(\.request.identifier)
+            if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
+        }
+    }
+
+    private static func claudeThread(serverID: Server.ID, session: String) -> String {
+        "claude-\(serverID.uuidString)-\(session)"
+    }
+
+    /// «Claude terminó / espera tu respuesta» en una ventana tmux. Quien llama ya quitó
+    /// lo que está a la vista (`ClaudeNoticeSuppression`).
+    func postClaude(_ transitions: [ClaudeTransition], server: Server) {
+        for transition in transitions {
             let content = UNMutableNotificationContent()
             content.title = transition.activity.label
             content.subtitle = "\(transition.session) · ventana \(transition.window) · \(server.name)"
@@ -72,7 +136,7 @@ final class AgentNotifier {
                 ? "Necesita permiso o una respuesta para continuar."
                 : ClaudeDoneMessage.body(changedFiles: nil)
             content.sound = .default
-            content.threadIdentifier = "claude-\(server.id.uuidString)-\(transition.session)"
+            content.threadIdentifier = Self.claudeThread(serverID: server.id, session: transition.session)
             content.userInfo = NotificationRoute(
                 serverID: server.id, session: transition.session, window: transition.window
             ).userInfo
@@ -231,7 +295,7 @@ final class AgentNotifier {
             var snapshots = claudeSnapshots()
             // Sin referencia previa no se sabe qué es nuevo: solo se toma nota.
             if let previous = snapshots[key] {
-                postClaude(fresh.notableTransitions(since: previous), server: server, viewing: nil)
+                postClaude(fresh.notableTransitions(since: previous), server: server)
             }
             snapshots[key] = fresh
             saveClaudeSnapshots(snapshots)
@@ -272,7 +336,6 @@ final class AgentNotifier {
     func postCI(_ results: [CIResult], server: Server) {
         guard !results.isEmpty else { return }
         let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
         for result in results {
             let content = UNMutableNotificationContent()
             content.title = result.title

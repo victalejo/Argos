@@ -39,10 +39,13 @@ final class ServerHub {
     /// Destino pedido al tocar una notificación. Lo consume la vista que lo resuelve.
     var pendingRoute: NotificationRoute?
     @ObservationIgnored private var routeExpiry: Task<Void, Never>?
-    /// Sesión que hay en pantalla: de esa no se avisa con la app delante.
-    @ObservationIgnored private(set) var viewing: SessionHandle?
-    /// Vistas que la muestran: al girar, la nueva aparece antes de que se vaya la vieja.
-    @ObservationIgnored private var viewingCount = 0
+    /// Terminal (sesión y ventana) que hay en pantalla: de esa ventana no se avisa con la
+    /// app delante. Con dueño: al girar, la vista nueva aparece antes de que se vaya la
+    /// vieja, y la vieja no debe borrar el foco de la nueva.
+    @ObservationIgnored private(set) var terminalFocus: TerminalFocus?
+    @ObservationIgnored private var terminalFocusOwner: UUID?
+    /// ¿Tiene cada servidor los hooks de Claude de Argos? (`nil`: sin comprobar).
+    private(set) var claudeHooks: [Server.ID: Bool] = [:]
     @ObservationIgnored private var activityPoll: Task<Void, Never>?
     /// Cambia al arrancar y al parar el sondeo: una respuesta que llega tarde no avisa.
     @ObservationIgnored private var pollGeneration = 0
@@ -120,10 +123,13 @@ final class ServerHub {
         return server
     }
 
-    /// Borra el servidor con TODO lo suyo: secretos, clave importada y conexiones.
+    /// Borra el servidor con TODO lo suyo: secretos, clave importada, conexiones y su
+    /// huella de host key (si ningún otro servidor usa el mismo host y puerto).
     func remove(_ server: Server) {
         forgetLocally(server)
         store.remove(server)
+        let shared = store.servers.contains { $0.host == server.host && $0.port == server.port }
+        if !shared { TOFUHostKeyValidator.forget(host: server.host, port: server.port) }
     }
 
     /// Lo propio de este dispositivo de un servidor que ya no está.
@@ -212,8 +218,10 @@ final class ServerHub {
                         // Parado mientras respondía (paso a segundo plano): no se avisa.
                         guard let self, self.pollGeneration == generation else { return }
                         if viewModel.claudeActivity != .empty { AgentNotifier.shared.didSeeClaude(on: server) }
-                        let viewing = self.viewing?.serverID == server.id ? self.viewing?.sessionID : nil
-                        AgentNotifier.shared.postClaude(transitions, server: server, viewing: viewing)
+                        let notices = ClaudeNoticeSuppression.notices(
+                            transitions, serverID: server.id, focus: self.terminalFocus
+                        )
+                        AgentNotifier.shared.postClaude(notices, server: server)
                     }
                 }
                 for poll in polls { await poll.value }
@@ -248,19 +256,49 @@ final class ServerHub {
         disconnect(server.id)
     }
 
-    // MARK: - Sesión en pantalla
+    // MARK: - Terminal en pantalla
 
-    func startViewing(_ handle: SessionHandle) {
-        viewingCount = viewing == handle ? viewingCount + 1 : 1
-        viewing = handle
+    /// El terminal `owner` muestra esa sesión y ventana (se llama también al cambiar de
+    /// ventana).
+    func focusTerminal(_ focus: TerminalFocus, owner: UUID) {
+        terminalFocus = focus
+        terminalFocusOwner = owner
     }
 
-    func stopViewing(_ handle: SessionHandle) {
-        guard viewing == handle else { return }
-        viewingCount -= 1
-        if viewingCount <= 0 {
-            viewingCount = 0
-            viewing = nil
+    /// El terminal `owner` deja la pantalla (solo borra el foco si sigue siendo suyo).
+    func unfocusTerminal(owner: UUID) {
+        guard terminalFocusOwner == owner else { return }
+        terminalFocus = nil
+        terminalFocusOwner = nil
+    }
+
+    // MARK: - Indicador de Claude (hooks)
+
+    /// Comprueba (una vez por ejecución) si el servidor tiene los hooks de Argos.
+    func checkClaudeHooks(of server: Server) async {
+        guard claudeHooks[server.id] == nil else { return }
+        do {
+            claudeHooks[server.id] = try await viewModel(for: server).service.claudeHooksInstalled()
+        } catch {
+            Log.ssh.notice("No se pudo comprobar el indicador de Claude: \(error.userMessage, privacy: .public)")
+        }
+    }
+
+    /// Instala los hooks de Claude en el servidor. Devuelve el mensaje para el usuario.
+    func installClaudeHooks(on server: Server) async -> String {
+        let service = viewModel(for: server).service
+        do {
+            if try await service.claudeHooksInstalled() {
+                claudeHooks[server.id] = true
+                return "El indicador ya estaba activo en \(server.name)."
+            }
+            try await service.installClaudeHooks()
+            claudeHooks[server.id] = true
+            return "Indicador activado en \(server.name). Reinicia las sesiones de Claude Code que ya "
+                + "estuvieran abiertas para que empiecen a reportar su estado."
+        } catch {
+            Log.ssh.error("Instalar hooks de Claude: \(error.userMessage, privacy: .public)")
+            return "No se pudo activar el indicador: \(error.userMessage)"
         }
     }
 
@@ -280,6 +318,11 @@ final class ServerHub {
         terminals[handle] = controller
         sweepKeepAlive()   // con el nuevo puede sobrar un aparcado
         return controller
+    }
+
+    /// Hay un terminal de Argos abierto (en pantalla o aparcado) para esa sesión.
+    func hasTerminal(server: Server.ID, sessionName: String) -> Bool {
+        terminals[SessionHandle(serverID: server, sessionID: sessionName)] != nil
     }
 
     /// El terminal sale de la pantalla (otra pestaña, girar, volver a la lista): sigue

@@ -4,21 +4,27 @@
 //
 //  Pestañas de las ventanas tmux en el iPhone/iPad, como en el Mac: `>_ 1` para las
 //  ventanas normales y el icono + nombre del agente (mascota de Claude Code, Codex,
-//  Grok) cuando corre uno. El menú «+» abre un terminal o lanza un agente.
+//  Grok) cuando corre uno, con la insignia de actividad de Claude (trabajando, espera,
+//  terminó) y el color de la ventana. El menú «+» abre un terminal o lanza un agente;
+//  mantener pulsada una pestaña la renombra, le pone color o la cierra.
 //
 
 import SwiftUI
 
 struct TerminalWindowBar: View {
     let windows: [TmuxWindow]
-    /// Ventanas en las que los hooks de Claude informan actividad.
-    var claudeWindows: Set<Int> = []
+    /// Estado de Claude por ventana (lo informan los hooks de Argos).
+    var claudeActivity: [Int: ClaudeActivity] = [:]
     /// Agentes instalados en el servidor (`nil` mientras no se sabe: todos activos).
     var installedAgents: Set<CodingAgent>?
     let onSelect: (TmuxWindow) -> Void
     let onNew: () -> Void
     let onNewAgent: (CodingAgent) -> Void
     let onClose: (TmuxWindow) -> Void
+    var onRename: (TmuxWindow) -> Void = { _ in }
+    var onColor: (TmuxWindow, WindowColor?) -> Void = { _, _ in }
+
+    private var claudeWindows: Set<Int> { Set(claudeActivity.keys) }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -61,6 +67,9 @@ struct TerminalWindowBar: View {
                         .font(.caption.weight(window.isActive ? .semibold : .regular))
                         .lineLimit(1)
                 }
+                if let activity = claudeActivity[window.index] {
+                    ClaudeActivityBadge(activity: activity, size: 10)
+                }
             }
             .foregroundStyle(window.isActive ? .white : .white.opacity(0.6))
             .padding(.horizontal, 10)
@@ -73,16 +82,38 @@ struct TerminalWindowBar: View {
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(window.isActive ? Color.white.opacity(0.12) : .clear, lineWidth: 1)
             )
+            .overlay(alignment: .bottom) {
+                if let color = window.color {
+                    Capsule().fill(color.swatch).frame(height: 2.5).padding(.horizontal, 8)
+                }
+            }
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Ventana \(window.index): \(title ?? window.name)")
+        .accessibilityLabel(accessibilityLabel(window, title: title))
         .accessibilityAddTraits(window.isActive ? .isSelected : [])
         .contextMenu {
+            Button("Renombrar…", systemImage: "pencil") { onRename(window) }
+            Menu("Color", systemImage: "paintpalette") {
+                Button("Sin color", systemImage: window.color == nil ? "checkmark" : "circle.slash") { onColor(window, nil) }
+                ForEach(WindowColor.allCases) { color in
+                    Button { onColor(window, color) } label: {
+                        Label { Text(color.displayName) } icon: { Image(uiImage: color.menuSwatch(selected: window.color == color)) }
+                    }
+                }
+            }
+            Divider()
             Button("Cerrar ventana", systemImage: "xmark", role: .destructive) { onClose(window) }
                 // Cerrar la última ventana mataría la sesión entera.
                 .disabled(windows.count <= 1)
         }
+    }
+
+    private func accessibilityLabel(_ window: TmuxWindow, title: String?) -> String {
+        var parts = ["Ventana \(window.index): \(title ?? window.name)"]
+        if let activity = claudeActivity[window.index] { parts.append(activity.label) }
+        if let color = window.color { parts.append("color \(color.displayName.lowercased())") }
+        return parts.joined(separator: ", ")
     }
 
     // MARK: - Menú «+»
@@ -139,5 +170,38 @@ enum AgentMenuIcon {
         let image = rendered.withRenderingMode(.alwaysOriginal)
         cache[agent] = image
         return image
+    }
+}
+
+extension WindowColor {
+    /// Color de SwiftUI con el que se pinta la pestaña.
+    var swatch: Color {
+        switch self {
+        case .red: return .red
+        case .orange: return .orange
+        case .yellow: return .yellow
+        case .green: return .green
+        case .mint: return .mint
+        case .blue: return .blue
+        case .purple: return .purple
+        case .pink: return .pink
+        case .gray: return .gray
+        }
+    }
+
+    /// Círculo de color para los menús de UIKit (los SF Symbols se pintan monocromos).
+    @MainActor
+    func menuSwatch(selected: Bool) -> UIImage {
+        let size = CGSize(width: 16, height: 16)
+        let image = UIGraphicsImageRenderer(size: size).image { context in
+            UIColor(swatch).setFill()
+            context.cgContext.fillEllipse(in: CGRect(origin: .zero, size: size).insetBy(dx: 2, dy: 2))
+            if selected {
+                UIColor.white.setStroke()
+                context.cgContext.setLineWidth(1.5)
+                context.cgContext.strokeEllipse(in: CGRect(origin: .zero, size: size).insetBy(dx: 5, dy: 5))
+            }
+        }
+        return image.withRenderingMode(.alwaysOriginal)
     }
 }

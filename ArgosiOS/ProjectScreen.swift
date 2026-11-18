@@ -57,11 +57,9 @@ struct ProjectScreen: View {
                 PortForwardsSheet(service: service, serverName: server.name)
             }
             .portForwardRequests(service: service, serverName: server.name)
-            .onAppear { hub.startViewing(handle) }
-            .onDisappear { hub.stopViewing(handle) }
+            // Al abrir la sesión sus avisos ya entregados sobran.
+            .onAppear { AgentNotifier.shared.withdrawDelivered(serverID: server.id, session: target.sessionName) }
     }
-
-    private var handle: SessionHandle { SessionHandle(serverID: server.id, sessionID: target.sessionName) }
 
     @ViewBuilder
     private var content: some View {

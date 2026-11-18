@@ -37,6 +37,12 @@ struct TerminalScreen: View {
     @State private var isPickingPhotos = false
     @State private var isPickingFiles = false
     @State private var isShowingText = false
+    /// Ventana que se está renombrando y el nombre tecleado.
+    @State private var renamingWindow: TmuxWindow?
+    @State private var windowName = ""
+    @State private var confirmingPaneClose = false
+    /// Identifica esta vista como dueña del foco (ver `ServerHub.focusTerminal`).
+    @State private var focusOwner = UUID()
 
     /// Cada cuánto se releen las ventanas mientras el terminal está a la vista (para
     /// ver qué corre en cada una: agentes, shell ocioso…).
@@ -51,12 +57,17 @@ struct TerminalScreen: View {
             if !windows.isEmpty {
                 TerminalWindowBar(
                     windows: windows,
-                    claudeWindows: claudeWindows,
+                    claudeActivity: claudeActivityByWindow,
                     installedAgents: installedAgents,
                     onSelect: select,
                     onNew: newWindow,
                     onNewAgent: newAgentWindow,
-                    onClose: { requestClose(index: $0.index) }
+                    onClose: { requestClose(index: $0.index) },
+                    onRename: { window in
+                        windowName = window.name
+                        renamingWindow = window
+                    },
+                    onColor: setColor
                 )
                 header
             }
@@ -90,6 +101,20 @@ struct TerminalScreen: View {
         } message: { _ in
             Text("Se cerrarán sus paneles y se perderá lo que corra en ellos.")
         }
+        .alert("Renombrar ventana", isPresented: Binding(get: { renamingWindow != nil }, set: { if !$0 { renamingWindow = nil } })) {
+            TextField("Nuevo nombre", text: $windowName)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button("Cancelar", role: .cancel) {}
+            Button("Renombrar") { if let window = renamingWindow { rename(window, to: windowName) } }
+        } message: {
+            Text("Ventana \(renamingWindow?.index ?? 0) de «\(sessionName)».")
+        }
+        .confirmationDialog("¿Cerrar el panel activo?", isPresented: $confirmingPaneClose, titleVisibility: .visible) {
+            Button("Cerrar panel", role: .destructive) { paneAction("No se pudo cerrar el panel") { try await $0.killPane(session: $1) } }
+        } message: {
+            Text("Se perderá lo que corra en él.")
+        }
         .navigationTitle(sessionName)
         .navigationBarTitleDisplayMode(.inline)
         // Barra oscura a juego con el terminal (si no, el título no se lee).
@@ -105,6 +130,7 @@ struct TerminalScreen: View {
         }
         .task(id: sessionName) { await loadAgentsAndBranch() }
         .onChange(of: windows) {
+            updateFocus()
             if sizeClass == .regular { Task { await refreshBranch() } }
         }
         .onChange(of: fontSize) { _, size in
@@ -114,8 +140,10 @@ struct TerminalScreen: View {
         .onChange(of: optionAsMeta) { _, enabled in controller?.terminalView.optionAsMetaKey = enabled }
         .onAppear {
             if controller == nil { controller = hub.terminal(for: server, sessionName: sessionName) }
+            updateFocus()
         }
         .onDisappear {
+            hub.unfocusTerminal(owner: focusOwner)
             // Aparcado, no cerrado: volver desde Archivos/Cambios/Agentes, o tras girar o
             // redimensionar, reutiliza la conexión.
             hub.parkTerminal(server: server.id, sessionName: sessionName)
@@ -125,8 +153,16 @@ struct TerminalScreen: View {
 
     // MARK: - Cabecera y barra inferior
 
-    private var claudeWindows: Set<Int> {
-        Set(hub.viewModel(for: server).claudeActivity.windows(forSession: sessionName).keys)
+    private var claudeActivityByWindow: [Int: ClaudeActivity] {
+        hub.viewModel(for: server).claudeActivity.windows(forSession: sessionName)
+    }
+
+    private var claudeWindows: Set<Int> { Set(claudeActivityByWindow.keys) }
+
+    /// Avisa al hub de qué ventana está a la vista (sus avisos de Claude se callan).
+    private func updateFocus() {
+        let focus = TerminalFocus(serverID: server.id, session: sessionName, window: windows.first { $0.isActive }?.index)
+        hub.focusTerminal(focus, owner: focusOwner)
     }
 
     private var activeAgent: CodingAgent? {
@@ -319,6 +355,42 @@ struct TerminalScreen: View {
         }
     }
 
+    private func rename(_ window: TmuxWindow, to name: String) {
+        Task {
+            do {
+                try await service.renameWindow(session: sessionName, index: window.index, to: name)
+            } catch {
+                report("No se pudo renombrar la ventana \(window.index)", error)
+            }
+            await refreshWindows()
+        }
+    }
+
+    private func setColor(_ window: TmuxWindow, _ color: WindowColor?) {
+        Task {
+            do {
+                try await service.setWindowColor(session: sessionName, index: window.index, color: color)
+            } catch {
+                report("No se pudo cambiar el color de la ventana \(window.index)", error)
+            }
+            await refreshWindows()
+        }
+    }
+
+    /// Acción sobre el panel activo de la ventana actual.
+    private func paneAction(_ failure: String, _ action: @escaping @Sendable (any SSHServicing, String) async throws -> Void) {
+        let service = service
+        let session = sessionName
+        Task {
+            do {
+                try await action(service, session)
+            } catch {
+                report(failure, error)
+            }
+            await refreshWindows()
+        }
+    }
+
     private func close(_ window: TmuxWindow) {
         Task {
             do {
@@ -434,6 +506,7 @@ struct TerminalScreen: View {
                 Button("Seleccionar texto", systemImage: "text.cursor") { isShowingText = true }
                     .disabled(controller == nil)
                 Button("Reconectar", systemImage: "arrow.clockwise") { controller?.reconnectManually() }
+                paneMenu
                 Divider()
                 Button("Texto más grande", systemImage: "textformat.size.larger") {
                     fontSize = TerminalFontSizing.clamped(fontSize + 1)
@@ -446,6 +519,55 @@ struct TerminalScreen: View {
                 Toggle("Opción como Meta", systemImage: "option", isOn: $optionAsMeta)
                 Text("Con un teclado físico: ⌥ envía Meta (ESC + tecla). Desactívalo para escribir @ # [ ] { } \\ | ~ con ⌥.")
             }
+        }
+    }
+}
+
+extension TerminalScreen {
+    /// Paneles de tmux de la ventana activa: dividir, moverse, zoom y cerrar.
+    @ViewBuilder
+    fileprivate var paneMenu: some View {
+        let panes = windows.first { $0.isActive }?.paneCount ?? 1
+        Menu("Paneles", systemImage: "rectangle.split.2x1") {
+            Button("Dividir a la derecha", systemImage: "rectangle.split.2x1") {
+                paneAction("No se pudo dividir el panel") { try await $0.splitPane(session: $1, vertical: false) }
+            }
+            Button("Dividir hacia abajo", systemImage: "rectangle.split.1x2") {
+                paneAction("No se pudo dividir el panel") { try await $0.splitPane(session: $1, vertical: true) }
+            }
+            if panes > 1 {
+                Section("Ir al panel") {
+                    ForEach(TmuxPaneDirection.allCases, id: \.self) { direction in
+                        Button(direction.title, systemImage: direction.symbolName) {
+                            paneAction("No se pudo cambiar de panel") { try await $0.selectPane(session: $1, direction: direction) }
+                        }
+                    }
+                }
+                Button("Ampliar / restaurar panel", systemImage: "arrow.up.left.and.arrow.down.right") {
+                    paneAction("No se pudo ampliar el panel") { try await $0.zoomPane(session: $1) }
+                }
+                Button("Cerrar panel…", systemImage: "xmark.square", role: .destructive) { confirmingPaneClose = true }
+            }
+        }
+    }
+}
+
+private extension TmuxPaneDirection {
+    var title: String {
+        switch self {
+        case .up: return "Arriba"
+        case .down: return "Abajo"
+        case .left: return "Izquierda"
+        case .right: return "Derecha"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .up: return "arrow.up"
+        case .down: return "arrow.down"
+        case .left: return "arrow.left"
+        case .right: return "arrow.right"
         }
     }
 }
