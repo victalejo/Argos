@@ -19,7 +19,7 @@ enum GoldenCatalog {
     /// nombre del golden (sin `.txt`) → contenido.
     static func all() throws -> [String: String] {
         var result: [String: String] = [:]
-        for part in [try agentProtocol(), try persistentAgent(), try agentHardening(), try commands(), try hooksAndStatus(), homeFiles(), androidClosing()] {
+        for part in [try agentProtocol(), try persistentAgent(), try agentHardening(), try commands(), try hooksAndStatus(), homeFiles(), androidClosing(), try checkpoints()] {
             result.merge(part) { _, _ in preconditionFailure("golden duplicado") }
         }
         return result

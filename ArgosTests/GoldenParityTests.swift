@@ -50,6 +50,19 @@ struct GoldenParityTests {
         "projects-document-output",
     ]
 
+    /// Goldens generados que Android TODAVÍA no comprueba (función solo en Swift por ahora).
+    /// Al portarla, se quitan de aquí y se añade su test en Kotlin.
+    static let pendingAndroidPort: Set<String> = [
+        "checkpoint-script", "checkpoint-hook", "hooks-with-checkpoint", "hooks-checkpoint-removed",
+        "checkpoint-list", "checkpoint-files", "checkpoint-preview", "checkpoint-restore",
+        "checkpoint-restore-file", "checkpoint-enable", "checkpoint-disable",
+    ]
+
+    @Test func losPendientesDePortTienenGenerador() throws {
+        let missing = Self.pendingAndroidPort.subtracting(try GoldenCatalog.all().keys).sorted()
+        #expect(missing.isEmpty, "Pendientes de port sin generador: \(missing)")
+    }
+
     private static func goldenNamesOnDisk() throws -> Set<String> {
         let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         return Set(files.filter { $0.hasSuffix(".txt") }.map { String($0.dropLast(4)) })

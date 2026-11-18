@@ -1,0 +1,1 @@
+f="$HOME/.config/argos/claude-checkpoint-v1.sh"; [ -f "$f" ] && sh "$f" hook >/dev/null 2>&1; exit 0 # argos-checkpoint
