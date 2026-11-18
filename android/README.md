@@ -19,6 +19,11 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 La CI (`.github/workflows/android.yml`) corre lo mismo cuando cambia `android/**`, más los tests de
 `app` y un `bundleRelease` sin firmar (R8 + comprobación `checkReleaseR8Keeps`).
 
+**Dónde se compila:** Gradle (JDK 17 + SDK de Android) se ejecuta en un servidor de compilación,
+nunca en el Mac del autor; los comandos de arriba valen igual en cualquier máquina con JDK y SDK.
+Los goldens (más abajo) se regeneran en el Mac, que es donde corre el Swift, y se comprueban con
+`./gradlew :core:test` en el servidor.
+
 ## Módulos
 
 | Módulo | Qué es | Regla |
@@ -27,18 +32,28 @@ La CI (`.github/workflows/android.yml`) corre lo mismo cuando cambia `android/**
 | `ssh` | Kotlin/JVM puro: `SshjConnector`/`SshjSSHService` (sshj), TOFU, `JsonHostKeyTrustStore` | Sin Android; MINA SSHD solo en `testFixtures` |
 | `app` | Compose, navegación, servicios, notificaciones | — |
 
-Paquetes de `core`: raíz (`Server`, `SSHServicing`, `ShellQuoting`, `FuzzyMatcher`…),
+Paquetes de `core`: raíz (`Server`, `SSHServicing`, `ShellQuoting`, `FuzzyMatcher`, y las reglas de
+conexión: `ConnectionHealth`, `ConnectionAdmission`, `ConnectionPriority`, `RemoteTimeout`,
+`NotificationRoute`, `TerminalAttachment`…),
 `tmux` (sesiones, ventanas, comandos y parsers), `projects` (`projects.json` del servidor),
-`agent` (stream-json, reducer, lanzador persistente), `status` (actividad de claude y
-hooks), `files`, `git` (panel «Cambios» y resumen de la lista: git corre en el servidor), `github` (PR, CI y clonado con el `gh` del servidor), `monitor` y `keys` (Ed25519/OpenSSH con BouncyCastle, QR `ServerTransfer`).
+`homefile` (escritura de archivos privados del servidor con cerrojo y huella), `agent` (stream-json,
+reducer, lanzador persistente, hibernación, guardia de memoria, inventario), `status` (actividad de
+claude y hooks), `files`, `git` (panel «Cambios» y resumen de la lista: git corre en el servidor),
+`github` (PR, CI y clonado con el `gh` del servidor), `ports`, `monitor`, `doctor` (Doctor del
+servidor y redacción del diagnóstico) y `keys` (Ed25519/OpenSSH con BouncyCastle, QR `ServerTransfer`).
+Los datos del dispositivo (DataStore + Keystore, `ServiceHub`, `ServerImporter`) viven en `app/data`.
 
 **Paridad byte a byte:** comandos, scripts y JSON se fijan contra salidas generadas por el
 código Swift real (`core/src/test/resources/swift-golden/`, golden de `projects.json`,
-vectores de claves/QR del Mac). Si cambias un script o formato en Swift, regenera el golden
-y ajusta Kotlin: Mac, iPhone y Android comparten servidor.
+vectores de claves/QR del Mac). No se editan a mano: `scripts/regenerate-swift-goldens.sh` (en el
+Mac) los reescribe con el Swift real y la CI de Apple falla si quedan desfasados. Si cambias un
+script o formato en Swift, regenera los goldens, commitéalos y ajusta Kotlin hasta que
+`./gradlew :core:test` pase: Mac, iPhone y Android comparten servidor y versiones publicadas.
+Los **puntos de restauración** (Mac e iPhone/iPad) aún no están portados a Android: sus goldens
+figuran como pendientes en `GoldenParityTests`; cuando se porten, los tests deben usar esas entradas.
 
-Se añadirán `data` (DataStore + Keystore) y módulos `feature-*` según avancen
-las fases.
+Los `claude` simulados de los tests (`AgentShellHarness` en `core` y `scripts/argos-fake-claude` en Swift) responden
+al `interrupt` como el CLI real: mantén ambos alineados.
 
 ## Módulo `ssh`
 
@@ -108,6 +123,11 @@ sondeo de cada conexión no avisa y actualiza los hooks antiguos (`upgradeClaude
 lectura se guarda (`ClaudeWatchStore`): es la referencia del worker, y al volver se adopta lo que el worker
 ya avisó. Tocar el aviso abre el proyecto en su pestaña Terminal (o la sesión suelta) en esa ventana.
 
+**Red local (Android 17):** `ACCESS_LOCAL_NETWORK` (grupo «Dispositivos cercanos») se pide al abrir un
+servidor con IP privada, `.local` o un nombre que resuelve a la LAN (`LocalNetworkHosts` /
+`LocalNetworkGate`, puros). Sin el permiso, `ServiceHub` falla al momento con un mensaje propio y el
+worker salta el servidor sin darlo por caído.
+
 **Estado que persiste** (`SharedPreferences` `agent_watch`): servidores apuntados y bytes vistos de cada
 agente, servidores con Claude y su última lectura, vigilancias de CI (`CIWatchStore`) y la última
 comprobación en segundo plano (`BackgroundDiagnosticsStore`, Ajustes → Avisos y segundo plano →
@@ -122,7 +142,12 @@ hacer detach/reattach. Los terminales se pueden desactivar en Ajustes → Avisos
 
 **Conexiones** (`ServiceHub`): una por servidor. Al volver a primer plano (tras ≥5 s) y al cambiar la red
 por defecto se sondean con `probeConnection` (4 s): la que no responde se suelta y sus terminales se
-reenganchan solos con una nueva. Oculta ≥60 s sin servicio ni túneles, se cierran todas.
+reenganchan solos con una nueva. Oculta ≥60 s sin servicio ni túneles, se cierran todas. Las reglas
+son las de Swift: `ChannelGate` (tope de canales cortos, adaptativo y con turnos de usuario y de fondo),
+`ConnectionHealth` (credenciales o host key rechazadas no se reintentan en segundo plano; tras un fallo
+de red el fondo espera 1, 2, 4… 60 s), plazo por comando (`SshCommandTimeoutException`; más largo para
+clonar, commit, push/pull, worktrees e instalar tmux) y errores de sshj/red explicados en español.
+Abrir un canal que se cancela se desacopla y se cierra, para no dejar canales huérfanos.
 
 **Limitación conocida:** a propósito no se usa WifiLock ni WakeLock. El servicio protege al proceso
 de que lo maten, no al móvil de dormirse: en Doze el sistema puede cortar la red y parar la CPU, así
@@ -130,6 +155,11 @@ que la conexión puede caer y los `delay` retrasarse. Al despertar, o al volver 
 reintento con backoff reengancha (tmux conserva la sesión); si los intentos se agotan en segundo
 plano, el servicio se para y se reengancha al volver. Los avisos dependen de cuándo deje correr el
 sistema el trabajo periódico: 15 min es un mínimo, no una garantía.
+
+**Permisos del manifiesto:** `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK`,
+`FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_SPECIAL_USE`, `POST_NOTIFICATIONS` y `CAMERA` (opcional,
+solo para el QR). «Compartir» a Argos (`SEND`/`SEND_MULTIPLE`, solo `content://`) no pide permisos (como adjuntar), y
+«Abrir con…» de una hoja de cálculo usa un `FileProvider` propio (`PreviewFileProvider`, copias temporales).
 
 **Google Play:** `FOREGROUND_SERVICE_SPECIAL_USE` exige declarar el servicio en Play Console
 (Contenido de la app → Permisos de servicios en primer plano) con justificación y un vídeo. La
@@ -266,7 +296,7 @@ git tag android-v1.0.0 && git push origin android-v1.0.0
 | Fase | Alcance | Estado |
 |---|---|---|
 | 0 | Esqueleto Gradle, `core` + `app`, CI, icono | ✅ |
-| 1 | Núcleo puro: portar la lógica de `ArgosCore` con sus tests | ✅ (424 tests) |
+| 1 | Núcleo puro: portar la lógica de `ArgosCore` con sus tests | ✅ |
 | 2 | SSH + servidores: sshj, TOFU, contraseña/clave importada, CRUD de sesiones tmux | ✅ (probado en teléfono real) |
 | 3 | Terminal en vivo: PTY + `tmux attach`, fila de teclas, reattach | ✅ (probado en teléfono real) |
 | 4 | Proyectos + navegador de archivos SFTP | ✅ (probado en teléfono real) |
@@ -276,3 +306,10 @@ git tag android-v1.0.0 && git push origin android-v1.0.0
 | 8 | Publicación en Google Play (cuenta de organización **Impulse Vibes**): firma, versión, licencias y «Acerca de», ficha (GPP), documentos de Play Console y CI de publicación | ✅ prueba interna publicada en Play (IA Portafolio); producción 1.0.0 enviada a revisión de Google (2026-11-08) |
 
 MVP = fases 0–3.
+
+Desde la fase 8 el trabajo es de **paridad con Swift** (los tests y goldens de `ArgosTests/` son la
+especificación): reglas de conexión prudentes, `projects.json` compartido sin pérdidas, agentes
+persistentes al día (reposo, guardia de memoria, «Agentes en este servidor», «Detener el turno»),
+indicador y avisos de Claude en tmux, adjuntar y compartir al terminal, visores de HTML, PDF y hojas
+de cálculo, monitor de recursos, paneles de tmux, «Enviar comando», búsqueda de proyectos, Doctor y
+«Copiar diagnóstico», y sesiones con acentos (`tmux -u`). Falta portar los puntos de restauración.
