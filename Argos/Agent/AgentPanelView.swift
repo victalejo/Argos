@@ -6,7 +6,9 @@
 //  (sin elegir carpetas), con varias conversaciones en pestañas. Arranca solo en cuanto
 //  el servidor tiene Claude instalado y con sesión iniciada; si no, guía para
 //  instalarlo o conectarlo (`ClaudeSetupSheet`). Antes de arrancar un agente comprueba
-//  que el servidor tenga memoria libre (cada `claude` ocupa ~0,5 GB).
+//  que el servidor tenga memoria libre (cada `claude` ocupa ~0,5 GB) y, al llegar al
+//  tope de conversaciones, pregunta cuál cerrar. Las conversaciones cerradas se pueden
+//  reanudar (`--resume`).
 //
 
 import SwiftUI
@@ -38,10 +40,14 @@ struct AgentPanelView: View {
     @State private var setupPurpose: ClaudeSetupSheet.Purpose?
     @State private var showTokenSheet = false
     @State private var isStartingTab = false
+    /// Pestaña que se va a cerrar estando ocupada (se pide confirmación).
+    @State private var closeCandidate: AgentTab?
+    /// Tope de conversaciones alcanzado: hay que elegir cuál cerrar.
+    @State private var isChoosingEviction = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Por debajo de esto no se arranca un agente sin confirmación (KB).
-    static let minimumFreeMemoryKB = 900_000
+    static let minimumFreeMemoryKB = AgentLaunchGuard.minimumFreeMemoryKB
 
     var body: some View {
         VStack(spacing: 0) {
@@ -67,6 +73,43 @@ struct AgentPanelView: View {
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: readiness)
         .focusedSceneValue(\.tabActions, tabActions)
+        .confirmationDialog(
+            "¿Cerrar esta conversación?",
+            isPresented: Binding(get: { closeCandidate != nil }, set: { if !$0 { closeCandidate = nil } }),
+            titleVisibility: .visible,
+            presenting: closeCandidate
+        ) { tab in
+            Button("Cerrar y detener Claude", role: .destructive) { store.closeTab(tab.id, for: handle) }
+            Button("Cancelar", role: .cancel) {}
+        } message: { tab in
+            Text(tab.session.state.pendingPermission != nil
+                 ? "Claude espera tu permiso en «\(tab.title)». Si la cierras, se detiene sin terminar."
+                 : "Claude está trabajando en «\(tab.title)». Si la cierras, se detiene a medias.")
+        }
+        .confirmationDialog(
+            "Ya hay \(AgentSessionStore.maxLiveSessions) conversaciones abiertas",
+            isPresented: $isChoosingEviction,
+            titleVisibility: .visible
+        ) {
+            ForEach(store.allTabs.filter { $0.tab.session.isRunning }) { entry in
+                Button("Cerrar «\(entry.tab.title)» (\(entry.handle.sessionID))", role: .destructive) {
+                    store.closeTab(entry.tab.id, for: entry.handle)
+                    Task { await newConversation(force: false) }
+                }
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Cada una es un Claude en el servidor (~0,5 GB). Elige cuál cerrar para abrir otra; podrás reanudarla después.")
+        }
+    }
+
+    /// Cierra la pestaña, pidiendo confirmación si está trabajando o espera un permiso.
+    private func requestClose(_ tab: AgentTab) {
+        if tab.session.isBusy {
+            closeCandidate = tab
+        } else {
+            store.closeTab(tab.id, for: handle)
+        }
     }
 
     /// Atajos de la barra de menús en modo Agente: ⌘T nueva conversación, ⌘W cerrar la
@@ -85,7 +128,7 @@ struct AgentPanelView: View {
             newTab: { Task { await newConversation(force: false) } },
             closeTab: {
                 if let tab = store.selectedTab(for: handle) {
-                    store.closeTab(tab.id, for: handle)
+                    requestClose(tab)
                 } else {
                     NSApp.keyWindow?.performClose(nil)
                 }
@@ -146,6 +189,7 @@ struct AgentPanelView: View {
             }
             authChip
             Menu {
+                closedConversationsMenu
                 Button("Comprobar de nuevo") { Task { await prepare() } }
                 Button("Usar un token de suscripción…") { showTokenSheet = true }
                 if claudePath != nil {
@@ -231,13 +275,19 @@ struct AgentPanelView: View {
             selectedID: store.selectedTab(for: handle)?.id,
             isAdding: isStartingTab,
             onSelect: { store.select($0, for: handle) },
-            onClose: { store.closeTab($0, for: handle) },
+            onClose: { id in
+                if let tab = tabs.first(where: { $0.id == id }) { requestClose(tab) }
+            },
             onNew: { Task { await newConversation(force: false) } }
         )
         Divider()
         if let tab = store.selectedTab(for: handle) {
-            AgentConversationView(session: tab.session, title: title)
-                .id(tab.id)
+            AgentConversationView(
+                session: tab.session,
+                title: title,
+                onResume: canResume(tab) ? { resume(tab) } : nil
+            )
+            .id(tab.id)
         } else {
             card(icon: "bubble.left.and.text.bubble.right", tint: .accentColor,
                  title: "Sin conversaciones abiertas",
@@ -275,56 +325,140 @@ struct AgentPanelView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    // MARK: - Conversaciones cerradas
+
+    @ViewBuilder
+    private var closedConversationsMenu: some View {
+        let closed = store.closedConversations(for: handle)
+        if !closed.isEmpty, readiness == .ready {
+            Menu("Reanudar conversación cerrada") {
+                ForEach(closed) { conversation in
+                    Button(conversation.title) { reopen(conversation) }
+                }
+            }
+            Divider()
+        }
+    }
+
+    private func canResume(_ tab: AgentTab) -> Bool {
+        !tab.session.isRunning && tab.session.hasConversation && claudePath != nil
+    }
+
+    /// Reanuda en su pestaña una conversación que terminó (p. ej. se cortó la conexión).
+    private func resume(_ tab: AgentTab) {
+        guard let claudePath else { return }
+        guard store.capacity == .available else { isChoosingEviction = true; return }
+        let command = ClaudeAgentCommand.build(
+            claudePath: claudePath, workingDirectory: tab.session.workingDirectory,
+            sessionID: tab.session.sessionID, permissionMode: tab.permissionMode, resume: true
+        )
+        store.resumeTab(tab.id, for: handle, service: service, command: command, oauthToken: oauthTokenForLaunch)
+    }
+
+    private func reopen(_ conversation: ClosedAgentConversation) {
+        guard let claudePath else { return }
+        guard store.capacity == .available else { isChoosingEviction = true; return }
+        let command = ClaudeAgentCommand.build(
+            claudePath: claudePath, workingDirectory: conversation.workingDirectory,
+            sessionID: conversation.sessionID, permissionMode: conversation.permissionMode, resume: true
+        )
+        store.reopen(conversation, for: handle, service: service, command: command, oauthToken: oauthTokenForLaunch)
+    }
+
+    /// Con sesión en el servidor el token sobra: no se toca el llavero (evita su aviso).
+    private var oauthTokenForLaunch: String? {
+        authStatus?.loggedIn == true ? nil : KeychainStore.claudeOAuthToken()
+    }
+
     // MARK: - Flujo
 
     /// Resuelve carpeta, instalación y sesión; si todo está listo y no hay
-    /// conversaciones, arranca la primera automáticamente.
+    /// conversaciones, arranca la primera automáticamente. Si ya hay pestañas (o el
+    /// servidor ya se comprobó), se muestran AL INSTANTE y se verifica en segundo plano.
     private func prepare() async {
-        readiness = .checking
+        let tabs = store.tabs(for: handle)
+        let knownFolder = projectPath ?? tabs.first?.session.workingDirectory
+        let cached = store.readinessCache[handle.serverID]
+        let showsInstantly = knownFolder != nil && (cached != nil || !tabs.isEmpty)
+        if showsInstantly {
+            folder = knownFolder
+            if let cached {
+                claudePath = cached.claudePath
+                authStatus = cached.authStatus
+            }
+            readiness = .ready
+        } else {
+            readiness = .checking
+        }
+        let serverID = handle.serverID
+        Task { await store.cleanUpOrphans(serverID: serverID, service: service) }
         do {
+            try await verify(showsInstantly: showsInstantly)
+        } catch {
+            if showsInstantly && !tabs.isEmpty {
+                Log.agent.notice("No se pudo verificar Claude: \(error.localizedDescription, privacy: .public)")
+            } else {
+                readiness = .failed(error.userMessage)
+            }
+        }
+    }
+
+    /// Comprueba carpeta, instalación y sesión. Con pestañas abiertas, un problema no
+    /// las esconde (siguen usables); sin pestañas, se muestra la tarjeta que toque.
+    private func verify(showsInstantly: Bool) async throws {
+        let hasTabs = !store.tabs(for: handle).isEmpty
+        if folder == nil {
             if let projectPath {
                 folder = projectPath
             } else {
                 folder = try await service.sessionFirstPanePaths()[handle.sessionID]
             }
-            guard folder != nil else { readiness = .noFolder; return }
+        }
+        guard folder != nil else { readiness = .noFolder; return }
 
-            claudePath = try await service.locateClaude()
-            guard claudePath != nil else { readiness = .notInstalled; return }
-
-            authStatus = try await service.claudeAuthStatus()
-            guard authStatus?.loggedIn == true || KeychainStore.hasClaudeOAuthToken() else {
-                readiness = .loggedOut
-                return
-            }
-            readiness = .ready
-            if store.tabs(for: handle).isEmpty {
-                await newConversation(force: false)
-            }
-        } catch {
-            readiness = .failed(error.userMessage)
+        let path = try await service.locateClaude()
+        claudePath = path
+        guard let path else {
+            store.readinessCache[handle.serverID] = nil
+            if !hasTabs { readiness = .notInstalled }
+            return
+        }
+        let auth = try await service.claudeAuthStatus()
+        authStatus = auth
+        guard auth?.loggedIn == true || KeychainStore.hasClaudeOAuthToken() else {
+            store.readinessCache[handle.serverID] = nil
+            if !hasTabs { readiness = .loggedOut }
+            return
+        }
+        store.readinessCache[handle.serverID] = AgentServerReadiness(claudePath: path, authStatus: auth)
+        if !showsInstantly || readiness != .ready { readiness = .ready }
+        if store.tabs(for: handle).isEmpty {
+            await newConversation(force: false)
         }
     }
 
     /// Abre una conversación nueva (nueva pestaña) en la carpeta del proyecto.
     private func newConversation(force: Bool) async {
         guard let folder, let claudePath, !isStartingTab else { return }
+        guard store.capacity == .available else {
+            isChoosingEviction = true
+            return
+        }
         isStartingTab = true
         defer { isStartingTab = false }
 
-        if !force, let free = try? await service.availableMemoryKB(), free < Self.minimumFreeMemoryKB {
-            readiness = .lowMemory(
-                "Quedan \(ResourceFormat.kilobytes(free)) libres y cada conversación de Claude ocupa "
-                + "unos 0,5 GB. Detén proyectos en segundo plano (menú ⋯ del servidor) para liberar memoria."
-            )
+        if !force, let free = try? await service.availableMemoryKB(),
+           case .warning(_, let message) = AgentLaunchGuard.assess(freeMemoryKB: free, liveAgents: 0) {
+            readiness = .lowMemory(message)
             return
         }
         readiness = .ready
         let mode = AgentPermissionPreferences.effectiveMode(serverID: handle.serverID, workingDirectory: folder)
+        let sessionID = UUID().uuidString.lowercased()
         let command = ClaudeAgentCommand.build(
             claudePath: claudePath,
             workingDirectory: folder,
-            sessionID: UUID().uuidString.lowercased(),
+            sessionID: sessionID,
             permissionMode: mode
         )
         store.newTab(
@@ -332,9 +466,9 @@ struct AgentPanelView: View {
             service: service,
             command: command,
             workingDirectory: folder,
-            // Con sesión en el servidor el token sobra: no se toca el llavero (evita su aviso).
-            oauthToken: authStatus?.loggedIn == true ? nil : KeychainStore.claudeOAuthToken(),
-            permissionMode: mode
+            oauthToken: oauthTokenForLaunch,
+            permissionMode: mode,
+            sessionID: sessionID
         )
     }
 

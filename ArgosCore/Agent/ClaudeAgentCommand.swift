@@ -45,18 +45,20 @@ enum ClaudeAgentCommand {
     ///   - workingDirectory: directorio de trabajo remoto (repo) donde corre el agente.
     ///   - sessionID: UUID de la sesión (permite reanudar luego con `--resume`).
     ///   - permissionMode: modo de permisos inicial.
+    ///   - resume: reanuda la conversación `sessionID` ya existente (`--resume`).
     static func build(
         claudePath: String,
         workingDirectory: String,
         sessionID: String,
-        permissionMode: PermissionMode = .bypassPermissions
+        permissionMode: PermissionMode = .bypassPermissions,
+        resume: Bool = false
     ) -> String {
         let directory = cdTarget(for: workingDirectory)
         let binary = ShellQuoting.singleQuoted(claudePath)
 
         let flags = (baseFlags + [
             "--permission-mode", modeArgument(permissionMode),
-            "--session-id", sessionID,
+            resume ? "--resume" : "--session-id", sessionID,
         ]).joined(separator: " ")
 
         // `env -u ANTHROPIC_API_KEY` GARANTIZA que nunca se facture contra la API: sin

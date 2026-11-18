@@ -3,7 +3,9 @@
 //  Argos
 //
 //  Una conversación con Claude Code: transcript nativo (Markdown seguro, herramientas
-//  con su icono y resultado plegable), tarjeta de permiso y caja de mensaje.
+//  con su icono y resultado plegable), tarjeta de permiso y caja de mensaje. Mientras
+//  Claude trabaja, «Detener» (o Esc) corta el turno sin cerrar la conversación; una
+//  conversación terminada se puede reanudar.
 //
 
 import SwiftUI
@@ -11,8 +13,12 @@ import SwiftUI
 struct AgentConversationView: View {
     let session: ClaudeAgentSession
     let title: String
+    /// Reanudar la conversación terminada (`--resume`); `nil` si no se puede.
+    var onResume: (() -> Void)? = nil
 
     @State private var draft = ""
+    /// El usuario está al final del transcript: solo entonces se sigue lo nuevo.
+    @State private var isAtBottom = true
     @FocusState private var isInputFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -70,7 +76,14 @@ struct AgentConversationView: View {
                     .frame(maxWidth: .infinity)
                 }
             }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - Self.bottomTolerance
+            } action: { _, atBottom in
+                isAtBottom = atBottom
+            }
             .onChange(of: session.state.items.count) { _, _ in
+                // Si el usuario subió a leer algo, no se le arrastra al final.
+                guard isAtBottom else { return }
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     if session.state.status == .working {
                         proxy.scrollTo("working", anchor: .bottom)
@@ -81,6 +94,9 @@ struct AgentConversationView: View {
             }
         }
     }
+
+    /// Margen (pt) con el que se considera que el usuario está abajo del todo.
+    static let bottomTolerance: CGFloat = 60
 
     private var emptyHint: some View {
         VStack(spacing: 16) {
@@ -142,10 +158,18 @@ struct AgentConversationView: View {
         VStack(spacing: 0) {
             Divider()
             if isClosed {
-                Label("Esta conversación terminó. Abre otra con + o ⌘T.", systemImage: "stop.circle")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .padding(12)
+                HStack(spacing: 12) {
+                    Label(onResume == nil ? "Esta conversación terminó. Abre otra con + o ⌘T."
+                                          : "Esta conversación terminó.", systemImage: "stop.circle")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    if let onResume {
+                        Button("Reanudar conversación", systemImage: "play.circle", action: onResume)
+                            .buttonStyle(.borderedProminent)
+                            .help("Vuelve a abrir esta conversación con Claude (--resume)")
+                    }
+                }
+                .padding(12)
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     TextField(isBusy ? "Claude está trabajando…" : "Escribe a Claude…", text: $draft, axis: .vertical)
@@ -164,6 +188,17 @@ struct AgentConversationView: View {
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                         Spacer(minLength: 4)
+                        if canInterrupt {
+                            Button(action: session.interrupt) {
+                                Label(session.isInterrupting ? "Deteniendo…" : "Detener", systemImage: "stop.fill")
+                                    .font(.callout.weight(.semibold))
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.regular)
+                            .keyboardShortcut(.cancelAction)
+                            .disabled(session.isInterrupting)
+                            .help("Detener lo que está haciendo Claude (esc). La conversación sigue abierta.")
+                        }
                         Button(action: send) {
                             Label("Enviar", systemImage: "arrow.up")
                                 .font(.callout.weight(.semibold))
@@ -183,6 +218,11 @@ struct AgentConversationView: View {
             }
         }
         .background(.bar)
+    }
+
+    /// Esc/«Detener» solo mientras trabaja SIN permiso pendiente (ahí Esc es «Denegar»).
+    private var canInterrupt: Bool {
+        session.state.status == .working && session.state.pendingPermission == nil
     }
 
     private var canSend: Bool {
