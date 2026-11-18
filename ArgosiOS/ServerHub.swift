@@ -385,16 +385,10 @@ final class ServerHub {
             if !viewModel.state.isBusy, case .failed = viewModel.state { await viewModel.load() }
             return
         }
-        let service = viewModel.service
-        // TODO(integración): el agente de conexión añade a `SSHServicing` una API para
-        // comprobar/descartar la conexión compartida; cuando esté, sustituye este sondeo
-        // (`listSessions` con plazo + `disconnect`) por ella.
-        let outcome = await ConnectionResume.revalidate(
-            probe: { (try? await service.listSessions()) != nil },
-            disconnect: { await service.disconnect() }
-        )
-        if outcome != .alive {
-            Log.ssh.notice("Al volver de segundo plano la conexión no respondía (\(String(describing: outcome), privacy: .public)): se reconecta")
+        // Sondeo con plazo corto; si no responde se descarta SOLO la compartida (sin cerrar
+        // túneles ni terminales, que revisa su propio vigilante) y el refresco reconecta.
+        if await !viewModel.service.checkConnectionNow() {
+            Log.ssh.notice("Al volver de segundo plano la conexión no respondía: se reconecta")
         }
         await viewModel.refresh()
     }

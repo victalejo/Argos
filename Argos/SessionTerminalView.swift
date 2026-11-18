@@ -350,7 +350,7 @@ struct SessionTerminalView: View {
         var interval = minInterval
         while !Task.isCancelled {
             if !sleepMonitor.isAsleep, controller?.status == .connected,
-               let fresh = try? await service.listWindows(session: session.name) {
+               let fresh = try? await ConnectionPriority.background({ try await service.listWindows(session: session.name) }) {
                 if fresh != windows {
                     windows = fresh
                     interval = minInterval          // hubo cambios → sondea rápido de nuevo
@@ -586,11 +586,17 @@ struct SessionTerminalView: View {
     }
 
     /// Reconexión manual (botón del banner): resetea el backoff y recrea el controlador.
+    /// Es una acción explícita: levanta también el bloqueo de la conexión (credenciales o
+    /// host key), que la reconexión automática respeta.
     private func reconnectManually() {
         autoReconnectCount = 0
         reconnectTask?.cancel()
-        reconnectTask = nil
-        controller = store.reconnect(handle, service: service, sessionName: session.name)
+        reconnectTask = Task {
+            await service.resetConnectionHealth()
+            guard !Task.isCancelled else { return }
+            reconnectTask = nil
+            controller = store.reconnect(handle, service: service, sessionName: session.name)
+        }
     }
 
     // MARK: - Indicador de subida (imagen pegada o archivos soltados)

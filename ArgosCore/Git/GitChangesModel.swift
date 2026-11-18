@@ -169,7 +169,7 @@ final class GitChangesModel {
         while !Task.isCancelled {
             try? await Task.sleep(for: Self.pollInterval)
             guard !Task.isCancelled else { return }
-            if operation == nil { await refresh(reloadDiff: false) }
+            if operation == nil { await ConnectionPriority.background { await refresh(reloadDiff: false) } }
         }
     }
 

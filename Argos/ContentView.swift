@@ -269,6 +269,8 @@ struct ContentView: View {
         Divider()
         Button("Olvidar host key") {
             TOFUHostKeyValidator.forgetExplicitly(host: server.host, port: server.port)
+            // Reconecta ya (y confía en la huella nueva), en vez de dejar la lista en error.
+            if let vm = vms[server.id] { Task { await vm.load() } }
         }
         Divider()
         Button("Eliminar servidor…", role: .destructive) { serverToDelete = server }

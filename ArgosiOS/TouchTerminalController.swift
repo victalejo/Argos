@@ -158,6 +158,15 @@ final class TouchTerminalController: TerminalViewDelegate {
         reopen(resettingAttempts: true)
     }
 
+    /// Botón «Reconectar»: además levanta el bloqueo de la conexión (credenciales o host
+    /// key), que la reconexión automática respeta.
+    func reconnectManually() {
+        Task {
+            await service.resetConnectionHealth()
+            reconnect()
+        }
+    }
+
     /// Volvió la red: si el terminal estaba caído (o esperando un reintento), se
     /// reintenta ya, sin esperar al plazo.
     func networkDidReturn() {

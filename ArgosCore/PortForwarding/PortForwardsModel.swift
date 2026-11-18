@@ -76,7 +76,7 @@ final class PortForwardsModel {
         while !Task.isCancelled {
             try? await Task.sleep(for: Self.pollInterval)
             guard !Task.isCancelled else { return }
-            await refresh()
+            await ConnectionPriority.background { await refresh() }
         }
     }
 

@@ -40,7 +40,7 @@ struct PortForwardsButton: View {
         .task(id: isPresented) {
             // El recuento es una consulta local al actor (sin red salvo para reabrir túneles caídos).
             while !Task.isCancelled {
-                activeCount = await service.activePortForwards().count
+                activeCount = await ConnectionPriority.background { await service.activePortForwards().count }
                 try? await Task.sleep(for: .seconds(isPresented ? 2 : 10))
             }
         }

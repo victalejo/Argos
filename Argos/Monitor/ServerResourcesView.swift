@@ -137,7 +137,7 @@ struct ServerResourcesView: View {
     private func poll() async {
         while !Task.isCancelled {
             do {
-                let fresh = try await service.resourceSample()
+                let fresh = try await ConnectionPriority.background { try await service.resourceSample() }
                 if let previous = sample {
                     cpuUsage = fresh.cpu.usage(since: previous.cpu) ?? cpuUsage
                 }

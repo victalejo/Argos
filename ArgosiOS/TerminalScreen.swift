@@ -234,7 +234,7 @@ struct TerminalScreen: View {
     private func pollWindows() async {
         var interval = Self.pollInterval
         while !Task.isCancelled {
-            let ok = await refreshWindows()
+            let ok = await ConnectionPriority.background { await refreshWindows() }
             interval = ok ? Self.pollInterval : min(interval * 2, Self.maxPollInterval)
             do { try await Task.sleep(for: interval) } catch { break }
         }
@@ -395,7 +395,7 @@ struct TerminalScreen: View {
                 Text("Reintento \(retry.attempt) de \(retry.maxAttempts) en \(seconds) s.\n\(message)")
             }
         } actions: {
-            Button("Reconectar ahora") { controller.reconnect() }
+            Button("Reconectar ahora") { controller.reconnectManually() }
                 .buttonStyle(.borderedProminent)
         }
         .foregroundStyle(.white)
@@ -409,7 +409,7 @@ struct TerminalScreen: View {
         } description: {
             Text(message)
         } actions: {
-            Button("Reconectar") { controller.reconnect() }
+            Button("Reconectar") { controller.reconnectManually() }
                 .buttonStyle(.borderedProminent)
         }
         .foregroundStyle(.white)
@@ -433,7 +433,7 @@ struct TerminalScreen: View {
             Menu("Opciones", systemImage: "ellipsis.circle") {
                 Button("Seleccionar texto", systemImage: "text.cursor") { isShowingText = true }
                     .disabled(controller == nil)
-                Button("Reconectar", systemImage: "arrow.clockwise") { controller?.reconnect() }
+                Button("Reconectar", systemImage: "arrow.clockwise") { controller?.reconnectManually() }
                 Divider()
                 Button("Texto más grande", systemImage: "textformat.size.larger") {
                     fontSize = TerminalFontSizing.clamped(fontSize + 1)

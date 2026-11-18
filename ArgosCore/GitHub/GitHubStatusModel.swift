@@ -99,7 +99,7 @@ final class GitHubStatusModel {
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }
-            if operation == nil { await refresh() }
+            if operation == nil { await ConnectionPriority.background { await refresh() } }
         }
     }
 
