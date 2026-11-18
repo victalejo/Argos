@@ -151,4 +151,24 @@ class AgentCloseoutShellTest {
         }
         assertFalse(h.lockDir.exists())
     }
+
+    // MARK: Interrumpir
+
+    /**
+     * Lo que emite el CLI 2.1.327 al interrumpir a mitad de turno: el cliente no depende de ningún
+     * campo concreto del `result` (ni subtype, ni coste, ni texto) para cerrar el turno.
+     */
+    @org.junit.jupiter.api.Test
+    fun `el result de una interrupcion cierra el turno sin campos concretos`() {
+        val response = """{"type":"control_response","response":{"subtype":"success","request_id":"argos-interrupt-1","response":{"still_queued":[]}}}"""
+        val user = """{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]},"parent_tool_use_id":null}"""
+        val result = """{"type":"result","stop_reason":null,"duration_api_ms":0,"total_cost_usd":0}"""
+        assertTrue(AgentProtocol.decode(result) is AgentStreamEvent.Result)
+        var conversation = AgentConversationState(status = AgentStatus.Working)
+        for (line in listOf(response, user, result)) {
+            val event = AgentProtocol.decode(line) ?: continue
+            conversation = AgentReducer.apply(event, conversation, echoesUserMessages = true)
+        }
+        assertTrue(conversation.status != AgentStatus.Working, "estado: ${conversation.status}")
+    }
 }

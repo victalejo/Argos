@@ -8,7 +8,8 @@
 # `#lento` responde solo con texto, en varios pasos separados por pausas. Un prompt con `#abierto`
 # deja el turno ABIERTO (un texto, sin `result`) hasta que llegue la petición de control
 # `interrupt`, que se responde como el CLI real 2.1.x: `control_response` con éxito y, si había
-# turno abierto, un `user` sintético («[Request interrupted by user]») y un `result`.
+# turno abierto, un `user` sintético («[Request interrupted by user]») y un `result` (`stop_reason: null`,
+# `duration_api_ms: 0`, `total_cost_usd: 0`; comprobado con el CLI 2.1.327).
 #
 #   claude auth status --json   logueado, salvo que exista ~/.fake-claude-logged-out
 #   ~/.fake-claude-test/        (si existe) modo test: sin pausas, registra argumentos, token
@@ -214,11 +215,11 @@ handle_control_request() {
     *) return ;;
   esac
   request_id=$(printf '%s\n' "$line" | sed -n -E 's/^.*"request_id":("([^"\\]|\\.)*").*$/\1/p')
-  emit "{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":${request_id:-\"\"}}}"
+  emit "{\"type\":\"control_response\",\"response\":{\"subtype\":\"success\",\"request_id\":${request_id:-\"\"},\"response\":{\"still_queued\":[]}}}"
   [ "$open_turn" = 1 ] || return
   open_turn=0
   emit "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"[Request interrupted by user]\"}]},\"session_id\":\"$session\",\"parent_tool_use_id\":null}"
-  emit "{\"type\":\"result\",\"subtype\":\"error_during_execution\",\"is_error\":false,\"total_cost_usd\":0,\"duration_ms\":1,\"num_turns\":1,\"session_id\":\"$session\"}"
+  emit "{\"type\":\"result\",\"subtype\":\"error_during_execution\",\"is_error\":false,\"stop_reason\":null,\"total_cost_usd\":0,\"duration_ms\":1,\"duration_api_ms\":0,\"num_turns\":1,\"session_id\":\"$session\"}"
 }
 
 while IFS= read -r line; do

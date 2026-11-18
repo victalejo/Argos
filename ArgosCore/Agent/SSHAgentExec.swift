@@ -32,6 +32,8 @@ enum PersistentAgentError: LocalizedError, Equatable {
     case notRunning
     case claudeMissing
     case busy
+    /// Al enviar: el cerrojo del agente estaba cogido (hibernándose, arrancando u otro envío).
+    case sendBusy
     /// claude murió nada más arrancar; lleva el final de su `err.log`.
     case launchFailed(String)
     /// El proceso no murió ni con KILL: la carpeta se conserva.
@@ -47,6 +49,8 @@ enum PersistentAgentError: LocalizedError, Equatable {
             return String(localized: "Claude Code no está instalado en el servidor (no se encontró el comando «claude»).")
         case .busy:
             return String(localized: "Otro dispositivo está arrancando este agente ahora mismo. Inténtalo de nuevo en unos segundos.")
+        case .sendBusy:
+            return String(localized: "El agente está ocupado; reintenta en unos segundos.")
         case .launchFailed(let detail):
             let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty
@@ -168,7 +172,7 @@ extension SSHService {
         guard result.exitCode == 0 else {
             let detail = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             if detail.contains(PersistentAgentScript.deadReply) { throw PersistentAgentError.notRunning }
-            if detail.contains(PersistentAgentScript.busyReply) { throw PersistentAgentError.busy }
+            if detail.contains(PersistentAgentScript.busyReply) { throw PersistentAgentError.sendBusy }
             if detail.contains(PersistentAgentShell.stuckMarker) { throw PersistentAgentError.stuck }
             throw AgentExecError(message: detail.isEmpty ? String(localized: "código de salida \(String(result.exitCode))") : String(detail.suffix(600)))
         }

@@ -494,7 +494,7 @@ final class PersistentAgentSession {
         case PersistentAgentScript.sentReply: return
         case PersistentAgentScript.deadReply: throw PersistentAgentError.notRunning
         case PersistentAgentScript.shortReply: throw PersistentAgentError.truncatedSend
-        case PersistentAgentScript.busyReply: throw PersistentAgentError.busy
+        case PersistentAgentScript.busyReply: throw PersistentAgentError.sendBusy
         default: throw AgentExchangeTimeout()
         }
     }

@@ -465,7 +465,7 @@ class PersistentAgentSession(
             PersistentAgentScript.SENT_REPLY -> Unit
             PersistentAgentScript.DEAD_REPLY -> throw PersistentAgentException(PersistentAgentError.NOT_RUNNING)
             PersistentAgentScript.SHORT_REPLY -> throw PersistentAgentException(PersistentAgentError.TRUNCATED_SEND)
-            PersistentAgentScript.BUSY_REPLY -> throw PersistentAgentException(PersistentAgentError.BUSY)
+            PersistentAgentScript.BUSY_REPLY -> throw PersistentAgentException(PersistentAgentError.SEND_BUSY)
             else -> throw AgentExchangeTimeoutException()
         }
     }

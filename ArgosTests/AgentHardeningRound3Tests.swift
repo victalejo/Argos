@@ -236,4 +236,26 @@ struct AgentHardeningRound3Tests {
         // El cerrojo se suelta siempre.
         #expect(!FileManager.default.fileExists(atPath: home.appendingPathComponent(".config/argos/agents/.\(id).lock").path))
     }
+
+    // MARK: - Interrumpir
+
+    /// Lo que emite el CLI 2.1.327 al interrumpir a mitad de turno: el cliente no depende de
+    /// ningún campo concreto del `result` (ni subtype, ni coste, ni texto) para cerrar el turno.
+    @Test func elResultDeUnaInterrupcionCierraElTurnoSinCamposConcretos() {
+        let response = #"{"type":"control_response","response":{"subtype":"success","request_id":"argos-interrupt-1","response":{"still_queued":[]}}}"#
+        let user = #"{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]},"parent_tool_use_id":null}"#
+        let result = #"{"type":"result","stop_reason":null,"duration_api_ms":0,"total_cost_usd":0}"#
+        var state = AgentConversationState()
+        AgentReducer.userSent(text: "tarea", to: &state)
+        #expect(state.status == .working)
+        for line in [response, user, result] {
+            guard let event = AgentProtocol.decode(line: line) else { continue }
+            AgentReducer.apply(event, to: &state, echoesUserMessages: true)
+        }
+        #expect(state.status != .working)
+        guard case .result = AgentProtocol.decode(line: result) else {
+            Issue.record("un result mínimo debe entenderse")
+            return
+        }
+    }
 }

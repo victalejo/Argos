@@ -26,6 +26,9 @@ enum class PersistentAgentError(val message: String) {
     CLAUDE_MISSING("Claude Code no está instalado en el servidor (no se encontró el comando «claude»)."),
     BUSY("Otro dispositivo está arrancando este agente ahora mismo. Inténtalo de nuevo en unos segundos."),
 
+    /** Al enviar: el cerrojo del agente estaba cogido (hibernándose, arrancando u otro envío). */
+    SEND_BUSY("El agente está ocupado; reintenta en unos segundos."),
+
     /** claude murió nada más arrancar; el detalle es el final de su `err.log`. */
     LAUNCH_FAILED("Claude se cerró nada más arrancar en el servidor y no dejó ningún mensaje."),
 

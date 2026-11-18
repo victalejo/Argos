@@ -9881,6 +9881,22 @@
         }
       }
     },
+    "El agente está ocupado; reintenta en unos segundos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is busy; try again in a few seconds."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El agente está ocupado; reintenta en unos segundos."
+          }
+        }
+      }
+    },
     "El agente no responde a la orden de parar. Inténtalo de nuevo; si sigue, reinicia el servidor." : {
       "localizations" : {
         "en" : {
