@@ -26,7 +26,7 @@ enum SessionNameValidator {
             case .empty:
                 return String(localized: "El nombre no puede estar vacío.")
             case .forbiddenCharacter(let character):
-                return String(localized: "El nombre no puede contener '\(character)': tmux usa ':' y '.' como separadores de sesión.")
+                return String(localized: "El nombre no puede contener '\(String(character))': tmux usa ':' y '.' como separadores de sesión.")
             case .controlCharacter:
                 return String(localized: "El nombre no puede contener saltos de línea, tabuladores ni otros caracteres de control.")
             case .leadingDash:
