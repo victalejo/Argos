@@ -898,6 +898,7 @@
 		F6DA0377D130C2775E929FBC /* ArgosTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5A06C15E0E69E0D86623E5 /* ArgosTheme.swift */; };
 		F7125C9088A40A1DB6A6087A /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03FE981FC132007E9E69798B /* ProjectDetailView.swift */; };
 		F72D7998D125B5FB7F23E8A3 /* GitStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 528E0503344321946C760884 /* GitStatus.swift */; };
+		F76F2080B8A49B85D310119D /* CheckpointHardeningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E3C9C9BA4D14DAB2168E413 /* CheckpointHardeningTests.swift */; };
 		F79E54AD009A684B0BD69821 /* WindowTabsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 185DE56CCE558E8A7D188FFA /* WindowTabsTests.swift */; };
 		F83E82C08CD8BD92ED360B73 /* SSHKeyAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE75C08C11A58E74DCB6E5D0 /* SSHKeyAuthorization.swift */; };
 		F89953748CA3ACF05C483ED7 /* AgentConversationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849D735DF41B96D22DDFE331 /* AgentConversationState.swift */; };
@@ -1195,6 +1196,7 @@
 		8C6ED708F93EEF66D3E4B571 /* GitSummaryBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitSummaryBadge.swift; sourceTree = "<group>"; };
 		8D470009854B0C1CE377BA07 /* SSHConnectionMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConnectionMonitor.swift; sourceTree = "<group>"; };
 		8D63CB151C598DDFDE97D64F /* AgentStreamEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStreamEvent.swift; sourceTree = "<group>"; };
+		8E3C9C9BA4D14DAB2168E413 /* CheckpointHardeningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckpointHardeningTests.swift; sourceTree = "<group>"; };
 		8F51C5E0B5665B50C8902B2E /* ReliabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReliabilityTests.swift; sourceTree = "<group>"; };
 		8FFCF575CF22EC6992972AD4 /* ProjectListing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectListing.swift; sourceTree = "<group>"; };
 		904ACF68474BFBC2683C35F8 /* SSHServiceRetirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHServiceRetirement.swift; sourceTree = "<group>"; };
@@ -1766,6 +1768,7 @@
 				9797766E6FF8BEFD478CDEC7 /* AppModelLogicTests.swift */,
 				05E95D00B072153130E31089 /* AttentionTests.swift */,
 				548AEF17DDD762D8B75FC57F /* ChannelGateTests.swift */,
+				8E3C9C9BA4D14DAB2168E413 /* CheckpointHardeningTests.swift */,
 				3DFBDE2467DF62D5D608B8DC /* CheckpointSafetyTests.swift */,
 				BA28719FE85EB306E68F29DB /* CheckpointScriptTests.swift */,
 				EAE443CE3B4D06B3DD92713B /* CheckpointsModelTests.swift */,
@@ -3236,6 +3239,7 @@
 				09FAD756DEDBDECB6CB95CFE /* AppModelLogicTests.swift in Sources */,
 				4F13A3C0C410A16A493FD675 /* AttentionTests.swift in Sources */,
 				58792BB853D20015D62BFA4B /* ChannelGateTests.swift in Sources */,
+				F76F2080B8A49B85D310119D /* CheckpointHardeningTests.swift in Sources */,
 				4C1D4932072F762E2E4661E2 /* CheckpointSafetyTests.swift in Sources */,
 				9D0D342EEDFE98210B8F0EB9 /* CheckpointScriptTests.swift in Sources */,
 				049E9B71F74A860C28FF5261 /* CheckpointTestSupport.swift in Sources */,
