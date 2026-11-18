@@ -46,6 +46,7 @@ import com.iaportafolio.argos.ui.agents.AgentListEvent
 import com.iaportafolio.argos.ui.agents.AgentListScreen
 import com.iaportafolio.argos.ui.agents.AgentLoginScreen
 import com.iaportafolio.argos.ui.agents.RequestAgentNotificationPermission
+import com.iaportafolio.argos.ui.agents.ServerAgentsScreen
 import com.iaportafolio.argos.ui.common.LocalNetworkPermissionPrompt
 import com.iaportafolio.argos.ui.common.StatusMessage
 import com.iaportafolio.argos.ui.files.FilesScreen
@@ -107,6 +108,10 @@ data class AgentChatRoute(val serverId: String, val agentId: String)
 
 @Serializable
 data class AgentLoginRoute(val serverId: String)
+
+/** «Agentes en este servidor»: todos los agentes de Argos del servidor, de cualquier proyecto. */
+@Serializable
+data class ServerAgentsRoute(val serverId: String)
 
 /**
  * «Añadir desde el Mac». Sin argumentos a propósito: el enlace de un deep link lleva la semilla
@@ -258,7 +263,12 @@ fun ArgosNavHost(
                 onBack = { navController.popBackStack() },
                 onOpenAgent = { navController.navigate(AgentChatRoute(route.serverId, it)) },
                 onOpenLogin = { navController.navigate(AgentLoginRoute(route.serverId)) },
+                onOpenServerAgents = { navController.navigate(ServerAgentsRoute(route.serverId)) },
             )
+        }
+        composable<ServerAgentsRoute> { entry ->
+            val route = entry.toRoute<ServerAgentsRoute>()
+            ServerAgentsScreen(viewModel = serverAgentsViewModel(container, route.serverId), onBack = { navController.popBackStack() })
         }
         composable<AgentChatRoute> { entry ->
             val route = entry.toRoute<AgentChatRoute>()
@@ -514,6 +524,7 @@ private fun ProjectDestination(
     onBack: () -> Unit,
     onOpenAgent: (String) -> Unit,
     onOpenLogin: () -> Unit,
+    onOpenServerAgents: () -> Unit,
 ) {
     val viewModel = projectViewModel(container, serverId, projectId)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -564,6 +575,7 @@ private fun ProjectDestination(
                 onBack,
                 onOpenAgent,
                 onOpenLogin,
+                onOpenServerAgents,
             )
         },
         // Como el Mac (c131ba1): el terminal y el chat siguen enganchados mientras el proyecto esté
@@ -591,6 +603,7 @@ private fun AgentsDestination(
     onBack: () -> Unit,
     onOpenAgent: (String) -> Unit,
     onOpenLogin: () -> Unit,
+    onOpenServerAgents: () -> Unit,
 ) {
     val viewModel = agentListViewModel(container, serverId, project.name, project.path)
     val selectedId = selectedAgentId
@@ -601,6 +614,7 @@ private fun AgentsDestination(
             when (event) {
                 is AgentListEvent.OpenAgent -> if (currentTwoPane) currentOnSelect(event.agentId) else onOpenAgent(event.agentId)
                 AgentListEvent.OpenLogin -> onOpenLogin()
+                AgentListEvent.OpenServerAgents -> onOpenServerAgents()
             }
         }
     }

@@ -291,16 +291,51 @@ class AgentChatViewModelTest {
     }
 
     @Test
-    fun `al reengancharse conserva la conversación mientras relee el log`() = chatTest {
+    fun `al reengancharse sigue desde lo leído sin repetir la conversación`() = chatTest {
+        val lines = arrayOf(AgentLog.user("hola"), AgentLog.assistant("adiós"))
+        val vm = attached()
+        ssh.attaches[0].emit(*lines)
+        runCurrent()
+        val before = vm.state.value.rows
+        val read = lines.sumOf { "$it\n".toByteArray().size }.toLong()
+
+        vm.onStop()
+        vm.onStart()
+        runCurrent()
+        assertEquals(PersistentAgentScript.attach(AGENT_1, read + 1), ssh.attaches[1].command)
+        assertFalse(vm.state.value.isReplaying)
+        assertEquals(before, vm.state.value.rows)
+
+        ssh.attaches[1].emit(AgentLog.assistant("y algo más"))
+        runCurrent()
+        assertEquals(before.size + 1, vm.state.value.rows.size)
+    }
+
+    @Test
+    fun `si el servidor rotó lo pendiente se reconstruye desde lo conservado`() = chatTest {
+        val vm = attached()
+        ssh.attaches[0].emit(AgentLog.user("hola"), AgentLog.assistant("viejo"))
+        runCurrent()
+        vm.onStop()
+        vm.onStart()
+        runCurrent()
+        // Lo pedido ya no está: la cabecera dice que sigue desde el byte 1 de lo conservado (base 9000).
+        ssh.attaches[1].emit("""{"type":"argos_log_base","base":9000,"from":1}""", AgentLog.assistant("conservado"))
+        runCurrent()
+        assertEquals(1, vm.state.value.rows.size)
+    }
+
+    @Test
+    fun `recargar reconstruye la conversación conservándola mientras relee el log`() = chatTest {
         val lines = arrayOf(AgentLog.user("hola"), AgentLog.assistant("adiós"))
         val vm = attached()
         ssh.attaches[0].emit(*lines)
         runCurrent()
         val before = vm.state.value.rows
 
-        vm.onStop()
-        vm.onStart()
+        vm.reload()
         runCurrent()
+        assertEquals(PersistentAgentScript.attach(AGENT_1, 1), ssh.attaches[1].command)
         assertTrue(vm.state.value.isReplaying)
         assertEquals(before, vm.state.value.rows)
         assertEquals(AgentChatStatus.CONNECTING, vm.state.value.status)
@@ -359,7 +394,7 @@ class AgentChatViewModelTest {
         runCurrent()
 
         assertEquals(PersistentAgentScript.send(AGENT_1, AgentProtocol.encodeUserMessage("¿qué tal? ñandú 😀")), ssh.scripts.single())
-        assertEquals(listOf<AgentChatEvent>(AgentChatEvent.MessageSent), events.toList())
+        assertEquals(listOf<AgentChatEvent>(AgentChatEvent.MessageSent("  ¿qué tal? ñandú 😀\n")), events.toList())
         assertFalse(vm.state.value.isSending)
     }
 
@@ -508,8 +543,39 @@ class AgentChatViewModelTest {
     }
 
     @Test
+    fun `escribir a un agente en reposo lo reanuda y entrega el mensaje`() = chatTest {
+        ssh.agents = listOf(hibernated(permissionMode = "default"))
+        val vm = attached()
+        assertTrue(vm.state.value.isHibernated && vm.state.value.canCompose)
+        ssh.agents = listOf(agentInfo(isAlive = true, logBytes = 300, permissionMode = "default"))
+        vm.send("sigue")
+        runCurrent()
+        assertTrue("--resume" in ssh.launches.single().command)
+        assertEquals(PersistentAgentScript.send(AGENT_1, AgentProtocol.encodeUserMessage("sigue")), ssh.scripts.last())
+        assertTrue(vm.state.value.isAlive)
+    }
+
+    @Test
+    fun `escribir a un agente en reposo sin preguntar exige confirmar y conserva el texto`() = chatTest {
+        ssh.agents = listOf(hibernated(permissionMode = "bypassPermissions"))
+        val vm = attached()
+        val events = eventsOf(vm)
+        vm.send("sigue")
+        runCurrent()
+        assertTrue(ssh.launches.isEmpty(), "No debe reanudar sin confirmación")
+        assertEquals(ClaudeAgentCommand.PermissionMode.BYPASS_PERMISSIONS, vm.state.value.confirmResumeMode)
+        assertTrue(events.isEmpty())
+
+        vm.confirmResume()
+        runCurrent()
+        assertEquals(1, ssh.launches.size)
+        assertEquals(listOf<AgentChatEvent>(AgentChatEvent.MessageSent("sigue")), events.toList())
+    }
+
+    @Test
     fun `descubrirlo al enviar también lo marca muerto`() = chatTest {
         val vm = attached()
+        ssh.agents = listOf(agentInfo(isAlive = false))
         ssh.scriptError = PersistentAgentException(PersistentAgentError.NOT_RUNNING)
         vm.send("hola")
         runCurrent()
@@ -529,7 +595,7 @@ class AgentChatViewModelTest {
     @Test
     fun `reanudar pasa el token por stdin y vuelve a engancharse`() = chatTest {
         tokens.token = SECRET_TOKEN
-        ssh.agents = listOf(agentInfo(isAlive = false))
+        ssh.agents = listOf(agentInfo(isAlive = false, logBytes = 120))
         val vm = attached()
         assertFalse(vm.state.value.isAlive)
         val attachesBefore = ssh.attaches.size
@@ -761,5 +827,9 @@ class AgentChatViewModelTest {
         vm.onStop()
 
         assertEquals(listOf(Triple("S1", AGENT_1, bytes(AgentLog.result()))), attention.hidden)
+    }
+
+    private fun hibernated(permissionMode: String) = agentInfo(isAlive = false, logBytes = 300, permissionMode = permissionMode).let {
+        it.copy(meta = it.meta.copy(hibernatedAt = java.time.Instant.ofEpochSecond(1_700_003_600)))
     }
 }

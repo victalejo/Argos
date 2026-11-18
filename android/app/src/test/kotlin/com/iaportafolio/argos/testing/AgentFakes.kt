@@ -6,6 +6,7 @@ import com.iaportafolio.argos.core.agent.ClaudeAuthStatus
 import com.iaportafolio.argos.core.agent.PersistentAgentInfo
 import com.iaportafolio.argos.core.agent.PersistentAgentMeta
 import com.iaportafolio.argos.core.agent.PersistentAgentScript
+import com.iaportafolio.argos.core.agent.ServerAgentInventory
 import com.iaportafolio.argos.data.AgentPermissionBackend
 import com.iaportafolio.argos.data.ClaudeTokenStore
 import kotlinx.coroutines.CancellationException
@@ -67,10 +68,20 @@ class FakeAgentService(base: FakeSSHService = FakeSSHService()) : SSHServicing b
 
     override suspend fun locateClaude(): String? = claudePath
 
+    /** Salida de los demás scripts (p. ej. las marcas de fallo de «Detener todos»). */
+    var scriptOutput = ""
+
+    /** Salida del inventario del servidor (`ServerAgentInventory.script()`); vacía = sin datos. */
+    var inventoryOutput = ""
+
     override suspend fun runAgentScript(command: String): String {
         if (command == PersistentAgentScript.list()) {
             listError?.let { throw it }
             return agents.joinToString("") { listLine(it) }
+        }
+        if (command == ServerAgentInventory.script()) {
+            listError?.let { throw it }
+            return inventoryOutput
         }
         scripts += command
         scriptError?.let { throw it }
@@ -81,7 +92,7 @@ class FakeAgentService(base: FakeSSHService = FakeSSHService()) : SSHServicing b
                 else -> info
             }
         }
-        return ""
+        return scriptOutput
     }
 
     override suspend fun runAgentExec(command: String, stdin: Flow<ByteArray>, output: suspend (ByteArray) -> Unit) {

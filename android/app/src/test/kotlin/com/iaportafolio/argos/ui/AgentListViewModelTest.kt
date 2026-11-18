@@ -193,6 +193,59 @@ class AgentListViewModelTest {
         assertIs<AgentListEvent.OpenAgent>(events.single())
     }
 
+    @Test
+    fun `con poca memoria en el servidor avisa antes de crear y deja seguir`() = runTest(main.dispatcher) {
+        ssh.inventoryOutput = "MEM|400000\n"
+        val vm = loaded()
+        val events = eventsOf(vm)
+        vm.createAgent()
+        advanceUntilIdle()
+        val warning = assertIs<AgentListDialog.LaunchWarning>(vm.state.value.dialog)
+        assertTrue(warning.title.contains("memoria"))
+        assertTrue(ssh.launches.isEmpty(), "No debe crear sin confirmación")
+
+        vm.confirmLaunchAnyway()
+        advanceUntilIdle()
+        assertEquals(1, ssh.launches.size)
+        assertIs<AgentListEvent.OpenAgent>(events.single())
+    }
+
+    @Test
+    fun `desde el aviso se pueden ver los agentes del servidor`() = runTest(main.dispatcher) {
+        ssh.inventoryOutput = "MEM|400000\n"
+        val vm = loaded()
+        val events = eventsOf(vm)
+        vm.createAgent()
+        advanceUntilIdle()
+        vm.openServerAgents()
+        advanceUntilIdle()
+        assertNull(vm.state.value.dialog)
+        assertEquals(listOf<AgentListEvent>(AgentListEvent.OpenServerAgents), events)
+        assertTrue(ssh.launches.isEmpty())
+    }
+
+    @Test
+    fun `el plazo de reposo se guarda y llega al lanzador`() = runTest(main.dispatcher) {
+        val vm = loaded()
+        assertEquals(4, vm.state.value.hibernationHours)
+        vm.setHibernationHours(0)
+        assertEquals(0, vm.state.value.hibernationHours)
+        vm.createAgent()
+        advanceUntilIdle()
+        assertFalse("argos-watch" in ssh.launches.single().command, "sin reposo no hay vigilante")
+
+        vm.setHibernationHours(13) // no es una opción: vuelve al de serie
+        assertEquals(4, vm.state.value.hibernationHours)
+    }
+
+    @Test
+    fun `un agente en reposo consta como tal`() = runTest(main.dispatcher) {
+        val info = agentInfo(isAlive = false)
+        ssh.agents = listOf(info.copy(meta = info.meta.copy(hibernatedAt = Instant.ofEpochSecond(1_700_003_600))))
+        val vm = loaded()
+        assertTrue(vm.state.value.agents.single().isHibernated)
+    }
+
     /** El `meta.json` que escribe el comando del lanzador. */
     private fun launchedMeta(command: String): PersistentAgentMeta {
         val base64 = Regex("printf '%s' '([A-Za-z0-9+/=]+)' \\| base64 -d > meta.json").find(command)?.groupValues?.get(1)
@@ -530,9 +583,20 @@ class AgentListViewModelTest {
     }
 
     @Test
+    fun `reanudar un agente que nunca recibio nada arranca con su mismo id`() = runTest(main.dispatcher) {
+        ssh.agents = listOf(agentInfo(isAlive = false, logBytes = 0))
+        val vm = loaded()
+        vm.resume(AGENT_1)
+        advanceUntilIdle()
+        val command = ssh.launches.single().command
+        assertTrue("--session-id $AGENT_1" in command)
+        assertFalse("--resume" in command)
+    }
+
+    @Test
     fun `reanudar pasa el token por stdin sin dejar enganche abierto`() = runTest(main.dispatcher) {
         tokens.token = SECRET_TOKEN
-        ssh.agents = listOf(agentInfo(isAlive = false))
+        ssh.agents = listOf(agentInfo(isAlive = false, logBytes = 120))
         val vm = loaded()
         vm.resume(AGENT_1)
         advanceUntilIdle()
@@ -545,7 +609,7 @@ class AgentListViewModelTest {
 
     @Test
     fun `reanudar con todos los permisos segun el meta exige confirmar`() = runTest(main.dispatcher) {
-        ssh.agents = listOf(agentInfo(isAlive = false, permissionMode = "bypassPermissions"))
+        ssh.agents = listOf(agentInfo(isAlive = false, logBytes = 120, permissionMode = "bypassPermissions"))
         val vm = loaded()
         vm.resume(AGENT_1)
         advanceUntilIdle()

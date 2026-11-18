@@ -517,6 +517,36 @@
     <string name="agents_resume_confirm_message">El servidor indica que este agente usa este modo. %1$s Si no lo elegiste tú, borra la conversación y crea otra.</string>
     <string name="agents_resume_confirm_action">Reanudar en «%1$s»</string>
 
+    <!-- Reposo, guardia y agentes del servidor -->
+    <string name="agents_hibernated">En reposo</string>
+    <string name="agents_chat_placeholder_hibernated">En reposo: escribe para reanudarlo</string>
+    <string name="agents_chat_resuming">Reanudando el agente…</string>
+    <string name="agents_hibernation_menu">Poner en reposo tras inactividad…</string>
+    <string name="agents_hibernation_title">Poner en reposo tras inactividad</string>
+    <string name="agents_server_agents_menu">Agentes en este servidor</string>
+    <string name="agents_launch_anyway">Crear de todos modos</string>
+    <string name="agents_launch_see_agents">Ver agentes del servidor</string>
+    <string name="server_agents_title">Agentes en %1$s</string>
+    <string name="server_agents_live">En marcha</string>
+    <string name="server_agents_stopped">Detenidos o en reposo</string>
+    <string name="server_agents_none">No hay agentes en marcha.</string>
+    <string name="server_agents_live_count">En marcha: %1$d</string>
+    <string name="server_agents_memory_used">Memoria que usan: %1$s</string>
+    <string name="server_agents_memory_free">Memoria libre del servidor: %1$s</string>
+    <string name="server_agents_hibernate">Hibernar inactivos (%1$d)</string>
+    <string name="server_agents_hibernate_footer">Hibernar para los agentes quietos sin actividad desde hace %1$s o más; se reanudan solos al escribirles. %2$s</string>
+    <string name="server_agents_hibernate_disabled">La hibernación automática está desactivada: «Hibernar inactivos» no encontrará candidatos.</string>
+    <string name="server_agents_stop">Detener</string>
+    <string name="server_agents_stop_all">Detener todos</string>
+    <string name="server_agents_stop_all_title">¿Detener todos los agentes?</string>
+    <string name="server_agents_stop_all_message">Se paran todos los agentes de Argos de este servidor, también las conversaciones abiertas en el Mac. Los de iPhone, iPad y Android se pueden reanudar después.</string>
+    <string name="server_agents_action_failed">No se pudo completar</string>
+    <string name="server_agents_failed">No se pudieron parar: %1$s. Inténtalo de nuevo; si sigue, reinicia el servidor.</string>
+    <string name="server_agents_mac_conversation">Conversación del Mac</string>
+    <string name="server_agents_waiting_permission">espera tu permiso</string>
+    <string name="server_agents_idle">inactivo %1$s</string>
+    <string name="action_ok">Aceptar</string>
+
     <!-- Segundo plano -->
     <string name="notification_channel_agents">Avisos de agentes</string>
     <string name="notification_channel_agents_description">Cuando un agente termina o espera tu permiso.</string>

@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.core.agent.PersistentAgentHibernation
 import com.iaportafolio.argos.core.agent.ClaudeAgentCommand.PermissionMode
 import com.iaportafolio.argos.data.AgentPermissionSelection
 
@@ -92,6 +93,28 @@ fun GlobalPermissionDialog(mode: PermissionMode, onSelect: (PermissionMode) -> U
     }
 }
 
+/**
+ * Tras cuántas horas sin actividad se pone en reposo un agente (en este dispositivo), con el aviso
+ * de que el reposo detiene también lo que el agente lanzó en segundo plano.
+ */
+@Composable
+internal fun HibernationDialog(hours: Int, onSelect: (Int) -> Unit, onDismiss: () -> Unit) {
+    PermissionDialog(
+        title = stringResource(R.string.agents_hibernation_title),
+        footer = PersistentAgentHibernation.BACKGROUND_WORK_WARNING,
+        onDismiss = onDismiss,
+    ) {
+        PersistentAgentHibernation.CHOICES.forEach { option ->
+            PermissionOption(
+                title = PersistentAgentHibernation.title(option),
+                detail = null,
+                selected = option == hours,
+                onClick = { onSelect(option) },
+            )
+        }
+    }
+}
+
 @Composable
 private fun PermissionDialog(title: String, footer: String, onDismiss: () -> Unit, options: @Composable () -> Unit) {
     AlertDialog(
@@ -108,7 +131,7 @@ private fun PermissionDialog(title: String, footer: String, onDismiss: () -> Uni
 }
 
 @Composable
-private fun PermissionOption(title: String, detail: String, selected: Boolean, onClick: () -> Unit) {
+private fun PermissionOption(title: String, detail: String?, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -120,7 +143,7 @@ private fun PermissionOption(title: String, detail: String, selected: Boolean, o
         RadioButton(selected = selected, onClick = null)
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

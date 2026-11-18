@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.iaportafolio.argos.core.agent.AgentPermissionPreferences
 import com.iaportafolio.argos.core.agent.ClaudeAgentCommand.PermissionMode
+import com.iaportafolio.argos.core.agent.PersistentAgentHibernation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,8 +25,9 @@ data class AgentPermissionSelection(val choice: PermissionMode?, val global: Per
 }
 
 /**
- * Modos de permisos de los agentes, con las claves de `AgentPermissionPreferences`. Solo en este
- * dispositivo; nunca en `projects.json`, que comparten los demás clientes.
+ * Ajustes de los agentes en ESTE dispositivo: modos de permisos (claves de
+ * `AgentPermissionPreferences`) y horas de inactividad antes de ponerlos en reposo (la clave de
+ * `AgentHibernationPreferences` de Apple). Nunca en `projects.json`, que comparten los demás.
  */
 class AgentPermissionStore(private val backend: AgentPermissionBackend) {
     private val state = MutableStateFlow(backend.readAll())
@@ -52,11 +54,21 @@ class AgentPermissionStore(private val backend: AgentPermissionBackend) {
     fun setProjectChoice(serverId: String, workingDirectory: String, mode: PermissionMode?) =
         put(AgentPermissionPreferences.projectKey(serverId, workingDirectory), mode?.rawValue)
 
+    /** Horas sin actividad antes de hibernar (0 = nunca); un valor no válido vuelve al de serie. */
+    fun hibernationHours(): Int = PersistentAgentHibernation.sanitizedHours(state.value[HIBERNATION_KEY]?.toIntOrNull())
+
+    fun hibernation(): PersistentAgentHibernation = PersistentAgentHibernation.ofHours(hibernationHours())
+
+    fun setHibernationHours(hours: Int) = put(HIBERNATION_KEY, PersistentAgentHibernation.sanitizedHours(hours).toString())
+
     private fun put(key: String, value: String?) {
         state.update { if (value == null) it - key else it + (key to value) }
         backend.write(key, value)
     }
 }
+
+/** Misma clave que `AgentHibernationPreferences.key` de Apple. */
+const val HIBERNATION_KEY = "agent.hibernation.idleHours"
 
 /** [AgentPermissionBackend] sobre `SharedPreferences`, excluido de las copias como todo lo local. */
 class SharedPreferencesAgentPermissions(context: Context) : AgentPermissionBackend {

@@ -1,6 +1,7 @@
 package com.iaportafolio.argos.ui.agents
 
 import com.iaportafolio.argos.core.agent.ClaudeAgentCommand
+import com.iaportafolio.argos.core.agent.PersistentAgentHibernation
 import com.iaportafolio.argos.data.AgentPermissionSelection
 import com.iaportafolio.argos.ui.common.UiText
 import java.time.Instant
@@ -34,6 +35,8 @@ data class AgentRow(
     val permissionMode: ClaudeAgentCommand.PermissionMode,
     /** Hay una acción en curso sobre este agente. */
     val isBusy: Boolean = false,
+    /** Parado por inactividad: escribirle lo reanuda. */
+    val isHibernated: Boolean = false,
 )
 
 sealed interface AgentListDialog {
@@ -50,6 +53,12 @@ sealed interface AgentListDialog {
 
     /** `meta.json` pide un modo que actúa sin preguntar: reanudar exige confirmarlo. */
     data class ConfirmResume(val agentId: String, val mode: ClaudeAgentCommand.PermissionMode) : AgentListDialog
+
+    /** Poca memoria o muchos agentes vivos en el servidor (`AgentLaunchGuard`): confirmar antes de crear. */
+    data class LaunchWarning(val title: String, val message: String) : AgentListDialog
+
+    /** Elegir tras cuántas horas sin actividad se pone en reposo un agente (en este dispositivo). */
+    data object Hibernation : AgentListDialog
 }
 
 sealed interface AgentListEvent {
@@ -57,6 +66,9 @@ sealed interface AgentListEvent {
 
     /** Abrir el login guiado de `claude auth login` en una terminal. */
     data object OpenLogin : AgentListEvent
+
+    /** Abrir «Agentes en este servidor». */
+    data object OpenServerAgents : AgentListEvent
 }
 
 data class AgentListUiState(
@@ -70,6 +82,8 @@ data class AgentListUiState(
     val isCreating: Boolean = false,
     val claude: ClaudeAvailability = ClaudeAvailability.Unknown,
     val hasSavedToken: Boolean = false,
+    /** Horas sin actividad antes del reposo (0 = nunca), ajuste de este dispositivo. */
+    val hibernationHours: Int = PersistentAgentHibernation.DEFAULT_IDLE_HOURS,
     val dialog: AgentListDialog? = null,
     /** Fallo al guardar el token, dentro de su diálogo. */
     val tokenError: UiText? = null,

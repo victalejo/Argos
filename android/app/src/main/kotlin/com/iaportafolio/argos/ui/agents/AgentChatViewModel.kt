@@ -5,7 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.background.AgentAttentionTracker
 import com.iaportafolio.argos.core.SSHServicing
+import com.iaportafolio.argos.core.agent.AgentLinkState
 import com.iaportafolio.argos.core.agent.AgentPermissionDecision
+import com.iaportafolio.argos.core.agent.AgentSendOutcome
+import com.iaportafolio.argos.core.agent.PersistentAgentHibernation
 import com.iaportafolio.argos.core.agent.PersistentAgentScript
 import com.iaportafolio.argos.core.agent.PersistentAgentSession
 import com.iaportafolio.argos.core.agent.PersistentAgentSessionState
@@ -59,6 +62,8 @@ class AgentChatViewModel(
     private val io: CoroutineDispatcher,
     private val policy: AgentChatPolicy = AgentChatPolicy(),
     private val attention: AgentAttentionTracker = AgentAttentionTracker.None,
+    /** Plazo de reposo vigente en este dispositivo (se lee al reanudar). */
+    private val hibernation: () -> PersistentAgentHibernation = { PersistentAgentHibernation.STANDARD },
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(AgentChatUiState())
@@ -78,6 +83,12 @@ class AgentChatViewModel(
 
     /** Último `isAlive` de la sesión: el sondeo también lo actualiza, gana el último cambio. */
     private var lastSessionAlive: Boolean? = null
+
+    /** «Reanudar» del menú en curso (reanudar al escribir lo dice la propia sesión). */
+    private var resumingByUser = false
+
+    /** Texto que espera a que el usuario confirme reanudar un agente en reposo. */
+    private var pendingResumeText: String? = null
 
     @Volatile
     private var redactor = SecretRedactor()
@@ -150,8 +161,10 @@ class AgentChatViewModel(
                             isAlive = info.isAlive,
                         )
                     }
-                    // Un scope propio solo cambia de hilo: decodificar un log largo no bloquea la UI.
-                    PersistentAgentSession(ssh, exec, info, CoroutineScope(viewModelScope.coroutineContext + io)).also {
+                    // Un scope propio solo cambia de hilo: decodificar un log largo no bloquea la UI. Los
+                    // reintentos del enganche los lleva [attachLoop] (con su «Reconectar»).
+                    val scope = CoroutineScope(viewModelScope.coroutineContext + io)
+                    PersistentAgentSession(ssh, exec, info, scope, autoReconnect = false, hibernation = hibernation).also {
                         session = it
                         collectSession(it)
                     }
@@ -202,6 +215,8 @@ class AgentChatViewModel(
                 permission = projection.permission,
                 isReplaying = projection.replaying,
                 isAlive = if (aliveChanged) alive else it.isAlive,
+                isHibernated = projection.session.meta.isHibernated,
+                isResuming = resumingByUser || projection.session.isResuming,
             )
         }
     }
@@ -221,7 +236,8 @@ class AgentChatViewModel(
                 delay(policy.replayTimeoutMillis)
                 replayTarget.value = 0
             }
-            val firstSignal = current.state.first { !it.isAttached || it.receivedBytes > 0 }
+            // En vivo: llegó la cabecera del enganche o un dato (un agente quieto no manda nada más).
+            val firstSignal = current.state.first { !it.isAttached || it.link == AgentLinkState.Live }
             if (firstSignal.isAttached) {
                 attempt = 0
                 mutableState.update { it.copy(connection = AgentConnection.Connected) }
@@ -256,6 +272,7 @@ class AgentChatViewModel(
                     agentDisappeared(current)
                     return
                 }
+                current.adoptListed(info)
                 mutableState.update {
                     // El canal SSH responde y el enganche sigue abierto: un log vacío no da otra señal.
                     val reachable = current.state.value.isAttached && it.connection !is AgentConnection.Lost
@@ -275,26 +292,60 @@ class AgentChatViewModel(
 
     // MARK: - Mensajes
 
-    /** Envía [rawText]. La burbuja llega por el eco del log; si falla, el texto se conserva. */
-    fun send(rawText: String) {
+    /**
+     * Envía [rawText]. La burbuja llega por el eco del log; si falla, el texto se conserva. A un
+     * agente en reposo escribirle lo reanuda (en un modo que actúa sin preguntar, tras confirmarlo).
+     */
+    fun send(rawText: String) = deliver(rawText, confirmedResume = false)
+
+    private fun deliver(rawText: String, confirmedResume: Boolean) {
         val current = session ?: return
         if (rawText.isBlank() || !state.value.canSend) return
         mutableState.update { it.copy(isSending = true) }
         viewModelScope.launch {
             try {
-                current.send(rawText)
-                val failure = current.state.value.lastError
-                if (failure == null) {
-                    mutableState.update { it.copy(error = null) }
-                    eventChannel.send(AgentChatEvent.MessageSent)
-                } else {
-                    ArgosLog.warn(ArgosLog.TAG_AGENT, "No se pudo enviar al agente $agentId")
-                    mutableState.update { it.copy(error = UiText.Plain(redactor.redact(failure))) }
+                when (current.send(rawText, ::readResumeToken, confirmedResume)) {
+                    AgentSendOutcome.SENT -> {
+                        mutableState.update { it.copy(error = null, isAlive = current.state.value.isAlive) }
+                        eventChannel.send(AgentChatEvent.MessageSent(rawText))
+                    }
+                    AgentSendOutcome.NEEDS_RESUME_CONFIRMATION -> {
+                        pendingResumeText = rawText
+                        mutableState.update { it.copy(confirmResumeMode = current.state.value.meta.resolvedPermissionMode) }
+                    }
+                    AgentSendOutcome.FAILED -> {
+                        ArgosLog.warn(ArgosLog.TAG_AGENT, "No se pudo enviar al agente $agentId")
+                        val failure = current.state.value.lastError
+                        mutableState.update {
+                            it.copy(error = failure?.let { text -> UiText.Plain(redactor.redact(text)) } ?: it.error)
+                        }
+                    }
                 }
             } finally {
                 mutableState.update { it.copy(isSending = false) }
             }
+            // Si se reanudó al escribir, el enganche se rehízo dentro de la sesión.
+            if (current.state.value.isAlive && superviseJob?.isActive != true && inForeground) startSupervisor()
         }
+    }
+
+    /** Token para reanudar al escribir (solo por stdin); sin él, se usa la sesión del servidor. */
+    private suspend fun readResumeToken(): String? {
+        val token = agentFailures("No se pudo leer el token para reanudar $agentId") { withContext(io) { tokens.read() } }.getOrNull()
+        if (token != null) redactor = SecretRedactor(token)
+        return token
+    }
+
+    /** «Recargar»: olvida lo leído y reconstruye la conversación desde el principio. */
+    fun reload() {
+        val current = session ?: return
+        knownLogBytes = maxOf(knownLogBytes, current.state.value.receivedBytes)
+        // Antes de olvidar: la conversación se sigue viendo mientras se relee (ver [ReplayHold]).
+        replayTarget.value = knownLogBytes
+        superviseJob?.cancel()
+        superviseJob = null
+        current.forget()
+        startSupervisor()
     }
 
     // MARK: - Permisos
@@ -368,16 +419,27 @@ class AgentChatViewModel(
         }
     }
 
-    fun cancelResume() = mutableState.update { it.copy(confirmResumeMode = null) }
+    fun cancelResume() {
+        pendingResumeText = null
+        mutableState.update { it.copy(confirmResumeMode = null) }
+    }
 
     fun confirmResume() {
         val current = session ?: return
         if (state.value.confirmResumeMode == null || state.value.isResuming) return
+        val text = pendingResumeText
+        if (text != null) {
+            pendingResumeText = null
+            mutableState.update { it.copy(confirmResumeMode = null) }
+            deliver(text, confirmedResume = true)
+            return
+        }
         performResume(current)
     }
 
     /** Relanza el proceso con `--resume`. El token solo viaja por stdin. */
     private fun performResume(current: PersistentAgentSession) {
+        resumingByUser = true
         mutableState.update { it.copy(isResuming = true, confirmResumeMode = null) }
         viewModelScope.launch {
             try {
@@ -401,7 +463,8 @@ class AgentChatViewModel(
                     mutableState.update { it.copy(error = error.toAgentUiText(redactor)) }
                 }
             } finally {
-                mutableState.update { it.copy(isResuming = false) }
+                resumingByUser = false
+                mutableState.update { it.copy(isResuming = current.state.value.isResuming) }
             }
             if (inForeground) startSupervisor() else current.detach()
         }

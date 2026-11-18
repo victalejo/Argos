@@ -12,6 +12,7 @@ import com.iaportafolio.argos.ui.monitor.ResourceMonitorViewModel
 import com.iaportafolio.argos.ui.share.ShareTargetViewModel
 import com.iaportafolio.argos.ui.agents.AgentListViewModel
 import com.iaportafolio.argos.ui.agents.AgentLoginViewModel
+import com.iaportafolio.argos.ui.agents.ServerAgentsViewModel
 import com.iaportafolio.argos.ui.files.RemoteFilesViewModel
 import com.iaportafolio.argos.ui.form.ServerFormViewModel
 import com.iaportafolio.argos.ui.git.GitChangesViewModel
@@ -286,8 +287,17 @@ internal fun agentChatViewModel(container: AppContainer, serverId: String, agent
                 container.claudeTokens,
                 container.io,
                 attention = container.agentNotifier,
+                hibernation = { container.agentPermissions.hibernation() },
             )
         }
+    },
+)
+
+@Composable
+internal fun serverAgentsViewModel(container: AppContainer, serverId: String): ServerAgentsViewModel = viewModel(
+    key = "server-agents:$serverId",
+    factory = viewModelFactory {
+        initializer { ServerAgentsViewModel(serverId, container.servers, container.services, container.agentPermissions, container.io) }
     },
 )
 

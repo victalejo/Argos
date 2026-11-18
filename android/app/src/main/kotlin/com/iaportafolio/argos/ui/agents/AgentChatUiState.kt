@@ -33,8 +33,8 @@ enum class AgentChatStatus { CONNECTING, WORKING, IDLE, AWAITING_PERMISSION, TER
 
 /** Mensajes de una sola vez hacia la pantalla. */
 sealed interface AgentChatEvent {
-    /** El mensaje llegó al agente: se vacía la caja de texto (si falla, se conserva). */
-    data object MessageSent : AgentChatEvent
+    /** [text] llegó al agente: se vacía la caja si aún dice eso (si falla, se conserva). */
+    data class MessageSent(val text: String) : AgentChatEvent
 
     /** La conversación se borró: se cierra la pantalla. */
     data object Closed : AgentChatEvent
@@ -49,6 +49,8 @@ data class AgentChatUiState(
     val rows: List<AgentTranscriptRow> = emptyList(),
     val conversationStatus: AgentStatus = AgentStatus.Idle,
     val isAlive: Boolean = true,
+    /** Parado por inactividad: escribirle lo reanuda. */
+    val isHibernated: Boolean = false,
     val isReplaying: Boolean = false,
     val connection: AgentConnection = AgentConnection.Connecting,
     val permission: AgentPermissionCard? = null,
@@ -85,5 +87,8 @@ data class AgentChatUiState(
     /** Solo se decide con el enganche vivo: lo que se ve es lo que el agente pide ahora. */
     val canDecidePermission: Boolean get() = connection == AgentConnection.Connected && !isResponding
 
-    val canSend: Boolean get() = load == AgentChatLoad.Ready && isAlive && !isSending
+    /** Se puede escribir: vivo, o en reposo (escribir lo reanuda). */
+    val canCompose: Boolean get() = isAlive || isHibernated
+
+    val canSend: Boolean get() = load == AgentChatLoad.Ready && canCompose && !isSending && !isResuming
 }

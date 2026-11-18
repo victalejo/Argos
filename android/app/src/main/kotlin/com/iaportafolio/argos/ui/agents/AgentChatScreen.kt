@@ -104,8 +104,9 @@ fun AgentChatScreen(
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
-                AgentChatEvent.MessageSent -> {
-                    draft = TextFieldValue("")
+                is AgentChatEvent.MessageSent -> {
+                    // Si se escribió otra cosa mientras se enviaba, no se pierde.
+                    if (draft.text == event.text) draft = TextFieldValue("")
                     follow = true
                 }
                 AgentChatEvent.Closed -> currentOnClosed()
@@ -209,7 +210,7 @@ private fun ChatTopBar(state: AgentChatUiState, viewModel: AgentChatViewModel, o
                             text = { Text(stringResource(R.string.agents_chat_reload)) },
                             onClick = {
                                 menuOpen = false
-                                viewModel.reconnect()
+                                viewModel.reload()
                             },
                         )
                         DropdownMenuItem(
@@ -467,12 +468,18 @@ private fun Composer(state: AgentChatUiState, draft: TextFieldValue, onDraftChan
             value = draft,
             onValueChange = onDraftChange,
             modifier = Modifier.weight(1f),
-            enabled = state.isAlive,
+            enabled = state.canCompose,
             // Mientras se envía no se edita: al confirmarse el envío se vacía la caja.
             readOnly = state.isSending,
             maxLines = 6,
             placeholder = {
-                Text(stringResource(if (state.isAlive) R.string.agents_chat_placeholder else R.string.agents_chat_placeholder_dead))
+                val hint = when {
+                    state.isResuming -> R.string.agents_chat_resuming
+                    state.isAlive -> R.string.agents_chat_placeholder
+                    state.isHibernated -> R.string.agents_chat_placeholder_hibernated
+                    else -> R.string.agents_chat_placeholder_dead
+                }
+                Text(stringResource(hint))
             },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         )

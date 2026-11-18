@@ -7,11 +7,13 @@ import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.agent.AgentExecStreaming
+import com.iaportafolio.argos.core.agent.AgentLaunchGuard
 import com.iaportafolio.argos.core.agent.ClaudeAgentCommand
 import com.iaportafolio.argos.core.agent.ClaudeAuthStatus
 import com.iaportafolio.argos.core.agent.PersistentAgentInfo
 import com.iaportafolio.argos.core.agent.PersistentAgentScript
 import com.iaportafolio.argos.core.agent.PersistentAgentSession
+import com.iaportafolio.argos.core.agent.serverAgentInventory
 import com.iaportafolio.argos.data.AgentPermissionStore
 import com.iaportafolio.argos.data.ClaudeTokenStore
 import com.iaportafolio.argos.data.ClaudeTokenValidation
@@ -54,6 +56,7 @@ class AgentListViewModel(
             workingDirectory = workingDirectory,
             permissions = permissions.selection(serverId, workingDirectory),
             serverName = repository.server(serverId)?.name.orEmpty(),
+            hibernationHours = permissions.hibernationHours(),
         ),
     )
     val state: StateFlow<AgentListUiState> = mutableState.asStateFlow()
@@ -72,7 +75,9 @@ class AgentListViewModel(
         // El ajuste global puede cambiar con esta pantalla en la pila.
         viewModelScope.launch {
             permissions.values.collect {
-                mutableState.update { it.copy(permissions = permissions.selection(serverId, workingDirectory)) }
+                mutableState.update {
+                    it.copy(permissions = permissions.selection(serverId, workingDirectory), hibernationHours = permissions.hibernationHours())
+                }
             }
         }
         refresh()
@@ -123,7 +128,10 @@ class AgentListViewModel(
                 load = AgentListLoad.Loaded,
                 hasSavedToken = hasToken,
                 agents = infos.map {
-                    AgentRow(it.id, it.meta.title, it.meta.createdAt, it.isAlive, it.meta.resolvedPermissionMode, it.id in busy)
+                    AgentRow(
+                        it.id, it.meta.title, it.meta.createdAt, it.isAlive, it.meta.resolvedPermissionMode, it.id in busy,
+                        isHibernated = !it.isAlive && it.meta.isHibernated,
+                    )
                 },
             )
         }
@@ -145,7 +153,11 @@ class AgentListViewModel(
 
     // MARK: - Crear
 
-    fun createAgent() {
+    /**
+     * Crea un agente. Sin [force], antes mira la memoria libre y los agentes vivos del servidor
+     * (`AgentLaunchGuard`): si va justo, pregunta ([confirmLaunchAnyway]).
+     */
+    fun createAgent(force: Boolean = false) {
         if (state.value.isCreating) return
         mutableState.update { it.copy(isCreating = true) }
         viewModelScope.launch {
@@ -162,7 +174,7 @@ class AgentListViewModel(
                     if (!status.loggedIn && token == null) {
                         createAfterAuth = true
                         mutableState.update { it.copy(dialog = AgentListDialog.AuthRequired, tokenError = null) }
-                    } else {
+                    } else if (force || !launchWarning(ssh)) {
                         createdId = PersistentAgentSession.launch(
                             service = ssh,
                             exec = exec,
@@ -172,6 +184,7 @@ class AgentListViewModel(
                             // Su valor por defecto es otro: hay que pasar siempre el efectivo.
                             permissionMode = permissions.effectiveMode(serverId, workingDirectory),
                             scope = viewModelScope,
+                            hibernation = permissions.hibernation(),
                         ).id
                     }
                 }
@@ -184,6 +197,40 @@ class AgentListViewModel(
                 refresh()
             }
         }
+    }
+
+    /**
+     * ¿Hay que avisar antes de crear? Muestra el aviso y devuelve `true`. Si el inventario no se
+     * puede leer, no se bloquea (como en iOS).
+     */
+    private suspend fun launchWarning(ssh: SSHServicing): Boolean {
+        val inventory = agentFailures("No se pudo comprobar la memoria antes de crear el agente en $serverId") {
+            withContext(io) { ssh.serverAgentInventory() }
+        }.getOrNull() ?: return false
+        val warning = AgentLaunchGuard.assess(inventory.freeMemoryKB, inventory.liveAgents.size)
+            as? AgentLaunchGuard.Assessment.Warning ?: return false
+        mutableState.update { it.copy(dialog = AgentListDialog.LaunchWarning(warning.title, warning.message)) }
+        return true
+    }
+
+    fun confirmLaunchAnyway() {
+        if (state.value.dialog !is AgentListDialog.LaunchWarning) return
+        dismissDialog()
+        createAgent(force = true)
+    }
+
+    fun openServerAgents() {
+        dismissDialog()
+        viewModelScope.launch { eventChannel.send(AgentListEvent.OpenServerAgents) }
+    }
+
+    // MARK: - Reposo
+
+    fun showHibernationDialog() = mutableState.update { it.copy(dialog = AgentListDialog.Hibernation) }
+
+    fun setHibernationHours(hours: Int) {
+        permissions.setHibernationHours(hours)
+        mutableState.update { it.copy(hibernationHours = permissions.hibernationHours()) }
     }
 
     /** Con sesión en el servidor un token ilegible no impide lanzar; sin ella, es el error a mostrar. */
@@ -234,7 +281,7 @@ class AgentListViewModel(
         val agentId = info.id
         runOnAgent(agentId, "reanudar") { ssh ->
             val token = withContext(io) { tokens.read() }
-            val session = PersistentAgentSession(ssh, ssh.agentExec(), info, viewModelScope)
+            val session = PersistentAgentSession(ssh, ssh.agentExec(), info, viewModelScope, hibernation = { permissions.hibernation() })
             session.resume(token)
             session.detach()
             session.state.value.lastError?.let { failure ->

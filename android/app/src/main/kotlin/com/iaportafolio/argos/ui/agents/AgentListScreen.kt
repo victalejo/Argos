@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -134,6 +135,20 @@ private fun AgentListTopBar(state: AgentListUiState, viewModel: AgentListViewMod
                         onClick = {
                             menuOpen = false
                             viewModel.refresh()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.agents_server_agents_menu)) },
+                        onClick = {
+                            menuOpen = false
+                            viewModel.openServerAgents()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.agents_hibernation_menu)) },
+                        onClick = {
+                            menuOpen = false
+                            viewModel.showHibernationDialog()
                         },
                     )
                     DropdownMenuItem(
@@ -274,7 +289,13 @@ private fun AgentRowItem(
     onDelete: () -> Unit,
 ) {
     val date = remember(agent.createdAt) { DATE_FORMAT.format(agent.createdAt.atZone(ZoneId.systemDefault())) }
-    val statusText = stringResource(if (agent.isAlive) R.string.agents_alive else R.string.agents_dead)
+    val statusText = stringResource(
+        when {
+            agent.isAlive -> R.string.agents_alive
+            agent.isHibernated -> R.string.agents_hibernated
+            else -> R.string.agents_dead
+        },
+    )
     val modeText = stringResource(agent.permissionMode.titleRes)
     val description = stringResource(R.string.agents_row_description, agent.title, statusText, date, modeText)
     val tint = if (agent.isAlive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -347,6 +368,25 @@ private fun AgentListDialogs(state: AgentListUiState, viewModel: AgentListViewMo
         )
         is AgentListDialog.ConfirmResume ->
             ConfirmResumeDialog(dialog.mode, onConfirm = viewModel::confirmResume, onDismiss = viewModel::dismissDialog)
+        is AgentListDialog.LaunchWarning -> AlertDialog(
+            onDismissRequest = viewModel::dismissDialog,
+            title = { Text(dialog.title) },
+            text = { Text(dialog.message) },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmLaunchAnyway) { Text(stringResource(R.string.agents_launch_anyway)) }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = viewModel::openServerAgents) { Text(stringResource(R.string.agents_launch_see_agents)) }
+                    TextButton(onClick = viewModel::dismissDialog) { Text(stringResource(R.string.action_cancel)) }
+                }
+            },
+        )
+        AgentListDialog.Hibernation -> HibernationDialog(
+            hours = state.hibernationHours,
+            onSelect = viewModel::setHibernationHours,
+            onDismiss = viewModel::dismissDialog,
+        )
         is AgentListDialog.ConfirmDelete -> AlertDialog(
             onDismissRequest = viewModel::dismissDialog,
             title = { Text(stringResource(R.string.agents_delete_title, dialog.title)) },
