@@ -47,7 +47,7 @@ struct GitChangesPanelView: View {
                 Text(model.commitReview ?? "")
             }
             .sheet(item: $checkpoints) { request in
-                CheckpointsSheet(path: model.path, service: viewModel.service, opensLatestTurn: request.latestTurn)
+                CheckpointsSheet(path: model.path, viewModel: viewModel, opensLatestTurn: request.latestTurn)
             }
     }
 

@@ -2,9 +2,10 @@
 //  CheckpointsSheet.swift
 //  Argos
 //
-//  Hoja «Puntos de restauración» del panel «Cambios»: un punto por mensaje enviado a
-//  Claude; a la izquierda los turnos, a la derecha qué cambió en el turno (o desde
-//  entonces) con su diff, «Deshacer hasta aquí» y «Restaurar este archivo».
+//  Hoja «Puntos de restauración» del panel «Cambios»: activarlos en el proyecto; a la
+//  izquierda los turnos, a la derecha qué cambió en el turno (o desde entonces) con su
+//  diff, «Deshacer hasta aquí» y «Restaurar este archivo». Confirmación y avisos en
+//  `CheckpointsSheetDialogs.swift`.
 //
 
 import SwiftUI
@@ -14,8 +15,10 @@ struct CheckpointsSheet: View {
     private let opensLatestTurn: Bool
     @Environment(\.dismiss) private var dismiss
 
-    init(path: String, service: any SSHServicing, opensLatestTurn: Bool) {
-        _model = State(initialValue: CheckpointsModel(path: path, service: service))
+    init(path: String, viewModel: SessionsViewModel, opensLatestTurn: Bool) {
+        _model = State(initialValue: CheckpointsModel(path: path, service: viewModel.service) { [weak viewModel] in
+            viewModel?.claudeActivity(forProjectPath: path)
+        })
         self.opensLatestTurn = opensLatestTurn
     }
 
@@ -29,25 +32,8 @@ struct CheckpointsSheet: View {
         .task {
             if opensLatestTurn { await model.showLatestTurn() } else { await model.refresh() }
         }
-        .alert("No se pudo completar", isPresented: errorBinding) {
-            Button("Aceptar", role: .cancel) {}
-        } message: {
-            Text(model.errorMessage ?? "")
-        }
-        .sheet(isPresented: restoreBinding) {
-            if let preview = model.pendingRestore {
-                CheckpointRestoreConfirmation(model: model, preview: preview)
-            }
-        }
+        .modifier(CheckpointDialogs(model: model))
         .overlay(alignment: .bottom) { CheckpointNotice(model: model) }
-    }
-
-    private var errorBinding: Binding<Bool> {
-        Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })
-    }
-
-    private var restoreBinding: Binding<Bool> {
-        Binding(get: { model.pendingRestore != nil }, set: { if !$0 { model.cancelRestore() } })
     }
 }
 
@@ -62,14 +48,13 @@ private struct CheckpointsToolbar: View {
             Image(systemName: "clock.arrow.circlepath").foregroundStyle(.tint)
             Text("Puntos de restauración").font(.headline)
             Spacer()
-            if model.operation == .snapshot || model.operation == .toggle { ProgressView().controlSize(.small) }
+            if model.operation == .snapshot || model.operation == .settings { ProgressView().controlSize(.small) }
             if model.listing != nil {
-                Toggle("Crear puntos en este servidor", isOn: enabledBinding)
+                Toggle("Activados en este proyecto", isOn: enabledBinding)
                     .toggleStyle(.switch)
                     .disabled(model.operation != nil)
-                    .help("Afecta a todos los proyectos de este servidor y a todos tus dispositivos")
-                Button("Crear punto ahora") { Task { await model.createSnapshot() } }
-                    .disabled(model.operation != nil)
+                    .help(CheckpointTexts.enableFootnote)
+                CheckpointsMoreMenu(model: model)
             }
             Button { Task { await model.refresh() } } label: { Image(systemName: "arrow.clockwise") }
                 .buttonStyle(.borderless)
@@ -82,7 +67,46 @@ private struct CheckpointsToolbar: View {
     }
 
     private var enabledBinding: Binding<Bool> {
-        Binding(get: { model.isEnabledOnServer }, set: { value in Task { await model.setEnabledOnServer(value) } })
+        Binding(get: { model.isEnabled }, set: { value in Task { await model.setEnabled(value) } })
+    }
+}
+
+private struct CheckpointsMoreMenu: View {
+    let model: CheckpointsModel
+    @State private var confirmPurge = false
+    @State private var confirmRemove = false
+
+    var body: some View {
+        Menu {
+            Button("Crear punto ahora") { Task { await model.createSnapshot() } }
+                .disabled(!model.isEnabled)
+            Toggle("Guardar un extracto de cada mensaje", isOn: promptsBinding)
+                .disabled(!model.isEnabled)
+            Divider()
+            Button("Borrar todos los puntos…", role: .destructive) { confirmPurge = true }
+            Button("Quitar el hook de este servidor…", role: .destructive) { confirmRemove = true }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .disabled(model.operation != nil)
+        .help("Más opciones")
+        .confirmationDialog("¿Borrar todos los puntos de este proyecto?", isPresented: $confirmPurge) {
+            Button("Borrar", role: .destructive) { Task { await model.purgeAll() } }
+        } message: {
+            Text("No se puede deshacer. Los archivos del proyecto no cambian.")
+        }
+        .confirmationDialog("¿Quitar el hook de captura del servidor?", isPresented: $confirmRemove) {
+            Button("Quitar", role: .destructive) { Task { await model.removeFromServer() } }
+        } message: {
+            Text("Se desactiva y se borran los puntos de este proyecto, y ningún otro proyecto de este servidor guardará puntos nuevos.")
+        }
+    }
+
+    private var promptsBinding: Binding<Bool> {
+        Binding(get: { model.listing?.storesPrompts ?? false },
+                set: { value in Task { await model.setStoresPrompts(value) } })
     }
 }
 
@@ -104,22 +128,21 @@ private struct CheckpointsContent: View {
         case .failed(let message):
             ContentUnavailableView("No se pudieron leer", systemImage: "exclamationmark.triangle",
                                    description: Text(message))
+        case .loaded(let listing) where listing.checkpoints.isEmpty:
+            CheckpointsEmptyView(model: model, listing: listing)
         case .loaded(let listing):
-            if listing.checkpoints.isEmpty {
-                CheckpointsEmptyView(listing: listing)
-            } else {
-                HSplitView {
-                    CheckpointListView(model: model, listing: listing)
-                        .frame(minWidth: 260, idealWidth: 320, maxWidth: 420)
-                    CheckpointDetailView(model: model)
-                        .frame(minWidth: 460, maxWidth: .infinity)
-                }
+            HSplitView {
+                CheckpointListView(model: model, listing: listing)
+                    .frame(minWidth: 260, idealWidth: 320, maxWidth: 420)
+                CheckpointDetailView(model: model)
+                    .frame(minWidth: 460, maxWidth: .infinity)
             }
         }
     }
 }
 
 private struct CheckpointsEmptyView: View {
+    let model: CheckpointsModel
     let listing: CheckpointListing
 
     var body: some View {
@@ -127,7 +150,15 @@ private struct CheckpointsEmptyView: View {
             Label("Aún no hay puntos de restauración", systemImage: "clock.arrow.circlepath")
         } description: {
             Text(CheckpointTexts.emptyDescription(listing))
+        } actions: {
+            if listing.isEnabled {
+                Button("Crear punto ahora") { Task { await model.createSnapshot() } }
+            } else {
+                Button("Activar en este proyecto") { Task { await model.setEnabled(true) } }
+                    .buttonStyle(.borderedProminent)
+            }
         }
+        .disabled(model.operation != nil)
     }
 }
 
@@ -185,11 +216,17 @@ private struct CheckpointDetailView: View {
         if let checkpoint = model.selected {
             VStack(spacing: 0) {
                 CheckpointDetailHeader(model: model, checkpoint: checkpoint)
+                if let text = CheckpointTexts.skipsText(model.skipsInSelectedTurn) {
+                    Label(text, systemImage: "exclamationmark.triangle")
+                        .font(.caption).foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                }
                 Divider()
                 HSplitView {
                     CheckpointFilesView(model: model)
                         .frame(minWidth: 200, idealWidth: 260, maxWidth: 360)
-                    CheckpointDiffPane(model: model, checkpoint: checkpoint)
+                    CheckpointDiffPane(model: model)
                         .frame(minWidth: 260, maxWidth: .infinity)
                 }
             }
@@ -290,13 +327,11 @@ private struct CheckpointFileRow: View {
 
 private struct CheckpointDiffPane: View {
     let model: CheckpointsModel
-    let checkpoint: Checkpoint
-    @State private var confirmFile = false
 
     var body: some View {
         if let path = model.selectedFile {
             VStack(spacing: 0) {
-                header(path)
+                CheckpointDiffHeader(model: model, path: path)
                 Divider()
                 diffBody
             }
@@ -304,28 +339,6 @@ private struct CheckpointDiffPane: View {
             ContentUnavailableView("Elige un archivo", systemImage: "doc.text.magnifyingglass",
                                    description: Text("Selecciona un archivo para ver su diff."))
         }
-    }
-
-    private func header(_ path: String) -> some View {
-        HStack(spacing: 8) {
-            Text(path).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.head).textSelection(.enabled)
-            Spacer()
-            if case .loaded(let diff) = model.diffState { GitDiffStat(diff: diff) }
-            if model.operation == .restoreFile(path) { ProgressView().controlSize(.small) }
-            Button("Restaurar este archivo…") { confirmFile = true }
-                .disabled(model.operation != nil)
-                .help("Lo deja como estaba en este punto (o lo borra si no existía)")
-                .confirmationDialog(CheckpointTexts.restoreFileTitle(path), isPresented: $confirmFile) {
-                    Button("Restaurar", role: .destructive) {
-                        Task { await model.restoreFile(path, from: checkpoint) }
-                    }
-                } message: {
-                    Text(CheckpointTexts.restoreFileMessage)
-                }
-        }
-        .controlSize(.small)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
     }
 
     @ViewBuilder
@@ -342,72 +355,26 @@ private struct CheckpointDiffPane: View {
     }
 }
 
-// MARK: - Confirmación y avisos
-
-private struct CheckpointRestoreConfirmation: View {
+private struct CheckpointDiffHeader: View {
     let model: CheckpointsModel
-    let preview: CheckpointRestorePreview
+    let path: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("¿Dejar los archivos como estaban en este punto?").font(.headline)
-            Text(preview.checkpoint.title).foregroundStyle(.secondary).lineLimit(2)
-            if let warning = CheckpointTexts.commitsWarning(preview) {
-                Label(warning, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
-            }
-            List {
-                CheckpointPathSection(title: "Se modificarán", paths: preview.toModify)
-                CheckpointPathSection(title: "Se borrarán", paths: preview.toDelete)
-                CheckpointPathSection(title: "Se recrearán", paths: preview.toRecreate)
-            }
-            .frame(minHeight: 220)
-            Text(CheckpointTexts.restoreFootnote).font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Spacer()
-                Button("Cancelar", role: .cancel) { model.cancelRestore() }
-                    .keyboardShortcut(.cancelAction)
-                Button("Restaurar", role: .destructive) { Task { await model.confirmRestore() } }
-                    .keyboardShortcut(.defaultAction)
+        HStack(spacing: 8) {
+            Text(path).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.head).textSelection(.enabled)
+            Spacer()
+            if case .loaded(let diff) = model.diffState { GitDiffStat(diff: diff) }
+            if model.operation == .restoreFile(path) { ProgressView().controlSize(.small) }
+            if model.comparison == .sinceThen {
+                CheckpointRestoreFileButton(model: model, path: path)
+            } else {
+                Text(CheckpointTexts.restoreFileOnlySinceThen)
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    .frame(maxWidth: 260, alignment: .trailing)
             }
         }
-        .padding(20)
-        .frame(width: 560)
-    }
-}
-
-private struct CheckpointPathSection: View {
-    let title: String
-    let paths: [String]
-
-    var body: some View {
-        if !paths.isEmpty {
-            Section("\(title) (\(paths.count))") {
-                ForEach(paths.prefix(CheckpointTexts.maxListedPaths), id: \.self) { path in
-                    Text(path).font(.callout.monospaced()).lineLimit(1).truncationMode(.middle)
-                }
-                if paths.count > CheckpointTexts.maxListedPaths {
-                    Text("y \(paths.count - CheckpointTexts.maxListedPaths) más").foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-}
-
-private struct CheckpointNotice: View {
-    let model: CheckpointsModel
-
-    var body: some View {
-        if let notice = model.notice {
-            Label(notice, systemImage: "checkmark.circle.fill")
-                .font(.callout)
-                .lineLimit(2)
-                .padding(.horizontal, 14).padding(.vertical, 9)
-                .background(.regularMaterial, in: Capsule())
-                .padding(.bottom, 14)
-                .task(id: notice) {
-                    try? await Task.sleep(for: .seconds(5))
-                    if model.notice == notice { model.notice = nil }
-                }
-        }
+        .controlSize(.small)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 }

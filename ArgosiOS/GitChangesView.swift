@@ -169,13 +169,13 @@ private struct GitChangesList: View {
         Section {
             if viewModel.claudeActivity(forProjectPath: model.path) == .done {
                 NavigationLink {
-                    CheckpointsView(path: model.path, service: viewModel.service, opensLatestTurn: true)
+                    CheckpointsView(path: model.path, viewModel: viewModel, opensLatestTurn: true)
                 } label: {
                     Label("Ver lo que cambió en este turno", systemImage: "sparkles")
                 }
             }
             NavigationLink {
-                CheckpointsView(path: model.path, service: viewModel.service)
+                CheckpointsView(path: model.path, viewModel: viewModel)
             } label: {
                 Label("Puntos de restauración", systemImage: "clock.arrow.circlepath")
             }
