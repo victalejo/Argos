@@ -83,13 +83,13 @@ fun pasteImageIfAny(context: Context, viewModel: TerminalViewModel<RemoteTermina
     return true
 }
 
-/** Botón «Adjuntar» de la barra del terminal: foto o archivo. */
+/** Botón «Subir» de la barra del terminal, tras el de pegar: foto o archivo del teléfono. */
 @Composable
 internal fun AttachButton(launchers: TerminalAttachLaunchers) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(painterResource(R.drawable.ic_attach), contentDescription = stringResource(R.string.terminal_attach))
+            Icon(painterResource(R.drawable.ic_upload), contentDescription = stringResource(R.string.terminal_attach))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(

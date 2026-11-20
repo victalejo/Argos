@@ -98,7 +98,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
   tu respuesta / terminó en proyectos, sesiones y pestañas de ventana, con avisos de los
   cambios (también en segundo plano) que abren el proyecto en esa ventana; «Activar
   indicador de Claude…» en el menú del servidor.
-- **Android: adjuntar y compartir al terminal.** Botón Adjuntar (fotos y archivos), pegar
+- **Android: adjuntar y compartir al terminal.** Botón de subir (flecha hacia arriba, justo
+  después del botón de pegar) para enviar fotos y archivos del teléfono al servidor, pegar
   una captura y Argos como destino de «Compartir» de otras apps, eligiendo servidor y
   proyecto; la ruta del archivo subido se escribe en la línea de comandos.
 - **Android: visores de HTML y PDF** en Archivos. El HTML se ve aislado (sin JavaScript, red
