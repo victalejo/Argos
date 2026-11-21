@@ -29,7 +29,7 @@ extension Error {
 enum SSHErrorMessage {
 
     static let authenticationRejected =
-        String(localized: "El servidor rechazó la contraseña o la clave. Revisa las credenciales del servidor (Editar servidor) y vuelve a conectar.")
+        String(localized: "El servidor rechazó la contraseña o la clave. Revisa las credenciales en Editar servidor y vuelve a conectar: las contraseñas no se sincronizan entre dispositivos, así que si la cambiaste o funciona en otro, escríbela de nuevo en este.")
     static let connectionClosed = String(localized: "Se cerró la conexión SSH con el servidor. Reintenta.")
     static let timedOut =
         String(localized: "Tiempo de espera agotado: el servidor no respondió. Comprueba tu conexión a internet y que el servidor esté encendido.")

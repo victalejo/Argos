@@ -158,6 +158,16 @@ struct ProjectsView: View {
     // MARK: - Contenido según el estado
 
     /// Guardar o recibir una clave reinicia la conexión: reintentar con ella.
+    /// Con las credenciales rechazadas, reintentar no sirve: lo primero es poder corregirlas.
+    @ViewBuilder
+    private func failedActions(message: String) -> some View {
+        if message == SSHErrorMessage.authenticationRejected {
+            Button("Editar servidor", systemImage: "pencil") { editingServer = .edit(currentServer) }
+                .buttonStyle(.borderedProminent)
+        }
+        Button("Reintentar") { Task { await viewModel.load() } }
+    }
+
     private func reloadAfterKeyChange() {
         guard !needsKey else { return }
         Task { await hub.viewModel(for: currentServer).load() }
@@ -218,7 +228,7 @@ struct ProjectsView: View {
             } description: {
                 Text(message)
             } actions: {
-                Button("Reintentar") { Task { await viewModel.load() } }
+                failedActions(message: message)
             }
         case .loaded:
             projectList

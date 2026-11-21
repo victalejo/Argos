@@ -30,7 +30,8 @@ object TransportErrorText {
             "Reintenta en unos segundos."
     const val AUTHENTICATION =
         "El servidor rechazó la autenticación. Revisa la contraseña o que la clave esté en " +
-            "~/.ssh/authorized_keys del servidor."
+            "~/.ssh/authorized_keys del servidor. Las contraseñas no se sincronizan entre " +
+            "dispositivos: si la cambiaste o funciona en otro, escríbela de nuevo en este."
     const val TIMEOUT = "El servidor no respondió a tiempo. Comprueba la red o que el servidor SSH esté en marcha."
     const val UNREACHABLE = "No se pudo conectar con el servidor. Comprueba la dirección, el puerto y la red."
     const val CONNECTION_CLOSED = "Se cortó la conexión SSH con el servidor. Reintenta."

@@ -10905,18 +10905,18 @@
         }
       }
     },
-    "El servidor rechazó la contraseña o la clave. Revisa las credenciales del servidor (Editar servidor) y vuelve a conectar." : {
+    "El servidor rechazó la contraseña o la clave. Revisa las credenciales en Editar servidor y vuelve a conectar: las contraseñas no se sincronizan entre dispositivos, así que si la cambiaste o funciona en otro, escríbela de nuevo en este." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The server rejected the password or key. Check the server’s credentials (Edit Server) and reconnect."
+            "value" : "The server rejected the password or key. Check the credentials in Edit Server and reconnect: passwords aren’t synced between devices, so if you changed it or it works on another one, enter it again on this one."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El servidor rechazó la contraseña o la clave. Revisa las credenciales del servidor (Editar servidor) y vuelve a conectar."
+            "value" : "El servidor rechazó la contraseña o la clave. Revisa las credenciales en Editar servidor y vuelve a conectar: las contraseñas no se sincronizan entre dispositivos, así que si la cambiaste o funciona en otro, escríbela de nuevo en este."
           }
         }
       }

@@ -111,6 +111,10 @@ El detalle por commit vive en el historial git (Conventional Commits):
   proyecto → Agentes → su chat.
 
 ### Mejorado
+- **Contraseña rechazada: qué hacer.** Si el servidor rechaza la contraseña o la clave, el
+  aviso recuerda que las contraseñas no se sincronizan entre dispositivos (si la cambiaste o
+  funciona en otro, hay que escribirla de nuevo en este) y, en iPhone y iPad, trae un botón
+  «Editar servidor» para corregirla sin buscar el menú.
 - **No insistir contra un servidor caído ni con credenciales rechazadas.** Una contraseña o
   clave rechazada, o una host key que cambió, detienen los reintentos hasta que hagas algo
   (Conectar, Reintentar, ⌘R, «Olvidar host key»); si es la red la que falla, las
