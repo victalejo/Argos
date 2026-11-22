@@ -87,7 +87,7 @@ fun ProjectScreen(
                             ProjectTab.TERMINAL -> if ((state.load as? ProjectLoad.Loaded)?.isRunning == true) {
                                 terminal(project)
                             } else {
-                                StoppedProject(project, state.isStarting, viewModel::start, onBack)
+                                StoppedProject(project, state.isStarting, { viewModel.start() }, onBack)
                             }
                             ProjectTab.FILES -> files(project, wide)
                             ProjectTab.CHANGES -> changes(project, wide)

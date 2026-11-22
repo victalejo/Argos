@@ -77,11 +77,10 @@ object ProjectLifecycle {
         projects.map { if (it.id == projectId) it.copy(macCheckout = checkout) else it }
 
     /**
-     * Qué hay que crear para abrir el proyecto, o `null` si ya corre (la UI solo tiene que
-     * conectarse).
+     * Sesión que hay que pedir al abrir el proyecto. Siempre se pide: [ProjectCommands.startProject]
+     * no hace nada si la sesión ya existe, y la lista local puede creer viva una sesión que murió
+     * en el servidor (con lo que «Abrir» no haría nada). Decide el servidor con `has-session`.
      */
-    fun startRequest(project: Project, sessions: List<TmuxSession>, defaultStartupCommand: String): StartRequest? {
-        if (sessions.any { it.name == project.sessionName }) return null
-        return StartRequest(project.sessionName, project.path, project.resolvedStartupCommand(defaultStartupCommand))
-    }
+    fun startRequest(project: Project, defaultStartupCommand: String): StartRequest =
+        StartRequest(project.sessionName, project.path, project.resolvedStartupCommand(defaultStartupCommand))
 }

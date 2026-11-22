@@ -191,9 +191,8 @@ class WorktreesViewModel(
                 val project = ProjectLifecycle.planSave(draft.copy(path = realPath), fresh, sessions).project
                 withContext(io) { service.saveProjects(ProjectLifecycle.upserting(service.loadProjects(), project)) }
                 if (state.startsAgent) {
-                    ProjectLifecycle.startRequest(project, sessions, preferences.preferences.value.defaultStartupCommand)?.let {
-                        withContext(io) { service.startProject(it.sessionName, it.path, it.startupCommand) }
-                    }
+                    val start = ProjectLifecycle.startRequest(project, preferences.preferences.value.defaultStartupCommand)
+                    withContext(io) { service.startProject(start.sessionName, start.path, start.startupCommand) }
                 }
                 project to request.branch
             }.onSuccess { (project, branch) ->

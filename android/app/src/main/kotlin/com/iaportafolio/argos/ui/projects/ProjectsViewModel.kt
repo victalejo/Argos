@@ -33,6 +33,7 @@ import com.iaportafolio.argos.ui.sessions.SessionDialogActions
 import com.iaportafolio.argos.ui.sessions.SessionsLoad
 import com.iaportafolio.argos.ui.sessions.ensureTmuxEnvironment
 import com.iaportafolio.argos.ui.sessions.loadFailure
+import com.iaportafolio.argos.ui.terminal.VanishedSession
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -41,6 +42,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -63,6 +66,8 @@ class ProjectsViewModel(
     private val preferences: ProjectPreferencesStore,
     private val io: CoroutineDispatcher,
     private val claude: ClaudeActivitySource = ClaudeActivitySource.None,
+    /** Sesiones que un terminal vio desaparecer ([sessionDidDisappear]). */
+    vanished: Flow<VanishedSession> = emptyFlow(),
 ) : ViewModel(), ProjectsActions, SessionDialogActions {
 
     private val mutableState = MutableStateFlow(
@@ -95,6 +100,9 @@ class ProjectsViewModel(
         viewModelScope.launch {
             claude.activity.map { it[serverId] ?: ClaudeActivitySnapshot.EMPTY }.distinctUntilChanged()
                 .collect { snapshot -> mutableState.update { it.copy(claudeActivity = snapshot) } }
+        }
+        viewModelScope.launch {
+            vanished.filter { it.serverId == serverId }.collect { sessionDidDisappear(it.sessionName) }
         }
         load()
     }
@@ -164,6 +172,40 @@ class ProjectsViewModel(
         }
     }
 
+    /**
+     * El terminal comprobó que la sesión [name] ya no existe en el servidor: se quita de la lista
+     * en el acto (el proyecto pasa a detenido y «Abrir» vuelve a crearla) sin esperar a la
+     * relectura, que puede ir con retraso o fallar, y luego se relee la lista en silencio.
+     */
+    fun sessionDidDisappear(name: String) {
+        mutableState.update { state ->
+            if (state.load == SessionsLoad.Loaded && state.sessions.any { it.name == name }) {
+                state.copy(sessions = state.sessions.filterNot { it.name == name })
+            } else {
+                state
+            }
+        }
+        viewModelScope.launch { relistQuietly() }
+    }
+
+    /**
+     * Relee las sesiones sin avisar de fallos (se conserva lo último). Solo con la lista cargada;
+     * si entretanto un refresco explícito la cambió, manda ese.
+     */
+    private suspend fun relistQuietly() {
+        val before = state.value
+        if (before.load != SessionsLoad.Loaded || before.isRefreshing) return
+        val server = repository.server(serverId) ?: return
+        logFailures(ArgosLog.TAG_SSH, "No se pudo releer en silencio las sesiones de ${server.endpoint}") {
+            withContext(io) { services.service(server).listSessions() }
+        }.onSuccess { fresh ->
+            mutableState.update { now ->
+                val unchanged = now.load == SessionsLoad.Loaded && !now.isRefreshing && now.sessions == before.sessions
+                if (unchanged) now.copy(sessions = fresh) else now
+            }
+        }
+    }
+
     /** Relee `projects.json`. Un fallo no tumba la lista de sesiones: se muestra aparte. */
     private suspend fun reloadProjects(server: Server) {
         logFailures(ArgosLog.TAG_STORE, "No se pudo leer projects.json de ${server.endpoint}") {
@@ -214,11 +256,14 @@ class ProjectsViewModel(
 
     // MARK: - Abrir / detener / quitar
 
-    /** Abre el proyecto: si no corre, crea su sesión en la carpeta con su comando de arranque. */
+    /**
+     * Abre el proyecto: si no corre, crea su sesión en la carpeta con su comando de arranque.
+     * Siempre se pide al servidor (`has-session` decide): la lista local puede creer viva una
+     * sesión que ya murió, y entonces «Abrir» no hacía nada.
+     */
     override fun openProject(entry: ProjectEntry) {
         if (state.value.busyProjectId != null) return
-        val request = ProjectLifecycle.startRequest(entry.project, state.value.sessions, state.value.preferences.defaultStartupCommand)
-            ?: return emit(ProjectsEvent.OpenProject(entry.project.id))
+        val request = ProjectLifecycle.startRequest(entry.project, state.value.preferences.defaultStartupCommand)
         val server = currentServer() ?: return
         mutableState.update { it.copy(busyProjectId = entry.project.id) }
         viewModelScope.launch {

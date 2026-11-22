@@ -5,6 +5,7 @@ import com.iaportafolio.argos.core.ConnectionHealthProbing
 import com.iaportafolio.argos.core.ConnectionProbeResult
 import com.iaportafolio.argos.core.SSHServiceError
 import com.iaportafolio.argos.core.SSHServicing
+import com.iaportafolio.argos.core.TerminalAttach
 import com.iaportafolio.argos.core.TerminalControlEvent
 import com.iaportafolio.argos.core.TerminalStreaming
 import com.iaportafolio.argos.core.agent.AgentExecCommands
@@ -128,7 +129,10 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
         initialRows: Int,
         control: Flow<TerminalControlEvent>,
         output: suspend (ByteArray) -> Unit,
-    ) = terminal.run(TmuxCommands.attach(session), initialCols, initialRows, control, output)
+    ) = TerminalAttach.monitoring(session, output) { monitored ->
+        // Si tmux dice que la sesión no existe, lanza TerminalSessionMissingError (no reintentable).
+        terminal.run(TmuxCommands.attach(session), initialCols, initialRows, control, monitored)
+    }
 
     override suspend fun attachCommand(
         command: String,

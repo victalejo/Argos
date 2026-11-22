@@ -18,6 +18,12 @@ sealed interface TerminalStatus {
 
     /** tmux cerró el cliente (detach desde tmux o sesión terminada): no se reintenta solo. */
     data object SessionEnded : TerminalStatus
+
+    /**
+     * tmux dijo que la sesión ya no existe en el servidor (su último proceso terminó): no se
+     * reintenta solo; la pantalla ofrece iniciarla de nuevo (proyecto) o «Reconectar».
+     */
+    data class SessionMissing(val message: UiText) : TerminalStatus
 }
 
 /** Aviso breve sobre el terminal (como `TerminalNotice` de iOS): subiendo, subido o error. */

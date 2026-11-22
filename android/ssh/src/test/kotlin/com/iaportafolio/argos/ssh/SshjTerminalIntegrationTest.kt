@@ -3,6 +3,7 @@ package com.iaportafolio.argos.ssh
 import com.iaportafolio.argos.core.SSHCredentials
 import com.iaportafolio.argos.core.ShellQuoting
 import com.iaportafolio.argos.core.TerminalControlEvent
+import com.iaportafolio.argos.core.TerminalSessionMissingError
 import com.iaportafolio.argos.ssh.testing.EmbeddedSshServer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -230,12 +231,23 @@ class SshjTerminalIntegrationTest {
     }
 
     @Test
-    fun `adjuntar a una sesión inexistente retorna cuando tmux sale`() = terminalTest {
+    fun `adjuntar a una sesión inexistente lanza TerminalSessionMissingError`() = terminalTest {
         service.createSession("otra")
         val output = TerminalOutput()
-        service.attachTerminal("no-existe", 80, 24, emptyFlow(), output::append)
+        val error = assertFailsWith<TerminalSessionMissingError> {
+            service.attachTerminal("no-existe", 80, 24, emptyFlow(), output::append)
+        }
 
+        assertEquals("no-existe", error.session)
         assertContains(output.plainText(), "can't find session")
+    }
+
+    @Test
+    fun `el attach usa target exacto - no se engancha a otra sesión por prefijo`() = terminalTest {
+        service.createSession("web-admin")
+        assertFailsWith<TerminalSessionMissingError> {
+            service.attachTerminal("web", 80, 24, emptyFlow(), TerminalOutput()::append)
+        }
     }
 
     // MARK: Utilidades

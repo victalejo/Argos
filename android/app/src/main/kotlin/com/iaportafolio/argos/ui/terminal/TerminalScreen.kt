@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -87,6 +88,11 @@ fun TerminalScreen(
      * attach: así cambiar de pestaña no hace detach ni repinta.
      */
     ownsConnection: Boolean = true,
+    /**
+     * La sesión pertenece a un proyecto: con la sesión desaparecida del servidor se ofrece
+     * «Iniciar de nuevo» (arranca el proyecto y reconecta). `null` = sesión suelta («Reconectar»).
+     */
+    restart: SessionRestart? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val windowsState = windows?.state?.collectAsStateWithLifecycle()?.value
@@ -139,7 +145,7 @@ fun TerminalScreen(
                 .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
         ) {
             // Con la sesión terminada ya no hay ventanas que mostrar.
-            if (windows != null && windowsState != null && windowsState.windows.isNotEmpty() && state.status != TerminalStatus.SessionEnded) {
+            if (windows != null && windowsState != null && windowsState.windows.isNotEmpty() && !state.status.isFinished) {
                 TerminalWindowBar(
                     state = windowsState,
                     onSelect = windows::select,
@@ -152,7 +158,7 @@ fun TerminalScreen(
             }
             Box(Modifier.weight(1f)) {
                 TerminalHost(viewModel, state, onViewCreated = { terminalView = it }, autoShowKeyboard = autoShowKeyboard)
-                StatusOverlay(state.status, onReconnect = viewModel::reconnect, onBack = onBack)
+                StatusOverlay(state.status, onReconnect = viewModel::reconnect, onBack = onBack, restart = restart)
                 NoticeBanner(state.notice, onShown = viewModel::noticeShown, modifier = Modifier.align(Alignment.TopCenter))
             }
             ExtraKeysRow(state.modifiers, onKey = viewModel::pressExtraKey, onHideKeyboard = { terminalView?.hideKeyboard() })
@@ -300,9 +306,16 @@ private fun TerminalTopBar(
     )
 }
 
+/** «Iniciar de nuevo» la sesión de un proyecto que desapareció del servidor. */
+data class SessionRestart(val isStarting: Boolean, val onRestart: () -> Unit)
+
+/** Sesión cerrada o inexistente: ya no hay ventanas que mostrar. */
+private val TerminalStatus.isFinished: Boolean
+    get() = this == TerminalStatus.SessionEnded || this is TerminalStatus.SessionMissing
+
 /** Panel sobre el terminal mientras no está conectado (como el overlay de iOS). */
 @Composable
-private fun StatusOverlay(status: TerminalStatus, onReconnect: () -> Unit, onBack: () -> Unit) {
+private fun StatusOverlay(status: TerminalStatus, onReconnect: () -> Unit, onBack: () -> Unit, restart: SessionRestart?) {
     if (status == TerminalStatus.Connected) return
     Box(
         Modifier
@@ -339,10 +352,37 @@ private fun StatusOverlay(status: TerminalStatus, onReconnect: () -> Unit, onBac
                     Button(onClick = onReconnect) { Text(stringResource(R.string.terminal_reconnect)) }
                     OutlinedButton(onClick = onBack) { Text(stringResource(R.string.terminal_back_to_sessions)) }
                 }
+                is TerminalStatus.SessionMissing -> SessionMissingPanel(status, onReconnect, onBack, restart)
                 TerminalStatus.Connected -> Unit
             }
         }
     }
+}
+
+/**
+ * La sesión ya no existe en el servidor (como `TerminalSessionMissingPanel` de iOS): en vez de
+ * «Reconectar» (que volvería a fallar) se ofrece iniciar el proyecto de nuevo.
+ */
+@Composable
+private fun SessionMissingPanel(
+    status: TerminalStatus.SessionMissing,
+    onReconnect: () -> Unit,
+    onBack: () -> Unit,
+    restart: SessionRestart?,
+) {
+    OverlayTitle(stringResource(R.string.terminal_session_missing_title))
+    OverlayText(status.message.asString())
+    if (restart != null) {
+        Button(onClick = restart.onRestart, enabled = !restart.isStarting) {
+            if (restart.isStarting) {
+                CircularProgressIndicator(Modifier.padding(end = 8.dp).size(18.dp), strokeWidth = 2.dp)
+            }
+            Text(stringResource(R.string.terminal_session_restart))
+        }
+    } else {
+        Button(onClick = onReconnect) { Text(stringResource(R.string.terminal_reconnect)) }
+    }
+    OutlinedButton(onClick = onBack) { Text(stringResource(R.string.terminal_back_to_sessions)) }
 }
 
 @Composable

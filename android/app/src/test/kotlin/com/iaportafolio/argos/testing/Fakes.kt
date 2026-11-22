@@ -272,7 +272,8 @@ open class FakeSSHService : SSHServicing, ClaudeActivityReading, ClaudeHookMaint
     override suspend fun startProject(sessionName: String, path: String, startupCommand: String?) {
         calls += "start:$sessionName|$path|$startupCommand"
         startError?.let { throw it }
-        sessions = sessions + session(sessionName)
+        // Como el script real (`has-session ... && exit 0`): si ya existe no crea otra.
+        if (sessions.none { it.name == sessionName }) sessions = sessions + session(sessionName)
     }
 
     override suspend fun stopSession(sessionName: String) {

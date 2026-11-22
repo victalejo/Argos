@@ -39,9 +39,10 @@ object TmuxCommands {
     /**
      * Comando que se lanza dentro del PTY para adjuntarse a la sesión. `-u` fuerza salida
      * UTF-8: la app no envía LANG/LC_* y en servidores sin locale (p. ej. macOS) tmux
-     * pintaría acentos y símbolos como `_`.
+     * pintaría acentos y símbolos como `_`. Target EXACTO (`'=nombre'`): sin '=', muerta
+     * «tmh/web» tmux se engancharía a «tmh/web-admin» por coincidencia de prefijo.
      */
-    fun attach(name: String): String = "tmux -u attach -t ${ShellQuoting.singleQuoted(name)}"
+    fun attach(name: String): String = "tmux -u attach -t ${exactSessionTarget(name)}"
 
     // MARK: Ventanas
 

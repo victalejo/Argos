@@ -23,24 +23,26 @@ class ProjectLifecycleTest {
         val coro = Project(name = "coro", group = "ia", path = "/srv/coro")
         assertEquals(false, ProjectListing.build(listOf(coro), emptyList()).entries.first().isRunning)
 
-        val request = ProjectLifecycle.startRequest(coro, emptyList(), "cc --continue")
+        val request = ProjectLifecycle.startRequest(coro, "cc --continue")
         assertEquals(ProjectLifecycle.StartRequest("ia/coro", "/srv/coro", "cc --continue"), request)
         // Con la sesión ya creada, el listado la ve corriendo.
         assertEquals(true, ProjectListing.build(listOf(coro), listOf(session("ia/coro"))).entries.first().isRunning)
     }
 
     @Test
-    fun `abrir un proyecto que ya corre no crea otra sesion`() {
+    fun `abrir un proyecto siempre pide la sesion - el servidor decide con has-session`() {
+        // La lista local puede creer viva una sesión que murió: no se mira, decide el servidor.
         val coro = Project(name = "coro", path = "/srv/coro")
-        assertNull(ProjectLifecycle.startRequest(coro, listOf(session("coro")), "cc"))
+        assertEquals(ProjectLifecycle.StartRequest("coro", "/srv/coro", "cc"), ProjectLifecycle.startRequest(coro, "cc"))
+        assertTrue(ProjectCommands.startProject("coro", "/srv/coro", "cc").contains("tmux has-session -t '=coro' 2>/dev/null && exit 0; "))
     }
 
     @Test
     fun `comando vacio del proyecto no lanza nada`() {
         val web = Project(name = "web", path = "/w", startupCommand = "")
-        assertNull(ProjectLifecycle.startRequest(web, emptyList(), "cc --continue")?.startupCommand)
+        assertNull(ProjectLifecycle.startRequest(web, "cc --continue").startupCommand)
         assertEquals(
-            "[ -d '/w' ] || exit 3; tmux new-session -d -s 'web' -c '/w'",
+            "[ -d '/w' ] || exit 3; tmux has-session -t '=web' 2>/dev/null && exit 0; tmux new-session -d -s 'web' -c '/w'",
             ProjectCommands.startProject("web", "/w", null),
         )
     }

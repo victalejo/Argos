@@ -104,7 +104,10 @@ class WindowManagementTest {
         assertEquals("tmux new-session -d -s 'a b'", TmuxCommands.createSession("a b"))
         assertEquals("tmux rename-session -t '=old' 'new'", TmuxCommands.renameSession("old", "new"))
         assertEquals("tmux kill-session -t '=it'\\''s'", TmuxCommands.killSession("it's"))
-        assertEquals("tmux -u attach -t 'main'", TmuxCommands.attach("main"))
+        // Target exacto: muerta «tmh/web», tmux no debe engancharse a «tmh/web-admin» por prefijo.
+        assertEquals("tmux -u attach -t '=main'", TmuxCommands.attach("main"))
+        assertEquals("tmux -u attach -t '=tmh/web'", TmuxCommands.attach("tmh/web"))
+        assertEquals("tmux -u attach -t '=it'\\''s'", TmuxCommands.attach("it's"))
         assertEquals("tmux select-window -t 'main':4", TmuxCommands.selectWindow("main", 4))
         assertEquals(
             "tmux -u list-windows -t 'main' -F '#{window_index}|#{window_active}|#{window_panes}|#{@argos_color}|#{pane_current_command}|#{window_name}'",

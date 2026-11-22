@@ -336,6 +336,19 @@ class SshjTmuxIntegrationTest {
     }
 
     @Test
+    fun `arrancar un proyecto que ya corre no hace nada (has-session con target exacto)`() = runBlocking<Unit> {
+        val folder = Files.createDirectories(server.home.resolve("web"))
+        service.createSession("tmh/web-admin")
+        // Con target exacto «tmh/web» no coincide con «tmh/web-admin»: se crea.
+        service.startProject("tmh/web", folder.toString(), startupCommand = null)
+        // Ya existe: sale con 0 sin crear otra ni fallar por «duplicate session».
+        service.startProject("tmh/web", folder.toString(), startupCommand = "echo otra-vez")
+        assertEquals(listOf("tmh/web", "tmh/web-admin"), service.listSessions().map { it.name }.sorted())
+        service.stopSession("tmh/web")
+        service.stopSession("tmh/web-admin")
+    }
+
+    @Test
     fun `arrancar un proyecto sin carpeta da MissingFolder`() {
         assertFailsWith<ProjectError.MissingFolder> {
             runBlocking { service.startProject("p", "/no/existe/argos", startupCommand = null) }
