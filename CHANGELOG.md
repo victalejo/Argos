@@ -178,6 +178,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
   de su registro de errores. Los resultados de herramienta se recortan a 16 000 caracteres.
 
 ### Corregido
+- **Sesión que muere en el servidor (Mac, iPhone/iPad y Android).** Si la sesión de un
+  proyecto se cerraba en el servidor, el terminal se quedaba «Reconectando…» en bucle e
+  «Iniciar» no hacía nada mientras la lista no se actualizaba. Ahora el terminal reconoce
+  que la sesión ya no existe, deja de reintentar, marca el proyecto como detenido y ofrece
+  iniciarlo de nuevo; e «Iniciar» siempre comprueba en el servidor si hace falta crearla.
+  Además, el terminal ya no puede engancharse por error a otra sesión cuyo nombre empiece
+  igual.
 - **«Enviar al servidor» deja el proyecto intacto si falla.** Todo se sube a una carpeta
   temporal y se coloca por lotes sin borrar antes el destino; ante un fallo se limpian los
   temporales, que además no aparecen en los listados.

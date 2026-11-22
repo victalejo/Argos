@@ -192,6 +192,11 @@ struct TerminalScreen: View {
             }
             .task(id: sessionName) { await loadAgentsAndBranch() }
             .onChange(of: windows) { windowsDidChange() }
+            .onChange(of: controller?.isSessionMissing) { (_: Bool?, missing: Bool?) in
+                guard missing == true else { return }
+                let viewModel = hub.viewModel(for: server)
+                Task { await viewModel.sessionDidDisappear(named: sessionName) }
+            }
             .onChange(of: fontSize) { (_: Double, size: Double) in applyFontSize(size) }
             .onChange(of: optionAsMeta) { (_: Bool, enabled: Bool) in controller?.terminalView.optionAsMetaKey = enabled }
             .onAppear(perform: didAppear)
@@ -517,7 +522,14 @@ struct TerminalScreen: View {
         case .ended:
             reconnectPanel(controller, title: String(localized: "Desconectado"), message: String(localized: "La conexión con la sesión se cerró. La sesión sigue en el servidor."))
         case .failed(let message):
-            if let retry = controller.pendingRetry {
+            if controller.isSessionMissing {
+                TerminalSessionMissingPanel(
+                    message: message,
+                    controller: controller,
+                    viewModel: hub.viewModel(for: server),
+                    sessionName: sessionName
+                )
+            } else if let retry = controller.pendingRetry {
                 retryPanel(controller, retry: retry, message: message)
             } else {
                 reconnectPanel(controller, title: String(localized: "Error de conexión"), message: message)

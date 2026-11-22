@@ -128,6 +128,8 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func sessionFirstPanePaths() async throws -> [String: String] { panePaths }
     func startProject(sessionName: String, path: String, startupCommand: String?) async throws {
         if missingFolders.contains(path) { throw ProjectError.missingFolder(path) }
+        // Como el script real (`has-session … && exit 0`): si ya existe, no hace nada.
+        if sessions.contains(where: { $0.name == sessionName }) { return }
         startedProjects.append((sessionName, path, startupCommand))
         sessions.append(TmuxSession(name: sessionName, windowCount: 1, isAttached: false, createdAt: Date()))
     }

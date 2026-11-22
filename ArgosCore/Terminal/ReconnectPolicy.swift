@@ -56,7 +56,8 @@ struct ReconnectPolicy: Sendable, Equatable {
     static func isRetryable(_ error: Error) -> Bool {
         switch error {
         case is HostKeyMismatchError, is HostKeyStoreUnreadableError,
-             is ImportedKeyStore.ImportError, is KeychainStore.KeychainError:
+             is ImportedKeyStore.ImportError, is KeychainStore.KeychainError,
+             is TerminalSessionMissingError:
             return false
         case let ssh as SSHService.SSHServiceError:
             return isRetryable(ssh)

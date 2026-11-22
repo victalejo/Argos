@@ -66,10 +66,8 @@ extension SSHService {
         output: AsyncStream<[UInt8]>.Continuation
     ) async throws {
         try await runPTY(
-            // `-u`: fuerza salida UTF-8. Argos no envía LANG/LC_* por el canal SSH (a
-            // diferencia de `ssh` con SendEnv); en servidores que no fijan el locale
-            // (p. ej. macOS) tmux pintaría acentos y símbolos como `_`.
-            launchCommand: "tmux -u attach -t \(ShellQuoting.singleQuoted(name))",
+            launchCommand: TerminalAttach.command(session: name),
+            attachingTo: name,
             initialCols: initialCols,
             initialRows: initialRows,
             control: control,
@@ -88,6 +86,7 @@ extension SSHService {
     ) async throws {
         try await runPTY(
             launchCommand: command,
+            attachingTo: nil,
             initialCols: initialCols,
             initialRows: initialRows,
             control: control,
@@ -97,8 +96,12 @@ extension SSHService {
 
     /// Núcleo compartido: abre el PTY, hace `exec` del comando y conecta el flujo
     /// bidireccional PTY <-> UI. Lo usan `attachTerminal` (tmux) y `attachCommand`.
+    ///
+    /// Con `session` (attach de tmux), si el PTY termina tras decir tmux que esa sesión no
+    /// existe, lanza `TerminalSessionMissingError` en lugar del fallo genérico del canal.
     private func runPTY(
         launchCommand: String,
+        attachingTo session: String?,
         initialCols: Int,
         initialRows: Int,
         control: AsyncStream<TerminalControlEvent>,
@@ -120,6 +123,35 @@ extension SSHService {
         // pase lo que pase con la conexión.
         defer { output.finish() }
 
+        let monitor = OSAllocatedUnfairLock(initialState: TerminalAttachMonitor())
+        func sessionWentMissing() -> Bool {
+            session != nil && monitor.withLock { $0.sawMissingSession }
+        }
+        do {
+            try await streamPTY(
+                request: request,
+                launchCommand: launchCommand,
+                monitor: session == nil ? nil : monitor,
+                control: control,
+                output: output
+            )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            if let session, sessionWentMissing() { throw TerminalSessionMissingError(session: session) }
+            throw error
+        }
+        if let session, sessionWentMissing() { throw TerminalSessionMissingError(session: session) }
+    }
+
+    /// Abre el PTY en una conexión dedicada y bombea salida y teclas hasta que termina.
+    private func streamPTY(
+        request: SSHChannelRequestEvent.PseudoTerminalRequest,
+        launchCommand: String,
+        monitor: OSAllocatedUnfairLock<TerminalAttachMonitor>?,
+        control: AsyncStream<TerminalControlEvent>,
+        output: AsyncStream<[UInt8]>.Continuation
+    ) async throws {
         // Conexión dedicada: evita agotar el `MaxSessions` de la conexión compartida.
         // La actividad se anota con cada salida: un terminal con tráfico no se sondea.
         try await withDedicatedClient { client, activity in
@@ -140,6 +172,7 @@ extension SSHService {
                                     at: buffer.readerIndex,
                                     length: buffer.readableBytes
                                 ), !bytes.isEmpty {
+                                    monitor?.withLock { $0.consume(bytes) }
                                     output.yield(bytes)
                                 }
                             }

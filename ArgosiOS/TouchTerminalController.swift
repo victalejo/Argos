@@ -38,6 +38,9 @@ final class TouchTerminalController: TerminalViewDelegate {
 
     private let service: any SSHServicing
     private let sessionName: String
+    /// El último intento dijo que la sesión ya no existe en el servidor (no se reintenta:
+    /// la pantalla ofrece iniciar el proyecto).
+    private(set) var isSessionMissing = false
 
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var revealTask: Task<Void, Never>?
@@ -99,6 +102,7 @@ final class TouchTerminalController: TerminalViewDelegate {
         generation += 1
         let current = generation
         status = .connecting
+        isSessionMissing = false
 
         let (outputStream, outputCont) = AsyncStream<[UInt8]>.makeStream(bufferingPolicy: .bufferingNewest(4096))
         let terminal = terminalView.getTerminal()
@@ -284,6 +288,7 @@ final class TouchTerminalController: TerminalViewDelegate {
             status = .ended
             return
         }
+        isSessionMissing = error is TerminalSessionMissingError
         status = .failed(error.userMessage)
         switch policy.decision(after: error, attempt: failedAttempts) {
         case .retry(let delay):

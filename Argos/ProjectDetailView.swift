@@ -110,7 +110,8 @@ struct ProjectDetailView: View {
                     claudeByWindow: vm.claudeActivity.windows(forSession: session.name),
                     projectPath: project?.path,
                     serverName: model.store.server(withID: handle.serverID)?.name ?? "",
-                    onEnded: { Task { await vm.refreshSessionsQuietly() } }
+                    onEnded: { Task { await vm.refreshSessionsQuietly() } },
+                    onSessionMissing: { Task { await vm.sessionDidDisappear(named: session.name) } }
                 )
                 .id(handle)
             } else if let project {
