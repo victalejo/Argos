@@ -271,10 +271,12 @@ private fun TerminalTopBar(
             IconButton(onClick = onToggleKeyboard) {
                 Icon(painterResource(R.drawable.ic_keyboard), contentDescription = stringResource(R.string.terminal_keyboard))
             }
-            if (attach != null) AttachButton(attach)
             IconButton(onClick = onPaste) {
                 Icon(painterResource(R.drawable.ic_paste), contentDescription = stringResource(R.string.terminal_paste))
             }
+            // Subir archivos desde el teléfono, justo después de Pegar: foto o archivo del
+            // selector del sistema; se sube al servidor y su ruta se teclea en el terminal.
+            if (attach != null) AttachButton(attach)
             Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.terminal_options))
