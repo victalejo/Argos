@@ -43,7 +43,7 @@ struct LocalizationEnglishTests {
         #expect(english("No se encontró el servidor «%@». Revisa la dirección y tu conexión a internet.", "example.com")
                 == "The server “example.com” wasn’t found. Check the address and your internet connection.")
         #expect(english(SSHErrorMessage.authenticationRejected)
-                == "The server rejected the password or key. Check the server’s credentials (Edit Server) and reconnect.")
+                == "The server rejected the password or key. Check the credentials in Edit Server and reconnect: passwords aren’t synced between devices, so if you changed it or it works on another one, enter it again on this one.")
         #expect(english(SSHErrorMessage.timedOut).hasPrefix("Timed out: the server didn’t respond."))
     }
 

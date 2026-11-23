@@ -59,6 +59,9 @@ struct SessionTerminalView: View {
     /// El terminal se desenganchó limpiamente (`exit` en la última shell, sesión matada
     /// desde otro cliente…): quien lista las sesiones comprueba si sigue existiendo.
     let onEnded: () -> Void
+    /// El servidor dice que la sesión ya no existe: quien muestra la vista la da por
+    /// detenida (el proyecto ofrece «Iniciar») en vez de reintentar.
+    let onSessionMissing: () -> Void
 
     @State private var settings = TerminalSettings.shared
     /// Agentes instalados en el servidor (`nil` mientras no se sabe).
@@ -88,7 +91,8 @@ struct SessionTerminalView: View {
         claudeByWindow: [Int: ClaudeActivity] = [:],
         projectPath: String? = nil,
         serverName: String = "",
-        onEnded: @escaping () -> Void = {}
+        onEnded: @escaping () -> Void = {},
+        onSessionMissing: @escaping () -> Void = {}
     ) {
         self.handle = handle
         self.session = session
@@ -98,6 +102,7 @@ struct SessionTerminalView: View {
         self.projectPath = projectPath
         self.serverName = serverName
         self.onEnded = onEnded
+        self.onSessionMissing = onSessionMissing
         _windowsModel = State(initialValue: TerminalWindowsModel(service: service, sessionName: session.name))
     }
 
@@ -284,6 +289,11 @@ struct SessionTerminalView: View {
         case .connected:
             reconnect.didConnect()
         case .failed:
+            if controller?.lastError is TerminalSessionMissingError {
+                reconnect.cancel()
+                onSessionMissing()
+                return
+            }
             reconnect.didFail(controller?.lastError, isAsleep: sleepMonitor.isAsleep, reconnect: reconnectNow)
         case .ended:
             onEnded()

@@ -10905,18 +10905,18 @@
         }
       }
     },
-    "El servidor rechazó la contraseña o la clave. Revisa las credenciales del servidor (Editar servidor) y vuelve a conectar." : {
+    "El servidor rechazó la contraseña o la clave. Revisa las credenciales en Editar servidor y vuelve a conectar: las contraseñas no se sincronizan entre dispositivos, así que si la cambiaste o funciona en otro, escríbela de nuevo en este." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The server rejected the password or key. Check the server’s credentials (Edit Server) and reconnect."
+            "value" : "The server rejected the password or key. Check the credentials in Edit Server and reconnect: passwords aren’t synced between devices, so if you changed it or it works on another one, enter it again on this one."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El servidor rechazó la contraseña o la clave. Revisa las credenciales del servidor (Editar servidor) y vuelve a conectar."
+            "value" : "El servidor rechazó la contraseña o la clave. Revisa las credenciales en Editar servidor y vuelve a conectar: las contraseñas no se sincronizan entre dispositivos, así que si la cambiaste o funciona en otro, escríbela de nuevo en este."
           }
         }
       }
@@ -14298,6 +14298,22 @@
         }
       }
     },
+    "Inicia el proyecto de nuevo para crearla." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia el proyecto de nuevo para crearla."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start the project again to recreate it."
+          }
+        }
+      }
+    },
     "Inicia sesión con tu cuenta de Claude (suscripción) en %@. El agente nunca usa la API de pago." : {
       "localizations" : {
         "en" : {
@@ -14342,6 +14358,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Iniciar %@"
+          }
+        }
+      }
+    },
+    "Iniciar de nuevo" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar de nuevo"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start again"
           }
         }
       }
@@ -15526,6 +15558,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "La sesión se inicia en la carpeta del proyecto."
+          }
+        }
+      }
+    },
+    "La sesión terminó" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sesión terminó"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The session ended"
+          }
+        }
+      }
+    },
+    "La sesión «%@» ya no existe en el servidor." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sesión «%@» ya no existe en el servidor."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The session “%@” no longer exists on the server."
           }
         }
       }

@@ -30,7 +30,8 @@ interface TerminalStreaming {
      * Abre un PTY interactivo y ejecuta `tmux attach -t <session>` ([tmux.TmuxCommands.attach]).
      * Suspende mientras el canal está abierto: entrega cada bloque de salida (stdout y stderr)
      * a [output] en orden y aplica los eventos de [control]. Lanza [SSHServiceError] o la
-     * excepción de conexión si no puede abrirse.
+     * excepción de conexión si no puede abrirse. Si tmux dice que la sesión no existe, lanza
+     * [TerminalSessionMissingError] (las implementaciones usan [TerminalAttach.monitoring]).
      */
     suspend fun attachTerminal(
         session: String,
@@ -40,7 +41,7 @@ interface TerminalStreaming {
         output: suspend (ByteArray) -> Unit,
     )
 
-    /** Igual que [attachTerminal] pero ejecutando [command] tal cual en el PTY. */
+    /** Igual que [attachTerminal] pero ejecutando [command] tal cual en el PTY (sin detector de sesión). */
     suspend fun attachCommand(
         command: String,
         initialCols: Int,

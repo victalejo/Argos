@@ -86,9 +86,10 @@ extension SessionsViewModel {
     // MARK: - Abrir / detener
 
     /// Abre el proyecto: si no corre, crea su sesión en la carpeta y lanza el comando de
-    /// arranque. Si ya corre, no hace nada (la UI solo tiene que conectarse).
+    /// arranque. Si ya corre, no hace nada (la UI solo tiene que conectarse). Lo decide el
+    /// SERVIDOR (`has-session`), no la lista local: si esta va con retraso y aún cree viva
+    /// una sesión que murió, «Iniciar» no puede quedarse sin hacer nada.
     func openProject(_ project: Project, defaultStartupCommand: String) async throws {
-        guard session(withID: project.sessionName) == nil else { return }
         try await service.startProject(
             sessionName: project.sessionName,
             path: project.path,

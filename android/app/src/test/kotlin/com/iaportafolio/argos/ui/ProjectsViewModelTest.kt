@@ -26,6 +26,7 @@ import com.iaportafolio.argos.ui.projects.StartupChoice
 import com.iaportafolio.argos.ui.sessions.ConnectStep
 import com.iaportafolio.argos.ui.sessions.SessionDialog
 import com.iaportafolio.argos.ui.sessions.SessionsLoad
+import com.iaportafolio.argos.ui.terminal.VanishedSessions
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -252,15 +253,84 @@ class ProjectsViewModelTest {
     // MARK: - Abrir / detener / quitar
 
     @Test
-    fun `abrir un proyecto en marcha solo navega`() = runTest(main.dispatcher) {
+    fun `abrir un proyecto en marcha pide arrancar (no crea otra sesion) y navega`() = runTest(main.dispatcher) {
         ssh.projects = listOf(project(1, "api"))
         ssh.sessions = listOf(session("api"))
         val vm = loaded()
         vm.events.test {
             vm.openProject(vm.state.value.listing.entries.single())
+            advanceUntilIdle()
             assertEquals(ProjectsEvent.OpenProject(project(1, "api").id), awaitItem())
         }
-        assertTrue(ssh.calls.none { it.startsWith("start:") })
+        // El servidor decide con `has-session`: si ya existe no crea nada.
+        assertEquals(1, ssh.calls.count { it.startsWith("start:") })
+        assertEquals(listOf("api"), ssh.sessions.map { it.name })
+    }
+
+    @Test
+    fun `abrir con la lista desfasada (sesion muerta en el servidor) crea la sesion`() = runTest(main.dispatcher) {
+        ssh.projects = listOf(project(1, "coro"))
+        ssh.sessions = listOf(session("coro"))
+        val vm = loaded()
+        assertTrue(vm.state.value.listing.entries.single().isRunning)
+
+        ssh.sessions = emptyList() // murió en el servidor; la lista local aún no lo sabe
+        vm.events.test {
+            vm.openProject(vm.state.value.listing.entries.single())
+            advanceUntilIdle()
+            assertEquals(ProjectsEvent.OpenProject(project(1, "coro").id), awaitItem())
+        }
+        assertTrue("start:coro|/srv/coro|cc --continue" in ssh.calls, "${ssh.calls}")
+        assertEquals(listOf("coro"), ssh.sessions.map { it.name })
+        assertTrue(vm.state.value.listing.entries.single().isRunning)
+    }
+
+    @Test
+    fun `sesion desaparecida - el proyecto pasa a detenido`() = runTest(main.dispatcher) {
+        ssh.projects = listOf(project(1, "coro"))
+        ssh.sessions = listOf(session("coro"))
+        val vm = loaded()
+
+        ssh.sessions = emptyList()
+        vm.sessionDidDisappear("coro")
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value.sessions.none { it.name == "coro" })
+        assertFalse(vm.state.value.listing.entries.single().isRunning)
+    }
+
+    @Test
+    fun `sesion desaparecida se quita aunque la relectura falle`() = runTest(main.dispatcher) {
+        ssh.projects = listOf(project(1, "coro"))
+        ssh.sessions = listOf(session("coro"), session("otra"))
+        val vm = loaded()
+
+        ssh.listError = SSHServiceError.CommandFailed(255, "caída")
+        vm.sessionDidDisappear("coro")
+        advanceUntilIdle()
+
+        assertEquals(listOf("otra"), vm.state.value.sessions.map { it.name })
+        assertEquals(SessionsLoad.Loaded, vm.state.value.load)
+        // Relectura en silencio: sin aviso.
+        assertNull(vm.state.value.message)
+    }
+
+    @Test
+    fun `el aviso de un terminal quita la sesion de su servidor`() = runTest(main.dispatcher) {
+        ssh.projects = listOf(project(1, "coro"))
+        ssh.sessions = listOf(session("coro"))
+        val vanished = VanishedSessions()
+        val vm = ProjectsViewModel("S1", repository, provider, trust, preferences, main.dispatcher, vanished = vanished.vanished)
+        advanceUntilIdle()
+        ssh.listError = SSHServiceError.CommandFailed(255, "caída")
+
+        vanished.report("OTRO", "coro")
+        advanceUntilIdle()
+        assertEquals(listOf("coro"), vm.state.value.sessions.map { it.name })
+
+        vanished.report("S1", "coro")
+        advanceUntilIdle()
+        assertTrue(vm.state.value.sessions.isEmpty())
     }
 
     @Test

@@ -75,6 +75,7 @@ import com.iaportafolio.argos.ui.servers.ServersScreen
 import com.iaportafolio.argos.ui.servers.StartupCommandDialog
 import com.iaportafolio.argos.ui.sessions.SessionsLoad
 import com.iaportafolio.argos.ui.terminal.TerminalConnectionEffect
+import com.iaportafolio.argos.ui.terminal.SessionRestart
 import com.iaportafolio.argos.ui.terminal.TerminalScreen
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -549,12 +550,15 @@ private fun ProjectDestination(
         onBack = onBack,
         terminal = { project ->
             RequestAgentNotificationPermission(container.agentNotifier, forTerminal = true)
+            val terminal = terminalViewModel(container, serverId, project.sessionName)
             TerminalScreen(
-                viewModel = terminalViewModel(container, serverId, project.sessionName),
+                viewModel = terminal,
                 onBack = onBack,
                 autoShowKeyboard = false,
                 windows = terminalWindowsViewModel(container, serverId, project.sessionName, project.path),
                 ownsConnection = false,
+                // Sesión desaparecida: arranca el proyecto (comando por defecto) y reconecta.
+                restart = SessionRestart(state.isStarting) { viewModel.start(onStarted = terminal::reconnect) },
             )
         },
         files = { project, twoPane ->

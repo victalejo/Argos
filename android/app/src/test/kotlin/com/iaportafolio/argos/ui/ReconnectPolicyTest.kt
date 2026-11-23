@@ -2,6 +2,7 @@ package com.iaportafolio.argos.ui
 
 import com.iaportafolio.argos.core.HostKeyMismatchException
 import com.iaportafolio.argos.core.SSHServiceError
+import com.iaportafolio.argos.core.TerminalSessionMissingError
 import com.iaportafolio.argos.data.MissingCredentialsException
 import com.iaportafolio.argos.core.homefile.HomeFileException
 import com.iaportafolio.argos.core.projects.ProjectError
@@ -55,5 +56,12 @@ class ReconnectPolicyTest {
         assertFalse(policy.isRetryable(TerminalServerMissingException()))
         assertFalse(policy.isRetryable(TerminalStreamingUnavailableException()))
         assertFalse(policy.isRetryable(IOException("envoltorio", HostKeyMismatchException("dev:22", "a", "b"))))
+    }
+
+    @Test
+    fun `una sesion tmux inexistente no se reintenta - hay que iniciarla`() {
+        assertFalse(policy.isRetryable(TerminalSessionMissingError("tmh/web")))
+        // Aunque el PTY se cerrara con un error de red, manda que la sesión no existe.
+        assertFalse(policy.isRetryable(TerminalSessionMissingError("tmh/web", SshTerminalException.ConnectionLost("dev:22"))))
     }
 }

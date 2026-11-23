@@ -3,6 +3,7 @@ package com.iaportafolio.argos.ui.terminal
 import com.iaportafolio.argos.core.HostKeyMismatchException
 import com.iaportafolio.argos.core.HostKeyStoreUnreadableException
 import com.iaportafolio.argos.core.SSHServiceError
+import com.iaportafolio.argos.core.TerminalSessionMissingError
 import com.iaportafolio.argos.data.MissingCredentialsException
 import com.iaportafolio.argos.core.homefile.HomeFileException
 import com.iaportafolio.argos.core.projects.ProjectError
@@ -45,7 +46,8 @@ data class ReconnectPolicy(
      * `MaxSessions` ([SshChannelRejectedException]: la conexión ya se recicló). No si el fallo exige
      * que el usuario haga algo, ni con el plazo vencido de un comando ([SshCommandTimeoutException]:
      * repetirlo en bucle cargaría al servidor que ya no responde; lo decide el usuario con
-     * «Reconectar»).
+     * «Reconectar»), ni si la sesión tmux ya no existe ([TerminalSessionMissingError]: hay que
+     * iniciarla de nuevo).
      */
     fun isRetryable(error: Throwable): Boolean = causeChain(error).none { cause ->
         cause is SshCommandTimeoutException ||
@@ -57,6 +59,7 @@ data class ReconnectPolicy(
             cause is SshConnectionException.AuthenticationFailed ||
             cause is SSHServiceError ||
             cause is TerminalServerMissingException ||
+            cause is TerminalSessionMissingError ||
             cause is TerminalStreamingUnavailableException
     }
 

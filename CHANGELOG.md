@@ -111,6 +111,10 @@ El detalle por commit vive en el historial git (Conventional Commits):
   proyecto → Agentes → su chat.
 
 ### Mejorado
+- **Contraseña rechazada: qué hacer.** Si el servidor rechaza la contraseña o la clave, el
+  aviso recuerda que las contraseñas no se sincronizan entre dispositivos (si la cambiaste o
+  funciona en otro, hay que escribirla de nuevo en este) y, en iPhone y iPad, trae un botón
+  «Editar servidor» para corregirla sin buscar el menú.
 - **No insistir contra un servidor caído ni con credenciales rechazadas.** Una contraseña o
   clave rechazada, o una host key que cambió, detienen los reintentos hasta que hagas algo
   (Conectar, Reintentar, ⌘R, «Olvidar host key»); si es la red la que falla, las
@@ -174,6 +178,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
   de su registro de errores. Los resultados de herramienta se recortan a 16 000 caracteres.
 
 ### Corregido
+- **Sesión que muere en el servidor (Mac, iPhone/iPad y Android).** Si la sesión de un
+  proyecto se cerraba en el servidor, el terminal se quedaba «Reconectando…» en bucle e
+  «Iniciar» no hacía nada mientras la lista no se actualizaba. Ahora el terminal reconoce
+  que la sesión ya no existe, deja de reintentar, marca el proyecto como detenido y ofrece
+  iniciarlo de nuevo; e «Iniciar» siempre comprueba en el servidor si hace falta crearla.
+  Además, el terminal ya no puede engancharse por error a otra sesión cuyo nombre empiece
+  igual.
 - **«Enviar al servidor» deja el proyecto intacto si falla.** Todo se sube a una carpeta
   temporal y se coloca por lotes sin borrar antes el destino; ante un fallo se limpian los
   temporales, que además no aparecen en los listados.

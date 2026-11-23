@@ -74,6 +74,22 @@ class ProjectViewModelTest {
     }
 
     @Test
+    fun `iniciar de nuevo con la sesion muerta la crea y luego reconecta`() = runTest(main.dispatcher) {
+        ssh.projects = listOf(api)
+        ssh.sessions = listOf(session("web/api"))
+        val vm = loaded()
+        ssh.sessions = emptyList() // murió en el servidor con el terminal abierto
+
+        var reconnected = 0
+        vm.start(onStarted = { reconnected++ })
+        advanceUntilIdle()
+
+        assertTrue("start:web/api|/srv/api|cc --continue" in ssh.calls)
+        assertEquals(listOf("web/api"), ssh.sessions.map { it.name })
+        assertEquals(1, reconnected)
+    }
+
+    @Test
     fun `un fallo al arrancar se avisa sin perder el proyecto`() = runTest(main.dispatcher) {
         ssh.projects = listOf(api)
         ssh.startError = ProjectError.MissingFolder("/srv/api")

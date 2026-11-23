@@ -23,10 +23,12 @@ extension SSHService {
     }
 
     /// Crea la sesión del proyecto en su carpeta y teclea el comando de arranque en el
-    /// shell interactivo (con `send-keys`, así funcionan alias como `cc`).
+    /// shell interactivo (con `send-keys`, así funcionan alias como `cc`). Si la sesión ya
+    /// existe no hace nada (sale con 0): es seguro llamarlo aunque la lista vaya con retraso.
     static func startProjectCommand(sessionName: String, path: String, startupCommand: String?) -> String {
         let quotedPath = ShellQuoting.singleQuoted(path)
         var command = "[ -d \(quotedPath) ] || exit \(missingFolderExitCode); "
+            + "tmux has-session -t \(exactSessionTarget(sessionName)) 2>/dev/null && exit 0; "
             + "tmux new-session -d -s \(ShellQuoting.singleQuoted(sessionName)) -c \(quotedPath)"
         if let startupCommand {
             // `=nombre:` = ventana/panel activo de la sesión exacta.

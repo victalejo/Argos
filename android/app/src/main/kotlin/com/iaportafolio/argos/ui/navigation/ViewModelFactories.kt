@@ -73,6 +73,7 @@ internal fun projectsViewModel(container: AppContainer, serverId: String): Proje
                 container.projectPreferences,
                 container.io,
                 container.claudeActivity,
+                container.vanishedSessions.vanished,
             )
         }
     },
@@ -227,6 +228,7 @@ internal fun terminalViewModel(
                 keepAlive = container.activeTerminals,
                 attachments = container.attachments,
                 pendingShares = container.pendingShares,
+                onSessionMissing = { name -> container.vanishedSessions.report(serverId, name) },
             )
         }
     },

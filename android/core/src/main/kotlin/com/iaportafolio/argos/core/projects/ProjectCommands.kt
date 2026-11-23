@@ -28,11 +28,13 @@ object ProjectCommands {
 
     /**
      * Crea la sesión del proyecto en su carpeta y teclea el comando de arranque en el shell
-     * interactivo (con `send-keys`, así funcionan alias como `cc`).
+     * interactivo (con `send-keys`, así funcionan alias como `cc`). Si la sesión ya existe no
+     * hace nada (sale con 0): es seguro llamarlo aunque la lista local vaya con retraso.
      */
     fun startProject(sessionName: String, path: String, startupCommand: String?): String {
         val quotedPath = ShellQuoting.singleQuoted(path)
         val create = "[ -d $quotedPath ] || exit $MISSING_FOLDER_EXIT_CODE; " +
+            "tmux has-session -t ${TmuxCommands.exactSessionTarget(sessionName)} 2>/dev/null && exit 0; " +
             "tmux new-session -d -s ${ShellQuoting.singleQuoted(sessionName)} -c $quotedPath"
         if (startupCommand == null) return create
         // `=nombre:` = ventana/panel activo de la sesión exacta.

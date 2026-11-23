@@ -9,6 +9,7 @@ import com.iaportafolio.argos.core.PTYSize
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.TerminalControlEvent
+import com.iaportafolio.argos.core.TerminalSessionMissingError
 import com.iaportafolio.argos.core.TerminalStreaming
 import com.iaportafolio.argos.core.userMessage
 import com.iaportafolio.argos.data.ArgosLog
@@ -56,8 +57,9 @@ sealed interface TerminalTarget {
  * Terminal en vivo de UNA sesión tmux (port de `TouchTerminalController` de iOS).
  *
  * Ciclo de vida con un único [state]: conectando → conectado → desconectado (con reintento
- * automático y backoff, o «Reconectar») / sesión terminada. Con el servicio de [keepAlive] en
- * marcha, pasar a segundo plano ([onStop]) no toca la conexión y la salida sigue llegando al
+ * automático y backoff, o «Reconectar») / sesión terminada / sesión inexistente en el servidor
+ * ([TerminalStatus.SessionMissing]: no se reintenta; se ofrece iniciarla de nuevo). Con el
+ * servicio de [keepAlive] en marcha, pasar a segundo plano ([onStop]) no toca la conexión y la salida sigue llegando al
  * emulador. Sin él, como en iOS, hace detach (cancela el attach: tmux desengancha el cliente y
  * la sesión sigue viva) y al volver ([onStart]) reengancha; tmux repinta la pantalla tal como
  * estaba. Salir de la pantalla ([onLeave]) siempre hace detach.
@@ -84,6 +86,11 @@ class TerminalViewModel<S : TerminalSink>(
     private val attachments: AttachmentSource? = null,
     /** Lo compartido desde otra app para esta sesión, que se sube al conectar. */
     private val pendingShares: PendingShares? = null,
+    /**
+     * tmux dijo que la sesión ya no existe: se avisa (con su nombre) para que la lista del
+     * servidor la quite en el acto (`ProjectsViewModel.sessionDidDisappear`).
+     */
+    private val onSessionMissing: (String) -> Unit = {},
 ) : ViewModel(), ActiveTerminal {
 
     private val mutableState = MutableStateFlow(
@@ -168,7 +175,8 @@ class TerminalViewModel<S : TerminalSink>(
     /** «Desconectar todo»: detach. Si el terminal está a la vista, se ofrece reconectar. */
     override fun disconnectFromBackground() {
         detach()
-        if (state.value.status != TerminalStatus.SessionEnded) {
+        val status = state.value.status
+        if (status != TerminalStatus.SessionEnded && status !is TerminalStatus.SessionMissing) {
             setStatus(TerminalStatus.Disconnected(UiText.res(R.string.terminal_disconnected_by_user), retryInSeconds = null))
         }
     }
@@ -210,6 +218,12 @@ class TerminalViewModel<S : TerminalSink>(
             val error = outcome.error
             if (error == null) {
                 setStatus(TerminalStatus.SessionEnded)
+                return
+            }
+            if (error is TerminalSessionMissingError) {
+                // Reintentar volvería a fallar: hay que iniciarla. La lista lo sabe ya.
+                setStatus(TerminalStatus.SessionMissing(UiText.Plain(error.userMessage)))
+                onSessionMissing(error.session)
                 return
             }
             // Si llegó a conectar, la caída es nueva: la cuenta de reintentos vuelve a empezar.

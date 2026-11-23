@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.HostKeyMismatchException
 import com.iaportafolio.argos.core.TerminalControlEvent
+import com.iaportafolio.argos.core.TerminalSessionMissingError
 import com.iaportafolio.argos.data.MissingCredentialsException
 import com.iaportafolio.argos.testing.FakeSSHService
 import com.iaportafolio.argos.testing.FakeTerminalService
@@ -412,5 +413,47 @@ class TerminalViewModelTest {
         assertEquals("hola" + "x".repeat(10), sink.fed.toString())
         assertTrue(sink.feedBatches - before < 10)
         assertEquals(TerminalStatus.Connected, vm.state.value.status)
+    }
+
+    // MARK: - Sesión inexistente
+
+    @Test
+    fun `sesion inexistente no reintenta, avisa a la lista y muestra el panel`() = runTest(main.dispatcher) {
+        val vanished = mutableListOf<String>()
+        val vm = TerminalViewModel(
+            "S1", "web/api", repository, provider, settings, sink, main.dispatcher, policy,
+            onSessionMissing = { vanished += it },
+        )
+        vm.onViewResized(100, 30)
+        vm.onStart()
+        runCurrent()
+        ssh.calls.single().end.complete(TerminalSessionMissingError("web/api"))
+        advanceUntilIdle()
+
+        val status = assertIs<TerminalStatus.SessionMissing>(vm.state.value.status)
+        assertEquals(UiText.Plain("La sesión «web/api» ya no existe en el servidor."), status.message)
+        assertEquals(listOf("web/api"), vanished)
+        // Ni «Reconectando…» ni reintentos automáticos.
+        assertEquals(1, ssh.openAttempts)
+
+        // «Reconectar» (o «Iniciar de nuevo» tras arrancar) vuelve a intentarlo.
+        vm.reconnect()
+        runCurrent()
+        assertEquals(2, ssh.openAttempts)
+        assertEquals(TerminalStatus.Connecting(0), vm.state.value.status)
+        vm.onLeave()
+    }
+
+    @Test
+    fun `desconectar todo no tapa el panel de sesion inexistente`() = runTest(main.dispatcher) {
+        val vm = viewModel()
+        vm.onViewResized(100, 30)
+        vm.onStart()
+        runCurrent()
+        ssh.calls.single().end.complete(TerminalSessionMissingError("web/api"))
+        advanceUntilIdle()
+
+        vm.disconnectFromBackground()
+        assertIs<TerminalStatus.SessionMissing>(vm.state.value.status)
     }
 }

@@ -54,6 +54,52 @@ struct ProjectLifecycleTests {
         #expect(mock.startedProjects.isEmpty)
     }
 
+    @Test("Lista desfasada: si la sesión murió en el servidor, Iniciar la crea igualmente")
+    func openWithStaleList() async throws {
+        let mock = MockSSHService()
+        let coro = Project(name: "coro", path: "/srv/coro")
+        mock.storedProjects = [coro]
+        mock.sessions = [session("coro")]
+        let vm = await loadedVM(mock)
+        #expect(vm.projectListing.entries.first?.isRunning == true)
+
+        mock.sessions = []   // murió en el servidor; la lista local aún no lo sabe
+        try await vm.openProject(coro, defaultStartupCommand: "cc --continue")
+
+        #expect(mock.startedProjects.count == 1)
+        #expect(vm.projectListing.entries.first?.isRunning == true)
+    }
+
+    @Test("El terminal detecta que la sesión ya no existe: el proyecto pasa a detenido")
+    func sessionDisappearedMarksStopped() async {
+        let mock = MockSSHService()
+        let coro = Project(name: "coro", path: "/srv/coro")
+        mock.storedProjects = [coro]
+        mock.sessions = [session("coro")]
+        let vm = await loadedVM(mock)
+
+        mock.sessions = []
+        await vm.sessionDidDisappear(named: "coro")
+
+        #expect(vm.session(withID: "coro") == nil)
+        #expect(vm.projectListing.entries.first?.isRunning == false)
+    }
+
+    @Test("Si la relectura falla, la sesión desaparecida se quita igualmente de la lista")
+    func sessionDisappearedWithoutRefresh() async {
+        let mock = MockSSHService()
+        let coro = Project(name: "coro", path: "/srv/coro")
+        mock.storedProjects = [coro]
+        mock.sessions = [session("coro"), session("otra")]
+        let vm = await loadedVM(mock)
+
+        mock.listError = SSHService.SSHServiceError.commandFailed(exitCode: 255, message: "caída")
+        await vm.sessionDidDisappear(named: "coro")
+
+        #expect(vm.session(withID: "coro") == nil)
+        #expect(vm.session(withID: "otra") != nil)
+    }
+
     @Test("Comando vacío del proyecto no lanza nada")
     func openWithoutCommand() async throws {
         let mock = MockSSHService()

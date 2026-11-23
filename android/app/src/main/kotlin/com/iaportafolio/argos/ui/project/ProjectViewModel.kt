@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectLifecycle
-import com.iaportafolio.argos.core.tmux.TmuxSession
 import com.iaportafolio.argos.data.ArgosLog
 import com.iaportafolio.argos.data.ProjectPreferencesStore
 import com.iaportafolio.argos.data.ServerRepository
@@ -80,9 +79,6 @@ class ProjectViewModel(
 
     private var loadJob: Job? = null
 
-    /** Sesiones de la última lectura (para decidir si hay que arrancar). */
-    private var sessions: List<TmuxSession> = emptyList()
-
     init {
         if (state.value.terminalOpened) savedState[KEY_TERMINAL_OPENED] = true
         reload()
@@ -107,14 +103,10 @@ class ProjectViewModel(
                 val server = repository.server(serverId) ?: throw FileServerMissingException()
                 val service = services.service(server)
                 val projects = withContext(io) { service.loadProjects() }
-                sessions = withContext(io) { service.listSessions() }
-                projects.firstOrNull { it.id == projectId }
-            }.onSuccess { project ->
-                val load = if (project == null) {
-                    ProjectLoad.Missing
-                } else {
-                    ProjectLoad.Loaded(project, sessions.any { it.name == project.sessionName })
-                }
+                val sessions = withContext(io) { service.listSessions() }
+                projects.firstOrNull { it.id == projectId }?.let { it to sessions.any { s -> s.name == it.sessionName } }
+            }.onSuccess { found ->
+                val load = found?.let { (project, isRunning) -> ProjectLoad.Loaded(project, isRunning) } ?: ProjectLoad.Missing
                 mutableState.update { it.copy(load = load) }
             }.onFailure { error ->
                 // Con el proyecto ya visible, un fallo de red no lo oculta: se avisa.
@@ -129,8 +121,12 @@ class ProjectViewModel(
         }
     }
 
-    /** Arranca el proyecto detenido (sesión en su carpeta + comando de arranque). */
-    fun start() {
+    /**
+     * Arranca el proyecto (sesión en su carpeta + comando de arranque). Si la sesión ya existe el
+     * servidor no hace nada (`has-session`), así que también sirve para «Iniciar de nuevo» desde
+     * el terminal cuando la sesión murió; [onStarted] se llama al terminar bien (p. ej. reconectar).
+     */
+    fun start(onStarted: () -> Unit = {}) {
         val project = state.value.project ?: return
         if (state.value.isStarting) return
         mutableState.update { it.copy(isStarting = true) }
@@ -138,12 +134,11 @@ class ProjectViewModel(
             logFailures(ArgosLog.TAG_SSH, "No se pudo arrancar el proyecto $projectId") {
                 val server = repository.server(serverId) ?: throw FileServerMissingException()
                 val service = services.service(server)
-                val current = withContext(io) { service.listSessions() }
-                ProjectLifecycle.startRequest(project, current, preferences.preferences.value.defaultStartupCommand)?.let {
-                    withContext(io) { service.startProject(it.sessionName, it.path, it.startupCommand) }
-                }
+                val request = ProjectLifecycle.startRequest(project, preferences.preferences.value.defaultStartupCommand)
+                withContext(io) { service.startProject(request.sessionName, request.path, request.startupCommand) }
             }.onSuccess {
                 mutableState.update { it.copy(load = ProjectLoad.Loaded(project, isRunning = true)) }
+                onStarted()
             }.onFailure { error -> mutableState.update { it.copy(message = error.toUiText()) } }
             mutableState.update { it.copy(isStarting = false) }
         }

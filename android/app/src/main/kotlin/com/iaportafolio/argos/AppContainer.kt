@@ -32,6 +32,7 @@ import com.iaportafolio.argos.data.AttachmentSource
 import com.iaportafolio.argos.data.ClaudeTokenStore
 import com.iaportafolio.argos.data.ContentResolverAttachmentSource
 import com.iaportafolio.argos.ui.terminal.PendingShares
+import com.iaportafolio.argos.ui.terminal.VanishedSessions
 import com.iaportafolio.argos.data.ContentResolverDocumentReader
 import com.iaportafolio.argos.data.ContentResolverDocumentWriter
 import com.iaportafolio.argos.data.DocumentReader
@@ -104,6 +105,9 @@ class AppContainer(
 
     /** Lo compartido desde otra app, a la espera del terminal de su sesión. */
     val pendingShares: PendingShares by lazy { PendingShares() }
+
+    /** Sesiones que un terminal vio desaparecer del servidor (la lista las quita en el acto). */
+    val vanishedSessions: VanishedSessions by lazy { VanishedSessions() }
 
     val documentWriter: DocumentWriter by lazy { ContentResolverDocumentWriter(appContext.contentResolver) }
 

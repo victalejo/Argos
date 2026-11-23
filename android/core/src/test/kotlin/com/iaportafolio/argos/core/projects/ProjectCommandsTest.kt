@@ -10,9 +10,19 @@ class ProjectCommandsTest {
     @Test
     fun `arrancar un proyecto con comando teclea el arranque en la sesion exacta`() {
         assertEquals(
-            "[ -d '/srv/it'\\''s' ] || exit 3; tmux new-session -d -s 'ia/coro' -c '/srv/it'\\''s' " +
+            "[ -d '/srv/it'\\''s' ] || exit 3; tmux has-session -t '=ia/coro' 2>/dev/null && exit 0; " +
+                "tmux new-session -d -s 'ia/coro' -c '/srv/it'\\''s' " +
                 "&& tmux send-keys -t '=ia/coro:' 'cc --continue' Enter",
             ProjectCommands.startProject("ia/coro", "/srv/it's", "cc --continue"),
+        )
+    }
+
+    @Test
+    fun `arrancar es idempotente - si la sesion exacta existe sale con 0 sin crear nada`() {
+        assertEquals(
+            "[ -d '/srv/web' ] || exit 3; tmux has-session -t '=tmh/web' 2>/dev/null && exit 0; " +
+                "tmux new-session -d -s 'tmh/web' -c '/srv/web' && tmux send-keys -t '=tmh/web:' 'cc --continue' Enter",
+            ProjectCommands.startProject("tmh/web", "/srv/web", "cc --continue"),
         )
     }
 

@@ -270,6 +270,7 @@ private fun TerminalStatusOverlay(status: TerminalStatus) {
     val text = when (status) {
         is TerminalStatus.Connecting -> stringResource(R.string.agents_login_terminal_starting)
         is TerminalStatus.Disconnected -> status.message.asString()
+        is TerminalStatus.SessionMissing -> status.message.asString()
         TerminalStatus.Connected, TerminalStatus.SessionEnded -> return
     }
     Box(

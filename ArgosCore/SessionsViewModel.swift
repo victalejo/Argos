@@ -255,6 +255,16 @@ final class SessionsViewModel {
         adoptQuietSessions(fresh, readOver: current)
     }
 
+    /// El terminal comprobó que la sesión `name` ya no existe en el servidor: se quita de
+    /// la lista en el acto (el proyecto pasa a detenido y «Iniciar» vuelve a crearla) sin
+    /// esperar al sondeo, que puede ir con retraso o fallar, y luego se relee la lista.
+    func sessionDidDisappear(named name: String) async {
+        if case .loaded(let current) = state, current.contains(where: { $0.name == name }) {
+            state = .loaded(current.filter { $0.name != name })
+        }
+        await refreshSessionsQuietly()
+    }
+
     /// Pone `fresh` (leída en segundo plano sobre `current`) salvo que entretanto un
     /// refresco explícito haya cambiado la lista: manda ese.
     func adoptQuietSessions(_ fresh: [TmuxSession], readOver current: [TmuxSession]) {
