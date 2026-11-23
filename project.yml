@@ -10,6 +10,10 @@ name: Argos
 options:
   bundleIdPrefix: com.iaportafolio
   developmentLanguage: es
+  # Fijada: si no, el `LastUpgradeCheck` generado depende de la versión de XcodeGen
+  # (la 2.47 subió el default de 14.3 a 16.0 y la CI de Mac fallaba por drift de
+  # UNA línea contra el .pbxproj commiteado con la default anterior).
+  xcodeVersion: "16.0"
   deploymentTarget:
     # El terminal en vivo usa Citadel.withPTY / TTYOutput, marcados
     # @available(macOS 15.0, *). Mínimo: macOS 15.
