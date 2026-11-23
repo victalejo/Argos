@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fuente mono del terminal (JetBrains Mono, OFL 1.1): la del sistema varía por fabricante
+     y en varios no es una mono de terminal (columnas descuadradas, glifos pobres). -->
+<font-family xmlns:android="http://schemas.android.com/apk/res/android">
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="400"
+        android:font="@font/jetbrains_mono_regular" />
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="700"
+        android:font="@font/jetbrains_mono_bold" />
+</font-family>

@@ -138,8 +138,11 @@ fun TerminalScreen(
                 .consumeWindowInsets(padding)
                 .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
         ) {
-            // Con la sesión terminada ya no hay ventanas que mostrar.
-            if (windows != null && windowsState != null && windowsState.windows.isNotEmpty() && state.status != TerminalStatus.SessionEnded) {
+            // La barra va SIEMPRE (salvo sesión terminada): antes solo salía cuando el
+            // listado de tmux ya había llegado, y un `list-windows` lento o fallido la
+            // dejaba invisible — sin pestañas y sin el «+» para crear ventanas. Sin
+            // ventanas leídas, la propia barra muestra «cargando» o el error.
+            if (windows != null && windowsState != null && state.status != TerminalStatus.SessionEnded) {
                 TerminalWindowBar(
                     state = windowsState,
                     onSelect = windows::select,
@@ -148,6 +151,7 @@ fun TerminalScreen(
                     onClose = { windows.requestClose(it.index) },
                     onRename = windows::requestRename,
                     onColor = windows::setColor,
+                    onRetry = windows::refreshWindowsNow,
                 )
             }
             Box(Modifier.weight(1f)) {

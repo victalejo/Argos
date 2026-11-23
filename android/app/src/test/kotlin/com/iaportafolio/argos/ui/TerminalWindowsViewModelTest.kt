@@ -262,6 +262,37 @@ class TerminalWindowsViewModelTest {
     }
 
     @Test
+    fun `un fallo al leer las ventanas se publica en el estado y un acierto lo limpia`() = runTest(main.dispatcher) {
+        ssh.windowsError = IOException("sin red")
+        val vm = viewModel()
+        polling(vm)
+        // Sin ventanas leídas, la barra enseña el error con «Reintentar» (antes no salía nada).
+        assertTrue(vm.state.value.windows.isEmpty())
+        assertTrue(vm.state.value.windowsError != null)
+
+        ssh.windowsError = null
+        ssh.windows = listOf(shell, claude)
+        vm.refreshWindowsNow()
+        runCurrent()
+        assertEquals(listOf(shell, claude), vm.state.value.windows)
+        assertNull(vm.state.value.windowsError)
+    }
+
+    @Test
+    fun `un fallo tras leer las ventanas conserva las pestañas que ya se veían`() = runTest(main.dispatcher) {
+        ssh.windows = listOf(shell, claude)
+        val vm = viewModel()
+        polling(vm)
+        assertNull(vm.state.value.windowsError)
+
+        ssh.windowsError = IOException("sin red")
+        vm.refreshWindowsNow()
+        runCurrent()
+        assertEquals(listOf(shell, claude), vm.state.value.windows)
+        assertTrue(vm.state.value.windowsError != null)
+    }
+
+    @Test
     fun `cuenta qué ventana se mira mientras está visible y deja de hacerlo al salir`() = runTest(main.dispatcher) {
         val seen = mutableListOf<String>()
         val source = object : com.iaportafolio.argos.background.ClaudeActivitySource {

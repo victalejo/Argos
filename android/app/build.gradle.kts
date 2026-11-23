@@ -184,7 +184,8 @@ aboutLibraries {
     license {
         // Una dependencia nueva con una licencia no revisada rompe la build en vez de colarse.
         strictMode = com.mikepenz.aboutlibraries.plugin.StrictMode.FAIL
-        allowedLicenses.addAll("Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "EPL-1.0", "EPL-2.0")
+        // OFL-1.1: solo la fuente empaquetada del terminal (JetBrains Mono, config/libraries).
+        allowedLicenses.addAll("Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "EPL-1.0", "EPL-2.0", "OFL-1.1")
         // BouncyCastle publica su propia licencia (equivalente a MIT).
         allowedLicensesMap = mapOf("Bouncy Castle Licence" to listOf("org.bouncycastle"))
     }

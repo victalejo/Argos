@@ -35,8 +35,14 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 data class TerminalWindowsUiState(
-    /** Ventanas de la sesión; vacío mientras no se han leído (la barra no se muestra). */
+    /** Ventanas de la sesión; vacío mientras no se han leído (la barra muestra «cargando»). */
     val windows: List<TmuxWindow> = emptyList(),
+    /**
+     * Último fallo al leer las ventanas (`null` si la última lectura salió bien). Antes un
+     * fallo dejaba la barra oculta para siempre y sin explicación: ahora la barra lo
+     * muestra con «Reintentar» y el botón «+» sigue disponible.
+     */
+    val windowsError: UiText? = null,
     /** Agentes instalados en el servidor (`null` mientras no se sabe: todos activos). */
     val installedAgents: Set<CodingAgent>? = null,
     /** Ventana pendiente de confirmar su cierre (corre algo en ella). */
@@ -130,9 +136,21 @@ class TerminalWindowsViewModel(
         }
     }
 
-    private suspend fun refreshNow(): Boolean = logFailures(ArgosLog.TAG_TERMINAL, "ventanas de «$sessionName» en $serverId") {
-        fetchWindows(service())
-    }.isSuccess
+    private suspend fun refreshNow(): Boolean {
+        val result = logFailures(ArgosLog.TAG_TERMINAL, "ventanas de «$sessionName» en $serverId") {
+            fetchWindows(service())
+        }
+        // El fallo se publica (la barra lo enseña con «Reintentar»); un acierto lo limpia.
+        // Las pestañas ya leídas se conservan: un fallo no las borra de la pantalla.
+        result.onSuccess { mutableState.update { it.copy(windowsError = null) } }
+        result.onFailure { error -> mutableState.update { it.copy(windowsError = error.toUiText()) } }
+        return result.isSuccess
+    }
+
+    /** Relectura inmediata para «Reintentar»: no espera al espaciado de reintentos del sondeo. */
+    fun refreshWindowsNow() {
+        viewModelScope.launch { refreshNow() }
+    }
 
     /** Lee las ventanas de tmux y las publica. */
     private suspend fun fetchWindows(ssh: SSHServicing): List<TmuxWindow> = refreshMutex.withLock {

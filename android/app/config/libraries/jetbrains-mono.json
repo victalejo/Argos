@@ -1,0 +1,11 @@
+{
+  "uniqueId": "bundled:jetbrains-mono",
+  "artifactVersion": "2.304",
+  "name": "JetBrains Mono",
+  "description": "Fuente monoespaciada empaquetada en res/font para el terminal (la mono del sistema varía por fabricante).",
+  "website": "https://github.com/JetBrains/JetBrainsMono",
+  "developers": [],
+  "licenses": [
+    "OFL-1.1"
+  ]
+}

@@ -25,6 +25,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.Scroller
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.iaportafolio.argos.R
@@ -63,7 +64,15 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
 
     private var session: RemoteTerminalSession? = null
     private var fontSizeSp = TerminalSettings.DEFAULT_FONT_SIZE_SP
-    private var renderer = TerminalRenderer(spToPx(fontSizeSp), Typeface.MONOSPACE)
+
+    /**
+     * JetBrains Mono empaquetada: `Typeface.MONOSPACE` del sistema varía por fabricante
+     * y en varios no es una mono de terminal (métricas distintas por glifo: el texto se
+     * ve descuadrado y «feo»). Si el recurso fallara, se cae a la del sistema.
+     */
+    private val terminalTypeface: Typeface =
+        ResourcesCompat.getFont(context, R.font.jetbrains_mono) ?: Typeface.MONOSPACE
+    private var renderer = TerminalRenderer(spToPx(fontSizeSp), terminalTypeface)
     private var lineSpacingAndAscent = lineSpacingAndAscent(fontSizeSp)
 
     /** Fila superior visible: de -historial a 0. */
@@ -124,7 +133,7 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
         val clamped = TerminalSettings.clampFontSize(sp)
         if (clamped == fontSizeSp) return
         fontSizeSp = clamped
-        renderer = TerminalRenderer(spToPx(clamped), Typeface.MONOSPACE)
+        renderer = TerminalRenderer(spToPx(clamped), terminalTypeface)
         lineSpacingAndAscent = lineSpacingAndAscent(clamped)
         updateSize(force = false)
         invalidate()
@@ -596,7 +605,7 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
     /** Igual que `TerminalRenderer.mFontLineSpacingAndAscent` (no es público). */
     private fun lineSpacingAndAscent(sp: Int): Int {
         val paint = Paint().apply {
-            typeface = Typeface.MONOSPACE
+            typeface = terminalTypeface
             textSize = spToPx(sp).toFloat()
         }
         return ceil(paint.fontSpacing).toInt() + ceil(paint.ascent()).toInt()
