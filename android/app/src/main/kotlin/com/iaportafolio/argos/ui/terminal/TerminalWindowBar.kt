@@ -21,7 +21,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -48,7 +50,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,6 +62,8 @@ import com.iaportafolio.argos.ui.claude.CodingAgentIcon
 import com.iaportafolio.argos.core.tmux.TmuxWindow
 import com.iaportafolio.argos.core.tmux.WindowColor
 import com.iaportafolio.argos.core.tmux.WindowTabs
+import com.iaportafolio.argos.ui.common.UiText
+import com.iaportafolio.argos.ui.common.asString
 
 /**
  * Pestañas de las ventanas tmux (equivale a `TerminalWindowBar` de iOS): `>_ 1` para las
@@ -77,32 +80,69 @@ fun TerminalWindowBar(
     modifier: Modifier = Modifier,
     onRename: (TmuxWindow) -> Unit = {},
     onColor: (TmuxWindow, WindowColor?) -> Unit = { _, _ -> },
+    onRetry: () -> Unit = {},
 ) {
     val repeated = remember(state.windows, state.claudeWindows) {
         WindowTabs.repeatedAgents(state.windows, claudeReported = state.claudeWindows.keys)
     }
     Row(modifier.fillMaxWidth().background(TerminalColors.Bar), verticalAlignment = Alignment.CenterVertically) {
-        Row(
-            Modifier
-                .weight(1f)
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 6.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            state.windows.forEach { window ->
-                WindowTab(
-                    window,
-                    repeated,
-                    claude = state.claudeWindows[window.index],
-                    canClose = state.windows.size > 1,
-                    onSelect = onSelect,
-                    onClose = onClose,
-                    onRename = onRename,
-                    onColor = onColor,
-                )
+        if (state.windows.isEmpty()) {
+            // Sin listado todavía (cargando o fallido): la barra se ve igual, con el «+»
+            // disponible — crear una ventana no necesita la lista.
+            WindowBarPlaceholder(state.windowsError, onRetry, Modifier.weight(1f))
+        } else {
+            Row(
+                Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                state.windows.forEach { window ->
+                    WindowTab(
+                        window,
+                        repeated,
+                        claude = state.claudeWindows[window.index],
+                        canClose = state.windows.size > 1,
+                        onSelect = onSelect,
+                        onClose = onClose,
+                        onRename = onRename,
+                        onColor = onColor,
+                    )
+                }
             }
         }
         AddMenu(state.installedAgents, onNew, onNewAgent)
+    }
+}
+
+/** Barra sin ventanas leídas: «cargando» o el error con «Reintentar» (nunca barra ausente). */
+@Composable
+private fun WindowBarPlaceholder(error: UiText?, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (error != null) {
+            Icon(Icons.Filled.Warning, contentDescription = null, tint = TerminalColors.OnBarSecondary, modifier = Modifier.size(16.dp))
+            Text(
+                error.asString(),
+                color = TerminalColors.OnBarSecondary,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+        } else {
+            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = TerminalColors.OnBar)
+            Text(
+                stringResource(R.string.terminal_window_loading),
+                color = TerminalColors.OnBarSecondary,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
     }
 }
 
@@ -123,7 +163,9 @@ private fun WindowTab(
     // La insignia de Claude añade su estado al leerse la pestaña (descendiente fusionado).
     val description = stringResource(R.string.terminal_window_description, window.index, title ?: window.name)
     val closeLabel = stringResource(R.string.terminal_window_close)
-    val content = if (window.isActive) TerminalColors.OnBar else TerminalColors.OnBarSecondary
+    // Activa en blanco sobre el acento; inactiva en claro sobre fondo atenuado: antes la
+    // inactiva era texto gris SIN fondo sobre la barra y apenas se distinguía.
+    val content = if (window.isActive) Color.White else TerminalColors.OnBar
     var menuOpen by remember { mutableStateOf(false) }
     // La pestaña activa (recién creada o elegida) se trae a la vista si quedó fuera.
     val bringIntoView = remember { BringIntoViewRequester() }
@@ -134,7 +176,7 @@ private fun WindowTab(
                 .bringIntoViewRequester(bringIntoView)
                 .heightIn(min = 48.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (window.isActive) TerminalColors.Key else Color.Transparent)
+                .background(if (window.isActive) TerminalColors.KeyActive else TerminalColors.Key.copy(alpha = 0.45f))
                 .combinedClickable(
                     role = Role.Tab,
                     onClick = { onSelect(window) },
@@ -149,27 +191,30 @@ private fun WindowTab(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
+            // Punto de color de la ventana (como en Mac): a la vista sin abrir el menú.
+            window.color?.let { color -> Box(Modifier.size(8.dp).background(color.swatch(), CircleShape)) }
             if (agent != null) {
                 CodingAgentIcon(agent, size = 13.dp)
             } else {
                 Text(
                     ">_",
-                    color = if (window.isActive) TerminalColors.KeyActive else content,
-                    fontFamily = FontFamily.Monospace,
+                    color = content,
+                    fontFamily = TerminalMonoFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     modifier = Modifier.clearAndSetSemantics { },
                 )
             }
             // El número distingue las ventanas sin agente y las de un agente repetido.
             if (agent == null || agent in repeatedAgents) {
-                Text(window.index.toString(), color = content, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                Text(window.index.toString(), color = content, fontFamily = TerminalMonoFontFamily, fontSize = 13.sp)
             }
             if (title != null) {
                 Text(
                     title,
                     color = content,
-                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = TerminalMonoFontFamily,
+                    fontSize = 13.sp,
                     fontWeight = if (window.isActive) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

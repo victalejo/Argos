@@ -237,6 +237,10 @@ Android del plugin `com.mikepenz.aboutlibraries.plugin`) con las dependencias de
 - Termux llega de JitPack con licencia «Other»: se excluye lo detectado y se define a mano en
   `app/config/libraries/termux-*.json` (Apache 2.0). **Si subes `termux` en el catálogo, actualiza
   ahí `artifactVersion`.**
+- La fuente del terminal (JetBrains Mono 2.304, OFL 1.1) va empaquetada en `app/src/main/res/font/`
+  — la mono del sistema varía por fabricante y en varios no es una fuente de terminal — y se
+  define a mano en `app/config/libraries/jetbrains-mono.json` con su texto en
+  `app/config/licenses/OFL-1.1.json` (OFL-1.1 solo está permitida para ella).
 - `OpenSourceLicensesTest` comprueba Termux, las dependencias clave y que cada licencia tenga texto.
 - Los enlaces (política de privacidad, repositorio, webs de librerías) se abren solo tras confirmar la
   URL (`ProvideConfirmedLinks` + `SafeLinkPolicy`, lo mismo que los enlaces de un Markdown).

@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -151,7 +152,7 @@ private fun ExtraKeyButton(key: ExtraKey, latch: ModifierLatch?, onKey: (ExtraKe
         Text(
             stringResource(key.labelRes()),
             color = Color.White,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = TerminalMonoFontFamily,
             fontWeight = if (latch != null && latch != ModifierLatch.OFF) FontWeight.Bold else FontWeight.Normal,
             fontSize = 14.sp,
         )
@@ -208,6 +209,16 @@ private fun ModifierLatch.stateRes(): Int = when (this) {
     ModifierLatch.ONCE -> R.string.key_state_once
     ModifierLatch.LOCKED -> R.string.key_state_locked
 }
+
+/**
+ * Mono del terminal en Compose: JetBrains Mono empaquetada (`res/font`). La mono del
+ * sistema varía por fabricante y en varios no es una fuente de terminal: con ella las
+ * columnas se descuadran y el texto se ve sucio.
+ */
+internal val TerminalMonoFontFamily = FontFamily(
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_bold, FontWeight.Bold),
+)
 
 /** Colores fijos del terminal (oscuro, como en iOS), independientes del tema del sistema. */
 internal object TerminalColors {

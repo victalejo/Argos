@@ -451,6 +451,7 @@
     <string name="terminal_ended_title">Sesión cerrada</string>
     <string name="terminal_ended">tmux cerró la conexión: hiciste detach o la sesión terminó. Si solo fue un detach, la sesión sigue en el servidor.</string>
     <string name="terminal_back_to_sessions">Volver a las sesiones</string>
+    <string name="terminal_window_loading">Cargando ventanas…</string>
     <string name="terminal_session_missing_title">La sesión terminó</string>
     <string name="terminal_session_restart">Iniciar de nuevo</string>
     <string name="terminal_window_new">Nueva ventana</string>

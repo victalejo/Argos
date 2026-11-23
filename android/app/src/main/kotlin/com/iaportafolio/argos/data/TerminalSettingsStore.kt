@@ -17,7 +17,8 @@ data class TerminalSettings(
     val keepAliveInBackground: Boolean = true,
 ) {
     companion object {
-        const val DEFAULT_FONT_SIZE_SP = 12
+        // 14sp: a 12 el texto del terminal se leía pequeño y sucio en el teléfono.
+        const val DEFAULT_FONT_SIZE_SP = 14
         const val MIN_FONT_SIZE_SP = 6
         const val MAX_FONT_SIZE_SP = 32
 
