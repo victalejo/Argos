@@ -3,6 +3,7 @@ package com.iaportafolio.argos.ui.projects
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.background.ClaudeActivitySource
+import com.iaportafolio.argos.core.ConnectionPriority
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.SSHServicing
@@ -12,6 +13,8 @@ import com.iaportafolio.argos.core.git.GitOperations
 import com.iaportafolio.argos.core.github.GitHubOperations
 import com.iaportafolio.argos.core.github.GitHubRepositoriesResult
 import com.iaportafolio.argos.core.github.GitHubRepository
+import com.iaportafolio.argos.core.monitor.ServerMemoryPressure
+import com.iaportafolio.argos.core.monitor.ServerMemoryReader
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectConfirmation
 import com.iaportafolio.argos.core.projects.ProjectEntry
@@ -37,6 +40,7 @@ import com.iaportafolio.argos.ui.terminal.VanishedSession
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,6 +72,7 @@ class ProjectsViewModel(
     private val claude: ClaudeActivitySource = ClaudeActivitySource.None,
     /** Sesiones que un terminal vio desaparecer ([sessionDidDisappear]). */
     vanished: Flow<VanishedSession> = emptyFlow(),
+    private val memoryIntervalMillis: Long = MEMORY_REFRESH_MILLIS,
 ) : ViewModel(), ProjectsActions, SessionDialogActions {
 
     private val mutableState = MutableStateFlow(
@@ -246,6 +251,33 @@ class ProjectsViewModel(
         mutableState.update { it.copy(projects = next, projectsError = null) }
     }
 
+    // MARK: - Memoria del servidor
+
+    /**
+     * Lo lanza la pantalla mientras está a la vista (y lo cancela al salir): relee la memoria del
+     * servidor cada [memoryIntervalMillis] solo con la lista cargada (la conexión ya está abierta).
+     */
+    suspend fun pollMemoryWhileVisible() {
+        while (true) {
+            if (state.value.load == SessionsLoad.Loaded) refreshMemory()
+            delay(memoryIntervalMillis)
+        }
+    }
+
+    /**
+     * Una lectura de memoria como sondeo de fondo. Es informativa: un fallo conserva la última
+     * lectura y no se avisa; un servidor que no la da (no Linux) retira el aviso.
+     */
+    suspend fun refreshMemory() {
+        val server = repository.server(serverId) ?: return
+        logFailures(ArgosLog.TAG_SSH, "No se pudo leer la memoria de ${server.endpoint}") {
+            val reader = services.service(server) as? ServerMemoryReader ?: return
+            ConnectionPriority.background { withContext(io) { reader.serverMemory() } }
+        }.onSuccess { reading ->
+            mutableState.update { it.copy(memory = reading, memoryLevel = ServerMemoryPressure.evaluate(reading, it.memoryLevel)) }
+        }
+    }
+
     // MARK: - Filtro y grupos
 
     override fun setFilter(filter: ProjectStatusFilter) = preferences.setStatusFilter(filter)
@@ -262,6 +294,24 @@ class ProjectsViewModel(
      * sesión que ya murió, y entonces «Abrir» no hacía nada.
      */
     override fun openProject(entry: ProjectEntry) {
+        if (state.value.busyProjectId != null) return
+        // Arrancar otra sesión con el servidor casi sin memoria puede tumbarlo: se confirma antes.
+        val warning = state.value.memoryWarning
+        if (!entry.isRunning && warning != null && warning.needsConfirmationToStart) {
+            mutableState.update { it.copy(dialog = ProjectsDialog.MemoryWarning(entry, warning)) }
+            return
+        }
+        startProject(entry)
+    }
+
+    /** «Iniciar igualmente» del aviso de memoria. */
+    override fun confirmStartDespiteMemory() {
+        val dialog = state.value.dialog as? ProjectsDialog.MemoryWarning ?: return
+        mutableState.update { it.copy(dialog = null) }
+        startProject(dialog.entry)
+    }
+
+    private fun startProject(entry: ProjectEntry) {
         if (state.value.busyProjectId != null) return
         val request = ProjectLifecycle.startRequest(entry.project, state.value.preferences.defaultStartupCommand)
         val server = currentServer() ?: return
@@ -486,7 +536,7 @@ class ProjectsViewModel(
             is ProjectsDialog.Confirm -> dialog.isSubmitting
             is ProjectsDialog.Form -> dialog.form.isSubmitting
             is ProjectsDialog.Import -> dialog.state.isImporting
-            null -> false
+            is ProjectsDialog.MemoryWarning, null -> false
         }
         if (busy) state else state.copy(dialog = null)
     }
@@ -586,6 +636,11 @@ class ProjectsViewModel(
     private fun emit(event: ProjectsEvent) {
         eventChannel.trySend(event)
     }
+
+    companion object {
+        /** La memoria cambia despacio comparada con el estado de Claude: basta cada 15 s. */
+        const val MEMORY_REFRESH_MILLIS = 15_000L
+    }
 }
 
 /** Acciones de la pantalla de proyectos. */
@@ -598,6 +653,7 @@ interface ProjectsActions {
     fun toggleGroup(group: String)
     fun setQuery(query: String)
     fun openProject(entry: ProjectEntry)
+    fun confirmStartDespiteMemory()
     fun openSession(session: TmuxSession)
     fun openWorktrees(project: Project)
     fun requestStop(project: Project)

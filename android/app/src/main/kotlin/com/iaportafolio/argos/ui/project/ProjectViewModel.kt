@@ -4,6 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
+import com.iaportafolio.argos.core.monitor.ServerMemoryPressure
+import com.iaportafolio.argos.core.monitor.ServerMemoryReader
+import com.iaportafolio.argos.core.monitor.ServerMemoryWarning
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectLifecycle
 import com.iaportafolio.argos.data.ArgosLog
@@ -47,6 +50,8 @@ data class ProjectUiState(
     val message: UiText? = null,
     /** Ya se abrió la pestaña Terminal: desde entonces sigue enganchado al cambiar de pestaña. */
     val terminalOpened: Boolean = tab == ProjectTab.TERMINAL,
+    /** El servidor casi no tiene memoria: arrancar espera a que el usuario lo confirme. */
+    val memoryConfirmation: ServerMemoryWarning? = null,
 ) {
     val project: Project? get() = (load as? ProjectLoad.Loaded)?.project
 }
@@ -78,6 +83,9 @@ class ProjectViewModel(
     val state: StateFlow<ProjectUiState> = mutableState.asStateFlow()
 
     private var loadJob: Job? = null
+
+    /** Qué hacer tras arrancar si el usuario confirma el aviso de memoria. */
+    private var pendingStart: (() -> Unit)? = null
 
     init {
         if (state.value.terminalOpened) savedState[KEY_TERMINAL_OPENED] = true
@@ -125,23 +133,63 @@ class ProjectViewModel(
      * Arranca el proyecto (sesión en su carpeta + comando de arranque). Si la sesión ya existe el
      * servidor no hace nada (`has-session`), así que también sirve para «Iniciar de nuevo» desde
      * el terminal cuando la sesión murió; [onStarted] se llama al terminar bien (p. ej. reconectar).
+     * Con el servidor casi sin memoria pide antes confirmación ([memoryConfirmation][ProjectUiState.memoryConfirmation]).
      */
     fun start(onStarted: () -> Unit = {}) {
         val project = state.value.project ?: return
-        if (state.value.isStarting) return
+        if (state.value.isStarting || state.value.memoryConfirmation != null) return
         mutableState.update { it.copy(isStarting = true) }
         viewModelScope.launch {
-            logFailures(ArgosLog.TAG_SSH, "No se pudo arrancar el proyecto $projectId") {
-                val server = repository.server(serverId) ?: throw FileServerMissingException()
-                val service = services.service(server)
-                val request = ProjectLifecycle.startRequest(project, preferences.preferences.value.defaultStartupCommand)
-                withContext(io) { service.startProject(request.sessionName, request.path, request.startupCommand) }
-            }.onSuccess {
-                mutableState.update { it.copy(load = ProjectLoad.Loaded(project, isRunning = true)) }
-                onStarted()
-            }.onFailure { error -> mutableState.update { it.copy(message = error.toUiText()) } }
-            mutableState.update { it.copy(isStarting = false) }
+            val warning = criticalMemoryWarning()
+            if (warning != null) {
+                pendingStart = onStarted
+                mutableState.update { it.copy(isStarting = false, memoryConfirmation = warning) }
+            } else {
+                launchStart(project, onStarted)
+            }
         }
+    }
+
+    /** «Iniciar igualmente» del aviso de memoria. */
+    fun confirmStartDespiteMemory() {
+        val project = state.value.project ?: return dismissMemoryConfirmation()
+        if (state.value.memoryConfirmation == null || state.value.isStarting) return
+        val onStarted = pendingStart ?: {}
+        pendingStart = null
+        mutableState.update { it.copy(memoryConfirmation = null, isStarting = true) }
+        viewModelScope.launch { launchStart(project, onStarted) }
+    }
+
+    fun dismissMemoryConfirmation() {
+        pendingStart = null
+        mutableState.update { it.copy(memoryConfirmation = null) }
+    }
+
+    /**
+     * Lee la memoria justo antes de arrancar: solo el nivel crítico pide confirmación (no depende
+     * de la lectura anterior). Si no se puede leer, se arranca sin preguntar.
+     */
+    private suspend fun criticalMemoryWarning(): ServerMemoryWarning? {
+        val reading = logFailures(ArgosLog.TAG_SSH, "No se pudo leer la memoria antes de arrancar $projectId") {
+            val server = repository.server(serverId) ?: return null
+            val reader = services.service(server) as? ServerMemoryReader ?: return null
+            withContext(io) { reader.serverMemory() }
+        }.getOrNull()
+        return ServerMemoryPressure.warning(reading, ServerMemoryPressure.evaluate(reading))
+            ?.takeIf { it.needsConfirmationToStart }
+    }
+
+    private suspend fun launchStart(project: Project, onStarted: () -> Unit) {
+        logFailures(ArgosLog.TAG_SSH, "No se pudo arrancar el proyecto $projectId") {
+            val server = repository.server(serverId) ?: throw FileServerMissingException()
+            val service = services.service(server)
+            val request = ProjectLifecycle.startRequest(project, preferences.preferences.value.defaultStartupCommand)
+            withContext(io) { service.startProject(request.sessionName, request.path, request.startupCommand) }
+        }.onSuccess {
+            mutableState.update { it.copy(load = ProjectLoad.Loaded(project, isRunning = true)) }
+            onStarted()
+        }.onFailure { error -> mutableState.update { it.copy(message = error.toUiText()) } }
+        mutableState.update { it.copy(isStarting = false) }
     }
 
     fun messageShown() = mutableState.update { it.copy(message = null) }

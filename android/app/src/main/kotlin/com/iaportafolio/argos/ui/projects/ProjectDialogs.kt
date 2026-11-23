@@ -61,6 +61,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.projects.ProjectDefaults
+import com.iaportafolio.argos.ui.monitor.ServerMemoryStartDialog
 
 /** Diálogos de proyectos: confirmaciones, formulario e importación. */
 @Composable
@@ -73,6 +74,8 @@ internal fun ProjectDialogs(
         is ProjectsDialog.Confirm -> ConfirmDialog(dialog, actions)
         is ProjectsDialog.Form -> ProjectFormDialog(dialog.form, actions, folderPicker)
         is ProjectsDialog.Import -> ImportDialog(dialog.state, actions)
+        is ProjectsDialog.MemoryWarning ->
+            ServerMemoryStartDialog(dialog.warning, onConfirm = actions::confirmStartDespiteMemory, onDismiss = actions::dismissProjectDialog)
         null -> Unit
     }
 }

@@ -2,6 +2,10 @@ package com.iaportafolio.argos.ui.projects
 
 import com.iaportafolio.argos.core.SessionConnectionState
 import com.iaportafolio.argos.core.git.GitRepoSummary
+import com.iaportafolio.argos.core.monitor.ServerMemoryPressure
+import com.iaportafolio.argos.core.monitor.ServerMemoryPressureLevel
+import com.iaportafolio.argos.core.monitor.ServerMemoryReading
+import com.iaportafolio.argos.core.monitor.ServerMemoryWarning
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectConfirmation
 import com.iaportafolio.argos.core.projects.ProjectEntry
@@ -37,6 +41,9 @@ sealed interface ProjectsDialog {
     data class Form(val form: ProjectFormState) : ProjectsDialog
 
     data class Import(val state: ImportState) : ProjectsDialog
+
+    /** Arrancar [entry] con el servidor casi sin memoria: se pide confirmación. */
+    data class MemoryWarning(val entry: ProjectEntry, val warning: ServerMemoryWarning) : ProjectsDialog
 }
 
 /** Evento de una sola vez hacia la navegación. */
@@ -78,7 +85,14 @@ data class ProjectsUiState(
     val claudeActivity: ClaudeActivitySnapshot = ClaudeActivitySnapshot.EMPTY,
     /** Búsqueda por texto (vacía = sin filtrar). */
     val query: String = "",
+    /** Última lectura de memoria del servidor (`null` = aún no hay o no es Linux). */
+    val memory: ServerMemoryReading? = null,
+    /** Nivel del aviso de memoria (con histéresis respecto al anterior). */
+    val memoryLevel: ServerMemoryPressureLevel = ServerMemoryPressureLevel.NORMAL,
 ) {
+    /** Aviso de memoria que mostrar sobre la lista (`null` = nivel normal). */
+    val memoryWarning: ServerMemoryWarning? get() = ServerMemoryPressure.warning(memory, memoryLevel)
+
     val listing: ProjectListing.Listing = ProjectListing.build(projects, sessions)
 
     val filter: ProjectStatusFilter get() = preferences.statusFilter

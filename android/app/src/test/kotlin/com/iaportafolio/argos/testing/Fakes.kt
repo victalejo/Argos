@@ -3,6 +3,8 @@ package com.iaportafolio.argos.testing
 import com.iaportafolio.argos.core.HostKeyTrustStore
 import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
+import com.iaportafolio.argos.core.monitor.ServerMemoryReader
+import com.iaportafolio.argos.core.monitor.ServerMemoryReading
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.status.ClaudeActivityReading
 import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
@@ -143,7 +145,18 @@ class FakeServiceProvider(var service: FakeSSHService = FakeSSHService()) : Serv
 }
 
 /** Doble de [SSHServicing] para tmux, proyectos y el indicador de Claude; el resto no se usa todavía. */
-open class FakeSSHService : SSHServicing, ClaudeActivityReading, ClaudeHookMaintenance {
+open class FakeSSHService : SSHServicing, ClaudeActivityReading, ClaudeHookMaintenance, ServerMemoryReader {
+    /** Memoria que devuelve [serverMemory] (`null` = el servidor no la da). No se anota en [calls]. */
+    var memory: ServerMemoryReading? = null
+    var memoryError: Exception? = null
+    var memoryReads = 0
+
+    override suspend fun serverMemory(): ServerMemoryReading? {
+        memoryReads++
+        memoryError?.let { throw it }
+        return memory
+    }
+
     /** Estado de Claude que devuelve [claudeActivity]. */
     var claudeSnapshot: ClaudeActivitySnapshot = ClaudeActivitySnapshot.EMPTY
     var claudeActivityError: Exception? = null

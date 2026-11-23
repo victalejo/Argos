@@ -76,6 +76,7 @@ import com.iaportafolio.argos.ui.claude.ClaudeActivityBadge
 import com.iaportafolio.argos.ui.common.MessageEffect
 import com.iaportafolio.argos.ui.common.ProgressMessage
 import com.iaportafolio.argos.ui.common.StatusMessage
+import com.iaportafolio.argos.ui.monitor.ServerMemoryBanner
 import com.iaportafolio.argos.ui.sessions.ConnectStep
 import com.iaportafolio.argos.ui.sessions.SessionDialogActions
 import com.iaportafolio.argos.ui.sessions.SessionDialogs
@@ -251,6 +252,7 @@ private fun RetryButton(onClick: () -> Unit) {
 private fun ProjectList(state: ProjectsUiState, actions: ProjectsActions, claudeHint: @Composable () -> Unit) {
     // Siempre desplazable: así el pull-to-refresh funciona también vacía.
     LazyColumn(Modifier.fillMaxSize()) {
+        state.memoryWarning?.let { warning -> item(key = "memory-warning") { ServerMemoryBanner(warning) } }
         item(key = "claude-hint") { claudeHint() }
         if (!state.isEmpty) item(key = "search") { ProjectSearchField(state.query, actions::setQuery) }
         item(key = "filters") { FilterChips(state, actions::setFilter) }

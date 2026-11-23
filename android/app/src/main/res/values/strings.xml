@@ -820,4 +820,14 @@
     <string name="doctor_report_personal">Incluir nombres de servidores, usuarios e IPs</string>
     <string name="doctor_report_review">Revisa el texto antes de publicarlo: Argos oculta lo que reconoce, pero no puede garantizar que no se escape nada.</string>
     <string name="doctor_report_copy">Copiar</string>
+    <!-- Aviso de memoria del servidor (ServerMemoryPressure) -->
+    <string name="memory_pressure_high_title">El servidor se está quedando sin memoria</string>
+    <string name="memory_pressure_critical_title">El servidor casi no tiene memoria</string>
+    <string name="memory_pressure_message">Usa el %1$d\u00A0%% de la memoria (RAM y swap). Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando.</string>
+    <plurals name="memory_pressure_message_claude">
+        <item quantity="one">Usa el %1$d\u00A0%% de la memoria (RAM y swap) con %2$d proceso de Claude. Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando.</item>
+        <item quantity="many">Usa el %1$d\u00A0%% de la memoria (RAM y swap) con %2$d procesos de Claude. Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando.</item>
+        <item quantity="other">Usa el %1$d\u00A0%% de la memoria (RAM y swap) con %2$d procesos de Claude. Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando.</item>
+    </plurals>
+    <string name="memory_pressure_start_anyway">Iniciar igualmente</string>
 </resources>

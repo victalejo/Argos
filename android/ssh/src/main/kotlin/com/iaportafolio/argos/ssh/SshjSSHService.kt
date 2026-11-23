@@ -29,6 +29,9 @@ import com.iaportafolio.argos.core.monitor.ServerResourceCommands
 import com.iaportafolio.argos.core.monitor.ServerResourceParser
 import com.iaportafolio.argos.core.monitor.ServerResourceReading
 import com.iaportafolio.argos.core.monitor.ServerResourceSample
+import com.iaportafolio.argos.core.monitor.ServerMemoryPressure
+import com.iaportafolio.argos.core.monitor.ServerMemoryReader
+import com.iaportafolio.argos.core.monitor.ServerMemoryReading
 import com.iaportafolio.argos.core.status.ClaudeActivityReading
 import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.status.ClaudeHookInstaller
@@ -84,7 +87,8 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     ConnectionHealthProbing,
     ClaudeHookMaintenance,
     ClaudeActivityReading,
-    ServerResourceReading {
+    ServerResourceReading,
+    ServerMemoryReader {
 
     private val terminal = SshjTerminal(connection)
     private val files = SshjFileBrowser(connection)
@@ -268,6 +272,10 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
 
     override suspend fun resourceSample(): ServerResourceSample =
         ServerResourceParser.parse(connection.capture(ServerResourceCommands.COMMAND).stdout)
+
+    /** Aviso de memoria (port de la sección de memoria de `WorkspacePollCommand`): con plazo remoto, como los sondeos. */
+    override suspend fun serverMemory(): ServerMemoryReading? =
+        ServerMemoryReading.parse(connection.capture(RemoteTimeout.wrap(ServerMemoryPressure.COMMAND)).stdout)
 
     override suspend fun claudeActivity(): ClaudeActivitySnapshot {
         val result = connection.capture(RemoteTimeout.wrap(ClaudeStatusCommands.CLAUDE_ACTIVITY_COMMAND))

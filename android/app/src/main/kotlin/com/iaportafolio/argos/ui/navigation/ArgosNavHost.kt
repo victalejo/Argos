@@ -22,7 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
@@ -57,6 +60,7 @@ import com.iaportafolio.argos.ui.projects.WorktreesDialog
 import com.iaportafolio.argos.ui.form.ServerFormScreen
 import com.iaportafolio.argos.ui.importer.ImportServerScreen
 import com.iaportafolio.argos.ui.monitor.ResourceMonitorScreen
+import com.iaportafolio.argos.ui.monitor.ServerMemoryStartDialog
 import com.iaportafolio.argos.ui.project.ProjectLoad
 import com.iaportafolio.argos.ui.project.ProjectScreen
 import com.iaportafolio.argos.ui.project.ProjectTab
@@ -480,6 +484,9 @@ private fun ProjectsDestination(
         if (viewModel.state.value.load == SessionsLoad.Loaded) viewModel.refresh()
         onPauseOrDispose { }
     }
+    // Aviso de memoria del servidor: se relee solo mientras la lista está a la vista.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(viewModel, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.pollMemoryWhileVisible() } }
     val picker = folderPickerViewModel(container, serverId)
     val hooks = claudeHooksViewModel(container, serverId)
     val hooksState by hooks.state.collectAsStateWithLifecycle()
@@ -538,6 +545,10 @@ private fun ProjectDestination(
     LifecycleResumeEffect(viewModel) {
         viewModel.reload()
         onPauseOrDispose { }
+    }
+    // «Arrancar» / «Iniciar de nuevo» con el servidor casi sin memoria: se confirma antes.
+    state.memoryConfirmation?.let { warning ->
+        ServerMemoryStartDialog(warning, onConfirm = viewModel::confirmStartDespiteMemory, onDismiss = viewModel::dismissMemoryConfirmation)
     }
     // Chat abierto junto a la lista (pantallas anchas): aquí para seguir conectado en otras pestañas.
     var selectedAgentId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
