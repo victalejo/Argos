@@ -19,6 +19,9 @@
 //      @@argos-poll:sessions-exit <código> <stderr en una línea>
 //      @@argos-poll:ports
 //      <hora del servidor> y `puerto<TAB>creada<TAB>nota`  (ver PortForwardRequestParser)
+//      @@argos-poll:memory
+//      mem <total> <disponible> <swapTotal> <swapLibre>    (KB; solo Linux)
+//      claude <procesos claude del usuario>                (ver ServerMemoryReading)
 //      @@argos-poll:end
 //
 //  Una sección cuenta solo si llega completa (le sigue otro marcador): si el plazo remoto
@@ -32,6 +35,7 @@ enum WorkspacePollSection: String, CaseIterable, Sendable, Hashable {
     case claude
     case sessions
     case ports
+    case memory
 }
 
 /// Lista de sesiones leída en el sondeo.
@@ -48,11 +52,19 @@ struct WorkspacePollOutput: Equatable, Sendable {
     var claude: ClaudeActivitySnapshot?
     var sessions: SessionsPollResult?
     var portRequests: [PortForwardRequest]?
+    /// `nil` también en servidores sin /proc/meminfo (macOS): no hay aviso de memoria.
+    var memory: ServerMemoryReading?
 
-    init(claude: ClaudeActivitySnapshot? = nil, sessions: SessionsPollResult? = nil, portRequests: [PortForwardRequest]? = nil) {
+    init(
+        claude: ClaudeActivitySnapshot? = nil,
+        sessions: SessionsPollResult? = nil,
+        portRequests: [PortForwardRequest]? = nil,
+        memory: ServerMemoryReading? = nil
+    ) {
         self.claude = claude
         self.sessions = sessions
         self.portRequests = portRequests
+        self.memory = memory
     }
 }
 
@@ -89,8 +101,14 @@ enum WorkspacePollCommand {
                 + "printf '%s %s %s\\n' '\(sessionsExitMarker)' \"$s\" \"$(printf '%s' \"$e\" | tr '\\n\\r' '  ')\""
         case .ports:
             return PortForwardServerFiles.listRequestsCommand
+        case .memory:
+            return memoryCommand
         }
     }
+
+    /// Memoria (RAM y swap, de /proc/meminfo) y procesos `claude` del usuario.
+    static let memoryCommand = #"awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} /^SwapTotal:/{st=$2} /^SwapFree:/{sf=$2} END{if(t>0) print "mem", t, a+0, st+0, sf+0}' /proc/meminfo 2>/dev/null; "#
+        + #"printf 'claude %s\n' "$(pgrep -x -u "$(id -u)" claude 2>/dev/null | wc -l | tr -d ' ')""#
 
     // MARK: - Parser
 
@@ -106,6 +124,9 @@ enum WorkspacePollCommand {
         }
         if requested.contains(.ports), let lines = sections[.ports] {
             result.portRequests = PortForwardRequestParser.parse(lines.joined(separator: "\n"))
+        }
+        if requested.contains(.memory), let lines = sections[.memory] {
+            result.memory = ServerMemoryReading(lines: lines)
         }
         return result
     }

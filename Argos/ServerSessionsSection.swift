@@ -39,6 +39,8 @@ struct ServerSessionsSection: View {
     @State private var sshGrantError: String?
     @State private var confirmsRestore = false
     @State private var confirmsForgetHostKey = false
+    /// Abrir un proyecto con la memoria del servidor en estado crítico: a la espera de confirmar.
+    @State private var memoryConfirmation: MemoryStartConfirmation?
 
     var body: some View {
         switch vm.state {
@@ -212,6 +214,12 @@ struct ServerSessionsSection: View {
         }
         if let error = vm.projectsError {
             projectsErrorRow(error)
+        }
+        if let pressure = vm.memoryPressure, pressure.level > .normal {
+            // El diálogo cuelga del aviso: solo se pide confirmar en nivel crítico, con el aviso a la vista.
+            MemoryPressureBanner(pressure: pressure)
+                .selectionDisabled()
+                .memoryPressureConfirmation($memoryConfirmation)
         }
 
         if listing.isSourceEmpty {
@@ -401,6 +409,14 @@ struct ServerSessionsSection: View {
     }
 
     private func open(_ project: Project) {
+        if let pressure = vm.memoryPressure, pressure.needsConfirmationToStart {
+            memoryConfirmation = MemoryStartConfirmation(pressure: pressure) { startProject(project) }
+            return
+        }
+        startProject(project)
+    }
+
+    private func startProject(_ project: Project) {
         Task {
             do {
                 try await vm.openProject(project, defaultStartupCommand: projectSettings.defaultStartupCommand)

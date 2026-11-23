@@ -16,6 +16,7 @@ struct ProjectStoppedView: View {
     @State private var settings = ProjectSettings.shared
     @State private var isOpening = false
     @State private var errorMessage: String?
+    @State private var memoryConfirmation: MemoryStartConfirmation?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -89,6 +90,7 @@ struct ProjectStoppedView: View {
         .background(WorkspaceBackdrop())
         .animation(ArgosTheme.motion(reduceMotion: reduceMotion), value: isOpening)
         .animation(ArgosTheme.motion(reduceMotion: reduceMotion), value: errorMessage)
+        .memoryPressureConfirmation($memoryConfirmation)
     }
 
     private var commandDescription: String {
@@ -108,6 +110,14 @@ struct ProjectStoppedView: View {
     }
 
     private func open() {
+        if let pressure = vm.memoryPressure, pressure.needsConfirmationToStart {
+            memoryConfirmation = MemoryStartConfirmation(pressure: pressure) { startProject() }
+            return
+        }
+        startProject()
+    }
+
+    private func startProject() {
         isOpening = true
         errorMessage = nil
         Task {

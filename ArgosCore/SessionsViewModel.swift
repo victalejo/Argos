@@ -43,6 +43,14 @@ final class SessionsViewModel {
     /// reportan sus errores dentro del propio formulario.
     var operationError: String?
 
+    /// Memoria del servidor según el último sondeo (`nil` = sin dato o servidor no Linux).
+    /// Ver `ServerMemoryPressure`: avisa antes de que el sistema empiece a cerrar procesos.
+    private(set) var memoryPressure: ServerMemoryPressure?
+    /// Última lectura suelta de memoria (iPhone/iPad), para espaciarlas.
+    @ObservationIgnored private var lastMemoryRead: ContinuousClock.Instant?
+    /// Cada cuánto, como mucho, se relee la memoria fuera del sondeador del Mac.
+    static let memoryReadInterval: Duration = .seconds(20)
+
     /// Servicio SSH del servidor activo (abstraído para poder inyectar un mock).
     let service: any SSHServicing
 
@@ -263,6 +271,26 @@ final class SessionsViewModel {
             state = .loaded(current.filter { $0.name != name })
         }
         await refreshSessionsQuietly()
+    }
+
+    /// Aplica una lectura de memoria (con histéresis sobre el nivel anterior).
+    func absorbMemory(_ reading: ServerMemoryReading) {
+        memoryPressure = ServerMemoryPressure.evaluate(reading, previous: memoryPressure?.level)
+    }
+
+    /// Relee solo la memoria (iPhone/iPad, que no usa el sondeador del Mac). Un fallo no
+    /// borra la última lectura.
+    func refreshMemoryPressure() async {
+        guard case .loaded = state else { return }
+        let now = ContinuousClock.now
+        if let lastMemoryRead, now - lastMemoryRead < Self.memoryReadInterval { return }
+        lastMemoryRead = now
+        do {
+            let output = try await ConnectionPriority.background { try await service.workspacePoll([.memory]) }
+            if let memory = output.memory { absorbMemory(memory) }
+        } catch {
+            noteBackgroundFailure(error, during: "leer la memoria del servidor")
+        }
     }
 
     /// Pone `fresh` (leída en segundo plano sobre `current`) salvo que entretanto un

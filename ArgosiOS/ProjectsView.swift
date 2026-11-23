@@ -24,6 +24,8 @@ struct ProjectsView: View {
     @State private var promptText = ""
     @State private var pendingKill: TmuxSession?
     @State private var errorMessage: String?
+    /// Abrir un proyecto con la memoria del servidor en estado crítico: a la espera de confirmar.
+    @State private var memoryConfirmation: MemoryStartConfirmation?
     @State private var editingServer: ServerFormView.Mode?
     @State private var scanningQR = false
     @State private var projectForm: ProjectFormMode?
@@ -239,6 +241,12 @@ struct ProjectsView: View {
         let visible = visibleListing
         return List {
             ServerTipsSection(server: currentServer, viewModel: viewModel)
+            if let pressure = viewModel.memoryPressure, pressure.level > .normal {
+                // El diálogo cuelga del aviso: solo se confirma en nivel crítico, con el aviso a la vista.
+                MemoryPressureBanner(pressure: pressure)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                    .memoryPressureConfirmation($memoryConfirmation)
+            }
             if let projectsError = viewModel.projectsError {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(projectsError, systemImage: "exclamationmark.triangle")
@@ -399,6 +407,7 @@ struct ProjectsView: View {
             // También la lista: recoge lo creado o cerrado desde el Mac u otro cliente.
             await viewModel.refreshSessionsQuietly()
             await viewModel.refreshGitSummaries()
+            await viewModel.refreshMemoryPressure()
             AgentNotifier.shared.postCI(await viewModel.pollCIWatches(), server: currentServer)
             try? await Task.sleep(for: .seconds(5))
         }
@@ -498,6 +507,14 @@ struct ProjectsView: View {
             show(entry.project)
             return
         }
+        if let pressure = viewModel.memoryPressure, pressure.needsConfirmationToStart {
+            memoryConfirmation = MemoryStartConfirmation(pressure: pressure) { start(entry) }
+            return
+        }
+        start(entry)
+    }
+
+    private func start(_ entry: ProjectEntry) {
         busyProject = entry.id
         Task {
             defer { busyProject = nil }

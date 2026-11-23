@@ -442,6 +442,25 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     var portRequests: [PortForwardRequest] = []
     private(set) var dismissedPortRequests: [Int] = []
     func pendingPortForwardRequests() async throws -> [PortForwardRequest] { portRequests }
+
+    /// Lectura de memoria que devuelve la sección `memory` del sondeo (`nil` = servidor sin
+    /// /proc/meminfo).
+    var memoryReading: ServerMemoryReading?
+
+    func workspacePoll(_ sections: Set<WorkspacePollSection>) async throws -> WorkspacePollOutput {
+        var output = WorkspacePollOutput()
+        if sections.contains(.claude) { output.claude = try await claudeActivity() }
+        if sections.contains(.sessions) {
+            do {
+                output.sessions = .sessions(try await listSessions())
+            } catch SSHService.SSHServiceError.tmuxNotInstalled {
+                output.sessions = .tmuxMissing
+            }
+        }
+        if sections.contains(.ports) { output.portRequests = try await pendingPortForwardRequests() }
+        if sections.contains(.memory) { output.memory = memoryReading }
+        return output
+    }
     func dismissPortForwardRequest(port: Int) async {
         dismissedPortRequests.append(port)
         portRequests.removeAll { $0.port == port }

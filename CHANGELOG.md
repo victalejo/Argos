@@ -7,6 +7,11 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [Unreleased]
 
 ### Añadido
+- **Aviso de memoria del servidor (Mac, iPhone/iPad y Android).** Cada sesión con Claude
+  ocupa memoria en el servidor; si se llena, el sistema empieza a cerrar procesos y puede
+  llevarse todas las sesiones de tmux. Argos vigila la memoria (RAM y swap) y avisa en la
+  lista del servidor cuando queda menos del 20 % libre, con cuántos procesos de Claude hay
+  en marcha. Por debajo del 10 %, abrir otra sesión pide confirmación.
 - **Argos en inglés.** En Mac, iPhone y iPad la app sigue el idioma del sistema: español e
   inglés, y quien tenga otro idioma la verá en inglés. Los mensajes de error, los plurales
   y los tamaños también se adaptan. Lo que Argos ejecuta en el servidor y lo que guarda en

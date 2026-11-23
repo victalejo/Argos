@@ -10585,6 +10585,22 @@
         }
       }
     },
+    "El servidor casi no tiene memoria" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor casi no tiene memoria"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server is almost out of memory"
+          }
+        }
+      }
+    },
     "El servidor indica que este agente usa este modo. %@ Si no lo elegiste tú, borra la conversación y crea otra." : {
       "localizations" : {
         "en" : {
@@ -10933,6 +10949,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El servidor respondió de forma inesperada a una operación de archivos (%@). Reintenta."
+          }
+        }
+      }
+    },
+    "El servidor se está quedando sin memoria" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor se está quedando sin memoria"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server is running low on memory"
           }
         }
       }
@@ -14300,16 +14332,16 @@
     },
     "Inicia el proyecto de nuevo para crearla." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inicia el proyecto de nuevo para crearla."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Start the project again to recreate it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia el proyecto de nuevo para crearla."
           }
         }
       }
@@ -14364,16 +14396,32 @@
     },
     "Iniciar de nuevo" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start again"
+          }
+        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Iniciar de nuevo"
           }
+        }
+      }
+    },
+    "Iniciar igualmente" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar igualmente"
+          }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start again"
+            "value" : "Start anyway"
           }
         }
       }
@@ -15564,32 +15612,32 @@
     },
     "La sesión terminó" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La sesión terminó"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The session ended"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sesión terminó"
           }
         }
       }
     },
     "La sesión «%@» ya no existe en el servidor." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La sesión «%@» ya no existe en el servidor."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The session “%@” no longer exists on the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sesión «%@» ya no existe en el servidor."
           }
         }
       }
@@ -16390,6 +16438,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Memoria casi agotada: %@ El sistema puede matar procesos (y sesiones tmux) sin avisar."
+          }
+        }
+      }
+    },
+    "Memoria del servidor correcta" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memoria del servidor correcta"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server memory is fine"
           }
         }
       }
@@ -26619,6 +26683,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Usa \"grupo/nombre\" para moverla de grupo, p. ej. \"magic-agents/backend\"."
+          }
+        }
+      }
+    },
+    "Usa el %lld %% de la memoria (RAM y swap). Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa el %lld %% de la memoria (RAM y swap). Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%% of memory (RAM and swap) is in use. If it fills up, the system will start closing processes: stop the sessions you aren’t using."
+          }
+        }
+      }
+    },
+    "Usa el %lld %% de la memoria (RAM y swap); procesos de Claude en marcha: %lld. Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa el %1$lld %% de la memoria (RAM y swap); procesos de Claude en marcha: %2$lld. Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%% of memory (RAM and swap) is in use; Claude processes running: %lld. If it fills up, the system will start closing processes: stop the sessions you aren’t using."
           }
         }
       }

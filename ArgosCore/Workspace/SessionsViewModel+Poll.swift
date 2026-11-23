@@ -3,7 +3,7 @@
 //  ArgosCore
 //
 //  Una vuelta del sondeador (`WorkspacePoller`) sobre UN servidor: un solo comando con
-//  estado de Claude, sesiones y solicitudes de puertos; después el resumen git (si toca o
+//  estado de Claude, sesiones, solicitudes de puertos y memoria; después el resumen git (si toca o
 //  si Claude acaba de terminar) y el CI vigilado. Todo como trabajo de fondo.
 //
 
@@ -34,6 +34,7 @@ extension SessionsViewModel {
         // se aplica y no se lanza nada más con este servicio.
         guard !Task.isCancelled else { return nil }
         absorbSessions(output.sessions, readOver: before)
+        if let memory = output.memory { absorbMemory(memory) }
         var transitions: [ClaudeTransition] = []
         if let claude = output.claude { transitions = await absorbClaudeActivity(claude) }
         // Cancelada ya con el estado de Claude aplicado: sus avisos se entregan (si no, un

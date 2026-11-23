@@ -16,6 +16,7 @@ struct TerminalSessionMissingPanel: View {
 
     @State private var isStarting = false
     @State private var startError: String?
+    @State private var memoryConfirmation: MemoryStartConfirmation?
 
     private var project: Project? {
         viewModel.projectListing.entries.first { $0.project.sessionName == sessionName }?.project
@@ -32,13 +33,18 @@ struct TerminalSessionMissingPanel: View {
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(white: 0.07))
+        .memoryPressureConfirmation($memoryConfirmation)
     }
 
     @ViewBuilder
     private var actions: some View {
         if let project {
             Button {
-                start(project)
+                if let pressure = viewModel.memoryPressure, pressure.needsConfirmationToStart {
+                    memoryConfirmation = MemoryStartConfirmation(pressure: pressure) { start(project) }
+                } else {
+                    start(project)
+                }
             } label: {
                 if isStarting {
                     ProgressView()
