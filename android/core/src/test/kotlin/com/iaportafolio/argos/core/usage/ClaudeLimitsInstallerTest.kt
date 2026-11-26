@@ -201,7 +201,8 @@ class ClaudeLimitsInstallerTest {
         val box = Sandbox()
         try {
             val (status, poll) = box.exec(listOf("/bin/sh", "-c", ClaudeLimitsInstaller.POLL_COMMAND))
-            assertEquals(1, status, "sin statusline de Argos no se lee nada; el sondeo lo tolera")
+            // 1 si settings.json no la menciona, 2 si ni existe (grep -s): el sondeo tolera ambos.
+            assertTrue(status != 0, "sin statusline de Argos no se lee nada; el sondeo lo tolera")
             assertTrue(poll.startsWith("now "))
             assertNull(ClaudeLimitsReading.parse(poll))
         } finally {
