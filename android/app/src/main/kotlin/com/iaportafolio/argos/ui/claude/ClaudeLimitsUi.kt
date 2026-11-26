@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -68,7 +69,8 @@ fun ClaudeLimitWindow.labelText(): String = when (val label = label) {
 @Composable
 fun resetText(reset: Instant, now: Instant): String {
     val zone = ZoneId.systemDefault()
-    val locale = Locale.getDefault()
+    // El idioma se lee de la configuración (observable): si cambia, se recompone.
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
     val time = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale).withZone(zone).format(reset)
     return when (ClaudeLimitReset.day(reset, now, zone)) {
         ClaudeLimitResetDay.TODAY -> stringResource(R.string.claude_limits_reset_today, time)
