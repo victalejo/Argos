@@ -276,13 +276,15 @@ final class SessionsViewModel {
         await refreshSessionsQuietly()
     }
 
-    /// Aplica la sección `limits` de un sondeo. Devuelve el aviso si una ventana acaba de
-    /// pasar al 85 % (o al 95 %).
+    /// Aplica la sección `limits` de un sondeo (dentro de una misma ventana se queda con el
+    /// uso más alto visto). Devuelve los avisos de las ventanas que acaban de pasar al 85 %
+    /// (o al 95 %).
     @discardableResult
-    func absorbLimits(_ reading: ClaudeLimitsReading?, now: Date = Date()) -> ClaudeLimitAlert? {
-        let previous = claudeLimits
-        claudeLimits = reading.flatMap { ClaudeLimitsStatus.evaluate($0, now: now) }
-        return ClaudeLimitAlert.transition(from: previous, to: claudeLimits)
+    func absorbLimits(_ reading: ClaudeLimitsReading?, now: Date = Date()) -> [ClaudeLimitAlert] {
+        let previous = claudeLimits?.reading
+        let merged = reading?.merging(previous: previous)
+        claudeLimits = merged.flatMap { ClaudeLimitsStatus.evaluate($0, now: now) }
+        return ClaudeLimitAlert.transitions(from: previous, to: merged, now: now)
     }
 
     /// Aplica una lectura de memoria (con histéresis sobre el nivel anterior).

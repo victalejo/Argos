@@ -157,6 +157,8 @@ struct ClaudeLimitsSetupView: View {
             Button("Activar límites de Claude") { Task { await model.activate() } }
                 .buttonStyle(.borderedProminent)
                 .disabled(model.isWorking)
+        case .needsRepair(let previousMissing):
+            repairSection(previousMissing: previousMissing)
         case .active:
             HStack(spacing: 12) {
                 Label("Activo", systemImage: "checkmark.circle.fill")
@@ -170,6 +172,26 @@ struct ClaudeLimitsSetupView: View {
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Reintentar") { Task { await model.refresh() } }
+            }
+        }
+    }
+
+    private func repairSection(previousMissing: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Hay que repararla", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(previousMissing
+                 ? "La barra de estado de Argos está en settings.json, pero en este servidor falta la copia de tu barra anterior (¿settings.json sincronizado desde otro equipo?). «Reparar» reinstala el script para que vuelva a funcionar; tu barra anterior solo se puede recuperar desde el servidor donde lo activaste o desde settings.json.argos-backup."
+                 : "La barra de estado de Argos está en settings.json pero falta su script o es de otra versión. «Reparar» lo reinstala.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                Button("Reparar") { Task { await model.activate() } }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.isWorking)
+                Button("Quitar", role: .destructive) { Task { await model.deactivate() } }
+                    .disabled(model.isWorking)
             }
         }
     }

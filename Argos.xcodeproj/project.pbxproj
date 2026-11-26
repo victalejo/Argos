@@ -358,6 +358,7 @@
 		54652EDC4B71492DA5A794AD /* SafeLocalFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9188DC75269C1B5FA4D3D72 /* SafeLocalFile.swift */; };
 		5477DCB2846B7045D096242B /* SafeLocalFileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68AE93F07CD9B0072EEFED7 /* SafeLocalFileTests.swift */; };
 		548280C9CF9D53B281A24BCD /* SSHGit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9597C98BDD2DA16AFA680042 /* SSHGit.swift */; };
+		548B37E71FFB3D90457BABB8 /* ClaudeLimitAlertLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA10CCE8148D9AA142A70DC6 /* ClaudeLimitAlertLedger.swift */; };
 		54C324AA0D8C198B450C5E11 /* ArgosAppModel+Attention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B711D0422303B3C1D69CE4 /* ArgosAppModel+Attention.swift */; };
 		551BF8AC59A34AD0A1C6889B /* ClaudeLoginModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 925F38B70253DFF4C22AEADD /* ClaudeLoginModel.swift */; };
 		55414A4C90979DECA0D5651A /* Checkpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EB78425ED445DB586840F1 /* Checkpoint.swift */; };
@@ -764,6 +765,7 @@
 		B6EE78EE107891593854C381 /* PortForwardServerFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4857011890A655CCF3F9F119 /* PortForwardServerFiles.swift */; };
 		B74FB379F177A2AAB0A7621A /* SessionTerminalView+Windows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4B09574E18A41CE629EF2A /* SessionTerminalView+Windows.swift */; };
 		B7505EBA0FFFB12630766D0A /* ServerAgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8EBD4775A01FA54C9AB50C /* ServerAgentsView.swift */; };
+		B7651EBD76F400F311037040 /* ClaudeLimitAlertLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA10CCE8148D9AA142A70DC6 /* ClaudeLimitAlertLedger.swift */; };
 		B7B83CF696A6D45FD6701A8D /* SSHGit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9597C98BDD2DA16AFA680042 /* SSHGit.swift */; };
 		B85C7B9A10EF62A5E3A0D543 /* AgentPermissionPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 087D2FA741FEB0F46408BFF4 /* AgentPermissionPreferences.swift */; };
 		B85EA10C9D8835CF26B0F32E /* WindowCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7877ECB210D4ADE7B068DEF8 /* WindowCommands.swift */; };
@@ -783,6 +785,7 @@
 		BCD24DF533FD806C4F14A438 /* AgentPanelView+Flows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E26FD79CB2543CCC2BAE67B /* AgentPanelView+Flows.swift */; };
 		BCD8531FAA476675C59AFD08 /* AgentSessionStore+Persistent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A2092E9651B0C415AA47034 /* AgentSessionStore+Persistent.swift */; };
 		BCE6C625BD899EBC960A106A /* HTMLPreviewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9470568D960D89B5304212A /* HTMLPreviewController.swift */; };
+		BD64480C0BF42C7056B88375 /* ClaudeLimitAlertLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA10CCE8148D9AA142A70DC6 /* ClaudeLimitAlertLedger.swift */; };
 		BE1EEEDAFD1418D39CB268B5 /* SessionsViewModel+Projects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3AE352B1B4D4FB7626085D /* SessionsViewModel+Projects.swift */; };
 		BE6E68CFB7DBB86A7F6330EA /* AgentAttachStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51D1EA9E496AD1EE873A1E02 /* AgentAttachStreamParser.swift */; };
 		BE9CD9021E400788BEBBFD24 /* AgentTabInfoBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD9F409AFFD01CE22F07F854 /* AgentTabInfoBar.swift */; };
@@ -1519,6 +1522,7 @@
 		E758EA6EA1D463B587C25B35 /* TmuxPaneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxPaneTests.swift; sourceTree = "<group>"; };
 		E837C0C9F70919CD85CF4FED /* PortForwardsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortForwardsButton.swift; sourceTree = "<group>"; };
 		E95F2552B450139F11984432 /* ServersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServersView.swift; sourceTree = "<group>"; };
+		EA10CCE8148D9AA142A70DC6 /* ClaudeLimitAlertLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLimitAlertLedger.swift; sourceTree = "<group>"; };
 		EA3F6B55880577B4A31AEE51 /* BackgroundCheckPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundCheckPlanner.swift; sourceTree = "<group>"; };
 		EA430F7567B4A648127E2DD1 /* DeadlineValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeadlineValue.swift; sourceTree = "<group>"; };
 		EAE443CE3B4D06B3DD92713B /* CheckpointsModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckpointsModelTests.swift; sourceTree = "<group>"; };
@@ -2189,6 +2193,7 @@
 		B2D012D9DCFF9D52F1ED149A /* ClaudeUsage */ = {
 			isa = PBXGroup;
 			children = (
+				EA10CCE8148D9AA142A70DC6 /* ClaudeLimitAlertLedger.swift */,
 				B44E5726ED288B3B9956FC1B /* ClaudeLimits.swift */,
 				B4F3B415DEC1BEC0C1467FE7 /* ClaudeLimitsInstaller.swift */,
 				23CF7B564E374CBBD3E93A2F /* ClaudeLimitsSetupModel.swift */,
@@ -2714,6 +2719,7 @@
 				1FCF4BE73DE9EBADAAFFFFD9 /* ClaudeAgentCommand.swift in Sources */,
 				188F2B60330900DA73A8B412 /* ClaudeAgentSession.swift in Sources */,
 				04F7590F87FAD9A92785E1F5 /* ClaudeHookInstaller.swift in Sources */,
+				BD64480C0BF42C7056B88375 /* ClaudeLimitAlertLedger.swift in Sources */,
 				F8266D32385693E34266B262 /* ClaudeLimits.swift in Sources */,
 				AAC0326A9409B51226C64D53 /* ClaudeLimitsInstaller.swift in Sources */,
 				DED49EB911C7A4FD8C6BA58A /* ClaudeLimitsSetupModel.swift in Sources */,
@@ -3010,6 +3016,7 @@
 				0B21DA7B48754F324FC724B9 /* ClaudeAgentCommand.swift in Sources */,
 				CE70C4667F3AA10E9620FDB0 /* ClaudeAgentSession.swift in Sources */,
 				74CC24229540104ECA3F516A /* ClaudeHookInstaller.swift in Sources */,
+				B7651EBD76F400F311037040 /* ClaudeLimitAlertLedger.swift in Sources */,
 				A1D9E8E2C378E26A7ED1EDE9 /* ClaudeLimits.swift in Sources */,
 				6FB113D4D295BF6C23544B38 /* ClaudeLimitsInstaller.swift in Sources */,
 				1443F8028CB1B5D37AA02786 /* ClaudeLimitsScreen.swift in Sources */,
@@ -3293,6 +3300,7 @@
 				8A1DCE66754A95617BECE703 /* ClaudeAgentCommand.swift in Sources */,
 				3E962F0BBE098EE2DA22EA88 /* ClaudeAgentSession.swift in Sources */,
 				1B94EFC0E78D0A27ABB166A7 /* ClaudeHookInstaller.swift in Sources */,
+				548B37E71FFB3D90457BABB8 /* ClaudeLimitAlertLedger.swift in Sources */,
 				2A09DFC3BBD635C04109B435 /* ClaudeLimits.swift in Sources */,
 				A5E0D9163AFC0E15D7D121E5 /* ClaudeLimitsInstaller.swift in Sources */,
 				1DDAEB4680B9F385B531B727 /* ClaudeLimitsSetupModel.swift in Sources */,

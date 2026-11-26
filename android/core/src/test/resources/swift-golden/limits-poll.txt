@@ -1,1 +1,1 @@
-printf 'now %s\n' "$(date +%s)"; cat "$HOME/.config/argos/claude-limits.json" 2>/dev/null
+printf 'now %s\n' "$(date +%s)"; grep -qs 'argos-claude-limits' "$HOME/.claude/settings.json" && cat "$HOME/.config/argos/claude-limits.json" 2>/dev/null

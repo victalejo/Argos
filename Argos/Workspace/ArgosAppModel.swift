@@ -299,7 +299,7 @@ final class ArgosAppModel {
         if let viewing { attentionInbox.markSeen(serverID: server.id, session: viewing) }
         guard isCurrent else { return }
         notifier.notifyCI(round.result.ciResults, serverID: server.id, serverName: server.name)
-        if let alert = round.result.limitAlert {
+        if let alert = round.result.limitAlerts.first {
             notifier.notifyClaudeLimit(alert, serverID: server.id, serverName: server.name)
         }
         if let pending = round.result.portRequests {

@@ -114,13 +114,15 @@ final class ClaudeActivityNotifier: NSObject {
         }
     }
 
-    /// «Te acercas al límite de Claude» (una vez por ventana, reinicio y nivel).
+    /// «Te acercas al límite de Claude» (una vez por ventana, reinicio y nivel, también
+    /// entre arranques de la app y reconexiones: lo recuerda `ClaudeLimitAlertLedger`).
     func notifyClaudeLimit(_ alert: ClaudeLimitAlert, serverID: Server.ID, serverName: String) {
+        guard ClaudeLimitAlertLedger.claim("\(serverID.uuidString)-\(alert.key)") else { return }
         requestAuthorizationIfNeeded()
         let content = UNMutableNotificationContent()
-        content.title = alert.status.title
+        content.title = alert.title
         content.subtitle = serverName
-        content.body = alert.status.message()
+        content.body = alert.message()
         content.sound = .default
         content.threadIdentifier = "claude-limits-\(serverName)"
         content.userInfo = NotificationRoute(serverID: serverID).userInfo

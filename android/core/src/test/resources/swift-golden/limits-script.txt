@@ -5,10 +5,11 @@ i=$(cat)
 case $i in
 *'"rate_limits"'*'"used_percentage"'*)
   umask 077
-  mkdir -p "$d" 2>/dev/null && { date +%s; printf '%s\n' "$i"; } > "$d/claude-limits.json.$$" 2>/dev/null \
-    && mv -f "$d/claude-limits.json.$$" "$d/claude-limits.json" 2>/dev/null
+  t="$d/claude-limits.json.$$"
+  mkdir -p "$d" 2>/dev/null && { date +%s; printf '%s\n' "$i"; } > "$t" 2>/dev/null \
+    && mv -f "$t" "$d/claude-limits.json" 2>/dev/null || rm -f "$t" 2>/dev/null
   ;;
 esac
-p=$(cat "$d/statusline-previous" 2>/dev/null)
+p=$(sed 1d "$d/statusline-previous" 2>/dev/null)
 [ -n "$p" ] && printf '%s' "$i" | sh -c "$p"
 exit 0

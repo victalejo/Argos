@@ -15,8 +15,8 @@ struct WorkspacePollRound: Sendable {
     let ciResults: [CIResult]
     /// `nil` si no se pidieron o no llegaron completas (se conserva lo último).
     let portRequests: [PortForwardRequest]?
-    /// Una ventana de uso de Claude acaba de pasar al 85 % (o al 95 %).
-    var limitAlert: ClaudeLimitAlert? = nil
+    /// Ventanas de uso de Claude que acaban de pasar al 85 % (o al 95 %).
+    var limitAlerts: [ClaudeLimitAlert] = []
 }
 
 extension SessionsViewModel {
@@ -37,20 +37,20 @@ extension SessionsViewModel {
         guard !Task.isCancelled else { return nil }
         absorbSessions(output.sessions, readOver: before)
         if let memory = output.memory { absorbMemory(memory) }
-        let limitAlert = output.limitsChecked ? absorbLimits(output.limits) : nil
+        let limitAlerts = output.limitsChecked ? absorbLimits(output.limits) : []
         var transitions: [ClaudeTransition] = []
         if let claude = output.claude { transitions = await absorbClaudeActivity(claude) }
         // Cancelada ya con el estado de Claude aplicado: sus avisos se entregan (si no, un
         // «terminó» se perdería) pero no se usa más el servicio.
         guard !Task.isCancelled else {
-            return WorkspacePollRound(transitions: transitions, ciResults: [], portRequests: nil, limitAlert: limitAlert)
+            return WorkspacePollRound(transitions: transitions, ciResults: [], portRequests: nil, limitAlerts: limitAlerts)
         }
         // Si Claude acaba de terminar, el resumen git se relee ya: el aviso dice cuántos
         // archivos cambió y la fila del proyecto se actualiza al momento.
         await refreshGitSummaries(force: transitions.contains { $0.activity == .done })
         let ciResults = await pollCIWatches()
         return WorkspacePollRound(
-            transitions: transitions, ciResults: ciResults, portRequests: output.portRequests, limitAlert: limitAlert
+            transitions: transitions, ciResults: ciResults, portRequests: output.portRequests, limitAlerts: limitAlerts
         )
     }
 

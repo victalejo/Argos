@@ -83,7 +83,7 @@ protocol SSHServicing: Sendable {
     /// Actualiza hooks de Argos de una versión anterior (si los hay). `true` si escribió.
     @discardableResult func upgradeClaudeHooksIfOutdated() async throws -> Bool
     /// Statusline de Argos que guarda los límites de uso de Claude (ver `ClaudeLimitsInstaller`).
-    func claudeLimitsInstalled() async throws -> Bool
+    func claudeLimitsState() async throws -> ClaudeLimitsInstallState
     func installClaudeLimits() async throws
     func uninstallClaudeLimits() async throws
 

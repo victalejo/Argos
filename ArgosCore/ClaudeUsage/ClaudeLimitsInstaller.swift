@@ -8,8 +8,10 @@
 //  luego ejecuta la statusline que el usuario tuviera, con la misma entrada (su barra se
 //  sigue viendo igual). Es opcional y se puede quitar: al quitarla vuelve la anterior.
 //
-//  El comando anterior se guarda en `~/.config/argos/statusline-previous` (texto plano;
-//  vacío = no había). El script y el formato los comparten Mac, iPhone/iPad y Android
+//  El comando anterior se guarda en `~/.config/argos/statusline-previous`: una cabecera
+//  (`previousHeader`) y debajo el comando (vacío = no había). Sin cabecera, el archivo falta
+//  o no es nuestro (p. ej. settings.json sincronizado desde otro servidor) y Argos se niega
+//  a quitar la statusline para no perder la del usuario. El script y el formato los comparten Mac, iPhone/iPad y Android
 //  (goldens): cambiarlos solo de forma aditiva.
 //
 
@@ -37,15 +39,33 @@ enum ClaudeLimitsInstaller {
         case $i in
         *'"rate_limits"'*'"used_percentage"'*)
           umask 077
-          mkdir -p "$d" 2>/dev/null && { date +%s; printf '%s\\n' "$i"; } > "$d/claude-limits.json.$$" 2>/dev/null \\
-            && mv -f "$d/claude-limits.json.$$" "$d/claude-limits.json" 2>/dev/null
+          t="$d/claude-limits.json.$$"
+          mkdir -p "$d" 2>/dev/null && { date +%s; printf '%s\\n' "$i"; } > "$t" 2>/dev/null \\
+            && mv -f "$t" "$d/claude-limits.json" 2>/dev/null || rm -f "$t" 2>/dev/null
           ;;
         esac
-        p=$(cat "$d/statusline-previous" 2>/dev/null)
+        p=$(sed 1d "$d/statusline-previous" 2>/dev/null)
         [ -n "$p" ] && printf '%s' "$i" | sh -c "$p"
         exit 0
 
         """
+
+    // MARK: - Comando anterior
+
+    /// Primera línea del archivo del comando anterior.
+    static let previousHeader = "# \(marker) statusline-previous v1"
+
+    /// Contenido del archivo: cabecera y el comando (`""` = no había statusline).
+    static func previousFileContents(_ command: String) -> String {
+        previousHeader + "\n" + command + "\n"
+    }
+
+    /// Comando anterior guardado. `nil` si el archivo falta o no lleva la cabecera.
+    static func previousCommand(fromFile text: String) -> String? {
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        guard lines.first.map(String.init) == previousHeader else { return nil }
+        return lines.dropFirst().joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     // MARK: - Estado
 
@@ -85,12 +105,13 @@ enum ClaudeLimitsInstaller {
         return Installation(settings: result, previousCommand: wasOurs ? nil : (existing ?? ""))
     }
 
-    /// Quita la statusline de Argos y devuelve la anterior (`previous`, del archivo). Sin
-    /// anterior, quita `statusLine`. Si la actual no es la de Argos, no toca nada.
-    static func removing(from settings: [String: Any], previousCommand previous: String?) -> [String: Any] {
+    /// Quita la statusline de Argos y devuelve la anterior (`previous`, ya leída del archivo;
+    /// `""` = no había, y entonces se quita `statusLine`). Si la actual no es la de Argos, no
+    /// toca nada.
+    static func removing(from settings: [String: Any], previousCommand previous: String) -> [String: Any] {
         guard isInstalled(in: settings) else { return settings }
         var result = settings
-        let restored = previous?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let restored = previous.trimmingCharacters(in: .whitespacesAndNewlines)
         if restored.isEmpty {
             result["statusLine"] = nil
         } else {
@@ -103,6 +124,8 @@ enum ClaudeLimitsInstaller {
 
     // MARK: - Sondeo
 
-    /// Cuerpo de la sección `limits` del sondeo: hora del servidor y el archivo (si existe).
-    static let pollCommand = "printf 'now %s\\n' \"$(date +%s)\"; cat \"$HOME/\(limitsRelativePath)\" 2>/dev/null"
+    /// Cuerpo de la sección `limits` del sondeo: hora del servidor y el archivo, solo si la
+    /// statusline de Argos sigue puesta (tras quitarla no se enseñan datos viejos).
+    static let pollCommand = "printf 'now %s\\n' \"$(date +%s)\"; "
+        + "grep -qs '\(marker)' \"$HOME/.claude/settings.json\" && cat \"$HOME/\(limitsRelativePath)\" 2>/dev/null"
 }

@@ -118,7 +118,7 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     var claudeHookUpgrades = 0
     func upgradeClaudeHooksIfOutdated() async throws -> Bool { claudeHookUpgrades += 1; return false }
     var claudeLimitsActive = false
-    func claudeLimitsInstalled() async throws -> Bool { claudeLimitsActive }
+    func claudeLimitsState() async throws -> ClaudeLimitsInstallState { claudeLimitsActive ? .active : .inactive }
     func installClaudeLimits() async throws { claudeLimitsActive = true }
     func uninstallClaudeLimits() async throws { claudeLimitsActive = false }
 

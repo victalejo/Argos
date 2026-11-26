@@ -57,7 +57,7 @@ struct GoldenParityTests {
         "checkpoint-list", "checkpoint-files", "checkpoint-preview", "checkpoint-restore",
         "checkpoint-restore-file", "checkpoint-enable", "checkpoint-disable",
         "limits-script", "limits-command", "limits-poll", "limits-installed", "limits-installed-empty",
-        "limits-removed",
+        "limits-removed", "limits-previous",
     ]
 
     @Test func losPendientesDePortTienenGenerador() throws {

@@ -17,6 +17,8 @@ final class ClaudeLimitsSetupModel {
         case checking
         case inactive
         case active
+        /// Puesta pero incompleta (falta el script o la barra anterior guardada).
+        case needsRepair(previousMissing: Bool)
         case failed(String)
     }
 
@@ -33,7 +35,11 @@ final class ClaudeLimitsSetupModel {
 
     func refresh() async {
         do {
-            state = try await service.claudeLimitsInstalled() ? .active : .inactive
+            switch try await service.claudeLimitsState() {
+            case .inactive: state = .inactive
+            case .active: state = .active
+            case .needsRepair(let previousMissing): state = .needsRepair(previousMissing: previousMissing)
+            }
         } catch {
             Log.ssh.error("Comprobar la statusline de límites: \(error.userMessage, privacy: .public)")
             state = .failed(error.userMessage)
@@ -43,7 +49,7 @@ final class ClaudeLimitsSetupModel {
     func activate() async {
         await run(failure: String(localized: "No se pudo activar")) {
             try await self.service.installClaudeLimits()
-            self.state = .active
+            await self.refresh()
             self.notice = String(localized: "Activado. Los límites aparecen en cuanto Claude Code refresque su barra de estado (al usarlo); las sesiones ya abiertas lo recogen solas.")
         }
     }

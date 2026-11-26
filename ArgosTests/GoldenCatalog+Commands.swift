@@ -103,8 +103,9 @@ extension GoldenCatalog {
             "limits-installed": try ClaudeHookInstaller.serialize(installed.settings),
             "limits-installed-empty": try ClaudeHookInstaller.serialize(ClaudeLimitsInstaller.installing(into: [:]).settings),
             "limits-removed": try ClaudeHookInstaller.serialize(
-                ClaudeLimitsInstaller.removing(from: installed.settings, previousCommand: installed.previousCommand)
+                ClaudeLimitsInstaller.removing(from: installed.settings, previousCommand: installed.previousCommand ?? "")
             ),
+            "limits-previous": ClaudeLimitsInstaller.previousFileContents(installed.previousCommand ?? ""),
         ]
     }
 

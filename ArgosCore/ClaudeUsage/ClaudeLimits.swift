@@ -47,6 +47,24 @@ struct ClaudeLimitWindow: Equatable, Sendable {
         }
     }
 
+    /// Margen para considerar «el mismo reinicio» entre lecturas.
+    static let sameResetTolerance: TimeInterval = 300
+
+    /// Misma clase y mismo reinicio (con margen): es la misma ventana, solo puede subir.
+    func isSameWindow(as other: ClaudeLimitWindow) -> Bool {
+        guard kind == other.kind else { return false }
+        switch (resetsAt, other.resetsAt) {
+        case (nil, nil): return true
+        case let (lhs?, rhs?): return abs(lhs.timeIntervalSince(rhs)) < Self.sameResetTolerance
+        default: return false
+        }
+    }
+
+    /// Nivel de aviso de un porcentaje.
+    static func level(percent: Int) -> ClaudeLimitsLevel {
+        percent >= ClaudeLimitsStatus.criticalFrom ? .critical : percent >= ClaudeLimitsStatus.highFrom ? .high : .normal
+    }
+
     /// Orden: 5 h, semana y luego el resto por nombre.
     fileprivate var sortKey: (Int, String) {
         switch kind {
@@ -64,8 +82,9 @@ struct ClaudeLimitsReading: Equatable, Sendable {
     let capturedAt: Date
 
     /// Interpreta la sección `limits` del sondeo: `now <epoch del servidor>` y, si existe,
-    /// el archivo (`<epoch>` + JSON). Las horas del servidor se pasan al reloj local con
-    /// la diferencia entre `now` y `localNow`. `nil` si no hay archivo o no trae límites.
+    /// el archivo (`<epoch>` + JSON). La hora de guardado es del reloj del servidor y se pasa
+    /// al local con la diferencia entre `now` y `localNow`; `resets_at` es hora de Anthropic
+    /// y no se corrige. `nil` si no hay archivo o no trae límites.
     init?(lines: [String], localNow: Date = Date()) {
         guard let nowLine = lines.first(where: { $0.hasPrefix("now ") }),
               let serverNow = Double(nowLine.dropFirst(4).trimmingCharacters(in: .whitespaces))
@@ -76,7 +95,7 @@ struct ClaudeLimitsReading: Equatable, Sendable {
         else { return nil }
         let json = rest.dropFirst().joined(separator: "\n")
         let offset = localNow.timeIntervalSince1970 - serverNow
-        guard let windows = Self.windows(fromStatusLineJSON: json, clockOffset: offset), !windows.isEmpty else { return nil }
+        guard let windows = Self.windows(fromStatusLineJSON: json), !windows.isEmpty else { return nil }
         self.init(windows: windows, capturedAt: Date(timeIntervalSince1970: captured + offset))
     }
 
@@ -85,9 +104,9 @@ struct ClaudeLimitsReading: Equatable, Sendable {
         self.capturedAt = capturedAt
     }
 
-    /// Ventanas de `rate_limits` del JSON de la statusline. `clockOffset` se suma a las
-    /// horas del servidor. `nil` si el JSON no es válido o no trae `rate_limits`.
-    static func windows(fromStatusLineJSON json: String, clockOffset: TimeInterval = 0) -> [ClaudeLimitWindow]? {
+    /// Ventanas de `rate_limits` del JSON de la statusline. `nil` si el JSON no es válido o
+    /// no trae `rate_limits`.
+    static func windows(fromStatusLineJSON json: String) -> [ClaudeLimitWindow]? {
         guard let data = json.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let limits = object["rate_limits"] as? [String: Any]
@@ -96,9 +115,22 @@ struct ClaudeLimitsReading: Equatable, Sendable {
             guard let row = value as? [String: Any],
                   let used = (row["used_percentage"] as? NSNumber)?.doubleValue
             else { return nil }
-            let resets = resetDate(row["resets_at"]).map { $0.addingTimeInterval(clockOffset) }
-            return ClaudeLimitWindow(kind: kind, usedPercent: used, resetsAt: resets)
+            return ClaudeLimitWindow(kind: kind, usedPercent: used, resetsAt: resetDate(row["resets_at"]))
         }
+    }
+
+    /// Con la lectura anterior: dentro de una MISMA ventana (mismo reinicio) el uso no baja.
+    /// Varias sesiones de Claude escriben el archivo y una parada puede dejar un porcentaje
+    /// viejo; se conserva el más alto visto para esa ventana.
+    func merging(previous: ClaudeLimitsReading?) -> ClaudeLimitsReading {
+        guard let previous else { return self }
+        let merged = windows.map { window -> ClaudeLimitWindow in
+            guard let old = previous.windows.first(where: { $0.isSameWindow(as: window) }),
+                  old.usedPercent > window.usedPercent
+            else { return window }
+            return ClaudeLimitWindow(kind: window.kind, usedPercent: old.usedPercent, resetsAt: window.resetsAt)
+        }
+        return ClaudeLimitsReading(windows: merged, capturedAt: max(capturedAt, previous.capturedAt))
     }
 
     /// `resets_at` llega en segundos epoch; por si acaso, también ISO 8601.
@@ -139,11 +171,12 @@ struct ClaudeLimitsStatus: Equatable, Sendable {
     static func evaluate(_ reading: ClaudeLimitsReading, now: Date = Date()) -> ClaudeLimitsStatus? {
         let ranked = reading.windows.map { ($0, Int($0.effectivePercent(now: now).rounded())) }
         guard let (worst, percent) = ranked.max(by: { $0.1 < $1.1 }) else { return nil }
-        let level: ClaudeLimitsLevel = percent >= criticalFrom ? .critical : percent >= highFrom ? .high : .normal
-        return ClaudeLimitsStatus(reading: reading, worst: worst, worstPercent: percent, level: level)
+        return ClaudeLimitsStatus(reading: reading, worst: worst, worstPercent: percent, level: ClaudeLimitWindow.level(percent: percent))
     }
 
-    var title: String {
+    var title: String { Self.title(for: level) }
+
+    static func title(for level: ClaudeLimitsLevel) -> String {
         switch level {
         case .normal: return String(localized: "Uso de Claude")
         case .high: return String(localized: "Te acercas al límite de Claude")
@@ -153,12 +186,16 @@ struct ClaudeLimitsStatus: Equatable, Sendable {
 
     /// «Llevas el 87 % de la ventana de 5 h; se reinicia a las 18:30».
     func message(now: Date = Date()) -> String {
-        let window = worst.label
-        if let reset = worst.resetsAt, reset > now {
-            let when = Self.resetText(reset, now: now)
-            return String(localized: "Llevas el \(worstPercent) % de «\(window)»; se reinicia \(when).")
+        Self.message(window: worst, percent: worstPercent, now: now)
+    }
+
+    static func message(window: ClaudeLimitWindow, percent: Int, now: Date = Date()) -> String {
+        let label = window.label
+        if let reset = window.resetsAt, reset > now {
+            let when = resetText(reset, now: now)
+            return String(localized: "Llevas el \(percent) % de «\(label)»; se reinicia \(when).")
         }
-        return String(localized: "Llevas el \(worstPercent) % de «\(window)».")
+        return String(localized: "Llevas el \(percent) % de «\(label)».")
     }
 
     /// «a las 18:30» hoy, «mañana a las 9:00» o «el lun 9:00» más adelante.
@@ -175,36 +212,41 @@ struct ClaudeLimitsStatus: Equatable, Sendable {
     }
 }
 
-/// Paso de una ventana a «alto» o «crítico» (para avisar una sola vez por ventana y nivel).
+/// Paso de una ventana a «alto» o «crítico». Se decide ventana a ventana: que cambie cuál
+/// es la más llena no vuelve a avisar de una que ya avisó.
 struct ClaudeLimitAlert: Equatable, Sendable {
-    let status: ClaudeLimitsStatus
+    let window: ClaudeLimitWindow
+    let percent: Int
+    let level: ClaudeLimitsLevel
 
-    /// Margen para considerar «el mismo reinicio»: la hora pasa del reloj del servidor al
-    /// local con una diferencia que baila unos segundos entre vueltas.
-    static let sameResetTolerance: TimeInterval = 300
+    var title: String { ClaudeLimitsStatus.title(for: level) }
 
-    /// Identificador estable: misma ventana, mismo reinicio y mismo nivel = mismo aviso.
+    func message(now: Date = Date()) -> String {
+        ClaudeLimitsStatus.message(window: window, percent: percent, now: now)
+    }
+
+    /// Identificador estable: misma ventana, mismo reinicio y mismo nivel = mismo aviso
+    /// (sirve para no repetirlo entre arranques de la app).
     var key: String {
-        let reset = status.worst.resetsAt.map { String(Int(($0.timeIntervalSince1970 / Self.sameResetTolerance).rounded())) } ?? "-"
-        return "\(status.worst.kind)-\(reset)-\(status.level.rawValue)"
+        let tolerance = ClaudeLimitWindow.sameResetTolerance
+        let reset = window.resetsAt.map { String(Int(($0.timeIntervalSince1970 / tolerance).rounded())) } ?? "-"
+        return "\(window.kind)-\(reset)-\(level.rawValue)"
     }
 
-    /// Aviso nuevo al pasar de `previous` a `current` (solo al SUBIR de nivel, o con una
-    /// ventana nueva ya alta).
-    static func transition(from previous: ClaudeLimitsStatus?, to current: ClaudeLimitsStatus?) -> ClaudeLimitAlert? {
-        guard let current, current.level > .normal else { return nil }
-        if let previous, previous.level >= current.level, previous.worst.kind == current.worst.kind,
-           sameReset(previous.worst.resetsAt, current.worst.resetsAt) {
-            return nil
+    /// Avisos nuevos al pasar de `previous` a `current`: ventanas que SUBEN a alto o crítico
+    /// (o que aparecen ya altas). La más grave primero.
+    static func transitions(from previous: ClaudeLimitsReading?, to current: ClaudeLimitsReading?, now: Date = Date()) -> [ClaudeLimitAlert] {
+        guard let current else { return [] }
+        let alerts = current.windows.compactMap { window -> ClaudeLimitAlert? in
+            let percent = Int(window.effectivePercent(now: now).rounded())
+            let level = ClaudeLimitWindow.level(percent: percent)
+            guard level > .normal else { return nil }
+            if let old = previous?.windows.first(where: { $0.isSameWindow(as: window) }),
+               ClaudeLimitWindow.level(percent: Int(old.effectivePercent(now: now).rounded())) >= level {
+                return nil
+            }
+            return ClaudeLimitAlert(window: window, percent: percent, level: level)
         }
-        return ClaudeLimitAlert(status: current)
-    }
-
-    private static func sameReset(_ lhs: Date?, _ rhs: Date?) -> Bool {
-        switch (lhs, rhs) {
-        case (nil, nil): return true
-        case let (lhs?, rhs?): return abs(lhs.timeIntervalSince(rhs)) < sameResetTolerance
-        default: return false
-        }
+        return alerts.sorted { $0.percent > $1.percent }
     }
 }

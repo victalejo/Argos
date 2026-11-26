@@ -1,0 +1,2 @@
+# argos-claude-limits statusline-previous v1
+~/bin/mi barra.sh
