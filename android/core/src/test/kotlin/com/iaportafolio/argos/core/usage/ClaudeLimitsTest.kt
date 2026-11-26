@@ -1,0 +1,165 @@
+package com.iaportafolio.argos.core.usage
+
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+
+/** Paridad con `ClaudeLimitsReadingTests` de Swift: lectura de la statusline, niveles y avisos. */
+class ClaudeLimitsTest {
+
+    private val statusLine =
+        """{"model":{"id":"x"},"rate_limits":{"five_hour":{"used_percentage":42.5,"resets_at":1800000000},""" +
+            """"seven_day":{"used_percentage":8,"resets_at":1800300000},"seven_day_opus":{"used_percentage":91}}}"""
+
+    private fun seconds(value: Long): Instant = Instant.ofEpochSecond(value)
+
+    @Test
+    fun `lee las ventanas en orden y pasa las horas al reloj local`() {
+        // El reloj del servidor va 100 s por detrás del local.
+        val reading = assertNotNull(
+            ClaudeLimitsReading.parse(listOf("now 1799990000", "1799989000", statusLine), localNow = seconds(1_799_990_100)),
+        )
+        assertEquals(listOf("five_hour", "seven_day", "seven_day_opus"), reading.windows.map { it.kind })
+        assertEquals(42.5, reading.windows[0].usedPercent)
+        assertEquals(seconds(1_800_000_100), reading.windows[0].resetsAt)
+        assertNull(reading.windows[2].resetsAt)
+        assertEquals(seconds(1_799_989_100), reading.capturedAt)
+    }
+
+    @Test
+    fun `lee la salida entera del sondeo`() {
+        val output = "now 1799990000\n1799989000\n$statusLine\n"
+        val reading = assertNotNull(ClaudeLimitsReading.parse(output, localNow = seconds(1_799_990_000)))
+        assertEquals(3, reading.windows.size)
+    }
+
+    @Test
+    fun `sin archivo o sin limites no hay lectura`() {
+        assertNull(ClaudeLimitsReading.parse(listOf("now 1799990000")))
+        assertNull(ClaudeLimitsReading.parse(listOf("now 1799990000", "1799989000", """{"model":{}}""")))
+        assertNull(ClaudeLimitsReading.parse(listOf("now 1799990000", "1799989000", "no es json")))
+        assertNull(ClaudeLimitsReading.parse(emptyList<String>()))
+        assertNull(ClaudeLimitsReading.parse(listOf("now x", "1", statusLine)))
+        assertNull(ClaudeLimitsReading.parse(listOf("now 1", "sin hora", statusLine)))
+    }
+
+    @Test
+    fun `un porcentaje que no es numero no cuenta`() {
+        val json = """{"rate_limits":{"five_hour":{"used_percentage":"42"},"seven_day":{"used_percentage":3},"x":5}}"""
+        assertEquals(listOf("seven_day"), ClaudeLimitsReading.windows(json)?.map { it.kind })
+    }
+
+    @Test
+    fun `acepta resets en ISO y en milisegundos`() {
+        val iso = """{"rate_limits":{"five_hour":{"used_percentage":10,"resets_at":"2027-01-15T10:00:00Z"}}}"""
+        val millis = """{"rate_limits":{"five_hour":{"used_percentage":10,"resets_at":1800000000000}}}"""
+        assertEquals(Instant.parse("2027-01-15T10:00:00Z"), ClaudeLimitsReading.windows(iso)?.first()?.resetsAt)
+        assertEquals(seconds(1_800_000_000), ClaudeLimitsReading.windows(millis)?.first()?.resetsAt)
+    }
+
+    @ParameterizedTest
+    @CsvSource("50.0,NORMAL", "84.4,NORMAL", "85.0,HIGH", "94.0,HIGH", "95.0,CRITICAL", "100.0,CRITICAL")
+    fun `nivel segun la ventana mas llena`(percent: Double, expected: ClaudeLimitsLevel) {
+        val reading = ClaudeLimitsReading.of(
+            listOf(ClaudeLimitWindow("five_hour", 10.0, null), ClaudeLimitWindow("seven_day", percent, null)),
+            Instant.now(),
+        )
+        val status = assertNotNull(ClaudeLimitsStatus.evaluate(reading))
+        assertEquals(expected, status.level)
+        assertEquals("seven_day", status.worst.kind)
+    }
+
+    @Test
+    fun `con empate manda la primera ventana`() {
+        val reading = ClaudeLimitsReading.of(
+            listOf(ClaudeLimitWindow("seven_day", 40.0, null), ClaudeLimitWindow("five_hour", 40.0, null)),
+            Instant.now(),
+        )
+        assertEquals("five_hour", ClaudeLimitsStatus.evaluate(reading)?.worst?.kind)
+    }
+
+    @Test
+    fun `sin ventanas no hay estado`() {
+        assertNull(ClaudeLimitsStatus.evaluate(ClaudeLimitsReading.of(emptyList(), Instant.now())))
+    }
+
+    @Test
+    fun `una ventana ya reiniciada cuenta como cero`() {
+        val now = seconds(2_000)
+        val reading = ClaudeLimitsReading.of(
+            listOf(
+                ClaudeLimitWindow("five_hour", 99.0, seconds(1_000)),
+                ClaudeLimitWindow("seven_day", 30.0, seconds(9_000)),
+            ),
+            now,
+        )
+        val status = assertNotNull(ClaudeLimitsStatus.evaluate(reading, now))
+        assertEquals(ClaudeLimitsLevel.NORMAL, status.level)
+        assertEquals("seven_day", status.worst.kind)
+        assertEquals(30, status.worstPercent)
+    }
+
+    @Test
+    fun `avisa solo al subir de nivel o con una ventana nueva`() {
+        fun status(percent: Double, reset: Long = 5_000): ClaudeLimitsStatus? = ClaudeLimitsStatus.evaluate(
+            ClaudeLimitsReading.of(listOf(ClaudeLimitWindow("five_hour", percent, seconds(reset))), seconds(0)),
+            seconds(0),
+        )
+        assertNull(ClaudeLimitAlert.transition(status(50.0), status(80.0)))
+        assertNotNull(ClaudeLimitAlert.transition(status(80.0), status(86.0)))
+        // El reinicio «baila» unos segundos al pasar al reloj local: sigue siendo el mismo.
+        assertNull(ClaudeLimitAlert.transition(status(86.0), status(88.0, reset = 5_030)))
+        assertNotNull(ClaudeLimitAlert.transition(status(88.0), status(96.0)))
+        assertNull(ClaudeLimitAlert.transition(status(96.0), status(90.0)))
+        // Ventana nueva (otro reinicio) que ya llega alta: se avisa de nuevo.
+        assertNotNull(ClaudeLimitAlert.transition(status(96.0), status(90.0, reset = 30_000)))
+        assertNotNull(ClaudeLimitAlert.transition(null, status(90.0)))
+        assertNull(ClaudeLimitAlert.transition(status(90.0), null))
+    }
+
+    @Test
+    fun `la clave del aviso es estable con el mismo reinicio y nivel`() {
+        fun alert(percent: Double, reset: Long) = ClaudeLimitAlert(
+            assertNotNull(
+                ClaudeLimitsStatus.evaluate(
+                    ClaudeLimitsReading.of(listOf(ClaudeLimitWindow("five_hour", percent, seconds(reset))), seconds(0)),
+                    seconds(0),
+                ),
+            ),
+        )
+        assertEquals("five_hour-17-1", alert(86.0, 5_010).key)
+        assertEquals(alert(86.0, 5_010).key, alert(88.0, 5_020).key)
+        assertEquals("five_hour-17-2", alert(96.0, 5_010).key)
+    }
+
+    @Test
+    fun `el dia del reinicio es hoy manana o mas adelante`() {
+        val zone = ZoneId.of("America/Bogota")
+        val now = ZonedDateTime.of(2026, 11, 26, 15, 0, 0, 0, zone).toInstant()
+        assertEquals(ClaudeLimitResetDay.TODAY, ClaudeLimitReset.day(now.plusSeconds(3 * 3600), now, zone))
+        assertEquals(ClaudeLimitResetDay.TOMORROW, ClaudeLimitReset.day(now.plusSeconds(24 * 3600), now, zone))
+        assertEquals(ClaudeLimitResetDay.LATER, ClaudeLimitReset.day(now.plusSeconds(4 * 24 * 3600), now, zone))
+    }
+
+    @Test
+    fun `nombres de las ventanas`() {
+        assertEquals(ClaudeLimitLabel.FiveHour, ClaudeLimitWindow("five_hour", 1.0, null).label)
+        assertEquals(ClaudeLimitLabel.SevenDay, ClaudeLimitWindow("seven_day", 1.0, null).label)
+        assertEquals(ClaudeLimitLabel.SevenDayScoped("Opus"), ClaudeLimitWindow("seven_day_opus", 1.0, null).label)
+        assertEquals(ClaudeLimitLabel.SevenDayScoped("Oauth Apps"), ClaudeLimitWindow("seven_day_oauth_apps", 1.0, null).label)
+        assertEquals(ClaudeLimitLabel.Other("Monthly Cap"), ClaudeLimitWindow("monthly_CAP", 1.0, null).label)
+    }
+
+    @Test
+    fun `el porcentaje se recorta entre 0 y 100`() {
+        val now = Instant.now()
+        assertEquals(100.0, ClaudeLimitWindow("five_hour", 130.0, null).effectivePercent(now))
+        assertEquals(0.0, ClaudeLimitWindow("five_hour", -3.0, null).effectivePercent(now))
+    }
+}

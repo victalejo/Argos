@@ -56,8 +56,7 @@ struct GoldenParityTests {
         "checkpoint-script", "checkpoint-hook", "hooks-with-checkpoint", "hooks-checkpoint-removed",
         "checkpoint-list", "checkpoint-files", "checkpoint-preview", "checkpoint-restore",
         "checkpoint-restore-file", "checkpoint-enable", "checkpoint-disable",
-        "limits-script", "limits-command", "limits-poll", "limits-installed", "limits-installed-empty",
-        "limits-removed", "limits-previous",
+        "limits-previous",
         "usage-index-script", "usage-index-start", "usage-index-read",
         "task-dispatch-script", "task-list", "task-dispatch-enqueue", "task-meta",
     ]

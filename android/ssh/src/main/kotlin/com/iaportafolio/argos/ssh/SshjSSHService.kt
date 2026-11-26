@@ -36,6 +36,9 @@ import com.iaportafolio.argos.core.status.ClaudeActivityReading
 import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.status.ClaudeHookInstaller
 import com.iaportafolio.argos.core.status.ClaudeHookMaintenance
+import com.iaportafolio.argos.core.usage.ClaudeLimitsAccess
+import com.iaportafolio.argos.core.usage.ClaudeLimitsInstaller
+import com.iaportafolio.argos.core.usage.ClaudeLimitsReading
 import com.iaportafolio.argos.core.status.ClaudeStatusCommands
 import com.iaportafolio.argos.core.tmux.CodingAgent
 import com.iaportafolio.argos.core.tmux.TmuxCommands
@@ -88,7 +91,8 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
     ClaudeHookMaintenance,
     ClaudeActivityReading,
     ServerResourceReading,
-    ServerMemoryReader {
+    ServerMemoryReader,
+    ClaudeLimitsAccess {
 
     private val terminal = SshjTerminal(connection)
     private val files = SshjFileBrowser(connection)
@@ -301,6 +305,40 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
 
     private suspend fun readClaudeSettings() =
         ClaudeHookInstaller.parseSettings(readHomeFile(ClaudeStatusCommands.CLAUDE_SETTINGS_RELATIVE_PATH))
+
+    // MARK: Límites de uso de Claude (port de ClaudeUsage/SSHClaudeLimits.swift)
+
+    override suspend fun claudeLimitsInstalled(): Boolean = ClaudeLimitsInstaller.isInstalled(readClaudeSettings())
+
+    /** Primero el script y el comando anterior (la statusline nueva debe encontrarlos); después settings.json. */
+    override suspend fun installClaudeLimits() {
+        val installation = ClaudeLimitsInstaller.installing(readClaudeSettings())
+        writeHomeFilePrivately(ClaudeLimitsInstaller.SCRIPT.toByteArray(Charsets.UTF_8), ClaudeLimitsInstaller.SCRIPT_RELATIVE_PATH, backup = false)
+        installation.previousCommand?.let { previous ->
+            writeHomeFilePrivately(previous.toByteArray(Charsets.UTF_8), ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH, backup = false)
+        }
+        val content = ClaudeHookInstaller.serialize(installation.settings).toByteArray(Charsets.UTF_8)
+        writeHomeFilePrivately(content, ClaudeStatusCommands.CLAUDE_SETTINGS_RELATIVE_PATH, backup = true)
+    }
+
+    override suspend fun uninstallClaudeLimits() {
+        val settings = readClaudeSettings()
+        if (!ClaudeLimitsInstaller.isInstalled(settings)) return
+        val previous = readHomeFile(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH)
+        val content = ClaudeHookInstaller.serialize(ClaudeLimitsInstaller.removing(settings, previous)).toByteArray(Charsets.UTF_8)
+        writeHomeFilePrivately(content, ClaudeStatusCommands.CLAUDE_SETTINGS_RELATIVE_PATH, backup = true)
+    }
+
+    /**
+     * Sección `limits` del sondeo, con plazo remoto. Sin archivo `cat` sale con 1 y no es un fallo;
+     * sin la línea `now` (plazo vencido, salida cortada) sí: «no se leyó» no borra la última lectura.
+     */
+    override suspend fun claudeLimits(): ClaudeLimitsReading? {
+        val result = connection.capture(RemoteTimeout.wrap(ClaudeLimitsInstaller.POLL_COMMAND))
+        val answered = result.exitCode != RemoteTimeout.EXPIRED_EXIT_CODE && result.stdout.lineSequence().any { it.startsWith("now ") }
+        if (!answered) throw SSHServiceError.CommandFailed(result.exitCode, "no se pudieron leer los límites de Claude")
+        return ClaudeLimitsReading.parse(result.stdout)
+    }
 
     // MARK: Proyectos
 

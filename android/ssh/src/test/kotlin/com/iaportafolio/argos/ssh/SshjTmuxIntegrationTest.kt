@@ -12,6 +12,7 @@ import com.iaportafolio.argos.core.homefile.HomeFileException
 import com.iaportafolio.argos.core.status.ClaudeActivity
 import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.tmux.WindowNameValidator
+import com.iaportafolio.argos.core.usage.ClaudeLimitsInstaller
 import com.iaportafolio.argos.ssh.testing.EmbeddedSshServer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -364,6 +365,37 @@ class SshjTmuxIntegrationTest {
         assertTrue(service.claudeHooksInstalled())
         assertContains(settings.readText(), "\"X\" : \"1\"")
         assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(settings)))
+    }
+
+    @Test
+    fun `pone y quita la statusline de limites de Claude conservando la del usuario`() = runBlocking<Unit> {
+        val settings = Files.createDirectories(server.home.resolve(".claude")).resolve("settings.json")
+        Files.writeString(settings, """{"env":{"X":"1"},"statusLine":{"type":"command","command":"mi-barra","padding":1}}""")
+        assertFalse(service.claudeLimitsInstalled())
+        // Sin archivo de límites: el sondeo responde (solo la hora) y no hay lectura.
+        assertNull(service.claudeLimits())
+
+        service.installClaudeLimits()
+        assertTrue(service.claudeLimitsInstalled())
+        assertContains(settings.readText(), ClaudeLimitsInstaller.MARKER)
+        assertContains(settings.readText(), "\"X\" : \"1\"")
+        assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(settings)))
+        assertEquals("mi-barra", server.home.resolve(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH).readText())
+        assertEquals(ClaudeLimitsInstaller.SCRIPT, server.home.resolve(ClaudeLimitsInstaller.SCRIPT_RELATIVE_PATH).readText())
+        // Reinstalar no pisa la anterior guardada con la nuestra.
+        service.installClaudeLimits()
+        assertEquals("mi-barra", server.home.resolve(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH).readText())
+
+        Files.writeString(
+            server.home.resolve(ClaudeLimitsInstaller.LIMITS_RELATIVE_PATH),
+            "1799989000\n{\"rate_limits\":{\"five_hour\":{\"used_percentage\":42}}}\n",
+        )
+        assertEquals(42.0, service.claudeLimits()?.windows?.single()?.usedPercent)
+
+        service.uninstallClaudeLimits()
+        assertFalse(service.claudeLimitsInstalled())
+        assertContains(settings.readText(), "\"command\" : \"mi-barra\"")
+        assertContains(settings.readText(), "\"padding\" : 1")
     }
 
     @Test

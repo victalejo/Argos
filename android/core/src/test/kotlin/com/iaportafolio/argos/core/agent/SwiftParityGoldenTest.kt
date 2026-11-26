@@ -3,6 +3,7 @@ package com.iaportafolio.argos.core.agent
 import com.iaportafolio.argos.core.status.ClaudeActivity
 import com.iaportafolio.argos.core.status.ClaudeHookInstaller
 import com.iaportafolio.argos.core.status.ClaudeStatusCommands
+import com.iaportafolio.argos.core.usage.ClaudeLimitsInstaller
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import java.time.Instant
@@ -109,6 +110,27 @@ class SwiftParityGoldenTest {
         assertGolden("hooks-merged", ClaudeHookInstaller.serialize(ClaudeHookInstaller.installing(settings)))
         assertGolden("hooks-removed", ClaudeHookInstaller.serialize(ClaudeHookInstaller.removing(settings)))
         assertGolden("serialize-empty", ClaudeHookInstaller.serialize(JsonObject(emptyMap())))
+    }
+
+    @Test
+    fun `statusline de limites de Claude`() {
+        // Mismas entradas que `GoldenCatalog.claudeLimits()` de Swift.
+        val existing = ClaudeHookInstaller.parseSettings(
+            """{"model":"opus","statusLine":{"type":"command","command":"~/bin/mi barra.sh","padding":2}}""",
+        )
+        val installed = ClaudeLimitsInstaller.installing(existing)
+        assertGolden("limits-script", ClaudeLimitsInstaller.SCRIPT)
+        assertGolden("limits-command", ClaudeLimitsInstaller.COMMAND)
+        assertGolden("limits-poll", ClaudeLimitsInstaller.POLL_COMMAND)
+        assertGolden("limits-installed", ClaudeHookInstaller.serialize(installed.settings))
+        assertGolden(
+            "limits-installed-empty",
+            ClaudeHookInstaller.serialize(ClaudeLimitsInstaller.installing(JsonObject(emptyMap())).settings),
+        )
+        assertGolden(
+            "limits-removed",
+            ClaudeHookInstaller.serialize(ClaudeLimitsInstaller.removing(installed.settings, installed.previousCommand)),
+        )
     }
 
     @Test

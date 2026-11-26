@@ -38,7 +38,7 @@ conexión: `ConnectionHealth`, `ConnectionAdmission`, `ConnectionPriority`, `Rem
 `tmux` (sesiones, ventanas, comandos y parsers), `projects` (`projects.json` del servidor),
 `homefile` (escritura de archivos privados del servidor con cerrojo y huella), `agent` (stream-json,
 reducer, lanzador persistente, hibernación, guardia de memoria, inventario), `status` (actividad de
-claude y hooks), `files`, `git` (panel «Cambios» y resumen de la lista: git corre en el servidor),
+claude y hooks), `usage` (límites de uso de Claude y su statusline), `files`, `git` (panel «Cambios» y resumen de la lista: git corre en el servidor),
 `github` (PR, CI y clonado con el `gh` del servidor), `ports`, `monitor`, `doctor` (Doctor del
 servidor y redacción del diagnóstico) y `keys` (Ed25519/OpenSSH con BouncyCastle, QR `ServerTransfer`).
 Los datos del dispositivo (DataStore + Keystore, `ServiceHub`, `ServerImporter`) viven en `app/data`.
