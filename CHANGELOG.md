@@ -6,7 +6,12 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-11-26
+
 ### Corregido
+- **Mac e iPhone/iPad: la app podía cerrarse sola** al cortar un canal SSH (cancelar un
+  comando, cerrar el terminal o terminar una subida) mientras aún llegaban datos de él. Era
+  un fallo de la librería SSH; se actualiza a la versión que lo corrige.
 - **Claude aparecía como «terminó» con subagentes aún trabajando (Mac, iPhone/iPad y
   Android).** Cuando Claude deja agentes en segundo plano («Waiting for 1 background agent
   to finish»), el indicador ahora sigue en «trabajando» y el aviso de «terminó» llega cuando
