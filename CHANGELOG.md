@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-26
+
 ### Añadido
 - **Cola de subidas con progreso en el terminal (Mac e iPhone/iPad).** Al pegar una
   captura o soltar/adjuntar archivos, un panel muestra el porcentaje y lo que va subido de
