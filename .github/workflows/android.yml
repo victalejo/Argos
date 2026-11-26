@@ -6,6 +6,9 @@ on:
     paths: ["android/**", ".github/workflows/android.yml"]
   pull_request:
     paths: ["android/**", ".github/workflows/android.yml"]
+  # Para compilar una rama a mano (`gh workflow run android.yml --ref <rama>`) cuando no
+  # hay un servidor con Gradle a mano: Android nunca se compila en el Mac de desarrollo.
+  workflow_dispatch:
 
 # Mínimo: leer el código. Subir artefactos no necesita permisos del token.
 permissions:
