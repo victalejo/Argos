@@ -140,8 +140,9 @@ protocol SSHServicing: Sendable {
     func uploadSyncFile(root: String, file: SyncFile, from localURL: URL) async throws
     func deleteRemoteSyncFile(root: String, relativePath: String) async throws
 
-    func uploadPastedFile(data: Data, fileExtension: String) async throws -> String
-    func uploadDroppedFile(data: Data, originalName: String) async throws -> String
+    /// Sube a una ruta privada de `/tmp`; `progress` recibe los bytes ya enviados.
+    func uploadPastedFile(data: Data, fileExtension: String, progress: UploadProgressHandler?) async throws -> String
+    func uploadDroppedFile(data: Data, originalName: String, progress: UploadProgressHandler?) async throws -> String
     /// Texto del panel activo de la sesión con su historial (`tmux capture-pane`).
     func capturePaneText(session: String) async throws -> String
 

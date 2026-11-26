@@ -154,20 +154,3 @@ struct TerminalActionErrorBanner: View {
         .accessibilityElement(children: .combine)
     }
 }
-
-/// «Subiendo al servidor…» (imagen pegada o archivos soltados).
-struct TerminalUploadIndicator: View {
-    var body: some View {
-        VStack {
-            HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text("Subiendo al servidor…").font(.callout)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(.ultraThinMaterial, in: Capsule())
-            .padding(.top, 12)
-            Spacer()
-        }
-    }
-}

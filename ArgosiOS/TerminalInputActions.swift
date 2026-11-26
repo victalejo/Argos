@@ -7,7 +7,7 @@
 //    seleccionar con las asas de iOS, copiar o compartir.
 //  · Adjuntar fotos (fototeca) o archivos (Archivos): se suben a una ruta privada del
 //    servidor y su ruta se escribe en el prompt (como al soltarlos en el Mac).
-//  · Aviso breve sobre el terminal: «Copiado», «Subiendo…», errores.
+//  · Aviso breve sobre el terminal («Copiado», errores) y la cola de subidas con su progreso.
 //
 
 import PhotosUI
@@ -23,14 +23,9 @@ struct TerminalInputActions: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: .top) {
-                if let notice = controller?.notice {
-                    NoticeBanner(notice: notice)
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
+            .overlay(alignment: .top) { banners }
             .animation(.snappy, value: controller?.notice)
+            .animation(.snappy, value: controller?.uploads.queue.isEmpty)
             .photosPicker(isPresented: $isPickingPhotos, selection: $photoItems, maxSelectionCount: 10, matching: .images)
             .onChange(of: photoItems) { _, items in
                 guard !items.isEmpty else { return }
@@ -45,6 +40,22 @@ struct TerminalInputActions: ViewModifier {
                     TerminalTextSheet(controller: controller)
                 }
             }
+    }
+
+    /// Aviso breve y, debajo, la cola de subidas con su progreso.
+    private var banners: some View {
+        VStack(spacing: 8) {
+            if let notice = controller?.notice {
+                NoticeBanner(notice: notice)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            if let uploads = controller?.uploads, !uploads.queue.isEmpty {
+                TerminalUploadQueueView(model: uploads)
+                    .padding(.horizontal)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .padding(.top, 8)
     }
 
     private func attachPhotos(_ items: [PhotosPickerItem]) async {

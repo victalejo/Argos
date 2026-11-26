@@ -38,8 +38,8 @@ final class LiveTerminalController: TerminalViewDelegate {
     /// Error del último fallo (para decidir si se reintenta solo, `ReconnectPolicy`).
     private(set) var lastError: Error?
 
-    /// `true` mientras se sube una imagen pegada por SFTP (feedback en la UI).
-    private(set) var isUploading = false
+    /// Cola de subidas (imágenes pegadas y archivos soltados): progreso y orden.
+    let uploads: TerminalUploadQueue
 
     /// Observador opcional de la salida del PTY (p. ej. el login guiado de Claude lee de
     /// aquí el enlace de autorización). Se invoca en el MainActor con cada chunk.
@@ -78,6 +78,7 @@ final class LiveTerminalController: TerminalViewDelegate {
         self.controlStream = controlStream
         self.controlContinuation = controlContinuation
         self.terminalView = ArgosTerminalView(frame: .zero)
+        self.uploads = TerminalUploadQueue(service: service)
         // Paleta de 256 colores estándar de xterm. La de SwiftTerm por defecto (`base16Lab`)
         // la deriva del fondo y el texto del tema: con tema claro invierte los grises y las
         // TUI que eligen colores absolutos (opencode, vim…) salen con el contraste roto.
@@ -93,6 +94,9 @@ final class LiveTerminalController: TerminalViewDelegate {
         }
         self.terminalView.onDropFiles = { [weak self] urls in
             self?.handleDroppedFiles(urls)
+        }
+        self.uploads.onUploaded = { [weak self] remotePath in
+            self?.controlContinuation.yield(.input(Array((remotePath + " ").utf8)))
         }
         installScrollMonitor()
         let selection = TerminalMouseSelection(terminalView: terminalView)
@@ -121,47 +125,16 @@ final class LiveTerminalController: TerminalViewDelegate {
         }
     }
 
-    /// Sube por SFTP cada archivo soltado (conservando su nombre) e inserta sus rutas
-    /// remotas en el input del terminal, separadas por espacio.
+    /// Pone en la cola cada archivo soltado (conserva su nombre); al subirse, su ruta
+    /// remota se escribe en el input del terminal, seguida de un espacio.
     private func handleDroppedFiles(_ urls: [URL]) {
-        guard !isUploading else { return }
-        isUploading = true
-        Task { @MainActor in
-            defer { isUploading = false }
-            for url in urls {
-                let accessed = url.startAccessingSecurityScopedResource()
-                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-                guard let data = try? Data(contentsOf: url) else {
-                    Log.terminal.error("No se pudo leer el archivo soltado: \(url.lastPathComponent, privacy: .public)")
-                    continue
-                }
-                do {
-                    let remotePath = try await service.uploadDroppedFile(
-                        data: data, originalName: url.lastPathComponent
-                    )
-                    controlContinuation.yield(.input(Array((remotePath + " ").utf8)))
-                } catch {
-                    Log.terminal.error("Fallo al subir \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                }
-            }
-        }
+        uploads.enqueue(urls.map(TerminalUploadRequest.localFile))
     }
 
-    /// Sube por SFTP la imagen pegada y, al terminar, inserta su ruta remota en el
-    /// input del terminal (con espacio final) para que la app remota (p. ej. Claude
-    /// Code) pueda leerla por ruta.
+    /// Pone en la cola la imagen pegada; al subirse, su ruta remota se escribe en el input
+    /// (con espacio final) para que la app remota (p. ej. Claude Code) la lea por ruta.
     private func handlePastedImage(_ data: Data, fileExtension: String) {
-        guard !isUploading else { return }
-        isUploading = true
-        Task { @MainActor in
-            defer { isUploading = false }
-            do {
-                let remotePath = try await service.uploadPastedFile(data: data, fileExtension: fileExtension)
-                controlContinuation.yield(.input(Array((remotePath + " ").utf8)))
-            } catch {
-                Log.terminal.error("Fallo al subir imagen pegada: \(error.localizedDescription, privacy: .public)")
-            }
-        }
+        uploads.enqueue([.pastedImage(data, fileExtension: fileExtension)])
     }
 
     /// Registra un handler propio para OSC 52 directamente en el parser del terminal.
@@ -267,6 +240,7 @@ final class LiveTerminalController: TerminalViewDelegate {
     /// cliente, la sesión sobrevive) y cierra los streams. NO mata la sesión tmux.
     func stop() {
         isStopping = true
+        uploads.cancelAll()
         controlContinuation.finish() // idempotente; tras esto, los `yield` son no-ops.
         if let scrollMonitor {
             NSEvent.removeMonitor(scrollMonitor)

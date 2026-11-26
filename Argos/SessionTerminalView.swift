@@ -179,8 +179,14 @@ struct SessionTerminalView: View {
                     reconnect: reconnect,
                     onReconnect: reconnectManually
                 )
-                if controller.isUploading {
-                    TerminalUploadIndicator()
+                if !controller.uploads.queue.isEmpty {
+                    VStack {
+                        TerminalUploadQueueView(model: controller.uploads)
+                            .padding(.top, 12)
+                            .padding(.horizontal, 16)
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 if let error = windowsModel.actionError {
                     TerminalActionErrorBanner(message: error) { windowsModel.actionError = nil }
@@ -189,6 +195,7 @@ struct SessionTerminalView: View {
                 TerminalConnectionProgress(title: String(localized: "Abriendo sesión"), sessionName: session.name)
             }
         }
+        .animation(.snappy, value: controller?.uploads.queue.isEmpty)
     }
 
     // MARK: - Tarjeta del terminal (estilo herdr)

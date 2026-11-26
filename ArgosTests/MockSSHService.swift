@@ -269,8 +269,26 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         sessions.removeAll { $0.name == sessionName }
     }
 
-    func uploadPastedFile(data: Data, fileExtension: String) async throws -> String { "" }
-    func uploadDroppedFile(data: Data, originalName: String) async throws -> String { "" }
+    /// Subidas al `/tmp` del servidor: cada una informa del progreso a mitad y al final.
+    /// `uploadGate`, si está, retiene la subida hasta que se le da paso (tests de la cola).
+    private(set) var uploadedNames: [String] = []
+    var uploadError: Error?
+    var uploadGate: (@Sendable (String) async -> Void)?
+    func uploadPastedFile(data: Data, fileExtension: String, progress: UploadProgressHandler?) async throws -> String {
+        try await fakeUpload(name: "pasted.\(fileExtension)", data: data, progress: progress)
+    }
+    func uploadDroppedFile(data: Data, originalName: String, progress: UploadProgressHandler?) async throws -> String {
+        try await fakeUpload(name: originalName, data: data, progress: progress)
+    }
+    private func fakeUpload(name: String, data: Data, progress: UploadProgressHandler?) async throws -> String {
+        progress?(data.count / 2)
+        await uploadGate?(name)
+        try Task.checkCancellation()
+        if let uploadError { throw uploadError }
+        progress?(data.count)
+        uploadedNames.append(name)
+        return "/tmp/argos-test-\(name)"
+    }
     func capturePaneText(session: String) async throws -> String { "" }
 
     // MARK: - Ciclo de vida / terminal

@@ -7,6 +7,11 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [Unreleased]
 
 ### Añadido
+- **Cola de subidas con progreso en el terminal (Mac e iPhone/iPad).** Al pegar una
+  captura o soltar/adjuntar archivos, un panel muestra el porcentaje y lo que va subido de
+  cada archivo. Ya puedes pegar o soltar más cosas mientras otra se sube: esperan su turno
+  y sus rutas se escriben en el prompt en el mismo orden. Cada archivo se puede cancelar y,
+  si falla, reintentar. El límite por archivo es de 100 MB también en el Mac.
 - **Aviso de memoria del servidor (Mac, iPhone/iPad y Android).** Cada sesión con Claude
   ocupa memoria en el servidor; si se llena, el sistema empieza a cerrar procesos y puede
   llevarse todas las sesiones de tmux. Argos vigila la memoria (RAM y swap) y avisa en la

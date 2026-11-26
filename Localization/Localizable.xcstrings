@@ -10587,16 +10587,16 @@
     },
     "El servidor casi no tiene memoria" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El servidor casi no tiene memoria"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The server is almost out of memory"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor casi no tiene memoria"
           }
         }
       }
@@ -10955,16 +10955,16 @@
     },
     "El servidor se está quedando sin memoria" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El servidor se está quedando sin memoria"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The server is running low on memory"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor se está quedando sin memoria"
           }
         }
       }
@@ -11557,6 +11557,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Empieza una conversación con Claude en %@ (%@).%@"
+          }
+        }
+      }
+    },
+    "En cola · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En cola · %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queued · %@"
           }
         }
       }
@@ -13994,6 +14010,22 @@
         }
       }
     },
+    "Imagen pegada" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen pegada"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pasted image"
+          }
+        }
+      }
+    },
     "Importa cualquiera como servidor de Argos" : {
       "localizations" : {
         "en" : {
@@ -14412,16 +14444,16 @@
     },
     "Iniciar igualmente" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Iniciar igualmente"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Start anyway"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar igualmente"
           }
         }
       }
@@ -16444,16 +16476,16 @@
     },
     "Memoria del servidor correcta" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Memoria del servidor correcta"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Server memory is fine"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memoria del servidor correcta"
           }
         }
       }
@@ -19322,22 +19354,6 @@
         }
       }
     },
-    "No se pudo subir «%@»: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn’t upload “%@”: %@"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo subir «%@»: %@"
-          }
-        }
-      }
-    },
     "No se puede descartar en un repositorio sin commits." : {
       "localizations" : {
         "en" : {
@@ -21686,6 +21702,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preguntar siempre"
+          }
+        }
+      }
+    },
+    "Preparando la subida…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparando la subida…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing upload…"
           }
         }
       }
@@ -25547,34 +25579,66 @@
         }
       }
     },
-    "Subiendo al servidor…" : {
+    "Subidas con errores: %lld" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uploading to the server…"
-          }
-        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Subiendo al servidor…"
+            "value" : "Subidas con errores: %lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploads with errors: %lld"
           }
         }
       }
     },
-    "Subiendo «%@»…" : {
+    "Subido al servidor: la ruta está en el prompt" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uploading “%@”…"
-          }
-        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Subiendo «%@»…"
+            "value" : "Subido al servidor: la ruta está en el prompt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploaded to the server: the path is in the prompt"
+          }
+        }
+      }
+    },
+    "Subiendo %lld de %lld: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subiendo %1$lld de %2$lld: %3$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading %1$lld of %2$lld: %3$@"
+          }
+        }
+      }
+    },
+    "Subiendo «%@»" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subiendo «%@»"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading “%@”"
           }
         }
       }
@@ -26689,32 +26753,32 @@
     },
     "Usa el %lld %% de la memoria (RAM y swap). Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usa el %lld %% de la memoria (RAM y swap). Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld%% of memory (RAM and swap) is in use. If it fills up, the system will start closing processes: stop the sessions you aren’t using."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa el %lld %% de la memoria (RAM y swap). Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando."
           }
         }
       }
     },
     "Usa el %lld %% de la memoria (RAM y swap); procesos de Claude en marcha: %lld. Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Usa el %1$lld %% de la memoria (RAM y swap); procesos de Claude en marcha: %2$lld. Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld%% of memory (RAM and swap) is in use; Claude processes running: %lld. If it fills up, the system will start closing processes: stop the sessions you aren’t using."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa el %1$lld %% de la memoria (RAM y swap); procesos de Claude en marcha: %2$lld. Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando."
           }
         }
       }
@@ -29963,22 +30027,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "«%@» se eliminó en otro dispositivo mientras lo editabas; no se ha vuelto a crear. Si lo quieres, añádelo de nuevo."
-          }
-        }
-      }
-    },
-    "«%@» subido: su ruta está en el prompt" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“%@” uploaded: its path is in the prompt"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "«%@» subido: su ruta está en el prompt"
           }
         }
       }

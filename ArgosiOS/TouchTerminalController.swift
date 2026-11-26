@@ -24,8 +24,10 @@ final class TouchTerminalController: TerminalViewDelegate {
 
     let terminalView: TerminalView
     private(set) var status: LiveTerminalStatus = .connecting
-    /// Aviso breve sobre el terminal («Copiado», «Subiendo…», un error).
+    /// Aviso breve sobre el terminal («Copiado», un error).
     private(set) var notice: TerminalNotice?
+    /// Cola de subidas (imágenes pegadas, fotos y archivos adjuntos) con su progreso.
+    let uploads: TerminalUploadQueue
     /// Reintento automático programado tras una caída (`nil` si no hay).
     private(set) var pendingRetry: PendingRetry?
 
@@ -65,6 +67,7 @@ final class TouchTerminalController: TerminalViewDelegate {
         self.service = service
         self.sessionName = sessionName
         self.policy = policy
+        self.uploads = TerminalUploadQueue(service: service)
         (controlStream, controlContinuation) = AsyncStream<TerminalControlEvent>.makeStream()
         terminalView = ScrollingTerminalView(frame: .zero, font: TerminalAppearance.font(size: fontSize))
         // Paleta xterm estándar (ver `LiveTerminalController` del Mac): la generada por
@@ -73,6 +76,9 @@ final class TouchTerminalController: TerminalViewDelegate {
         TerminalAppearance.apply(to: terminalView)
         terminalView.terminalDelegate = self
         installKeyBar()
+        uploads.onUploaded = { [weak self] remotePath in
+            self?.send(Array((remotePath + " ").utf8))
+        }
         start()
     }
 
@@ -221,7 +227,7 @@ final class TouchTerminalController: TerminalViewDelegate {
     func pasteFromClipboard() {
         let pasteboard = UIPasteboard.general
         if pasteboard.hasImages, let image = pasteboard.image, let png = image.pngData() {
-            upload(label: "imagen") { service in try await service.uploadPastedFile(data: png, fileExtension: "png") }
+            uploads.enqueue([.pastedImage(png, fileExtension: "png")])
         } else if let text = pasteboard.string {
             paste(text)
         } else {
@@ -231,33 +237,14 @@ final class TouchTerminalController: TerminalViewDelegate {
 
     /// Sube un archivo o foto al servidor (ruta privada en /tmp) y escribe su ruta en el
     /// prompt, para que la app remota (p. ej. Claude Code) la lea.
+    /// Si hay otra subida en curso, espera su turno en la cola.
     func attach(data: Data, fileName: String) {
-        guard data.count <= TerminalAttachment.maxBytes else {
-            show(.failed(TerminalAttachment.tooLargeMessage(fileName: fileName)))
-            return
-        }
-        upload(label: fileName) { service in try await service.uploadDroppedFile(data: data, originalName: fileName) }
+        uploads.enqueue([.attachment(data, fileName: fileName)])
     }
 
     /// Texto del panel activo con su historial, para seleccionarlo con iOS.
     func capturedText() async throws -> String {
         try await service.capturePaneText(session: sessionName)
-    }
-
-    private func upload(label: String, _ operation: @escaping @Sendable (any SSHServicing) async throws -> String) {
-        let service = self.service
-        notice = .uploading(label)
-        noticeTask?.cancel()
-        Task { @MainActor [weak self] in
-            do {
-                let remotePath = try await operation(service)
-                self?.send(Array((remotePath + " ").utf8))
-                self?.show(.uploaded(label))
-            } catch {
-                Log.terminal.error("No se pudo subir \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                self?.show(.failed(String(localized: "No se pudo subir «\(label)»: \(error.userMessage)")))
-            }
-        }
     }
 
     func show(_ newNotice: TerminalNotice) {
@@ -354,15 +341,11 @@ final class TouchTerminalController: TerminalViewDelegate {
 /// Aviso breve que se muestra sobre el terminal.
 enum TerminalNotice: Equatable {
     case copied
-    case uploading(String)
-    case uploaded(String)
     case failed(String)
 
     var text: String {
         switch self {
         case .copied: return String(localized: "Copiado")
-        case .uploading(let name): return String(localized: "Subiendo «\(name)»…")
-        case .uploaded(let name): return String(localized: "«\(name)» subido: su ruta está en el prompt")
         case .failed(let message): return message
         }
     }
@@ -370,8 +353,6 @@ enum TerminalNotice: Equatable {
     var symbolName: String {
         switch self {
         case .copied: return "doc.on.doc.fill"
-        case .uploading: return "arrow.up.circle"
-        case .uploaded: return "checkmark.circle.fill"
         case .failed: return "exclamationmark.triangle.fill"
         }
     }
@@ -379,8 +360,7 @@ enum TerminalNotice: Equatable {
     var duration: Duration {
         switch self {
         case .failed: return .seconds(5)
-        case .uploading: return .seconds(120)
-        default: return .seconds(2)
+        case .copied: return .seconds(2)
         }
     }
 }
