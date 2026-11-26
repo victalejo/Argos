@@ -1,0 +1,13 @@
+b="$HOME/.config/argos/tasks"; [ -d "$b" ] || exit 0
+for t in "$b"/*/[0-9]*-*; do
+  [ -d "$t" ] || continue
+  r=${t#"$b"/}
+  printf '@@task %s\n' "$r"
+  printf 'state %s\n' "$(head -c 32 "$t/state" 2>/dev/null)"
+  printf 'reason %s\n' "$(head -c 64 "$t/reason" 2>/dev/null)"
+  printf 'started %s\n' "$(head -c 16 "$t/started" 2>/dev/null)"
+  printf 'finished %s\n' "$(head -c 16 "$t/finished" 2>/dev/null)"
+  head -c 2048 "$t/meta" 2>/dev/null | sed 's/^/meta /'
+  printf 'prompt %s\n' "$(head -c 400 "$t/prompt" 2>/dev/null | tr '\n\r\t' '   ')"
+done
+exit 0

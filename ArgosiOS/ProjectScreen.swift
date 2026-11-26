@@ -24,6 +24,7 @@ struct ProjectScreen: View {
     @Binding var mode: DetailMode
     @Environment(ServerHub.self) private var hub
     @State private var showPorts = false
+    @State private var showTasks = false
 
     private var service: any SSHServicing { hub.viewModel(for: server).service }
 
@@ -46,6 +47,9 @@ struct ProjectScreen: View {
                         .frame(width: 230)
                     }
                 }
+                if project != nil {
+                    ToolbarItem(placement: .topBarTrailing) { tasksButton }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showPorts = true } label: {
                         Image(systemName: "network")
@@ -56,9 +60,26 @@ struct ProjectScreen: View {
             .sheet(isPresented: $showPorts) {
                 PortForwardsSheet(service: service, serverName: server.name)
             }
+            .sheet(isPresented: $showTasks) {
+                if let project {
+                    ClaudeTasksScreen(project: project, viewModel: hub.viewModel(for: server))
+                }
+            }
             .portForwardRequests(service: service, serverName: server.name)
             // Al abrir la sesión sus avisos ya entregados sobran.
             .onAppear { AgentNotifier.shared.withdrawDelivered(serverID: server.id, session: target.sessionName) }
+    }
+
+    /// El proyecto de Argos de esta sesión (las sesiones sueltas no tienen cola).
+    private var project: Project? {
+        hub.viewModel(for: server).project(forSession: target.sessionName)
+    }
+
+    private var tasksButton: some View {
+        Button { showTasks = true } label: {
+            Image(systemName: "list.bullet.clipboard")
+        }
+        .accessibilityLabel("Encargos")
     }
 
     @ViewBuilder

@@ -89,6 +89,12 @@ protocol SSHServicing: Sendable {
     /// Índice de uso de tokens de Claude (ver `ClaudeUsageIndex`).
     func startClaudeUsageIndex() async throws
     func readClaudeUsage() async throws -> ClaudeUsageSnapshot
+    /// Cola de encargos (ver `ClaudeTaskScript` y `docs/encargos.md`).
+    func ensureTaskDispatcher() async throws
+    func enqueueTask(_ request: ClaudeTaskRequest, projectPath: String) async throws
+    func listTasks() async throws -> [ClaudeTask]
+    func cancelTask(_ task: ClaudeTask) async throws
+    func retryTask(_ task: ClaudeTask) async throws
 
     // MARK: - Proyectos (carpetas con sesión tmux efímera)
 

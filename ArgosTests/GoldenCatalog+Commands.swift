@@ -109,6 +109,11 @@ extension GoldenCatalog {
             "usage-index-script": ClaudeUsageIndex.script,
             "usage-index-start": ClaudeUsageIndex.startCommand,
             "usage-index-read": ClaudeUsageIndex.readCommand,
+            "task-dispatch-script": ClaudeTaskScript.script,
+            "task-list": ClaudeTaskScript.listCommand,
+            "task-dispatch-enqueue": ClaudeTaskScript.dispatchCommand(["enqueue", "-Users-v-app", "abc123def456"]),
+            "task-meta": ClaudeTaskRequest(prompt: "Arregla los tests\nque fallen", session: "app", window: 2, cleanContext: true, commit: true)
+                .metaText(directory: "/Users/v/app"),
         ]
     }
 

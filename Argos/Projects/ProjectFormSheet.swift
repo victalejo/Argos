@@ -15,6 +15,8 @@ enum ProjectFormRequest: Identifiable {
     case convert(Server, TmuxSession)
     /// «Ramas en paralelo…» (worktrees) del repositorio del proyecto.
     case worktrees(Server, Project)
+    /// «Encargos…»: cola de encargos para Claude del proyecto.
+    case tasks(Server, Project)
 
     var id: String {
         switch self {
@@ -22,12 +24,14 @@ enum ProjectFormRequest: Identifiable {
         case .edit(_, let project): return "edit-\(project.id)"
         case .convert(let server, let session): return "convert-\(server.id)-\(session.name)"
         case .worktrees(_, let project): return "worktrees-\(project.id)"
+        case .tasks(_, let project): return "tasks-\(project.id)"
         }
     }
 
     var server: Server {
         switch self {
-        case .new(let server), .edit(let server, _), .convert(let server, _), .worktrees(let server, _): return server
+        case .new(let server), .edit(let server, _), .convert(let server, _), .worktrees(let server, _), .tasks(let server, _):
+            return server
         }
     }
 }
@@ -101,7 +105,7 @@ struct ProjectFormSheet: View {
             let hasGroup = short != session.name
             _name = State(initialValue: hasGroup ? short : session.name)
             _group = State(initialValue: hasGroup ? sessionGroup : "")
-        case .new, .worktrees:
+        case .new, .worktrees, .tasks:
             projectID = UUID()
             createdAt = Date()
         }
@@ -113,6 +117,7 @@ struct ProjectFormSheet: View {
         case .edit: return String(localized: "Editar proyecto")
         case .convert: return String(localized: "Convertir en proyecto")
         case .worktrees: return String(localized: "Ramas en paralelo")
+        case .tasks: return String(localized: "Encargos")
         }
     }
 

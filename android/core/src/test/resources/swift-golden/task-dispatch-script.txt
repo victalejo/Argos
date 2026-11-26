@@ -1,0 +1,196 @@
+# argos-tasks v1: despachador de encargos de Argos (cola por proyecto).
+# Uso: dispatch.sh tick | stop <panel> | failure <panel> | enqueue <proyecto> <id>
+#      | cancel <proyecto> <encargo> | retry <proyecto> <encargo> | next <proyecto>
+base="${ARGOS_TASKS_DIR:-$HOME/.config/argos/tasks}"
+limits="${ARGOS_LIMITS_FILE:-$HOME/.config/argos/claude-limits.json}"
+self="$base/dispatch.sh"
+umask 077
+[ -d "$base" ] || exit 0
+
+lock() {
+  mkdir "$1/lock" 2>/dev/null && return 0
+  # Cerrojo de más de 5 min: de un despachador que murió.
+  [ -n "$(find "$1/lock" -prune -mmin +5 2>/dev/null)" ] || return 1
+  mv "$1/lock" "$1/lock.old.$$" 2>/dev/null || return 1
+  rm -rf "$1/lock.old.$$"; mkdir "$1/lock" 2>/dev/null
+}
+unlock() { rm -rf "$1/lock"; }
+meta() { sed -n "s/^$2=//p" "$1/meta" 2>/dev/null | head -n 1; }
+state() { cat "$1/state" 2>/dev/null; }
+put() { printf '%s\n' "$3" > "$1/$2.$$" && mv -f "$1/$2.$$" "$1/$2"; }
+
+# Primer encargo del proyecto en el estado $2 (por orden de la cola).
+first_in() {
+  for t in "$1"/[0-9]*-*; do
+    [ -d "$t" ] || continue
+    [ "$(state "$t")" = "$2" ] && { printf '%s\n' "$t"; return 0; }
+  done
+  return 1
+}
+
+# ¿Puede recibir un encargo el panel? Claude libre: sin estado «trabajando/esperando»
+# y sin rastro de trabajo en pantalla (como el sondeo de la app).
+idle() {
+  o=$(tmux -u show-options -pqv -t "$1" @argos_claude 2>/dev/null)
+  case "$o" in working|waiting) return 1 ;; esac
+  s=$(tmux -u capture-pane -p -t "$1" 2>/dev/null) || return 1
+  printf '%s\n' "$s" | tail -n 4 | grep -q 'esc to interrupt' && return 1
+  printf '%s\n' "$s" | grep -q '^[^ ]* Waiting for [0-9]* background' && return 1
+  return 0
+}
+
+# Claude no está abierto en el panel: hay un shell en primer plano.
+shell_only() {
+  c=$(tmux -u display-message -p -t "$1" '#{pane_current_command}' 2>/dev/null)
+  case "$c" in sh|bash|zsh|fish|dash|ksh|tcsh|csh|-sh|-bash|-zsh) return 0 ;; esac
+  return 1
+}
+
+# Frenos de uso y de memoria. Imprime el motivo si no se debe lanzar.
+blocked() {
+  if [ -f "$limits" ] && grep -qs 'argos-claude-limits' "$HOME/.claude/settings.json"; then
+    u=$(LC_ALL=C awk -v now="$(date +%s)" -v top=85 '
+      { while (match($0, /"used_percentage":[0-9.]+,"resets_at":[0-9]+/)) {
+          r = substr($0, RSTART, RLENGTH); $0 = substr($0, RSTART + RLENGTH)
+          split(r, a, /[:,]/); if (a[4] + 0 > now && a[2] + 0 >= top) hit = 1 } }
+      END { if (hit) print "limit" }' "$limits" 2>/dev/null)
+    [ -n "$u" ] && { echo "limit"; return 0; }
+  fi
+  if [ -r /proc/meminfo ]; then
+    m=$(awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} /^SwapTotal:/{st=$2} /^SwapFree:/{sf=$2}
+      END { if (t + st > 0 && (a + sf) * 1000 < 200 * (t + st)) print "memory" }' /proc/meminfo 2>/dev/null)
+    [ -n "$m" ] && { echo "memory"; return 0; }
+  fi
+  return 1
+}
+
+# Lanza el encargo $2 del proyecto $1 en su panel. $3=1: Claude acaba de terminar
+# (hook Stop), no hace falta mirar si está libre.
+launch() {
+  t=$2
+  session=$(meta "$t" session); window=$(meta "$t" window)
+  pane=$(tmux -u list-panes -t "=$session:$window" -F '#{pane_id}' 2>/dev/null | head -n 1)
+  if [ -z "$pane" ]; then put "$t" reason "no-pane"; return 1; fi
+  if shell_only "$pane"; then put "$t" reason "no-claude"; return 1; fi
+  if [ "$3" != 1 ] && ! idle "$pane"; then put "$t" reason "busy"; return 1; fi
+  why=$(blocked) && { put "$t" reason "$why"; return 1; }
+  buf="argos-task-$$"
+  if [ "$(meta "$t" context)" = clear ]; then
+    tmux -u send-keys -t "$pane" /clear Enter 2>/dev/null; sleep 2
+  fi
+  if [ "$(meta "$t" resume)" = 1 ]; then
+    printf '%s' "Continúa con el encargo anterior donde lo dejaste." > "$t/prompt.resume"
+    src="$t/prompt.resume"
+  else
+    src="$t/prompt"
+  fi
+  tmux -u load-buffer -b "$buf" "$src" 2>/dev/null || { put "$t" reason "tmux"; return 1; }
+  tmux -u paste-buffer -p -d -b "$buf" -t "$pane" 2>/dev/null || { put "$t" reason "tmux"; return 1; }
+  sleep 1
+  tmux -u send-keys -t "$pane" Enter 2>/dev/null
+  tmux -u set-option -p -t "$pane" @argos_claude working 2>/dev/null
+  put "$t" pane "$pane"; put "$t" started "$(date +%s)"; rm -f "$t/reason"
+  put "$t" state running
+  return 0
+}
+
+# Avanza un proyecto: si nada corre, lanza el primer pendiente.
+advance() {
+  p=$1
+  lock "$p" || return 0
+  if ! first_in "$p" running >/dev/null; then
+    # Pausado por el límite de uso: se reanuda solo cuando ya no hay freno.
+    if t=$(first_in "$p" paused) && [ "$(cat "$t/reason" 2>/dev/null)" = limit ] && ! blocked >/dev/null; then
+      put "$t" state pending
+    fi
+    if t=$(first_in "$p" pending); then launch "$p" "$t" "$2"; fi
+  fi
+  unlock "$p"
+}
+
+# El encargo que corre en el panel $1 (o nada).
+running_on() {
+  for t in "$base"/*/[0-9]*-*; do
+    [ -d "$t" ] || continue
+    [ "$(state "$t")" = running ] && [ "$(cat "$t/pane" 2>/dev/null)" = "$1" ] && { printf '%s\n' "$t"; return 0; }
+  done
+  return 1
+}
+
+# Commit (y push) al terminar un encargo, si lo pide. En segundo plano: un hook
+# tiene pocos segundos.
+commit_task() {
+  dir=$(meta "$1" dir); [ -d "$dir" ] || return 0
+  git -C "$dir" add -A 2>/dev/null
+  git -C "$dir" diff --cached --quiet 2>/dev/null && return 0
+  git -C "$dir" commit -q -m "$(meta "$1" title)" -m "Encargo de Argos." >/dev/null 2>&1 || { put "$1" reason "commit"; return 0; }
+  [ "$(meta "$1" push)" = 1 ] && { git -C "$dir" push -q >/dev/null 2>&1 || put "$1" reason "push"; }
+  return 0
+}
+
+case "$1" in
+  tick)
+    for p in "$base"/*/; do
+      p=${p%/}; [ "${p##*/}" = incoming ] && continue
+      [ -d "$p" ] && advance "$p" 0
+    done
+    ;;
+  next)
+    [ -d "$base/$2" ] && advance "$base/$2" 1
+    ;;
+  stop|failure)
+    [ -n "$2" ] || exit 0
+    t=$(running_on "$2") || exit 0
+    p=${t%/*}
+    # `Stop` llega al acabar el turno principal aunque queden subagentes en segundo
+    # plano: el encargo no ha terminado (habrá otro `Stop` cuando acaben).
+    if [ "$1" = stop ] && tmux -u capture-pane -p -t "$2" 2>/dev/null | grep -q '^[^ ]* Waiting for [0-9]* background'; then
+      exit 0
+    fi
+    if [ "$1" = stop ]; then
+      put "$t" finished "$(date +%s)"; put "$t" state done
+      if [ "$(meta "$t" commit)" = 1 ]; then
+        (commit_task "$t"; sh "$self" next "${p##*/}") >/dev/null 2>&1 &
+      else
+        (sleep 2; sh "$self" next "${p##*/}") >/dev/null 2>&1 &
+      fi
+    else
+      i=$(head -c 4096)
+      case "$i" in
+        *rate_limit*|*usage*limit*|*'429'*) put "$t" reason limit ;;
+        *) put "$t" reason api ;;
+      esac
+      printf 'resume=1\n' >> "$t/meta"
+      put "$t" state paused
+    fi
+    ;;
+  enqueue)
+    # La app dejó incoming/<id>.prompt y .meta: se les da el siguiente número.
+    proj=$2; id=$3
+    case "$id$proj" in *[!A-Za-z0-9_-]*|'') exit 0 ;; esac
+    p="$base/$proj"; mkdir -p "$p" || exit 0
+    lock "$p" || exit 0
+    # Sin ceros a la izquierda: `$((000012 + 1))` sería octal.
+    n=$(ls -d "$p"/[0-9]*-* 2>/dev/null | sed 's|.*/||; s|-.*||; s/^0*//' | sort -n | tail -n 1)
+    n=$(printf '%06d' $(( ${n:-0} + 1 )) 2>/dev/null) || { unlock "$p"; exit 0; }
+    t="$p/$n-$id"
+    mkdir "$t" && mv -f "$base/incoming/$id.prompt" "$t/prompt" && mv -f "$base/incoming/$id.meta" "$t/meta" \
+      && put "$t" state pending
+    unlock "$p"
+    advance "$p" 0
+    ;;
+  cancel|retry)
+    case "$2$3" in *[!A-Za-z0-9_-]*|'') exit 0 ;; esac
+    t="$base/$2/$3"; [ -d "$t" ] || exit 0
+    lock "$base/$2" || exit 0
+    s=$(state "$t")
+    if [ "$1" = cancel ]; then
+      case "$s" in pending|paused) put "$t" state cancelled ;; esac
+    else
+      case "$s" in paused|failed) put "$t" state pending ;; esac
+    fi
+    unlock "$base/$2"
+    [ "$1" = retry ] && advance "$base/$2" 0
+    ;;
+esac
+exit 0

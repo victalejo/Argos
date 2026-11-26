@@ -23,6 +23,8 @@ struct SessionsColumnProjectSheets: ViewModifier {
                 if let vm = model.vms[request.server.id] {
                     if case .worktrees(_, let project) = request {
                         WorktreesSheet(project: project, vm: vm)
+                    } else if case .tasks(_, let project) = request {
+                        ClaudeTasksSheet(project: project, vm: vm)
                     } else {
                         ProjectFormSheet(request: request, vm: vm)
                     }

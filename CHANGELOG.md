@@ -7,6 +7,12 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [Unreleased]
 
 ### Añadido
+- **Cola de encargos para Claude (Mac e iPhone/iPad).** «Encargos…» en el menú del proyecto
+  (en el iPhone, el botón de la portapapeles en el proyecto): escribe lo siguiente que debe
+  hacer Claude y empezará solo en cuanto termine lo que está haciendo, uno tras otro, aunque
+  la app esté cerrada. Cada encargo puede empezar con la conversación limpia y hacer commit
+  al terminar. Si Claude se detiene por el límite de uso, la cola se pausa y sigue sola al
+  reiniciarse la ventana. Necesita el indicador de Claude activado.
 - **Uso de Claude por proyecto y día (Mac e iPhone/iPad).** En «Uso y límites de Claude» (menú
   del servidor): tokens, respuestas y coste equivalente en precios de la API de hoy, de los
   últimos 7 o de los últimos 30 días, con una gráfica por día y el desglose por proyecto y por

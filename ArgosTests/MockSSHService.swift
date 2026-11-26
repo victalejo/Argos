@@ -125,6 +125,14 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     /// Lecturas sucesivas del uso (la última se repite).
     var claudeUsageSnapshots: [ClaudeUsageSnapshot] = [ClaudeUsageSnapshot(status: .never, records: [])]
     func startClaudeUsageIndex() async throws { claudeUsageStarts += 1 }
+    private(set) var enqueuedTasks: [(ClaudeTaskRequest, String)] = []
+    var tasks: [ClaudeTask] = []
+    private(set) var taskActions: [String] = []
+    func ensureTaskDispatcher() async throws {}
+    func enqueueTask(_ request: ClaudeTaskRequest, projectPath: String) async throws { enqueuedTasks.append((request, projectPath)) }
+    func listTasks() async throws -> [ClaudeTask] { tasks }
+    func cancelTask(_ task: ClaudeTask) async throws { taskActions.append("cancel \(task.folder)") }
+    func retryTask(_ task: ClaudeTask) async throws { taskActions.append("retry \(task.folder)") }
     func readClaudeUsage() async throws -> ClaudeUsageSnapshot {
         claudeUsageSnapshots.count > 1 ? claudeUsageSnapshots.removeFirst() : claudeUsageSnapshots[0]
     }

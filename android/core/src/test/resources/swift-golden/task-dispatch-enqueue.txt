@@ -1,0 +1,1 @@
+sh "$HOME/.config/argos/tasks/dispatch.sh" 'enqueue' '-Users-v-app' 'abc123def456' >/dev/null 2>&1; exit 0

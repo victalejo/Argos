@@ -1,0 +1,10 @@
+v=1
+title=Arregla los tests
+source=manual
+target=terminal
+session=app
+window=2
+context=clear
+dir=/Users/v/app
+commit=1
+push=0

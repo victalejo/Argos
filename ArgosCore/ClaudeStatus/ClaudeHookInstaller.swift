@@ -51,6 +51,24 @@ enum ClaudeHookInstaller {
     // Interrumpir con Esc no dispara ningún hook: lo corrige el sondeo mirando la
     // pantalla (`ClaudeScreenSignal`).
 
+    /// Avisos al despachador de encargos (`ClaudeTaskScript`): al acabar un turno avanza la
+    /// cola; al fallar, la pausa. Solo si el despachador está instalado.
+    private static let dispatchEntries: [(event: String, argument: String)] = [
+        ("Stop", "stop"),
+        ("StopFailure", "failure"),
+    ]
+
+    static func dispatchCommand(_ argument: String) -> String {
+        let script = "\"$HOME/\(ClaudeTaskScript.scriptRelativePath)\""
+        return "[ -n \"$TMUX_PANE\" ] && [ -f \(script) ] && sh \(script) \(argument) \"$TMUX_PANE\" >/dev/null 2>&1; exit 0 # \(marker)"
+    }
+
+    /// Todos los hooks de Argos: (evento, matcher, comando).
+    private static var allHooks: [(event: String, matcher: String?, command: String)] {
+        entries.map { ($0.event, $0.matcher, command(setting: $0.state)) }
+            + dispatchEntries.map { ($0.event, nil, dispatchCommand($0.argument)) }
+    }
+
     /// Comando del hook. Sin `$TMUX_PANE` (Claude fuera de tmux) no hace nada.
     static func command(setting state: ClaudeActivity?) -> String {
         let action = state.map { "set-option -p -t \"$TMUX_PANE\" \(option) \($0.rawValue)" }
@@ -84,10 +102,10 @@ enum ClaudeHookInstaller {
     /// y matcher)? Una versión antigua cuenta como no instalada, para actualizarla.
     static func isInstalled(in settings: [String: Any]) -> Bool {
         let hooks = settings["hooks"] as? [String: Any] ?? [:]
-        return entries.allSatisfy { entry in
+        return allHooks.allSatisfy { entry in
             groups(hooks[entry.event]).contains { group in
                 group["matcher"] as? String == entry.matcher
-                    && handlers(group).contains { $0["command"] as? String == command(setting: entry.state) }
+                    && handlers(group).contains { $0["command"] as? String == entry.command }
             }
         }
     }
@@ -105,11 +123,11 @@ enum ClaudeHookInstaller {
     static func installing(into settings: [String: Any]) -> [String: Any] {
         var result = removing(from: settings)
         var hooks = result["hooks"] as? [String: Any] ?? [:]
-        for entry in entries {
+        for entry in allHooks {
             var group: [String: Any] = [
                 "hooks": [[
                     "type": "command",
-                    "command": command(setting: entry.state),
+                    "command": entry.command,
                     "timeout": 5,
                 ] as [String: Any]],
             ]

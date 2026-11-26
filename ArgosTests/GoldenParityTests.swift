@@ -59,6 +59,7 @@ struct GoldenParityTests {
         "limits-script", "limits-command", "limits-poll", "limits-installed", "limits-installed-empty",
         "limits-removed", "limits-previous",
         "usage-index-script", "usage-index-start", "usage-index-read",
+        "task-dispatch-script", "task-list", "task-dispatch-enqueue", "task-meta",
     ]
 
     @Test func losPendientesDePortTienenGenerador() throws {

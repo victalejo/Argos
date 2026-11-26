@@ -62,6 +62,27 @@ object ClaudeHookInstaller {
     )
     // Interrumpir con Esc no dispara ningún hook: lo corrige el sondeo mirando la pantalla.
 
+    /** Ruta del despachador de encargos (ver `ClaudeTaskScript` en Swift y `docs/encargos.md`). */
+    const val TASK_DISPATCHER_RELATIVE_PATH = ".config/argos/tasks/dispatch.sh"
+
+    /**
+     * Avisos al despachador de encargos: al acabar un turno avanza la cola; al fallar, la pausa.
+     * Solo si el despachador está instalado.
+     */
+    private val dispatchEntries = listOf("Stop" to "stop", "StopFailure" to "failure")
+
+    fun dispatchCommand(argument: String): String {
+        val script = "\"\$HOME/$TASK_DISPATCHER_RELATIVE_PATH\""
+        return "[ -n \"\$TMUX_PANE\" ] && [ -f $script ] && sh $script $argument \"\$TMUX_PANE\" >/dev/null 2>&1; exit 0 # $MARKER"
+    }
+
+    private data class Hook(val event: String, val matcher: String?, val command: String)
+
+    /** Todos los hooks de Argos: los del indicador y los del despachador. */
+    private val allHooks: List<Hook>
+        get() = entries.map { Hook(it.event, it.matcher, command(it.state)) } +
+            dispatchEntries.map { (event, argument) -> Hook(event, null, dispatchCommand(argument)) }
+
     /** Comando del hook. Sin `$TMUX_PANE` (Claude fuera de tmux) no hace nada. */
     fun command(state: ClaudeActivity?): String {
         val action = state?.let { "set-option -p -t \"\$TMUX_PANE\" $OPTION ${it.rawValue}" }
@@ -94,11 +115,10 @@ object ClaudeHookInstaller {
      */
     fun isInstalled(settings: JsonObject): Boolean {
         val hooks = settings["hooks"] as? JsonObject ?: JsonObject(emptyMap())
-        return entries.all { entry ->
-            val expected = command(entry.state)
+        return allHooks.all { entry ->
             groups(hooks[entry.event]).any { group ->
                 group["matcher"].stringOrNull == entry.matcher &&
-                    handlers(group).any { it["command"].stringOrNull == expected }
+                    handlers(group).any { it["command"].stringOrNull == entry.command }
             }
         }
     }
@@ -119,11 +139,11 @@ object ClaudeHookInstaller {
     fun installing(settings: JsonObject): JsonObject {
         val result = removing(settings)
         val initial = result["hooks"] as? JsonObject ?: JsonObject(emptyMap())
-        val hooks = entries.fold(initial) { current, entry ->
+        val hooks = allHooks.fold(initial) { current, entry ->
             val handler = JsonObject(
                 mapOf(
                     "type" to JsonPrimitive("command"),
-                    "command" to JsonPrimitive(command(entry.state)),
+                    "command" to JsonPrimitive(entry.command),
                     "timeout" to JsonPrimitive(HOOK_TIMEOUT_SECONDS),
                 ),
             )
