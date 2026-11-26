@@ -6,7 +6,7 @@ import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
 import com.iaportafolio.argos.core.keys.ServerTransfer
 import com.iaportafolio.argos.testing.IMPORT_NOW
-import com.iaportafolio.argos.testing.transfer
+import com.iaportafolio.argos.testing.QR_FINGERPRINT
 import com.iaportafolio.argos.ui.importer.LuminanceFrame
 import com.iaportafolio.argos.ui.importer.QrFrameDecoder
 import org.junit.jupiter.api.Test
@@ -20,7 +20,21 @@ import kotlin.test.assertNull
 /** El decodificador ZXing con QR generados en el test a partir de un `argos://` real. */
 class QrFrameDecoderTest {
 
-    private val link = transfer().urlString()
+    /**
+     * Enlace FIJO: con la clave y el comentario aleatorios de `transfer()`, cada ejecución
+     * generaba un QR distinto y algunos no los detectaba ZXing (fallaba un caso distinto cada
+     * vez en la CI).
+     */
+    private val link = ServerTransfer(
+        name = "dev",
+        host = "dev.example.com",
+        port = 22,
+        username = "victor",
+        keySeed = ByteArray(32) { (it * 7 + 3).toByte() },
+        keyComment = "argos-iphone-20261108-6f1c2a9e-3b4d-4e5f-8a7b-0c1d2e3f4a5b",
+        hostKeyFingerprint = QR_FINGERPRINT,
+        createdAt = IMPORT_NOW,
+    ).urlString()
     private val decoder = QrFrameDecoder()
 
     @Test
