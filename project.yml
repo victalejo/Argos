@@ -17,6 +17,9 @@ options:
     iOS: "18.0"
   createIntermediateGroups: true
   groupSortPosition: top
+  # Fijo: si no, cada versión de XcodeGen pone su propio LastUpgradeCheck y la CI
+  # (que instala la última con brew) ve drift en el .pbxproj.
+  xcodeVersion: "16.0"
 
 # --- Swift Package Manager dependencies ---------------------------------------
 packages:
