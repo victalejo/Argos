@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-26
+
 ### Añadido
 - **Cola de encargos para Claude (Mac e iPhone/iPad).** «Encargos…» en el menú del proyecto
   (en el iPhone, el botón de la portapapeles en el proyecto): escribe lo siguiente que debe
@@ -21,7 +23,7 @@ El detalle por commit vive en el historial git (Conventional Commits):
 - **Límites de Claude (Mac, iPhone/iPad y Android).** Cuánto llevas de la ventana de 5 horas y de
   la semanal de tu suscripción de Claude, con la hora a la que se reinician, en la lista de
   cada servidor; al llegar al 85 % la línea se convierte en aviso (y en el Mac, en una
-  notificación). Es opcional: se activa por servidor desde «Límites de Claude» en su menú.
+  notificación). Es opcional: se activa por servidor desde «Uso y límites de Claude» en su menú.
   Como Claude Code solo da esos datos a su barra de estado, Argos pone la suya, que los
   guarda y después ejecuta la que ya tuvieras (se sigue viendo igual); al quitarla vuelve
   la tuya.
