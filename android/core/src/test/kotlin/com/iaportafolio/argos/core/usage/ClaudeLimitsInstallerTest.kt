@@ -1,6 +1,7 @@
 package com.iaportafolio.argos.core.usage
 
 import com.iaportafolio.argos.core.agent.stringOrNull
+import com.iaportafolio.argos.core.status.ClaudeHookInstaller
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -49,8 +50,10 @@ class ClaudeLimitsInstallerTest {
         val result = ClaudeLimitsInstaller.installing(userStatusLine("~/bin/mi-barra.sh", padding = 2))
         assertEquals("~/bin/mi-barra.sh", result.previousCommand)
         assertEquals(JsonPrimitive(2), statusLine(result.settings)?.get("padding"))
-        // Quitarla devuelve la del usuario.
-        val restored = ClaudeLimitsInstaller.removing(result.settings, "~/bin/mi-barra.sh\n")
+        // Quitarla devuelve la del usuario (leída del archivo con cabecera).
+        val file = ClaudeLimitsInstaller.previousFileContents(result.previousCommand ?: "")
+        val previous = assertNotNull(ClaudeLimitsInstaller.previousCommand(file))
+        val restored = ClaudeLimitsInstaller.removing(result.settings, previous)
         assertEquals("~/bin/mi-barra.sh", statusLine(restored)?.get("command").stringOrNull)
         assertEquals(JsonPrimitive(2), statusLine(restored)?.get("padding"))
     }
@@ -74,8 +77,28 @@ class ClaudeLimitsInstallerTest {
     fun `quitar sin anterior borra statusline`() {
         val installed = ClaudeLimitsInstaller.installing(JsonObject(emptyMap())).settings
         assertNull(ClaudeLimitsInstaller.removing(installed, "")["statusLine"])
-        assertNull(ClaudeLimitsInstaller.removing(installed, null)["statusLine"])
         assertNull(ClaudeLimitsInstaller.removing(installed, " \n")["statusLine"])
+    }
+
+    @Test
+    fun `un archivo anterior sin cabecera no vale como anterior`() {
+        assertNull(ClaudeLimitsInstaller.previousCommand(""), "archivo ausente")
+        assertNull(ClaudeLimitsInstaller.previousCommand("mi-barra.sh\n"))
+        assertEquals("", ClaudeLimitsInstaller.previousCommand(ClaudeLimitsInstaller.previousFileContents("")))
+        assertEquals("a | b", ClaudeLimitsInstaller.previousCommand(ClaudeLimitsInstaller.previousFileContents("a | b")))
+    }
+
+    @Test
+    fun `estado de la instalacion`() {
+        val installed = ClaudeLimitsInstaller.installing(JsonObject(emptyMap())).settings
+        val previous = ClaudeLimitsInstaller.previousFileContents("")
+        val script = ClaudeLimitsInstaller.SCRIPT
+        assertEquals(ClaudeLimitsInstallState.Inactive, ClaudeLimitsInstallState.of(JsonObject(emptyMap()), previous, script))
+        assertEquals(ClaudeLimitsInstallState.Active, ClaudeLimitsInstallState.of(installed, previous, script))
+        assertEquals(ClaudeLimitsInstallState.NeedsRepair(previousMissing = true), ClaudeLimitsInstallState.of(installed, "", script))
+        assertEquals(ClaudeLimitsInstallState.NeedsRepair(previousMissing = false), ClaudeLimitsInstallState.of(installed, previous, "viejo"))
+        val oldCommand = userStatusLine("sh ~/.config/argos/otra.sh # argos-claude-limits")
+        assertEquals(ClaudeLimitsInstallState.NeedsRepair(previousMissing = false), ClaudeLimitsInstallState.of(oldCommand, previous, script))
     }
 
     @Test
@@ -128,7 +151,8 @@ class ClaudeLimitsInstallerTest {
         assumeShell(shell)
         val box = Sandbox()
         try {
-            box.file(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH).writeText("printf 'mi barra: '; cat")
+            box.file(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH)
+                .writeText(ClaudeLimitsInstaller.previousFileContents("printf 'mi barra: '; cat"))
             val (status, output) = box.run(shell, withLimits)
             assertEquals(0, status)
             assertEquals("mi barra: $withLimits", output)
@@ -142,9 +166,14 @@ class ClaudeLimitsInstallerTest {
                 Files.getPosixFilePermissions(saved.toPath()),
             )
 
-            // Y el comando del sondeo lo lee.
-            val (_, poll) = box.exec(listOf("/bin/sh", "-c", ClaudeLimitsInstaller.POLL_COMMAND))
-            assertEquals(8.0, ClaudeLimitsReading.parse(poll)?.windows?.first()?.usedPercent)
+            // El sondeo solo lo lee con la statusline de Argos puesta.
+            fun poll() = ClaudeLimitsReading.parse(box.exec(listOf("/bin/sh", "-c", ClaudeLimitsInstaller.POLL_COMMAND)).second)
+            assertNull(poll())
+            box.file(".claude").mkdirs()
+            box.file(".claude/settings.json").writeText(
+                ClaudeHookInstaller.serialize(ClaudeLimitsInstaller.installing(JsonObject(emptyMap())).settings),
+            )
+            assertEquals(8.0, poll()?.windows?.first()?.usedPercent)
         } finally {
             box.remove()
         }
@@ -168,11 +197,11 @@ class ClaudeLimitsInstallerTest {
     }
 
     @Test
-    fun `el sondeo sin archivo solo da la hora y no hay lectura`() {
+    fun `el sondeo sin statusline solo da la hora y no hay lectura`() {
         val box = Sandbox()
         try {
             val (status, poll) = box.exec(listOf("/bin/sh", "-c", ClaudeLimitsInstaller.POLL_COMMAND))
-            assertEquals(1, status, "cat falla sin archivo; el sondeo lo tolera")
+            assertEquals(1, status, "sin statusline de Argos no se lee nada; el sondeo lo tolera")
             assertTrue(poll.startsWith("now "))
             assertNull(ClaudeLimitsReading.parse(poll))
         } finally {

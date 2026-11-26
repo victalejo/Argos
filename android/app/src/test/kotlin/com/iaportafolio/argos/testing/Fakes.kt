@@ -6,6 +6,8 @@ import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.monitor.ServerMemoryReader
 import com.iaportafolio.argos.core.monitor.ServerMemoryReading
 import com.iaportafolio.argos.core.usage.ClaudeLimitsAccess
+import com.iaportafolio.argos.core.usage.ClaudeLimitsException
+import com.iaportafolio.argos.core.usage.ClaudeLimitsInstallState
 import com.iaportafolio.argos.core.usage.ClaudeLimitsReading
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.status.ClaudeActivityReading
@@ -152,7 +154,7 @@ open class FakeSSHService : SSHServicing, ClaudeActivityReading, ClaudeHookMaint
     var limits: ClaudeLimitsReading? = null
     var limitsError: Exception? = null
     var limitsReads = 0
-    var limitsInstalled = false
+    var limitsState: ClaudeLimitsInstallState = ClaudeLimitsInstallState.Inactive
 
     override suspend fun claudeLimits(): ClaudeLimitsReading? {
         limitsReads++
@@ -160,21 +162,24 @@ open class FakeSSHService : SSHServicing, ClaudeActivityReading, ClaudeHookMaint
         return limits
     }
 
-    override suspend fun claudeLimitsInstalled(): Boolean {
+    override suspend fun claudeLimitsState(): ClaudeLimitsInstallState {
         limitsError?.let { throw it }
-        return limitsInstalled
+        return limitsState
     }
 
     override suspend fun installClaudeLimits() {
         calls += "installLimits"
         limitsError?.let { throw it }
-        limitsInstalled = true
+        // Reparar con la copia del anterior perdida no la recupera (como el servicio real).
+        limitsState = (limitsState as? ClaudeLimitsInstallState.NeedsRepair)?.takeIf { it.previousMissing }
+            ?: ClaudeLimitsInstallState.Active
     }
 
     override suspend fun uninstallClaudeLimits() {
         calls += "uninstallLimits"
         limitsError?.let { throw it }
-        limitsInstalled = false
+        if ((limitsState as? ClaudeLimitsInstallState.NeedsRepair)?.previousMissing == true) throw ClaudeLimitsException.PreviousMissing()
+        limitsState = ClaudeLimitsInstallState.Inactive
     }
 
     /** Memoria que devuelve [serverMemory] (`null` = el servidor no la da). No se anota en [calls]. */

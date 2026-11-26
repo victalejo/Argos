@@ -37,6 +37,8 @@ import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.status.ClaudeHookInstaller
 import com.iaportafolio.argos.core.status.ClaudeHookMaintenance
 import com.iaportafolio.argos.core.usage.ClaudeLimitsAccess
+import com.iaportafolio.argos.core.usage.ClaudeLimitsException
+import com.iaportafolio.argos.core.usage.ClaudeLimitsInstallState
 import com.iaportafolio.argos.core.usage.ClaudeLimitsInstaller
 import com.iaportafolio.argos.core.usage.ClaudeLimitsReading
 import com.iaportafolio.argos.core.status.ClaudeStatusCommands
@@ -53,6 +55,7 @@ import com.iaportafolio.argos.core.ports.ListeningPort
 import com.iaportafolio.argos.core.ports.PortForwardOperations
 import com.iaportafolio.argos.core.ports.PortForwardRequest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.json.JsonObject
 import java.io.OutputStream
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.milliseconds
@@ -308,24 +311,47 @@ class SshjSSHService internal constructor(private val connection: SshjConnection
 
     // MARK: Límites de uso de Claude (port de ClaudeUsage/SSHClaudeLimits.swift)
 
-    override suspend fun claudeLimitsInstalled(): Boolean = ClaudeLimitsInstaller.isInstalled(readClaudeSettings())
-
-    /** Primero el script y el comando anterior (la statusline nueva debe encontrarlos); después settings.json. */
-    override suspend fun installClaudeLimits() {
-        val installation = ClaudeLimitsInstaller.installing(readClaudeSettings())
-        writeHomeFilePrivately(ClaudeLimitsInstaller.SCRIPT.toByteArray(Charsets.UTF_8), ClaudeLimitsInstaller.SCRIPT_RELATIVE_PATH, backup = false)
-        installation.previousCommand?.let { previous ->
-            writeHomeFilePrivately(previous.toByteArray(Charsets.UTF_8), ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH, backup = false)
-        }
-        val content = ClaudeHookInstaller.serialize(installation.settings).toByteArray(Charsets.UTF_8)
-        writeHomeFilePrivately(content, ClaudeStatusCommands.CLAUDE_SETTINGS_RELATIVE_PATH, backup = true)
+    override suspend fun claudeLimitsState(): ClaudeLimitsInstallState {
+        val settings = readClaudeSettings()
+        if (!ClaudeLimitsInstaller.isInstalled(settings)) return ClaudeLimitsInstallState.Inactive
+        return ClaudeLimitsInstallState.of(
+            settings,
+            previousFile = readHomeFile(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH),
+            script = readHomeFile(ClaudeLimitsInstaller.SCRIPT_RELATIVE_PATH),
+        )
     }
 
+    /**
+     * Primero el script y el comando anterior (la statusline nueva debe encontrarlos); después
+     * settings.json, solo si no cambió desde que se leyó. Ya puesta, nunca inventa el anterior.
+     */
+    override suspend fun installClaudeLimits() {
+        val before = readHomeFile(ClaudeStatusCommands.CLAUDE_SETTINGS_RELATIVE_PATH)
+        val installation = ClaudeLimitsInstaller.installing(ClaudeHookInstaller.parseSettings(before))
+        writeHomeFilePrivately(ClaudeLimitsInstaller.SCRIPT.toByteArray(Charsets.UTF_8), ClaudeLimitsInstaller.SCRIPT_RELATIVE_PATH, backup = false)
+        installation.previousCommand?.let { previous ->
+            val contents = ClaudeLimitsInstaller.previousFileContents(previous)
+            writeHomeFilePrivately(contents.toByteArray(Charsets.UTF_8), ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH, backup = false)
+        }
+        writeClaudeSettings(installation.settings, readAs = before)
+    }
+
+    /** Sin la cabecera del anterior se niega sin tocar settings.json; después borra los límites guardados. */
     override suspend fun uninstallClaudeLimits() {
-        val settings = readClaudeSettings()
-        if (!ClaudeLimitsInstaller.isInstalled(settings)) return
-        val previous = readHomeFile(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH)
-        val content = ClaudeHookInstaller.serialize(ClaudeLimitsInstaller.removing(settings, previous)).toByteArray(Charsets.UTF_8)
+        val before = readHomeFile(ClaudeStatusCommands.CLAUDE_SETTINGS_RELATIVE_PATH)
+        val settings = ClaudeHookInstaller.parseSettings(before)
+        if (ClaudeLimitsInstaller.isInstalled(settings)) {
+            val previous = ClaudeLimitsInstaller.previousCommand(readHomeFile(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH))
+                ?: throw ClaudeLimitsException.PreviousMissing()
+            writeClaudeSettings(ClaudeLimitsInstaller.removing(settings, previous), readAs = before)
+        }
+        runChecked("rm -f \"\$HOME/${ClaudeLimitsInstaller.LIMITS_RELATIVE_PATH}\"", "No se pudieron borrar los límites guardados.")
+    }
+
+    /** settings.json se relee justo antes de escribirlo: Claude Code u otro dispositivo pueden haberlo tocado. */
+    private suspend fun writeClaudeSettings(settings: JsonObject, readAs: String) {
+        if (readHomeFile(ClaudeStatusCommands.CLAUDE_SETTINGS_RELATIVE_PATH) != readAs) throw ClaudeLimitsException.SettingsChanged()
+        val content = ClaudeHookInstaller.serialize(settings).toByteArray(Charsets.UTF_8)
         writeHomeFilePrivately(content, ClaudeStatusCommands.CLAUDE_SETTINGS_RELATIVE_PATH, backup = true)
     }
 

@@ -286,14 +286,16 @@ class ProjectsViewModel(
     }
 
     /**
-     * Aplica una lectura de límites. Devuelve el aviso si una ventana acaba de pasar al 85 % (o al
-     * 95 %); hoy Android no lo notifica (como iOS), pero queda calculado.
+     * Aplica una lectura de límites: dentro de una misma ventana se queda con el uso más alto visto.
+     * Devuelve los avisos de las ventanas que acaban de pasar al 85 % (o al 95 %); hoy Android no
+     * los notifica (como iOS), pero quedan calculados.
      */
-    fun absorbLimits(reading: ClaudeLimitsReading?): ClaudeLimitAlert? {
-        val previous = state.value.claudeLimits
-        val current = reading?.let { ClaudeLimitsStatus.evaluate(it, clock()) }
-        mutableState.update { it.copy(claudeLimits = current) }
-        return ClaudeLimitAlert.transition(previous, current)
+    fun absorbLimits(reading: ClaudeLimitsReading?): List<ClaudeLimitAlert> {
+        val now = clock()
+        val previous = state.value.claudeLimits?.reading
+        val merged = reading?.merging(previous)
+        mutableState.update { it.copy(claudeLimits = merged?.let { m -> ClaudeLimitsStatus.evaluate(m, now) }) }
+        return ClaudeLimitAlert.transitions(previous, merged, now)
     }
 
     /**

@@ -13,9 +13,12 @@ import kotlinx.serialization.json.JsonPrimitive
  * con la misma entrada (su barra se sigue viendo igual). Es opcional y se puede quitar: al quitarla
  * vuelve la anterior.
  *
- * El comando anterior se guarda en `~/.config/argos/statusline-previous` (texto plano; vacío = no
- * había). El script y el formato los comparten Mac, iPhone/iPad y Android (goldens `limits-*`):
- * cambiarlos solo de forma aditiva. El settings se representa como un [JsonObject] inmutable.
+ * El comando anterior se guarda en `~/.config/argos/statusline-previous`: una cabecera
+ * ([PREVIOUS_HEADER]) y debajo el comando (vacío = no había). Sin cabecera, el archivo falta o no es
+ * nuestro (p. ej. settings.json sincronizado desde otro servidor) y Argos se niega a quitar la
+ * statusline para no perder la del usuario. El script y el formato los comparten Mac, iPhone/iPad y
+ * Android (goldens `limits-*`): cambiarlos solo de forma aditiva. El settings se representa como un
+ * [JsonObject] inmutable.
  */
 object ClaudeLimitsInstaller {
 
@@ -41,17 +44,37 @@ object ClaudeLimitsInstaller {
         case ${'$'}i in
         *'"rate_limits"'*'"used_percentage"'*)
           umask 077
-          mkdir -p "${'$'}d" 2>/dev/null && { date +%s; printf '%s\n' "${'$'}i"; } > "${'$'}d/claude-limits.json.${'$'}${'$'}" 2>/dev/null \
-            && mv -f "${'$'}d/claude-limits.json.${'$'}${'$'}" "${'$'}d/claude-limits.json" 2>/dev/null
+          t="${'$'}d/claude-limits.json.${'$'}${'$'}"
+          mkdir -p "${'$'}d" 2>/dev/null && { date +%s; printf '%s\n' "${'$'}i"; } > "${'$'}t" 2>/dev/null \
+            && mv -f "${'$'}t" "${'$'}d/claude-limits.json" 2>/dev/null || rm -f "${'$'}t" 2>/dev/null
           ;;
         esac
-        p=${'$'}(cat "${'$'}d/statusline-previous" 2>/dev/null)
+        p=${'$'}(sed 1d "${'$'}d/statusline-previous" 2>/dev/null)
         [ -n "${'$'}p" ] && printf '%s' "${'$'}i" | sh -c "${'$'}p"
         exit 0
     """.trimIndent() + "\n"
 
-    /** Cuerpo de la sección `limits` del sondeo: hora del servidor y el archivo (si existe). */
-    const val POLL_COMMAND = "printf 'now %s\\n' \"\$(date +%s)\"; cat \"\$HOME/$LIMITS_RELATIVE_PATH\" 2>/dev/null"
+    /**
+     * Cuerpo de la sección `limits` del sondeo: hora del servidor y el archivo, solo si la statusline
+     * de Argos sigue puesta (tras quitarla no se enseñan datos viejos).
+     */
+    const val POLL_COMMAND = "printf 'now %s\\n' \"\$(date +%s)\"; " +
+        "grep -qs '$MARKER' \"\$HOME/.claude/settings.json\" && cat \"\$HOME/$LIMITS_RELATIVE_PATH\" 2>/dev/null"
+
+    // MARK: Comando anterior
+
+    /** Primera línea del archivo del comando anterior. */
+    const val PREVIOUS_HEADER = "# $MARKER statusline-previous v1"
+
+    /** Contenido del archivo: cabecera y el comando (`""` = no había statusline). */
+    fun previousFileContents(command: String): String = "$PREVIOUS_HEADER\n$command\n"
+
+    /** Comando anterior guardado. `null` si el archivo falta o no lleva la cabecera. */
+    fun previousCommand(fromFile: String): String? {
+        val lines = fromFile.split("\n")
+        if (lines.first() != PREVIOUS_HEADER) return null
+        return SwiftText.trimWhitespaceAndNewlines(lines.drop(1).joinToString("\n"))
+    }
 
     // MARK: Estado
 
@@ -82,16 +105,54 @@ object ClaudeLimitsInstaller {
     }
 
     /**
-     * Quita la statusline de Argos y devuelve la anterior ([previousCommand], del archivo). Sin
-     * anterior, quita `statusLine`. Si la actual no es la de Argos, no toca nada.
+     * Quita la statusline de Argos y devuelve la anterior ([previousCommand], ya leída del archivo;
+     * `""` = no había, y entonces se quita `statusLine`). Si la actual no es la de Argos, no toca nada.
      */
-    fun removing(settings: JsonObject, previousCommand: String?): JsonObject {
+    fun removing(settings: JsonObject, previousCommand: String): JsonObject {
         if (!isInstalled(settings)) return settings
-        val restored = previousCommand?.let(SwiftText::trimWhitespaceAndNewlines).orEmpty()
+        val restored = SwiftText.trimWhitespaceAndNewlines(previousCommand)
         if (restored.isEmpty()) return JsonObject(settings - "statusLine")
         val statusLine = settings["statusLine"] as? JsonObject ?: JsonObject(emptyMap())
         return JsonObject(settings + ("statusLine" to JsonObject(statusLine + ("command" to JsonPrimitive(restored)))))
     }
+}
+
+/** Estado de la statusline de límites en un servidor. */
+sealed interface ClaudeLimitsInstallState {
+    data object Inactive : ClaudeLimitsInstallState
+    data object Active : ClaudeLimitsInstallState
+
+    /**
+     * Está en settings.json pero falta el script, es de otra versión o falta el comando anterior
+     * guardado (p. ej. settings.json copiado o sincronizado desde otro servidor).
+     */
+    data class NeedsRepair(val previousMissing: Boolean) : ClaudeLimitsInstallState
+
+    companion object {
+        /** Decide el estado con settings.json y los archivos del servidor (`""` = no existe). */
+        fun of(settings: JsonObject, previousFile: String, script: String): ClaudeLimitsInstallState {
+            if (!ClaudeLimitsInstaller.isInstalled(settings)) return Inactive
+            val previousMissing = ClaudeLimitsInstaller.previousCommand(previousFile) == null
+            val outdated = script != ClaudeLimitsInstaller.SCRIPT || !ClaudeLimitsInstaller.isCurrent(settings)
+            return if (previousMissing || outdated) NeedsRepair(previousMissing) else Active
+        }
+    }
+}
+
+/** Fallos propios de poner o quitar la statusline (mensajes como los de Swift). */
+sealed class ClaudeLimitsException(message: String) : Exception(message) {
+    /** Sin la cabecera del comando anterior no se sabe cuál era la barra del usuario: no se toca. */
+    class PreviousMissing : ClaudeLimitsException(
+        "Falta ~/.config/argos/statusline-previous en este servidor (¿settings.json copiado o sincronizado " +
+            "desde otro?), así que Argos no sabe cuál era tu barra de estado y no la toca. Quítala desde el " +
+            "servidor donde la activaste o restaura ~/.claude/settings.json.argos-backup.",
+    )
+
+    /** settings.json cambió entre leerlo y escribirlo: no se pisa. */
+    class SettingsChanged : ClaudeLimitsException(
+        "~/.claude/settings.json cambió mientras Argos lo editaba (¿Claude Code o otro dispositivo?). " +
+            "No se modificó: vuelve a intentarlo.",
+    )
 }
 
 /**
@@ -100,13 +161,20 @@ object ClaudeLimitsInstaller {
  * [com.iaportafolio.argos.core.SSHServicing] para no obligar a los dobles de prueba.
  */
 interface ClaudeLimitsAccess {
-    /** ¿Está puesta la statusline de Argos en el servidor? */
-    suspend fun claudeLimitsInstalled(): Boolean
+    /** ¿Está puesta la statusline de Argos en el servidor, y completa? */
+    suspend fun claudeLimitsState(): ClaudeLimitsInstallState
 
-    /** Instala (o actualiza) la statusline de Argos conservando la del usuario. */
+    /**
+     * Instala, actualiza o repara la statusline de Argos conservando la del usuario. Si ya estaba
+     * puesta, nunca inventa el comando anterior: solo reescribe el script.
+     */
     suspend fun installClaudeLimits()
 
-    /** Quita la statusline de Argos y devuelve la anterior. */
+    /**
+     * Quita la statusline de Argos, devuelve la anterior y borra los límites guardados.
+     *
+     * @throws ClaudeLimitsException.PreviousMissing si falta la cabecera del comando anterior.
+     */
     suspend fun uninstallClaudeLimits()
 
     /**

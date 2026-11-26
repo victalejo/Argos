@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -93,9 +94,32 @@ private fun SetupSection(state: ClaudeLimitsUiState, viewModel: ClaudeLimitsView
                 Text(stringResource(R.string.claude_limits_remove), color = MaterialTheme.colorScheme.error)
             }
         }
+        is ClaudeLimitsSetup.NeedsRepair -> RepairSection(setup.previousMissing, state.isWorking, viewModel)
         is ClaudeLimitsSetup.Failed -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(setup.message, color = MaterialTheme.colorScheme.error)
             OutlinedButton(onClick = viewModel::refresh) { Text(stringResource(R.string.action_retry)) }
+        }
+    }
+}
+
+/** Puesta pero incompleta: «Reparar» reinstala el script; «Quitar» se niega si falta la copia del anterior. */
+@Composable
+private fun RepairSection(previousMissing: Boolean, isWorking: Boolean, viewModel: ClaudeLimitsViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Warning, contentDescription = null, tint = REPAIR_AMBER)
+            Text(stringResource(R.string.claude_limits_needs_repair), color = REPAIR_AMBER)
+        }
+        Text(
+            stringResource(if (previousMissing) R.string.claude_limits_repair_previous_missing else R.string.claude_limits_repair_outdated),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = viewModel::activate, enabled = !isWorking) { Text(stringResource(R.string.claude_limits_repair)) }
+            OutlinedButton(onClick = viewModel::deactivate, enabled = !isWorking) {
+                Text(stringResource(R.string.claude_limits_remove), color = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }
@@ -105,7 +129,7 @@ private fun LimitsSection(state: ClaudeLimitsUiState) {
     val status = state.status
     when {
         status != null -> ClaudeLimitsMeters(status)
-        state.setup == ClaudeLimitsSetup.Active -> Text(
+        state.setup == ClaudeLimitsSetup.Active || state.setup is ClaudeLimitsSetup.NeedsRepair -> Text(
             stringResource(R.string.claude_limits_no_data),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -115,3 +139,6 @@ private fun LimitsSection(state: ClaudeLimitsUiState) {
 
 /** Verde de «Activo» (el tema no trae un color de éxito). */
 private val ACTIVE_GREEN = Color(0xFF2E7D32)
+
+/** Ámbar de «Hay que repararla». */
+private val REPAIR_AMBER = Color(0xFFE65100)

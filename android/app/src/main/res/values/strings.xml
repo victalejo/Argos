@@ -853,6 +853,10 @@
     <string name="claude_limits_activate">Activar límites de Claude</string>
     <string name="claude_limits_active">Activo</string>
     <string name="claude_limits_remove">Quitar</string>
+    <string name="claude_limits_needs_repair">Hay que repararla</string>
+    <string name="claude_limits_repair">Reparar</string>
+    <string name="claude_limits_repair_previous_missing">La barra de estado de Argos está en settings.json, pero en este servidor falta la copia de tu barra anterior (¿settings.json sincronizado desde otro equipo?). «Reparar» reinstala el script para que vuelva a funcionar; tu barra anterior solo se puede recuperar desde el servidor donde lo activaste o desde settings.json.argos-backup.</string>
+    <string name="claude_limits_repair_outdated">La barra de estado de Argos está en settings.json pero falta su script o es de otra versión. «Reparar» lo reinstala.</string>
     <string name="claude_limits_no_data">Aún no hay datos: aparecen en cuanto Claude Code refresque su barra de estado en este servidor.</string>
     <string name="claude_limits_activated">Activado. Los límites aparecen en cuanto Claude Code refresque su barra de estado (al usarlo); las sesiones ya abiertas lo recogen solas.</string>
     <string name="claude_limits_removed">Quitado. Claude Code vuelve a usar tu barra de estado anterior.</string>

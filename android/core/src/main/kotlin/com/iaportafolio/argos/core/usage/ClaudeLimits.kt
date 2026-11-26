@@ -51,6 +51,19 @@ data class ClaudeLimitWindow(
             else -> ClaudeLimitLabel.Other(capitalized(kind))
         }
 
+    /** Misma clase y mismo reinicio (con margen): es la misma ventana, solo puede subir. */
+    fun isSameWindow(other: ClaudeLimitWindow): Boolean {
+        if (kind != other.kind) return false
+        val lhs = resetsAt
+        val rhs = other.resetsAt
+        return when {
+            lhs == null && rhs == null -> true
+            lhs != null && rhs != null ->
+                abs(ClaudeLimitsReading.epochSeconds(lhs) - ClaudeLimitsReading.epochSeconds(rhs)) < SAME_RESET_TOLERANCE_SECONDS
+            else -> false
+        }
+    }
+
     /** Orden: 5 h, semana y luego el resto por nombre. */
     internal val sortRank: Int
         get() = when (kind) {
@@ -62,6 +75,16 @@ data class ClaudeLimitWindow(
     companion object {
         const val FIVE_HOUR = "five_hour"
         const val SEVEN_DAY = "seven_day"
+
+        /** Margen para considerar «el mismo reinicio» entre lecturas. */
+        const val SAME_RESET_TOLERANCE_SECONDS = 300.0
+
+        /** Nivel de aviso de un porcentaje. */
+        fun level(percent: Int): ClaudeLimitsLevel = when {
+            percent >= ClaudeLimitsStatus.CRITICAL_FROM -> ClaudeLimitsLevel.CRITICAL
+            percent >= ClaudeLimitsStatus.HIGH_FROM -> ClaudeLimitsLevel.HIGH
+            else -> ClaudeLimitsLevel.NORMAL
+        }
 
         /** `seven_day_opus` -> «Opus»: guiones bajos a espacios y cada palabra en mayúscula (como `capitalized`). */
         internal fun capitalized(key: String): String =
@@ -89,6 +112,20 @@ sealed interface ClaudeLimitLabel {
  */
 data class ClaudeLimitsReading(val windows: List<ClaudeLimitWindow>, val capturedAt: Instant) {
 
+    /**
+     * Con la lectura anterior: dentro de una MISMA ventana (mismo reinicio) el uso no baja. Varias
+     * sesiones de Claude escriben el archivo y una parada puede dejar un porcentaje viejo; se
+     * conserva el más alto visto para esa ventana.
+     */
+    fun merging(previous: ClaudeLimitsReading?): ClaudeLimitsReading {
+        if (previous == null) return this
+        val merged = windows.map { window ->
+            val old = previous.windows.firstOrNull { it.isSameWindow(window) }
+            if (old != null && old.usedPercent > window.usedPercent) window.copy(usedPercent = old.usedPercent) else window
+        }
+        return of(merged, maxOf(capturedAt, previous.capturedAt))
+    }
+
     companion object {
         /** Lectura con las ventanas ordenadas: 5 h, semana y el resto por nombre. */
         fun of(windows: List<ClaudeLimitWindow>, capturedAt: Instant): ClaudeLimitsReading =
@@ -96,8 +133,9 @@ data class ClaudeLimitsReading(val windows: List<ClaudeLimitWindow>, val capture
 
         /**
          * Interpreta la salida de [ClaudeLimitsInstaller.POLL_COMMAND]: `now <epoch del servidor>` y,
-         * si existe, el archivo (`<epoch>` + JSON). Las horas del servidor se pasan al reloj local con
-         * la diferencia entre `now` y [localNow]. `null` si no hay archivo o no trae límites.
+         * si existe, el archivo (`<epoch>` + JSON). La hora de guardado es del reloj del servidor y se
+         * pasa al local con la diferencia entre `now` y [localNow]; `resets_at` es hora de Anthropic y
+         * no se corrige. `null` si no hay archivo o no trae límites.
          */
         fun parse(lines: List<String>, localNow: Instant = Instant.now()): ClaudeLimitsReading? {
             val nowIndex = lines.indexOfFirst { it.startsWith("now ") }
@@ -107,7 +145,7 @@ data class ClaudeLimitsReading(val windows: List<ClaudeLimitWindow>, val capture
             val captured = rest.firstOrNull()?.let { SwiftText.trimWhitespace(it).toDoubleOrNull() } ?: return null
             val json = rest.drop(1).joinToString("\n")
             val offset = epochSeconds(localNow) - serverNow
-            val windows = windows(json, offset)?.takeIf { it.isNotEmpty() } ?: return null
+            val windows = windows(json)?.takeIf { it.isNotEmpty() } ?: return null
             return of(windows, instant(captured + offset))
         }
 
@@ -116,18 +154,17 @@ data class ClaudeLimitsReading(val windows: List<ClaudeLimitWindow>, val capture
             parse(SwiftText.lines(output), localNow)
 
         /**
-         * Ventanas de `rate_limits` del JSON de la statusline. [clockOffset] (s) se suma a las horas
-         * del servidor. `null` si el JSON no es válido o no trae `rate_limits`.
+         * Ventanas de `rate_limits` del JSON de la statusline. `null` si el JSON no es válido o no trae
+         * `rate_limits`.
          */
-        fun windows(statusLineJson: String, clockOffset: Double = 0.0): List<ClaudeLimitWindow>? {
+        fun windows(statusLineJson: String): List<ClaudeLimitWindow>? {
             val root = runCatching { Json.parseToJsonElement(statusLineJson) }.getOrNull() as? JsonObject ?: return null
             val limits = root["rate_limits"] as? JsonObject ?: return null
             return limits.mapNotNull { (kind, value) ->
                 val row = value as? JsonObject ?: return@mapNotNull null
                 val used = (row["used_percentage"] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
                     ?: return@mapNotNull null
-                val resets = resetInstant(row["resets_at"] as? JsonPrimitive)?.plusMillis((clockOffset * 1000).roundToLong())
-                ClaudeLimitWindow(kind, used, resets)
+                ClaudeLimitWindow(kind, used, resetInstant(row["resets_at"] as? JsonPrimitive))
             }
         }
 
@@ -176,13 +213,7 @@ data class ClaudeLimitsStatus(
                 if (best == null || percent > best.second) best = window to percent
             }
             val (worst, percent) = best ?: return null
-            return ClaudeLimitsStatus(reading, worst, percent, levelOf(percent))
-        }
-
-        fun levelOf(percent: Int): ClaudeLimitsLevel = when {
-            percent >= CRITICAL_FROM -> ClaudeLimitsLevel.CRITICAL
-            percent >= HIGH_FROM -> ClaudeLimitsLevel.HIGH
-            else -> ClaudeLimitsLevel.NORMAL
+            return ClaudeLimitsStatus(reading, worst, percent, ClaudeLimitWindow.level(percent))
         }
     }
 }
@@ -202,40 +233,39 @@ object ClaudeLimitReset {
     }
 }
 
-/** Paso de una ventana a «alto» o «crítico» (para avisar una sola vez por ventana y nivel). */
-data class ClaudeLimitAlert(val status: ClaudeLimitsStatus) {
+/**
+ * Paso de una ventana a «alto» o «crítico». Se decide ventana a ventana: que cambie cuál es la más
+ * llena no vuelve a avisar de una que ya avisó.
+ */
+data class ClaudeLimitAlert(val window: ClaudeLimitWindow, val percent: Int, val level: ClaudeLimitsLevel) {
 
     /** Identificador estable: misma ventana, mismo reinicio y mismo nivel = mismo aviso. */
     val key: String
         get() {
-            val reset = status.worst.resetsAt
-                ?.let { (ClaudeLimitsReading.epochSeconds(it) / SAME_RESET_TOLERANCE_SECONDS).roundToLong().toString() } ?: "-"
-            return "${status.worst.kind}-$reset-${status.level.ordinal}"
+            val reset = window.resetsAt?.let {
+                (ClaudeLimitsReading.epochSeconds(it) / ClaudeLimitWindow.SAME_RESET_TOLERANCE_SECONDS).roundToLong().toString()
+            } ?: "-"
+            return "${window.kind}-$reset-${level.ordinal}"
         }
 
     companion object {
         /**
-         * Margen para considerar «el mismo reinicio»: la hora pasa del reloj del servidor al local con
-         * una diferencia que baila unos segundos entre vueltas.
+         * Avisos nuevos al pasar de [previous] a [current]: ventanas que SUBEN a alto o crítico (o que
+         * aparecen ya altas). La más grave primero.
          */
-        const val SAME_RESET_TOLERANCE_SECONDS = 300.0
-
-        /** Aviso nuevo al pasar de [previous] a [current] (solo al SUBIR de nivel, o con una ventana nueva ya alta). */
-        fun transition(previous: ClaudeLimitsStatus?, current: ClaudeLimitsStatus?): ClaudeLimitAlert? {
-            if (current == null || current.level == ClaudeLimitsLevel.NORMAL) return null
-            if (previous != null && previous.level >= current.level && previous.worst.kind == current.worst.kind &&
-                sameReset(previous.worst.resetsAt, current.worst.resetsAt)
-            ) {
-                return null
+        fun transitions(previous: ClaudeLimitsReading?, current: ClaudeLimitsReading?, now: Instant = Instant.now()): List<ClaudeLimitAlert> {
+            if (current == null) return emptyList()
+            val alerts = current.windows.mapNotNull { window ->
+                val percent = window.displayPercent(now)
+                val level = ClaudeLimitWindow.level(percent)
+                val old = previous?.windows?.firstOrNull { it.isSameWindow(window) }
+                when {
+                    level == ClaudeLimitsLevel.NORMAL -> null
+                    old != null && ClaudeLimitWindow.level(old.displayPercent(now)) >= level -> null
+                    else -> ClaudeLimitAlert(window, percent, level)
+                }
             }
-            return ClaudeLimitAlert(current)
-        }
-
-        private fun sameReset(lhs: Instant?, rhs: Instant?): Boolean = when {
-            lhs == null && rhs == null -> true
-            lhs != null && rhs != null ->
-                abs(ClaudeLimitsReading.epochSeconds(lhs) - ClaudeLimitsReading.epochSeconds(rhs)) < SAME_RESET_TOLERANCE_SECONDS
-            else -> false
+            return alerts.sortedByDescending { it.percent }
         }
     }
 }

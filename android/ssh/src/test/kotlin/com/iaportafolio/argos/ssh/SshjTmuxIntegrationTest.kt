@@ -12,6 +12,8 @@ import com.iaportafolio.argos.core.homefile.HomeFileException
 import com.iaportafolio.argos.core.status.ClaudeActivity
 import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
 import com.iaportafolio.argos.core.tmux.WindowNameValidator
+import com.iaportafolio.argos.core.usage.ClaudeLimitsException
+import com.iaportafolio.argos.core.usage.ClaudeLimitsInstallState
 import com.iaportafolio.argos.core.usage.ClaudeLimitsInstaller
 import com.iaportafolio.argos.ssh.testing.EmbeddedSshServer
 import kotlinx.coroutines.delay
@@ -371,31 +373,48 @@ class SshjTmuxIntegrationTest {
     fun `pone y quita la statusline de limites de Claude conservando la del usuario`() = runBlocking<Unit> {
         val settings = Files.createDirectories(server.home.resolve(".claude")).resolve("settings.json")
         Files.writeString(settings, """{"env":{"X":"1"},"statusLine":{"type":"command","command":"mi-barra","padding":1}}""")
-        assertFalse(service.claudeLimitsInstalled())
-        // Sin archivo de límites: el sondeo responde (solo la hora) y no hay lectura.
+        val previousFile = server.home.resolve(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH)
+        assertEquals(ClaudeLimitsInstallState.Inactive, service.claudeLimitsState())
+        // Sin la statusline de Argos: el sondeo responde (solo la hora) y no hay lectura.
         assertNull(service.claudeLimits())
 
         service.installClaudeLimits()
-        assertTrue(service.claudeLimitsInstalled())
+        assertEquals(ClaudeLimitsInstallState.Active, service.claudeLimitsState())
         assertContains(settings.readText(), ClaudeLimitsInstaller.MARKER)
         assertContains(settings.readText(), "\"X\" : \"1\"")
         assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(settings)))
-        assertEquals("mi-barra", server.home.resolve(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH).readText())
+        assertEquals(ClaudeLimitsInstaller.previousFileContents("mi-barra"), previousFile.readText())
         assertEquals(ClaudeLimitsInstaller.SCRIPT, server.home.resolve(ClaudeLimitsInstaller.SCRIPT_RELATIVE_PATH).readText())
         // Reinstalar no pisa la anterior guardada con la nuestra.
         service.installClaudeLimits()
-        assertEquals("mi-barra", server.home.resolve(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH).readText())
+        assertEquals(ClaudeLimitsInstaller.previousFileContents("mi-barra"), previousFile.readText())
 
-        Files.writeString(
-            server.home.resolve(ClaudeLimitsInstaller.LIMITS_RELATIVE_PATH),
-            "1799989000\n{\"rate_limits\":{\"five_hour\":{\"used_percentage\":42}}}\n",
-        )
+        val limits = server.home.resolve(ClaudeLimitsInstaller.LIMITS_RELATIVE_PATH)
+        Files.writeString(limits, "1799989000\n{\"rate_limits\":{\"five_hour\":{\"used_percentage\":42}}}\n")
         assertEquals(42.0, service.claudeLimits()?.windows?.single()?.usedPercent)
 
         service.uninstallClaudeLimits()
-        assertFalse(service.claudeLimitsInstalled())
+        assertEquals(ClaudeLimitsInstallState.Inactive, service.claudeLimitsState())
         assertContains(settings.readText(), "\"command\" : \"mi-barra\"")
         assertContains(settings.readText(), "\"padding\" : 1")
+        assertFalse(limits.exists(), "quitar borra los límites guardados")
+    }
+
+    @Test
+    fun `sin la copia de la statusline anterior se ofrece reparar y quitar se niega`() = runBlocking<Unit> {
+        val settings = Files.createDirectories(server.home.resolve(".claude")).resolve("settings.json")
+        Files.writeString(settings, """{"statusLine":{"type":"command","command":"mi-barra"}}""")
+        service.installClaudeLimits()
+        // settings.json sincronizado desde otro servidor: aquí falta el archivo del anterior.
+        server.home.resolve(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH).deleteIfExists()
+        assertEquals(ClaudeLimitsInstallState.NeedsRepair(previousMissing = true), service.claudeLimitsState())
+        val before = settings.readText()
+        assertFailsWith<ClaudeLimitsException.PreviousMissing> { runBlocking { service.uninstallClaudeLimits() } }
+        assertEquals(before, settings.readText(), "no toca settings.json")
+        // Reparar no inventa el anterior: el estado sigue pidiendo reparar por esa copia.
+        service.installClaudeLimits()
+        assertEquals(ClaudeLimitsInstallState.NeedsRepair(previousMissing = true), service.claudeLimitsState())
+        assertFalse(server.home.resolve(ClaudeLimitsInstaller.PREVIOUS_RELATIVE_PATH).exists())
     }
 
     @Test

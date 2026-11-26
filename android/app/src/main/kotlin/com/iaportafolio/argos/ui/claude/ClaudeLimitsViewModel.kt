@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.ConnectionPriority
 import com.iaportafolio.argos.core.usage.ClaudeLimitsAccess
+import com.iaportafolio.argos.core.usage.ClaudeLimitsInstallState
 import com.iaportafolio.argos.core.usage.ClaudeLimitsStatus
 import com.iaportafolio.argos.core.userMessage
 import com.iaportafolio.argos.data.ArgosLog
@@ -28,6 +29,9 @@ sealed interface ClaudeLimitsSetup {
     data object Checking : ClaudeLimitsSetup
     data object Inactive : ClaudeLimitsSetup
     data object Active : ClaudeLimitsSetup
+
+    /** Puesta pero incompleta (falta el script o la barra anterior guardada): «Reparar» o «Quitar». */
+    data class NeedsRepair(val previousMissing: Boolean) : ClaudeLimitsSetup
     data class Failed(val message: String) : ClaudeLimitsSetup
 }
 
@@ -63,16 +67,23 @@ class ClaudeLimitsViewModel(
 
     suspend fun refreshNow() {
         logFailures(ArgosLog.TAG_SSH, "No se pudo comprobar la statusline de límites de $serverId") {
-            withContext(io) { access().claudeLimitsInstalled() }
+            withContext(io) { access().claudeLimitsState() }
         }.onSuccess { installed ->
-            mutableState.update { it.copy(setup = if (installed) ClaudeLimitsSetup.Active else ClaudeLimitsSetup.Inactive) }
-            if (installed) readLimits()
+            val setup = when (installed) {
+                ClaudeLimitsInstallState.Inactive -> ClaudeLimitsSetup.Inactive
+                ClaudeLimitsInstallState.Active -> ClaudeLimitsSetup.Active
+                is ClaudeLimitsInstallState.NeedsRepair -> ClaudeLimitsSetup.NeedsRepair(installed.previousMissing)
+            }
+            mutableState.update { it.copy(setup = setup) }
+            if (setup != ClaudeLimitsSetup.Inactive) readLimits()
         }.onFailure { error -> mutableState.update { it.copy(setup = ClaudeLimitsSetup.Failed(error.userMessage)) } }
     }
 
+    /** «Activar» o «Reparar»: instala y vuelve a comprobar (una copia perdida del anterior no vuelve). */
     fun activate() = perform(R.string.claude_limits_activate_failed) {
         access().installClaudeLimits()
-        mutableState.update { it.copy(setup = ClaudeLimitsSetup.Active, notice = UiText.res(R.string.claude_limits_activated)) }
+        refreshNow()
+        mutableState.update { it.copy(notice = UiText.res(R.string.claude_limits_activated)) }
     }
 
     fun deactivate() = perform(R.string.claude_limits_remove_failed) {

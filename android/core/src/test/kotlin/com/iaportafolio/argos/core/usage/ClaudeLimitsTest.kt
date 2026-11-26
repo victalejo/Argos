@@ -7,8 +7,10 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** Paridad con `ClaudeLimitsReadingTests` de Swift: lectura de la statusline, niveles y avisos. */
 class ClaudeLimitsTest {
@@ -20,14 +22,14 @@ class ClaudeLimitsTest {
     private fun seconds(value: Long): Instant = Instant.ofEpochSecond(value)
 
     @Test
-    fun `lee las ventanas en orden y pasa las horas al reloj local`() {
+    fun `lee las ventanas en orden y pasa la hora de guardado al reloj local`() {
         // El reloj del servidor va 100 s por detrás del local.
         val reading = assertNotNull(
             ClaudeLimitsReading.parse(listOf("now 1799990000", "1799989000", statusLine), localNow = seconds(1_799_990_100)),
         )
         assertEquals(listOf("five_hour", "seven_day", "seven_day_opus"), reading.windows.map { it.kind })
         assertEquals(42.5, reading.windows[0].usedPercent)
-        assertEquals(seconds(1_800_000_100), reading.windows[0].resetsAt)
+        assertEquals(seconds(1_800_000_000), reading.windows[0].resetsAt, "hora de Anthropic: sin corregir")
         assertNull(reading.windows[2].resetsAt)
         assertEquals(seconds(1_799_989_100), reading.capturedAt)
     }
@@ -105,37 +107,84 @@ class ClaudeLimitsTest {
         assertEquals(30, status.worstPercent)
     }
 
+    private fun reading(vararg windows: Triple<String, Double, Long>) = ClaudeLimitsReading.of(
+        windows.map { (kind, percent, reset) -> ClaudeLimitWindow(kind, percent, seconds(reset)) },
+        seconds(0),
+    )
+
+    private fun alerts(old: List<Triple<String, Double, Long>>?, new: List<Triple<String, Double, Long>>?) =
+        ClaudeLimitAlert.transitions(old?.let { reading(*it.toTypedArray()) }, new?.let { reading(*it.toTypedArray()) }, seconds(0))
+
     @Test
     fun `avisa solo al subir de nivel o con una ventana nueva`() {
-        fun status(percent: Double, reset: Long = 5_000): ClaudeLimitsStatus? = ClaudeLimitsStatus.evaluate(
-            ClaudeLimitsReading.of(listOf(ClaudeLimitWindow("five_hour", percent, seconds(reset))), seconds(0)),
-            seconds(0),
+        fun five(percent: Double, reset: Long = 5_000) = listOf(Triple("five_hour", percent, reset))
+        assertTrue(alerts(five(50.0), five(80.0)).isEmpty())
+        assertEquals(listOf(ClaudeLimitsLevel.HIGH), alerts(five(80.0), five(86.0)).map { it.level })
+        assertTrue(alerts(five(86.0), five(88.0, reset = 5_030)).isEmpty(), "mismo reinicio con margen")
+        assertEquals(listOf(ClaudeLimitsLevel.CRITICAL), alerts(five(88.0), five(96.0)).map { it.level })
+        assertTrue(alerts(five(96.0), five(90.0)).isEmpty())
+        assertEquals(1, alerts(five(96.0), five(90.0, reset = 30_000)).size, "ventana nueva ya alta")
+        assertEquals(1, alerts(null, five(90.0)).size)
+        assertTrue(alerts(five(90.0), null).isEmpty())
+    }
+
+    @Test
+    fun `que cambie la ventana mas llena no repite el aviso de otra`() {
+        // La semana ya avisó al 86 %; sube la de 5 h y luego la de 5 h se reinicia.
+        val before = listOf(Triple("five_hour", 20.0, 5_000L), Triple("seven_day", 86.0, 90_000L))
+        val fiveUp = listOf(Triple("five_hour", 90.0, 5_000L), Triple("seven_day", 86.0, 90_000L))
+        val fiveReset = listOf(Triple("five_hour", 3.0, 23_000L), Triple("seven_day", 87.0, 90_000L))
+        assertEquals(listOf("five_hour"), alerts(before, fiveUp).map { it.window.kind })
+        assertTrue(alerts(fiveUp, fiveReset).isEmpty())
+    }
+
+    @Test
+    fun `varios avisos a la vez salen del mas grave al menos grave`() {
+        val result = alerts(null, listOf(Triple("five_hour", 86.0, 5_000L), Triple("seven_day", 97.0, 90_000L)))
+        assertEquals(listOf("seven_day", "five_hour"), result.map { it.window.kind })
+        assertEquals(listOf(97, 86), result.map { it.percent })
+    }
+
+    @Test
+    fun `dentro de una ventana se queda el uso mas alto`() {
+        // Otra sesión de Claude, parada, escribió un porcentaje viejo de la misma ventana.
+        val fresh = reading(Triple("five_hour", 88.0, 5_000L), Triple("seven_day", 10.0, 90_000L))
+        val stale = reading(Triple("five_hour", 60.0, 5_100L), Triple("seven_day", 12.0, 90_000L))
+        assertEquals(listOf(88.0, 12.0), stale.merging(fresh).windows.map { it.usedPercent })
+        // Con otra ventana (otro reinicio) manda la nueva aunque sea menor.
+        val next = reading(Triple("five_hour", 5.0, 23_000L))
+        assertEquals(listOf(5.0), next.merging(fresh).windows.map { it.usedPercent })
+        assertEquals(stale, stale.merging(null))
+    }
+
+    @Test
+    fun `el reloj del servidor no mueve el reinicio que da Anthropic`() {
+        val reading = assertNotNull(
+            ClaudeLimitsReading.parse(
+                listOf("now 1000", "990", """{"rate_limits":{"five_hour":{"used_percentage":1,"resets_at":5000}}}"""),
+                localNow = seconds(2_000),
+            ),
         )
-        assertNull(ClaudeLimitAlert.transition(status(50.0), status(80.0)))
-        assertNotNull(ClaudeLimitAlert.transition(status(80.0), status(86.0)))
-        // El reinicio «baila» unos segundos al pasar al reloj local: sigue siendo el mismo.
-        assertNull(ClaudeLimitAlert.transition(status(86.0), status(88.0, reset = 5_030)))
-        assertNotNull(ClaudeLimitAlert.transition(status(88.0), status(96.0)))
-        assertNull(ClaudeLimitAlert.transition(status(96.0), status(90.0)))
-        // Ventana nueva (otro reinicio) que ya llega alta: se avisa de nuevo.
-        assertNotNull(ClaudeLimitAlert.transition(status(96.0), status(90.0, reset = 30_000)))
-        assertNotNull(ClaudeLimitAlert.transition(null, status(90.0)))
-        assertNull(ClaudeLimitAlert.transition(status(90.0), null))
+        assertEquals(seconds(5_000), reading.windows.first().resetsAt)
+        assertEquals(seconds(1_990), reading.capturedAt)
     }
 
     @Test
     fun `la clave del aviso es estable con el mismo reinicio y nivel`() {
-        fun alert(percent: Double, reset: Long) = ClaudeLimitAlert(
-            assertNotNull(
-                ClaudeLimitsStatus.evaluate(
-                    ClaudeLimitsReading.of(listOf(ClaudeLimitWindow("five_hour", percent, seconds(reset))), seconds(0)),
-                    seconds(0),
-                ),
-            ),
-        )
+        fun alert(percent: Double, reset: Long) = alerts(null, listOf(Triple("five_hour", percent, reset))).single()
         assertEquals("five_hour-17-1", alert(86.0, 5_010).key)
         assertEquals(alert(86.0, 5_010).key, alert(88.0, 5_020).key)
         assertEquals("five_hour-17-2", alert(96.0, 5_010).key)
+    }
+
+    @Test
+    fun `misma ventana con margen de reinicio`() {
+        val window = ClaudeLimitWindow("five_hour", 1.0, seconds(5_000))
+        assertTrue(window.isSameWindow(window.copy(resetsAt = seconds(5_299))))
+        assertFalse(window.isSameWindow(window.copy(resetsAt = seconds(5_300))))
+        assertFalse(window.isSameWindow(window.copy(kind = "seven_day")))
+        assertFalse(window.isSameWindow(window.copy(resetsAt = null)))
+        assertTrue(window.copy(resetsAt = null).isSameWindow(window.copy(resetsAt = null)))
     }
 
     @Test

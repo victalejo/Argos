@@ -129,8 +129,9 @@ class SwiftParityGoldenTest {
         )
         assertGolden(
             "limits-removed",
-            ClaudeHookInstaller.serialize(ClaudeLimitsInstaller.removing(installed.settings, installed.previousCommand)),
+            ClaudeHookInstaller.serialize(ClaudeLimitsInstaller.removing(installed.settings, installed.previousCommand ?: "")),
         )
+        assertGolden("limits-previous", ClaudeLimitsInstaller.previousFileContents(installed.previousCommand ?: ""))
     }
 
     @Test

@@ -4,6 +4,7 @@ package com.iaportafolio.argos.ui
 
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.core.usage.ClaudeLimitWindow
+import com.iaportafolio.argos.core.usage.ClaudeLimitsInstallState
 import com.iaportafolio.argos.core.usage.ClaudeLimitsLevel
 import com.iaportafolio.argos.core.usage.ClaudeLimitsReading
 import com.iaportafolio.argos.testing.FakeServiceProvider
@@ -99,11 +100,13 @@ class ClaudeLimitsUiTest {
     @Test
     fun `avisa al cruzar el umbral una sola vez por ventana`() = runTest(main.dispatcher) {
         val vm = projects()
-        assertNull(vm.absorbLimits(reading(40.0)))
-        assertEquals(ClaudeLimitsLevel.HIGH, vm.absorbLimits(reading(88.0))?.status?.level)
-        assertNull(vm.absorbLimits(reading(89.0)))
-        assertEquals(ClaudeLimitsLevel.CRITICAL, vm.absorbLimits(reading(96.0))?.status?.level)
-        assertNull(vm.absorbLimits(null))
+        assertTrue(vm.absorbLimits(reading(40.0)).isEmpty())
+        assertEquals(listOf(ClaudeLimitsLevel.HIGH), vm.absorbLimits(reading(88.0)).map { it.level })
+        assertTrue(vm.absorbLimits(reading(89.0)).isEmpty())
+        assertTrue(vm.absorbLimits(reading(60.0)).isEmpty(), "un dato viejo de otra sesión no baja el uso")
+        assertEquals(89, vm.state.value.claudeLimits?.worstPercent)
+        assertEquals(listOf(ClaudeLimitsLevel.CRITICAL), vm.absorbLimits(reading(96.0)).map { it.level })
+        assertTrue(vm.absorbLimits(null).isEmpty())
         assertNull(vm.state.value.claudeLimits)
     }
 
@@ -133,20 +136,20 @@ class ClaudeLimitsUiTest {
         vm.activate()
         advanceUntilIdle()
         assertEquals(ClaudeLimitsSetup.Active, vm.state.value.setup)
-        assertTrue(ssh.limitsInstalled)
+        assertEquals(ClaudeLimitsInstallState.Active, ssh.limitsState)
         assertEquals(UiText.res(R.string.claude_limits_activated), vm.state.value.notice)
         assertFalse(vm.state.value.isWorking)
 
         vm.deactivate()
         advanceUntilIdle()
         assertEquals(ClaudeLimitsSetup.Inactive, vm.state.value.setup)
-        assertFalse(ssh.limitsInstalled)
+        assertEquals(ClaudeLimitsInstallState.Inactive, ssh.limitsState)
         assertEquals(listOf("installLimits", "uninstallLimits"), ssh.calls.filter { it.endsWith("Limits") })
     }
 
     @Test
     fun `activa relee y ensena los medidores`() = runTest(main.dispatcher) {
-        ssh.limitsInstalled = true
+        ssh.limitsState = ClaudeLimitsInstallState.Active
         ssh.limits = reading(97.0)
         val vm = limitsScreen()
         vm.refresh()
@@ -167,6 +170,39 @@ class ClaudeLimitsUiTest {
         advanceUntilIdle()
         val notice = assertIs<UiText.Resource>(vm.state.value.notice)
         assertEquals(R.string.claude_limits_activate_failed, notice.id)
-        assertFalse(ssh.limitsInstalled)
+        assertEquals(ClaudeLimitsInstallState.Inactive, ssh.limitsState)
+    }
+
+    @Test
+    fun `sin la copia del anterior ofrece reparar y quitar se niega`() = runTest(main.dispatcher) {
+        ssh.limitsState = ClaudeLimitsInstallState.NeedsRepair(previousMissing = true)
+        ssh.limits = reading(30.0)
+        val vm = limitsScreen()
+        vm.refresh()
+        advanceUntilIdle()
+        assertEquals(ClaudeLimitsSetup.NeedsRepair(previousMissing = true), vm.state.value.setup)
+        assertEquals(30, vm.state.value.status?.worstPercent, "puesta aunque incompleta: los límites se leen")
+
+        vm.deactivate()
+        advanceUntilIdle()
+        assertEquals(R.string.claude_limits_remove_failed, assertIs<UiText.Resource>(vm.state.value.notice).id)
+        assertEquals(ClaudeLimitsSetup.NeedsRepair(previousMissing = true), vm.state.value.setup)
+
+        // Reparar no recupera la copia perdida: sigue pidiendo reparar.
+        vm.activate()
+        advanceUntilIdle()
+        assertEquals(ClaudeLimitsSetup.NeedsRepair(previousMissing = true), vm.state.value.setup)
+    }
+
+    @Test
+    fun `reparar una version vieja la deja activa`() = runTest(main.dispatcher) {
+        ssh.limitsState = ClaudeLimitsInstallState.NeedsRepair(previousMissing = false)
+        val vm = limitsScreen()
+        vm.refresh()
+        advanceUntilIdle()
+        vm.activate()
+        advanceUntilIdle()
+        assertEquals(ClaudeLimitsSetup.Active, vm.state.value.setup)
+        assertEquals(UiText.res(R.string.claude_limits_activated), vm.state.value.notice)
     }
 }
