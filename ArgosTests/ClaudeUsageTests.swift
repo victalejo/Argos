@@ -29,8 +29,12 @@ struct ClaudeUsageSummaryTests {
         #expect(record.tokens == ClaudeTokenCounts(input: 1, output: 2, cacheWrite5m: 3, cacheWrite1h: 4, cacheRead: 5))
         #expect(record.requests == 6)
         #expect(ClaudeUsageSnapshot(output: "status \n").status == .never)
-        #expect(ClaudeUsageSnapshot(output: "status done 1 0 0\nrunning\n").status == .running(since: Date(timeIntervalSince1970: 1)))
-        #expect(ClaudeUsageSnapshot(output: "status running 5\n").status == .running(since: Date(timeIntervalSince1970: 5)))
+        #expect(ClaudeUsageSnapshot(output: "status done 1 0 0\nrunning\n").status == .running(since: nil), "otra ejecución empezando")
+        #expect(ClaudeUsageSnapshot(output: "status running 5\nrunning\n").status == .running(since: Date(timeIntervalSince1970: 5)))
+        #expect(ClaudeUsageSnapshot(output: "status running 5\n").status == .failed(at: Date(timeIntervalSince1970: 5)), "sin cerrojo: murió")
+        #expect(ClaudeUsageSnapshot(output: "status failed 7\n").status == .failed(at: Date(timeIntervalSince1970: 7)))
+        // Números fuera de rango (servidor no fiable): fila descartada.
+        #expect(ClaudeUsageSnapshot(output: "2026-11-26T20\tp\tm\t9223372036854775807\t0\t0\t0\t0\t1\n2026-11-26T20\tp\tm\t-1\t0\t0\t0\t0\t1\n").records.isEmpty)
     }
 
     @Test func elPrecioUsaElPrefijoMasLargo() throws {
@@ -106,6 +110,7 @@ struct ClaudeUsageIndexScriptTests {
             let dir = projects.appendingPathComponent(project, isDirectory: true)
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             let file = dir.appendingPathComponent("\(session).jsonl")
+            try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
             if !FileManager.default.fileExists(atPath: file.path) { FileManager.default.createFile(atPath: file.path, contents: nil) }
             let handle = try FileHandle(forWritingTo: file)
             try handle.seekToEnd()
@@ -162,6 +167,22 @@ struct ClaudeUsageIndexScriptTests {
         #expect(third.records.count == second.records.count)
     }
 
+    @Test("Cuenta los subagentes y suma lo que llega en una pasada posterior", arguments: shells)
+    func countsSubagentsAndLateTokens(shell: String) throws {
+        let box = try Sandbox()
+        defer { box.remove() }
+        try box.append(Self.line("req_main", output: 1), project: "-p", session: "s")
+        try box.append(Self.line("req_sub", output: 2), project: "-p", session: "s/subagents/agent-1")
+        let first = try box.run(shell)
+        #expect(first.records.reduce(0) { $0 + $1.requests } == 2)
+        #expect(Set(first.records.map(\.projectKey)) == ["-p"])
+        // La misma respuesta reaparece con más salida: solo se suma la diferencia.
+        try box.append(Self.line("req_sub", output: 9), project: "-p", session: "s/subagents/agent-1")
+        let second = try box.run(shell)
+        #expect(second.records.reduce(0) { $0 + $1.requests } == 2)
+        #expect(second.records.reduce(0) { $0 + $1.tokens.output } == 10)
+    }
+
     @Test("Descarta lo más viejo que la retención", arguments: shells)
     func dropsOldRecords(shell: String) throws {
         let box = try Sandbox()
@@ -187,6 +208,28 @@ struct ClaudeUsageIndexScriptTests {
 @Suite("Uso de Claude (pantalla)")
 struct ClaudeUsageModelTests {
 
+    @Test func unCalculoAtascadoOFallidoSeRelanzaYUnFalloNoEscondeLosDatos() async {
+        let mock = MockSSHService()
+        let record = ClaudeUsageRecord(hour: Date(), projectKey: "-p", model: "claude-opus-5-5", tokens: ClaudeTokenCounts(output: 10), requests: 1)
+        mock.claudeUsageSnapshots = [
+            ClaudeUsageSnapshot(status: .running(since: Date(timeIntervalSince1970: 0)), records: [record]),
+            ClaudeUsageSnapshot(status: .failed(at: nil), records: [record]),
+        ]
+        let model = ClaudeUsageModel(service: mock, projects: [], pollInterval: .milliseconds(1))
+        await model.load()
+        #expect(mock.claudeUsageStarts == 1, "también se lanza con uno «en marcha»")
+        #expect(model.phase == .ready, "con datos, el fallo no los esconde")
+        #expect(model.summary()?.requests == 1)
+    }
+
+    @Test func sinDatosYSinTerminarAvisaDeQueSigueCalculando() async {
+        let mock = MockSSHService()
+        mock.claudeUsageSnapshots = [ClaudeUsageSnapshot(status: .running(since: nil), records: [])]
+        let model = ClaudeUsageModel(service: mock, projects: [], pollInterval: .milliseconds(1), maxWait: .milliseconds(20))
+        await model.load()
+        #expect(model.phase == .failed(ClaudeUsageError.stillIndexing.userMessage))
+    }
+
     @Test func sinIndiceLoLanzaYEsperaAQueTermine() async {
         let mock = MockSSHService()
         let record = ClaudeUsageRecord(hour: Date(), projectKey: "-p", model: "claude-opus-5-5", tokens: ClaudeTokenCounts(output: 10), requests: 1)
@@ -210,7 +253,8 @@ struct ClaudeUsageModelTests {
         await model.load()
         #expect(mock.claudeUsageStarts == 0)
         #expect(model.phase == .ready)
-        await model.load(force: true)
+        model.retry()
+        await model.load()
         #expect(mock.claudeUsageStarts == 1)
     }
 }

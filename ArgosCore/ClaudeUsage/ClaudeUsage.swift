@@ -23,7 +23,9 @@ struct ClaudeUsageRecord: Equatable, Sendable {
     init?(ledgerLine line: String) {
         let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
         guard fields.count >= 9, let hour = Self.parseHour(fields[0]) else { return nil }
-        let numbers = fields[3...8].compactMap { Int($0) }
+        // El servidor no es de fiar: números fuera de rango (negativos, gigantes que harían
+        // desbordar las sumas) descartan la fila.
+        let numbers = fields[3...8].compactMap { Int($0) }.filter { (0...Self.maxValue).contains($0) }
         guard numbers.count == 6 else { return nil }
         self.hour = hour
         self.projectKey = fields[1]
@@ -41,6 +43,9 @@ struct ClaudeUsageRecord: Equatable, Sendable {
         self.tokens = tokens
         self.requests = requests
     }
+
+    /// Tope de cada contador de una fila (10 billones de tokens).
+    static let maxValue = 10_000_000_000_000
 
     /// `AAAA-MM-DDTHH` en UTC.
     static func parseHour(_ text: String) -> Date? {
@@ -136,6 +141,8 @@ enum ClaudeUsageIndexStatus: Equatable, Sendable {
     case never
     case running(since: Date?)
     case done(at: Date)
+    /// La última ejecución terminó con error (se vuelve a lanzar).
+    case failed(at: Date?)
 }
 
 /// Lo leído del servidor: estado del índice y filas.
@@ -162,10 +169,13 @@ struct ClaudeUsageSnapshot: Equatable, Sendable {
         }
         let fields = statusLine.split(separator: " ")
         let stamp = fields.count > 1 ? Double(fields[1]).map { Date(timeIntervalSince1970: $0) } : nil
-        if running || fields.first == "running" {
-            status = .running(since: stamp)
+        if running {
+            status = .running(since: fields.first == "running" ? stamp : nil)
         } else if fields.first == "done", let stamp {
             status = .done(at: stamp)
+        } else if fields.first == "running" || fields.first == "failed" {
+            // `running` sin cerrojo: la ejecución murió sin poder apuntarlo.
+            status = .failed(at: stamp)
         } else {
             status = .never
         }

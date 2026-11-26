@@ -23,7 +23,7 @@ struct ClaudeUsageView: View {
             .labelsHidden()
             content
         }
-        .task { await model.load() }
+        .task(id: model.reloadToken) { await model.load() }
     }
 
     @ViewBuilder
@@ -36,7 +36,7 @@ struct ClaudeUsageView: View {
         case .failed(let message):
             VStack(alignment: .leading, spacing: 6) {
                 Text(message).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
-                Button("Reintentar") { Task { await model.load(force: true) } }
+                Button("Reintentar") { model.retry() }
             }
         case .ready:
             if let summary = model.summary() {
@@ -71,7 +71,7 @@ private struct ClaudeUsageSummaryView: View {
             }
             breakdown(title: "Por proyecto", lines: Array(summary.projects.prefix(Self.visibleProjects)))
             if summary.projects.count > Self.visibleProjects {
-                Text("y \(summary.projects.count - Self.visibleProjects) proyectos más")
+                Text("y \(summary.projects.count - Self.visibleProjects) más")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

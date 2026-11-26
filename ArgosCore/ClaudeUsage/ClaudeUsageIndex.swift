@@ -15,7 +15,8 @@
 //
 //  ledger.tsv: `hora<TAB>proyecto<TAB>modelo<TAB>entrada<TAB>salida<TAB>cache5m<TAB>cache1h<TAB>lecturaCache<TAB>peticiones`
 //  (`hora` = `AAAA-MM-DDTHH` en UTC; `proyecto` = nombre de la carpeta de Claude Code).
-//  status: `running <epoch>` o `done <epoch> <archivos leídos> <peticiones nuevas>`.
+//  status: `running <epoch>`, `failed <epoch>` o `done <epoch> <archivos leídos> <peticiones nuevas>`.
+//  Lee también los subagentes (`<proyecto>/<sesión>/subagents/*.jsonl`).
 //
 
 import Foundation
@@ -36,20 +37,39 @@ enum ClaudeUsageIndex {
         dir="${ARGOS_USAGE_DIR:-$HOME/\(directoryRelativePath)}"
         umask 077
         mkdir -p "$dir" || exit 1
-        if ! mkdir "$dir/lock" 2>/dev/null; then
-          # Un cerrojo de hace más de 30 min es de una ejecución que murió.
-          [ -n "$(find "$dir/lock" -prune -mmin +30 2>/dev/null)" ] || exit 75
-          rm -rf "$dir/lock" && mkdir "$dir/lock" || exit 75
-        fi
-        trap 'rm -f "$dir/new.$$" "$dir/offsets.$$" "$dir/seen.$$" "$dir/ledger.$$" "$dir/files.$$"; rm -rf "$dir/lock"' EXIT
+        own=0; ok=0
+        cleanup() {
+          rm -f "$dir/new.$$" "$dir/offsets.$$" "$dir/seen.$$" "$dir/ledger.$$" "$dir/files.$$" "$dir/count.$$"
+          if [ "$own" = 1 ]; then
+            [ "$ok" = 1 ] || printf 'failed %s\\n' "$(date +%s)" > "$dir/status"
+            [ "$(cat "$dir/lock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$dir/lock"
+          fi
+        }
+        trap cleanup EXIT
         trap 'exit 1' INT TERM HUP
+        if ! mkdir "$dir/lock" 2>/dev/null; then
+          # Un cerrojo de hace más de 30 min es de una ejecución que murió: se aparta con un
+          # `mv` atómico (si dos lo intentan, solo uno gana) y se toma de nuevo.
+          [ -n "$(find "$dir/lock" -prune -mmin +30 2>/dev/null)" ] || exit 75
+          mv "$dir/lock" "$dir/lock.old.$$" 2>/dev/null || exit 75
+          rm -rf "$dir/lock.old.$$"
+          mkdir "$dir/lock" 2>/dev/null || exit 75
+        fi
+        own=1
+        printf '%s\\n' "$$" > "$dir/lock/pid"
         printf 'running %s\\n' "$(date +%s)" > "$dir/status"
         touch "$dir/offsets.tsv" "$dir/seen.tsv" "$dir/ledger.tsv"
-        : > "$dir/new.$$"; : > "$dir/offsets.$$"; : > "$dir/files.$$"
-        cut=$(date -u -d "-\(retentionDays) days" +%Y-%m-%d 2>/dev/null || date -u -v-\(retentionDays)d +%Y-%m-%d 2>/dev/null)
-        # Tamaños de todos los archivos en un solo `wc`, cruzados con los offsets en un solo
-        # awk: solo se abren los que crecieron (los demás conservan su offset).
-        find "$src" -mindepth 2 -maxdepth 2 -type f -name '*.jsonl' -mtime -\(retentionDays) -exec wc -c {} + 2>/dev/null \\
+        : > "$dir/new.$$"; : > "$dir/offsets.$$"
+        # Día de corte (UTC) calculado en awk: `date -d`/`-v` no existen en todas partes.
+        cut=$(awk -v now="$(date +%s)" -v days=\(retentionDays) 'BEGIN {
+          z = int((now - days * 86400) / 86400) + 719468; era = int(z / 146097); doe = z - era * 146097
+          yoe = int((doe - int(doe / 1460) + int(doe / 36524) - int(doe / 146096)) / 365)
+          doy = doe - (365 * yoe + int(yoe / 4) - int(yoe / 100)); mp = int((5 * doy + 2) / 153)
+          d = doy - int((153 * mp + 2) / 5) + 1; m = mp < 10 ? mp + 3 : mp - 9; y = yoe + era * 400 + (m <= 2)
+          printf "%04d-%02d-%02d", y, m, d }')
+        # Tamaños de todos los archivos (sesiones y sus subagentes) en un solo `wc`, cruzados
+        # con los offsets en un solo awk: solo se abren los que crecieron.
+        find "$src" -mindepth 2 -maxdepth 4 -type f -name '*.jsonl' -mtime -\(retentionDays) -exec wc -c {} + 2>/dev/null \\
           | LC_ALL=C awk -v offs="$dir/offsets.tsv" -v keep="$dir/offsets.$$" '
             BEGIN { while ((getline l < offs) > 0) { t = index(l, "\\t"); if (t) o[substr(l, 1, t - 1)] = substr(l, t + 1) + 0 } }
             {
@@ -57,11 +77,11 @@ enum ClaudeUsageIndex {
               if (f == "total" || f == "") next
               off = (f in o) ? o[f] : 0; if (off > size) off = 0
               if (off < size) printf "%d\\t%d\\t%s\\n", off, size, f; else printf "%s\\t%d\\n", f, off >> keep
-            }' > "$dir/files.$$"
+            }' > "$dir/files.$$" || exit 1
         tab=$(printf '\\t')
         while IFS="$tab" read -r off size f; do
           [ -n "$f" ] || continue
-          p=${f%/*}; p=${p##*/}
+          rel=${f#"$src"/}; p=${rel%%/*}
           tail -c +$((off + 1)) "$f" | LC_ALL=C awk -v p="$p" -v f="$f" -v base="$off" -v avail=$((size - off)) -v out="$dir/offsets.$$" '
               function str(s, k) { if (match(s, "\\"" k "\\":\\"[^\\"]*\\"")) return substr(s, RSTART + length(k) + 4, RLENGTH - length(k) - 5); return "" }
               function num(s, k) { if (match(s, "\\"" k "\\":[0-9]+")) return substr(s, RSTART + length(k) + 3, RLENGTH - length(k) - 3) + 0; return 0 }
@@ -79,31 +99,49 @@ enum ClaudeUsageIndex {
                 if (c5 + c1 == 0) c5 = cw
                 printf "%s\\t%s\\t%s\\t%s\\t%d\\t%d\\t%d\\t%d\\t%d\\n", id, substr(ts, 1, 13), p, model, num(us, "input_tokens"), num(us, "output_tokens"), c5, c1, num(us, "cache_read_input_tokens")
               }
-              END { printf "%s\\t%d\\n", f, base + pos >> out }' >> "$dir/new.$$"
+              END { printf "%s\\t%d\\n", f, base + pos >> out }' >> "$dir/new.$$" || exit 1
         done < "$dir/files.$$"
-        LC_ALL=C awk -F'\\t' -v OFS='\\t' -v cut="$cut" -v seenout="$dir/seen.$$" -v ledgerout="$dir/ledger.$$" '
-          FILENAME == ARGV[1] { if (cut == "" || $2 >= cut) { seen[$1] = 1; print > seenout }; next }
-          FILENAME == ARGV[2] { if (cut == "" || substr($1, 1, 10) >= cut) { k = $1 OFS $2 OFS $3; for (i = 4; i <= 9; i++) a[k, i] += $i; keys[k] = 1 }; next }
+        # seen.tsv: `id hora proyecto modelo` y el máximo visto de cada contador. Si una
+        # respuesta vuelve con contadores mayores (repartida entre dos pasadas), se suma la
+        # diferencia a su fila del ledger. Las dos salidas terminan con `#end`: sin esa marca
+        # (disco lleno a medias) no se sustituye nada.
+        LC_ALL=C awk -F'\\t' -v OFS='\\t' -v cut="$cut" -v seenout="$dir/seen.$$" -v ledgerout="$dir/ledger.$$" -v countout="$dir/count.$$" '
+          FILENAME == ARGV[1] {
+            if (NF < 9 || $1 ~ /^#/ || substr($2, 1, 10) < cut) next
+            s[$1] = 1; sh[$1] = $2; sp[$1] = $3; sm[$1] = $4; for (i = 5; i <= 9; i++) sv[$1, i] = $i + 0
+            next
+          }
+          FILENAME == ARGV[2] {
+            if ($1 ~ /^#/ || NF < 9 || substr($1, 1, 10) < cut) next
+            k = $1 OFS $2 OFS $3; keys[k] = 1; for (i = 4; i <= 9; i++) a[k, i] += $i
+            next
+          }
           {
-            if ($1 in seen) next
-            if (cut != "" && substr($2, 1, 10) < cut) next
-            if (!($1 in hour)) { hour[$1] = $2; proj[$1] = $3; mod[$1] = $4 }
-            for (i = 5; i <= 9; i++) if ($i + 0 > v[$1, i]) v[$1, i] = $i + 0
+            if (NF < 9 || substr($2, 1, 10) < cut) next
+            if (!($1 in nh)) { nh[$1] = $2; np[$1] = $3; nm[$1] = $4 }
+            for (i = 5; i <= 9; i++) if ($i + 0 > nv[$1, i]) nv[$1, i] = $i + 0
           }
           END {
-            for (id in hour) {
-              k = hour[id] OFS proj[id] OFS mod[id]; keys[k] = 1
-              for (i = 5; i <= 9; i++) a[k, i - 1] += v[id, i]
-              a[k, 9]++; added++
-              print id, substr(hour[id], 1, 10) > seenout
+            for (id in nh) {
+              if (id in s) {
+                k = sh[id] OFS sp[id] OFS sm[id]
+                for (i = 5; i <= 9; i++) if (nv[id, i] > sv[id, i]) { a[k, i - 1] += nv[id, i] - sv[id, i]; sv[id, i] = nv[id, i]; keys[k] = 1 }
+              } else {
+                k = nh[id] OFS np[id] OFS nm[id]; keys[k] = 1; a[k, 9]++; added++
+                s[id] = 1; sh[id] = nh[id]; sp[id] = np[id]; sm[id] = nm[id]
+                for (i = 5; i <= 9; i++) { a[k, i - 1] += nv[id, i]; sv[id, i] = nv[id, i] }
+              }
             }
+            for (id in s) print id, sh[id], sp[id], sm[id], sv[id, 5] + 0, sv[id, 6] + 0, sv[id, 7] + 0, sv[id, 8] + 0, sv[id, 9] + 0 > seenout
             for (k in keys) print k, a[k, 4] + 0, a[k, 5] + 0, a[k, 6] + 0, a[k, 7] + 0, a[k, 8] + 0, a[k, 9] + 0 > ledgerout
-            print added + 0 > (seenout ".count")
+            print "#end" > seenout; print "#end" > ledgerout; print added + 0 > countout
           }' "$dir/seen.tsv" "$dir/ledger.tsv" "$dir/new.$$" || exit 1
-        added=$(cat "$dir/seen.$$.count" 2>/dev/null); rm -f "$dir/seen.$$.count"
-        n=$(wc -l < "$dir/files.$$" 2>/dev/null | tr -d ' ')
-        mv -f "$dir/seen.$$" "$dir/seen.tsv" && mv -f "$dir/ledger.$$" "$dir/ledger.tsv" && mv -f "$dir/offsets.$$" "$dir/offsets.tsv"
+        [ "$(tail -n 1 "$dir/seen.$$")" = "#end" ] && [ "$(tail -n 1 "$dir/ledger.$$")" = "#end" ] || exit 1
+        added=$(cat "$dir/count.$$" 2>/dev/null)
+        n=$(wc -l < "$dir/files.$$" | tr -d ' ')
+        mv -f "$dir/seen.$$" "$dir/seen.tsv" && mv -f "$dir/ledger.$$" "$dir/ledger.tsv" && mv -f "$dir/offsets.$$" "$dir/offsets.tsv" || exit 1
         printf 'done %s %s %s\\n' "$(date +%s)" "${n:-0}" "${added:-0}" > "$dir/status"
+        ok=1
         exit 0
 
         """

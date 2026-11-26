@@ -2259,32 +2259,32 @@
     },
     "30 días" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30 días"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "30 days"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 días"
           }
         }
       }
     },
     "7 días" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "7 días"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "7 days"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 días"
           }
         }
       }
@@ -3155,16 +3155,16 @@
     },
     "Actualizando" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Actualizando"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Updating"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizando"
           }
         }
       }
@@ -5059,16 +5059,16 @@
     },
     "Calculando el uso en el servidor a partir del historial de Claude Code. La primera vez puede tardar unos minutos; las siguientes, segundos." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Calculando el uso en el servidor a partir del historial de Claude Code. La primera vez puede tardar unos minutos; las siguientes, segundos."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Calculating usage on the server from Claude Code’s history. The first time can take a few minutes; after that, seconds."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculando el uso en el servidor a partir del historial de Claude Code. La primera vez puede tardar unos minutos; las siguientes, segundos."
           }
         }
       }
@@ -8155,48 +8155,48 @@
     },
     "Coste" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coste"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cost"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coste"
           }
         }
       }
     },
     "Coste equivalente en precios de la API de Anthropic. Con una suscripción no pagas por token: sirve para comparar proyectos y días." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coste equivalente en precios de la API de Anthropic. Con una suscripción no pagas por token: sirve para comparar proyectos y días."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Equivalent cost at Anthropic API prices. With a subscription you don’t pay per token: use it to compare projects and days."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coste equivalente en precios de la API de Anthropic. Con una suscripción no pagas por token: sirve para comparar proyectos y días."
           }
         }
       }
     },
     "Coste por día" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coste por día"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cost per day"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coste por día"
           }
         }
       }
@@ -9867,16 +9867,16 @@
     },
     "Día" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Día"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Day"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Día"
           }
         }
       }
@@ -10341,6 +10341,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El comando remoto no terminó en %lld s y se dejó de esperar. El servidor puede estar muy cargado o la conexión, colgada: reintenta."
+          }
+        }
+      }
+    },
+    "El cálculo del uso falló en el servidor (¿disco lleno?). Vuelve a intentarlo." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El cálculo del uso falló en el servidor (¿disco lleno?). Vuelve a intentarlo."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculating usage failed on the server (disk full?). Try again."
+          }
+        }
+      }
+    },
+    "El cálculo sigue en marcha en el servidor. Vuelve a abrir esta pantalla en unos minutos." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El cálculo sigue en marcha en el servidor. Vuelve a abrir esta pantalla en unos minutos."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The calculation is still running on the server. Open this screen again in a few minutes."
           }
         }
       }
@@ -14172,16 +14204,16 @@
     },
     "Hoy" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hoy"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Today"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoy"
           }
         }
       }
@@ -16668,16 +16700,16 @@
     },
     "Límites de la suscripción" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Límites de la suscripción"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subscription limits"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Límites de la suscripción"
           }
         }
       }
@@ -18604,16 +18636,16 @@
     },
     "No se pudo calcular el uso de Claude en el servidor." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo calcular el uso de Claude en el servidor."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t calculate Claude usage on the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo calcular el uso de Claude en el servidor."
           }
         }
       }
@@ -19420,16 +19452,16 @@
     },
     "No se pudo leer el uso de Claude del servidor." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo leer el uso de Claude del servidor."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t read Claude usage from the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el uso de Claude del servidor."
           }
         }
       }
@@ -21564,16 +21596,16 @@
     },
     "Periodo" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Periodo"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Period"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periodo"
           }
         }
       }
@@ -22124,32 +22156,32 @@
     },
     "Por modelo" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Por modelo"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "By model"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por modelo"
           }
         }
       }
     },
     "Por proyecto" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Por proyecto"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "By project"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por proyecto"
           }
         }
       }
@@ -26901,16 +26933,16 @@
     },
     "Tokens y coste por proyecto y día, y cuánto llevas de la ventana de 5 h y de la semanal" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tokens y coste por proyecto y día, y cuánto llevas de la ventana de 5 h y de la semanal"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tokens and cost per project and day, and how much of the 5-hour and weekly windows you’ve used"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens y coste por proyecto y día, y cuánto llevas de la ventana de 5 h y de la semanal"
           }
         }
       }
@@ -27569,16 +27601,16 @@
     },
     "Uso" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uso"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Usage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uso"
           }
         }
       }
@@ -27601,32 +27633,32 @@
     },
     "Uso y límites de Claude" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uso y límites de Claude"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude usage and limits"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uso y límites de Claude"
           }
         }
       }
     },
     "Uso y límites de Claude…" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uso y límites de Claude…"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude Usage and Limits…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uso y límites de Claude…"
           }
         }
       }
@@ -28921,16 +28953,16 @@
     },
     "coste equivalente" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "coste equivalente"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "equivalent cost"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "coste equivalente"
           }
         }
       }
@@ -30137,16 +30169,16 @@
     },
     "respuestas" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "respuestas"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "responses"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "respuestas"
           }
         }
       }
@@ -30497,13 +30529,13 @@
     },
     "tokens" : {
       "localizations" : {
-        "es" : {
+        "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "tokens"
           }
         },
-        "en" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "tokens"
@@ -30619,22 +30651,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "y %lld más"
-          }
-        }
-      }
-    },
-    "y %lld proyectos más" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "y %lld proyectos más"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+%lld more projects"
           }
         }
       }
