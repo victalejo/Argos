@@ -237,10 +237,26 @@ struct ProjectsView: View {
         }
     }
 
+    /// Límites de uso de Claude: aviso al acercarse al límite o, si no, la línea compacta.
+    @ViewBuilder
+    private var claudeLimitsRow: some View {
+        if let limits = viewModel.claudeLimits {
+            Group {
+                if limits.level > .normal {
+                    ClaudeLimitsBanner(status: limits)
+                } else {
+                    ClaudeLimitsCompactRow(status: limits)
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+        }
+    }
+
     private var projectList: some View {
         let visible = visibleListing
         return List {
             ServerTipsSection(server: currentServer, viewModel: viewModel)
+            claudeLimitsRow
             if let pressure = viewModel.memoryPressure, pressure.level > .normal {
                 // El diálogo cuelga del aviso: solo se confirma en nivel crítico, con el aviso a la vista.
                 MemoryPressureBanner(pressure: pressure)
@@ -407,7 +423,7 @@ struct ProjectsView: View {
             // También la lista: recoge lo creado o cerrado desde el Mac u otro cliente.
             await viewModel.refreshSessionsQuietly()
             await viewModel.refreshGitSummaries()
-            await viewModel.refreshMemoryPressure()
+            await viewModel.refreshServerReadings()
             AgentNotifier.shared.postCI(await viewModel.pollCIWatches(), server: currentServer)
             try? await Task.sleep(for: .seconds(5))
         }

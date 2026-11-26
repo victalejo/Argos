@@ -114,6 +114,26 @@ final class ClaudeActivityNotifier: NSObject {
         }
     }
 
+    /// «Te acercas al límite de Claude» (una vez por ventana, reinicio y nivel).
+    func notifyClaudeLimit(_ alert: ClaudeLimitAlert, serverID: Server.ID, serverName: String) {
+        requestAuthorizationIfNeeded()
+        let content = UNMutableNotificationContent()
+        content.title = alert.status.title
+        content.subtitle = serverName
+        content.body = alert.status.message()
+        content.sound = .default
+        content.threadIdentifier = "claude-limits-\(serverName)"
+        content.userInfo = NotificationRoute(serverID: serverID).userInfo
+        let request = UNNotificationRequest(
+            identifier: "claude-limits-\(serverName)-\(alert.key)", content: content, trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error {
+                Log.terminal.error("Notificación de límites de Claude: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
     /// Pide permiso de notificaciones (una vez). Se llama al detectar actividad de
     /// Claude por primera vez, ANTES de necesitar notificar (la petición es asíncrona).
     func requestAuthorizationIfNeeded() {

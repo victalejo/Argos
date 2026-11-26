@@ -14,6 +14,7 @@ enum ServerAction: Identifiable {
     case resources(Server)
     case doctor(Server)
     case installHooks(Server)
+    case claudeLimits(Server)
     case deviceKey(Server)
     case forgetHostKey(Server)
 
@@ -22,6 +23,7 @@ enum ServerAction: Identifiable {
         case .resources(let server): return "recursos-\(server.id)"
         case .doctor(let server): return "doctor-\(server.id)"
         case .installHooks(let server): return "hooks-\(server.id)"
+        case .claudeLimits(let server): return "limites-\(server.id)"
         case .deviceKey(let server): return "clave-\(server.id)"
         case .forgetHostKey(let server): return "huella-\(server.id)"
         }
@@ -29,8 +31,8 @@ enum ServerAction: Identifiable {
 
     var server: Server {
         switch self {
-        case .resources(let server), .doctor(let server), .installHooks(let server), .deviceKey(let server),
-             .forgetHostKey(let server):
+        case .resources(let server), .doctor(let server), .installHooks(let server), .claudeLimits(let server),
+             .deviceKey(let server), .forgetHostKey(let server):
             return server
         }
     }
@@ -48,6 +50,8 @@ struct ServerActionItems: View {
             .disabled(ImportedKeyStore.needsImport(server))
         Button("Activar indicador de Claude…", systemImage: "sparkles") { perform(.installHooks(server)) }
             .disabled(ImportedKeyStore.needsImport(server))
+        Button("Límites de Claude", systemImage: "gauge.with.dots.needle.33percent") { perform(.claudeLimits(server)) }
+            .disabled(ImportedKeyStore.needsImport(server))
         if server.authMethod == .password {
             Button("Usar una clave de este iPhone…", systemImage: "key.horizontal") { perform(.deviceKey(server)) }
         }
@@ -61,13 +65,14 @@ struct ServerActionsModifier: ViewModifier {
     @Environment(ServerHub.self) private var hub
     @State private var resources: Server?
     @State private var doctor: Server?
+    @State private var limits: Server?
     @State private var isWorking = false
     @State private var resultMessage: String?
 
-    /// Recursos y Doctor abren su hoja directamente; el resto pide confirmación.
+    /// Recursos, Doctor y límites abren su hoja directamente; el resto pide confirmación.
     private var confirming: ServerAction? {
         switch pending {
-        case .resources, .doctor, nil: return nil
+        case .resources, .doctor, .claudeLimits, nil: return nil
         default: return pending
         }
     }
@@ -81,6 +86,9 @@ struct ServerActionsModifier: ViewModifier {
                     pending = nil
                 case .doctor(let server):
                     doctor = server
+                    pending = nil
+                case .claudeLimits(let server):
+                    limits = server
                     pending = nil
                 default:
                     break
@@ -100,6 +108,9 @@ struct ServerActionsModifier: ViewModifier {
             .sheet(item: $resources) { server in
                 ServerResourcesScreen(serverName: server.name, service: hub.viewModel(for: server).service)
             }
+            .sheet(item: $limits) { server in
+                ClaudeLimitsScreen(server: server, viewModel: hub.viewModel(for: server))
+            }
             .sheet(item: $doctor) { server in
                 DoctorScreen(service: hub.viewModel(for: server).service, serverName: server.name, knownServers: hub.store.servers)
             }
@@ -117,7 +128,7 @@ struct ServerActionsModifier: ViewModifier {
 
     private func title(for action: ServerAction) -> String {
         switch action {
-        case .resources, .doctor: return ""
+        case .resources, .doctor, .claudeLimits: return ""
         case .installHooks(let server): return String(localized: "¿Activar el indicador de Claude Code en «\(server.name)»?")
         case .deviceKey(let server): return String(localized: "¿Usar una clave de este iPhone en «\(server.name)»?")
         case .forgetHostKey(let server): return String(localized: "¿Olvidar la host key de «\(server.name)»?")
@@ -126,7 +137,7 @@ struct ServerActionsModifier: ViewModifier {
 
     private func confirmLabel(for action: ServerAction) -> String {
         switch action {
-        case .resources, .doctor: return ""
+        case .resources, .doctor, .claudeLimits: return ""
         case .installHooks: return String(localized: "Activar")
         case .deviceKey: return String(localized: "Crear e instalar la clave")
         case .forgetHostKey: return String(localized: "Olvidar host key")
@@ -135,7 +146,7 @@ struct ServerActionsModifier: ViewModifier {
 
     private func message(for action: ServerAction) -> String {
         switch action {
-        case .resources, .doctor: return ""
+        case .resources, .doctor, .claudeLimits: return ""
         case .installHooks: return ClaudeHooksCopy.explanation
         case .deviceKey: return DeviceKeyCopy.explanation
         case .forgetHostKey(let server):
@@ -151,6 +162,8 @@ struct ServerActionsModifier: ViewModifier {
             resources = server
         case .doctor:
             doctor = server
+        case .claudeLimits:
+            limits = server
         case .forgetHostKey:
             hub.forgetHostKey(of: server)
             resultMessage = String(localized: "Se olvidó la huella de \(server.host). La próxima conexión guardará la nueva.")

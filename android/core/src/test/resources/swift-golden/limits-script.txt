@@ -1,0 +1,14 @@
+# argos-claude-limits: Argos guarda los límites de uso de Claude (rate_limits) que Claude Code
+# pasa a la statusline y después ejecuta la statusline anterior del usuario.
+d="$HOME/.config/argos"
+i=$(cat)
+case $i in
+*'"rate_limits"'*'"used_percentage"'*)
+  umask 077
+  mkdir -p "$d" 2>/dev/null && { date +%s; printf '%s\n' "$i"; } > "$d/claude-limits.json.$$" 2>/dev/null \
+    && mv -f "$d/claude-limits.json.$$" "$d/claude-limits.json" 2>/dev/null
+  ;;
+esac
+p=$(cat "$d/statusline-previous" 2>/dev/null)
+[ -n "$p" ] && printf '%s' "$i" | sh -c "$p"
+exit 0

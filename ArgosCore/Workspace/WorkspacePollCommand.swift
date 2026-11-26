@@ -22,6 +22,9 @@
 //      @@argos-poll:memory
 //      mem <total> <disponible> <swapTotal> <swapLibre>    (KB; solo Linux)
 //      claude <procesos claude del usuario>                (ver ServerMemoryReading)
+//      @@argos-poll:limits
+//      now <epoch del servidor>, y si existe el archivo de la statusline de Argos:
+//      <epoch en que se guardó> + JSON de la statusline   (ver ClaudeLimitsReading)
 //      @@argos-poll:end
 //
 //  Una sección cuenta solo si llega completa (le sigue otro marcador): si el plazo remoto
@@ -36,6 +39,7 @@ enum WorkspacePollSection: String, CaseIterable, Sendable, Hashable {
     case sessions
     case ports
     case memory
+    case limits
 }
 
 /// Lista de sesiones leída en el sondeo.
@@ -54,17 +58,23 @@ struct WorkspacePollOutput: Equatable, Sendable {
     var portRequests: [PortForwardRequest]?
     /// `nil` también en servidores sin /proc/meminfo (macOS): no hay aviso de memoria.
     var memory: ServerMemoryReading?
+    /// `nil` también si la statusline de Argos no está puesta o aún no guardó límites.
+    var limits: ClaudeLimitsReading?
+    /// La sección `limits` llegó completa (con o sin datos): distingue «no hay» de «no se leyó».
+    var limitsChecked = false
 
     init(
         claude: ClaudeActivitySnapshot? = nil,
         sessions: SessionsPollResult? = nil,
         portRequests: [PortForwardRequest]? = nil,
-        memory: ServerMemoryReading? = nil
+        memory: ServerMemoryReading? = nil,
+        limits: ClaudeLimitsReading? = nil
     ) {
         self.claude = claude
         self.sessions = sessions
         self.portRequests = portRequests
         self.memory = memory
+        self.limits = limits
     }
 }
 
@@ -103,6 +113,8 @@ enum WorkspacePollCommand {
             return PortForwardServerFiles.listRequestsCommand
         case .memory:
             return memoryCommand
+        case .limits:
+            return ClaudeLimitsInstaller.pollCommand
         }
     }
 
@@ -127,6 +139,10 @@ enum WorkspacePollCommand {
         }
         if requested.contains(.memory), let lines = sections[.memory] {
             result.memory = ServerMemoryReading(lines: lines)
+        }
+        if requested.contains(.limits), let lines = sections[.limits] {
+            result.limits = ClaudeLimitsReading(lines: lines)
+            result.limitsChecked = true
         }
         return result
     }

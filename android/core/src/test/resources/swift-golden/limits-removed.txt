@@ -1,0 +1,8 @@
+{
+  "model" : "opus",
+  "statusLine" : {
+    "command" : "~/bin/mi barra.sh",
+    "padding" : 2,
+    "type" : "command"
+  }
+}

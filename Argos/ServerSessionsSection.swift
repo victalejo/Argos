@@ -207,6 +207,20 @@ struct ServerSessionsSection: View {
 
     // MARK: - Proyectos
 
+    /// Límites de uso de Claude: aviso al acercarse al límite o, si no, la línea compacta.
+    @ViewBuilder
+    private var claudeLimitsRow: some View {
+        if let limits = vm.claudeLimits {
+            if limits.level > .normal {
+                ClaudeLimitsBanner(status: limits)
+                    .selectionDisabled()
+            } else {
+                ClaudeLimitsCompactRow(status: limits)
+                    .selectionDisabled()
+            }
+        }
+    }
+
     @ViewBuilder
     private var projectList: some View {
         if remoteChangePending {
@@ -215,6 +229,7 @@ struct ServerSessionsSection: View {
         if let error = vm.projectsError {
             projectsErrorRow(error)
         }
+        claudeLimitsRow
         if let pressure = vm.memoryPressure, pressure.level > .normal {
             // El diálogo cuelga del aviso: solo se pide confirmar en nivel crítico, con el aviso a la vista.
             MemoryPressureBanner(pressure: pressure)

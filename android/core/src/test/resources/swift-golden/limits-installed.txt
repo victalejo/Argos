@@ -1,0 +1,8 @@
+{
+  "model" : "opus",
+  "statusLine" : {
+    "command" : "sh \"$HOME/.config/argos/statusline.sh\" # argos-claude-limits",
+    "padding" : 2,
+    "type" : "command"
+  }
+}

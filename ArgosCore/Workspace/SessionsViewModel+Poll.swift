@@ -15,6 +15,8 @@ struct WorkspacePollRound: Sendable {
     let ciResults: [CIResult]
     /// `nil` si no se pidieron o no llegaron completas (se conserva lo último).
     let portRequests: [PortForwardRequest]?
+    /// Una ventana de uso de Claude acaba de pasar al 85 % (o al 95 %).
+    var limitAlert: ClaudeLimitAlert? = nil
 }
 
 extension SessionsViewModel {
@@ -35,18 +37,21 @@ extension SessionsViewModel {
         guard !Task.isCancelled else { return nil }
         absorbSessions(output.sessions, readOver: before)
         if let memory = output.memory { absorbMemory(memory) }
+        let limitAlert = output.limitsChecked ? absorbLimits(output.limits) : nil
         var transitions: [ClaudeTransition] = []
         if let claude = output.claude { transitions = await absorbClaudeActivity(claude) }
         // Cancelada ya con el estado de Claude aplicado: sus avisos se entregan (si no, un
         // «terminó» se perdería) pero no se usa más el servicio.
         guard !Task.isCancelled else {
-            return WorkspacePollRound(transitions: transitions, ciResults: [], portRequests: nil)
+            return WorkspacePollRound(transitions: transitions, ciResults: [], portRequests: nil, limitAlert: limitAlert)
         }
         // Si Claude acaba de terminar, el resumen git se relee ya: el aviso dice cuántos
         // archivos cambió y la fila del proyecto se actualiza al momento.
         await refreshGitSummaries(force: transitions.contains { $0.activity == .done })
         let ciResults = await pollCIWatches()
-        return WorkspacePollRound(transitions: transitions, ciResults: ciResults, portRequests: output.portRequests)
+        return WorkspacePollRound(
+            transitions: transitions, ciResults: ciResults, portRequests: output.portRequests, limitAlert: limitAlert
+        )
     }
 
     private func absorbSessions(_ result: SessionsPollResult?, readOver before: [TmuxSession]) {

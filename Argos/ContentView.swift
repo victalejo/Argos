@@ -22,6 +22,7 @@ struct ContentView: View {
     /// abiertas (si la búsqueda fallaba, SwiftUI mostraba una hoja vacía imposible de cerrar).
     @State private var transferServer: ServerSheetTarget?
     @State private var devicesServer: ServerSheetTarget?
+    @State private var claudeLimitsServer: ServerSheetTarget?
     /// Resultado de activar el indicador (alerta).
     @State private var claudeHooksResult: String?
     /// Fallo al guardar un servidor (el Llavero no aceptó el secreto).
@@ -108,6 +109,7 @@ struct ContentView: View {
             serverFormMode: $serverFormMode,
             transferServer: $transferServer,
             devicesServer: $devicesServer,
+            claudeLimitsServer: $claudeLimitsServer,
             showSSHConfig: $showSSHConfig,
             saveError: $saveError
         )
@@ -121,6 +123,7 @@ struct ContentView: View {
         case .transfer(let server): transferServer = model.sheetTarget(for: server)
         case .devices(let server): devicesServer = model.sheetTarget(for: server)
         case .claudeHooks(let server): claudeHooksServer = server
+        case .claudeLimits(let server): claudeLimitsServer = model.sheetTarget(for: server)
         case .doctor(let server): model.presentDoctor(for: server)
         case .forgetHostKey(let server): hostKeyToForget = server
         case .delete(let server): serverToDelete = server

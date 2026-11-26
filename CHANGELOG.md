@@ -6,6 +6,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **Límites de Claude (Mac e iPhone/iPad).** Cuánto llevas de la ventana de 5 horas y de
+  la semanal de tu suscripción de Claude, con la hora a la que se reinician, en la lista de
+  cada servidor; al llegar al 85 % la línea se convierte en aviso (y en el Mac, en una
+  notificación). Es opcional: se activa por servidor desde «Límites de Claude» en su menú.
+  Como Claude Code solo da esos datos a su barra de estado, Argos pone la suya, que los
+  guarda y después ejecuta la que ya tuvieras (se sigue viendo igual); al quitarla vuelve
+  la tuya.
+
 ## [1.9.1] - 2026-11-26
 
 ### Corregido

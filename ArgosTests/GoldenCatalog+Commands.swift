@@ -87,6 +87,24 @@ extension GoldenCatalog {
             "serialize-empty": try ClaudeHookInstaller.serialize([:]),
             "claude-activity": SSHService.claudeActivityCommand,
             "monitor-resources": SSHService.resourcesCommand,
+        ].merging(try claudeLimits()) { current, _ in current }
+    }
+
+    /// Statusline de Argos para los límites de uso de Claude (`ClaudeLimitsInstaller`).
+    static func claudeLimits() throws -> [String: String] {
+        let existing = try ClaudeHookInstaller.parseSettings(
+            #"{"model":"opus","statusLine":{"type":"command","command":"~/bin/mi barra.sh","padding":2}}"#
+        )
+        let installed = ClaudeLimitsInstaller.installing(into: existing)
+        return [
+            "limits-script": ClaudeLimitsInstaller.script,
+            "limits-command": ClaudeLimitsInstaller.command,
+            "limits-poll": ClaudeLimitsInstaller.pollCommand,
+            "limits-installed": try ClaudeHookInstaller.serialize(installed.settings),
+            "limits-installed-empty": try ClaudeHookInstaller.serialize(ClaudeLimitsInstaller.installing(into: [:]).settings),
+            "limits-removed": try ClaudeHookInstaller.serialize(
+                ClaudeLimitsInstaller.removing(from: installed.settings, previousCommand: installed.previousCommand)
+            ),
         ]
     }
 

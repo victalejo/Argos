@@ -2897,6 +2897,22 @@
         }
       }
     },
+    "Activado. Los límites aparecen en cuanto Claude Code refresque su barra de estado (al usarlo); las sesiones ya abiertas lo recogen solas." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activado. Los límites aparecen en cuanto Claude Code refresque su barra de estado (al usarlo); las sesiones ya abiertas lo recogen solas."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enabled. The limits show up as soon as Claude Code refreshes its status line (when you use it); sessions already open pick it up on their own."
+          }
+        }
+      }
+    },
     "Activados en este proyecto" : {
       "localizations" : {
         "en" : {
@@ -2993,6 +3009,22 @@
         }
       }
     },
+    "Activar límites de Claude" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar límites de Claude"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Claude limits"
+          }
+        }
+      }
+    },
     "Activar…" : {
       "localizations" : {
         "en" : {
@@ -3005,6 +3037,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Activar…"
+          }
+        }
+      }
+    },
+    "Activo" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activo"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
           }
         }
       }
@@ -3053,6 +3101,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Actualización en segundo plano"
+          }
+        }
+      }
+    },
+    "Actualizado" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizado"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated"
           }
         }
       }
@@ -3821,6 +3885,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Argos puede avisar, pero los avisos no se muestran. Revisa Ajustes → Argos → Notificaciones."
+          }
+        }
+      }
+    },
+    "Argos puede enseñarte cuánto llevas usado de tus límites de Claude en «%@»: la ventana de 5 horas y la semanal, con la hora a la que se reinician, y avisarte al llegar al %lld %%." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Argos puede enseñarte cuánto llevas usado de tus límites de Claude en «%1$@»: la ventana de 5 horas y la semanal, con la hora a la que se reinician, y avisarte al llegar al %2$lld %%."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Argos can show how much of your Claude limits you have used on “%1$@”: the 5-hour window and the weekly one, with when they reset, and warn you when you reach %2$lld%%."
           }
         }
       }
@@ -5841,6 +5921,22 @@
         }
       }
     },
+    "Claude Code solo entrega esos datos a su barra de estado, así que Argos pone la suya en ~/.claude/settings.json (con copia en settings.json.argos-backup): guarda los límites en ~/.config/argos y después ejecuta tu barra de estado anterior, que se sigue viendo igual. Al quitarla vuelve la tuya." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code solo entrega esos datos a su barra de estado, así que Argos pone la suya en ~/.claude/settings.json (con copia en settings.json.argos-backup): guarda los límites en ~/.config/argos y después ejecuta tu barra de estado anterior, que se sigue viendo igual. Al quitarla vuelve la tuya."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code only hands that data to its status line, so Argos puts its own in ~/.claude/settings.json (with a copy in settings.json.argos-backup): it saves the limits in ~/.config/argos and then runs your previous status line, which looks the same as before. Removing it brings yours back."
+          }
+        }
+      }
+    },
     "Claude Code trabajará en %@." : {
       "localizations" : {
         "en" : {
@@ -5981,6 +6077,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude espera tu respuesta"
+          }
+        }
+      }
+    },
+    "Claude está casi en el límite" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude está casi en el límite"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude is almost at the limit"
           }
         }
       }
@@ -8261,6 +8373,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cuenta solo lo que espera tu respuesta: Claude esperando, permisos del agente y puertos."
+          }
+        }
+      }
+    },
+    "Cuánto llevas de la ventana de 5 h y de la semanal de Claude" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuánto llevas de la ventana de 5 h y de la semanal de Claude"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How much of Claude’s 5-hour and weekly windows you have used"
           }
         }
       }
@@ -11563,16 +11691,16 @@
     },
     "En cola · %@" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En cola · %@"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Queued · %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En cola · %@"
           }
         }
       }
@@ -14012,16 +14140,16 @@
     },
     "Imagen pegada" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Imagen pegada"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pasted image"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagen pegada"
           }
         }
       }
@@ -16090,6 +16218,38 @@
         }
       }
     },
+    "Llevas el %lld %% de «%@»." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llevas el %1$lld %% de «%2$@»."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have used %1$lld%% of “%2$@”."
+          }
+        }
+      }
+    },
+    "Llevas el %lld %% de «%@»; se reinicia %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llevas el %1$lld %% de «%2$@»; se reinicia %3$@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have used %1$lld%% of “%2$@”; it resets %3$@."
+          }
+        }
+      }
+    },
     "Lo deja como estaba en este punto (o lo borra si no existía)" : {
       "localizations" : {
         "en" : {
@@ -16310,6 +16470,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Los puntos de restauración no están disponibles en esta conexión."
+          }
+        }
+      }
+    },
+    "Límites de Claude" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Límites de Claude"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude limits"
+          }
+        }
+      }
+    },
+    "Límites de Claude…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Límites de Claude…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Limits…"
           }
         }
       }
@@ -18058,6 +18250,22 @@
         }
       }
     },
+    "No se pudo activar" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo activar"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t turn it on"
+          }
+        }
+      }
+    },
     "No se pudo activar el indicador: %@" : {
       "localizations" : {
         "en" : {
@@ -19238,6 +19446,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo preparar el agente"
+          }
+        }
+      }
+    },
+    "No se pudo quitar" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo quitar"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t remove it"
           }
         }
       }
@@ -21708,16 +21932,16 @@
     },
     "Preparando la subida…" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Preparando la subida…"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preparing upload…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparando la subida…"
           }
         }
       }
@@ -22390,6 +22614,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quitado el worktree de %@. La rama se conserva."
+          }
+        }
+      }
+    },
+    "Quitado. Claude Code vuelve a usar tu barra de estado anterior." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitado. Claude Code vuelve a usar tu barra de estado anterior."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removed. Claude Code goes back to your previous status line."
           }
         }
       }
@@ -24474,6 +24714,22 @@
         }
       }
     },
+    "Se reinicia %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se reinicia %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resets %@"
+          }
+        }
+      }
+    },
     "Se suben a %@ los cambios que hiciste en el Mac." : {
       "localizations" : {
         "en" : {
@@ -24758,6 +25014,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Seleccionar todo"
+          }
+        }
+      }
+    },
+    "Semana" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Semana"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week"
+          }
+        }
+      }
+    },
+    "Semana (%@)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Semana (%@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week (%@)"
           }
         }
       }
@@ -25581,64 +25869,64 @@
     },
     "Subidas con errores: %lld" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subidas con errores: %lld"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uploads with errors: %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subidas con errores: %lld"
           }
         }
       }
     },
     "Subido al servidor: la ruta está en el prompt" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subido al servidor: la ruta está en el prompt"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uploaded to the server: the path is in the prompt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subido al servidor: la ruta está en el prompt"
           }
         }
       }
     },
     "Subiendo %lld de %lld: %@" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subiendo %1$lld de %2$lld: %3$@"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uploading %1$lld of %2$lld: %3$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subiendo %1$lld de %2$lld: %3$@"
           }
         }
       }
     },
     "Subiendo «%@»" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subiendo «%@»"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uploading “%@”"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subiendo «%@»"
           }
         }
       }
@@ -25783,6 +26071,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "También pellizcando el terminal"
+          }
+        }
+      }
+    },
+    "Te acercas al límite de Claude" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te acercas al límite de Claude"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You’re nearing your Claude limit"
           }
         }
       }
@@ -26959,6 +27263,22 @@
         }
       }
     },
+    "Uso de Claude" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uso de Claude"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude usage"
+          }
+        }
+      }
+    },
     "Usuario" : {
       "localizations" : {
         "en" : {
@@ -27083,6 +27403,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ventana %lld: %@"
+          }
+        }
+      }
+    },
+    "Ventana de 5 h" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ventana de 5 h"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5-hour window"
           }
         }
       }
@@ -27751,6 +28087,22 @@
         }
       }
     },
+    "a las %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a las %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "at %@"
+          }
+        }
+      }
+    },
     "abrir una ventana" : {
       "localizations" : {
         "en" : {
@@ -28371,6 +28723,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "dueño/nombre o URL"
+          }
+        }
+      }
+    },
+    "el %@ a las %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "el %1$@ a las %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "on %1$@ at %2$@"
           }
         }
       }
@@ -29107,6 +29475,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "los agentes persistentes (iPhone/iPad) no podrán arrancar"
+          }
+        }
+      }
+    },
+    "mañana a las %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mañana a las %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tomorrow at %@"
           }
         }
       }

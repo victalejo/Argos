@@ -15,6 +15,7 @@ struct ServerSheets: ViewModifier {
     @Binding var serverFormMode: ServerFormSheet.Mode?
     @Binding var transferServer: ServerSheetTarget?
     @Binding var devicesServer: ServerSheetTarget?
+    @Binding var claudeLimitsServer: ServerSheetTarget?
     @Binding var showSSHConfig: Bool
     @Binding var saveError: String?
 
@@ -32,6 +33,9 @@ struct ServerSheets: ViewModifier {
             }
             .sheet(item: $devicesServer) { target in
                 AuthorizedDevicesSheet(server: target.server, service: target.service) { devicesServer = nil }
+            }
+            .sheet(item: $claudeLimitsServer) { target in
+                ClaudeLimitsSheet(target: target, model: model) { claudeLimitsServer = nil }
             }
             .sheet(item: $model.doctorTarget) { target in
                 DoctorSheet(service: target.service, serverName: target.server.name, knownServers: model.store.servers)
@@ -59,6 +63,7 @@ struct ServerSheets: ViewModifier {
         func changed(_ id: Server.ID) -> Bool { old[id] != new[id] }
         if let target = transferServer, changed(target.id) { transferServer = nil }
         if let target = devicesServer, changed(target.id) { devicesServer = nil }
+        if let target = claudeLimitsServer, changed(target.id) { claudeLimitsServer = nil }
         if let target = model.doctorTarget, changed(target.id) { model.doctorTarget = nil }
         if case .edit(let server) = serverFormMode, model.store.server(withID: server.id) == nil {
             serverFormMode = nil

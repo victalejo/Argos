@@ -39,7 +39,7 @@ enum LocalizationWhitelist {
         "leer el estado de Claude",
         "releer las sesiones",
         "sondear el servidor",
-        "leer la memoria del servidor",
+        "leer la memoria y los límites del servidor",
         // Contexto de los errores de los puntos de restauración: solo va al registro.
         "Vista previa de la restauración",
         "Detener a Claude",

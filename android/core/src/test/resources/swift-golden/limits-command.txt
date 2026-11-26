@@ -1,0 +1,1 @@
+sh "$HOME/.config/argos/statusline.sh" # argos-claude-limits

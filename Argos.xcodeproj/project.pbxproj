@@ -91,6 +91,7 @@
 		132B9F6100F143B681CA67C5 /* IntegrationRemote.swift in Sources */ = {isa = PBXBuildFile; fileRef = C27AD0D7CFB72626DDA08F60 /* IntegrationRemote.swift */; };
 		13BE1659C730822798172FAC /* TerminalPoolEvictionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B141663A032DDBE018951E /* TerminalPoolEvictionTests.swift */; };
 		142C9A46515546B6C5065F41 /* ServerSyncDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52FA91469F01EE60174BE275 /* ServerSyncDocument.swift */; };
+		1443F8028CB1B5D37AA02786 /* ClaudeLimitsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E53F2D1206A578389A338EB /* ClaudeLimitsScreen.swift */; };
 		145B98D05020F9DAD5F628B8 /* SSHFileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813BA47AFE3577E5DFBB180C /* SSHFileTransfer.swift */; };
 		14CDFBABDA1688F97A9A9CA6 /* FileDownloadStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EEC0CBCE324EDB6B2A1FEE /* FileDownloadStatus.swift */; };
 		15B828AEF1BE77A1701FC3D5 /* AgentSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B3C9EA0D67DBD87506B7FE4 /* AgentSessionStore.swift */; };
@@ -139,6 +140,7 @@
 		1D36145A34638E67305BED79 /* AgentLaunchPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3C41F83213BEDD2142FFBD /* AgentLaunchPreferences.swift */; };
 		1DB03CD6855DC4F0238E627E /* SystemSleep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 708D2840430F88F8B09980A7 /* SystemSleep.swift */; };
 		1DD9F24635C1793D0D66A0A6 /* WorkspacePollPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56971FA45DAAC28A3559E979 /* WorkspacePollPlan.swift */; };
+		1DDAEB4680B9F385B531B727 /* ClaudeLimitsSetupModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23CF7B564E374CBBD3E93A2F /* ClaudeLimitsSetupModel.swift */; };
 		1E5907E13795B34179A5FB10 /* MemoryPressureBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD75704BFD8B7A5387CBDE24 /* MemoryPressureBanner.swift */; };
 		1EA898B5044BE2ED9D79C256 /* SessionNameValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF7D70C12DBAB37FC61454C /* SessionNameValidator.swift */; };
 		1EF9414DA6FEC778E3541C22 /* ShortcutSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AE22D7B3C2E278FCAE1077D /* ShortcutSecurityTests.swift */; };
@@ -186,6 +188,7 @@
 		29B3CF55E1A57053DBF7656E /* AgentLaunchPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3C41F83213BEDD2142FFBD /* AgentLaunchPreferences.swift */; };
 		29B9A00BF83C8D2A70FD24D1 /* ServerTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25E5112B5FE6C2392B747A54 /* ServerTransfer.swift */; };
 		2A03C2D3C14BC4EE5066E75D /* ImportProjectsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B2F3199C86425C6D2559FB5 /* ImportProjectsSheet.swift */; };
+		2A09DFC3BBD635C04109B435 /* ClaudeLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = B44E5726ED288B3B9956FC1B /* ClaudeLimits.swift */; };
 		2A3ECEACD402AB29FB31C683 /* SSHFileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813BA47AFE3577E5DFBB180C /* SSHFileTransfer.swift */; };
 		2A5D35F9D05714E6CA630360 /* AgentPanelView+Flows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E26FD79CB2543CCC2BAE67B /* AgentPanelView+Flows.swift */; };
 		2A5E16E62188BA5461787982 /* GitHubModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE7487FD202B2F6186A4C36 /* GitHubModels.swift */; };
@@ -293,6 +296,7 @@
 		42AA5357546E61C00D0A83CA /* TerminalScriptBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D043C2BB71FC8E591EAF0E0 /* TerminalScriptBridge.swift */; };
 		42B5207029BDAB2AD2B75999 /* AppLockPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AE07F9425B8B70EEF59E46A /* AppLockPolicy.swift */; };
 		42E3B9439255250B2E3A65F6 /* WorkspacePoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BAA937D16FB03B37BBBD98A /* WorkspacePoller.swift */; };
+		431549E8FB1B94A6AEF068DD /* SSHClaudeLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F16285FA55AE87F15F09EC9 /* SSHClaudeLimits.swift */; };
 		434C96E3F90AD414ED01BF4B /* TerminalWindowsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4694D77A532A90E0013C30AE /* TerminalWindowsModel.swift */; };
 		43DD7960555613C641E681EE /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEECBB39FDCBB809955B4868 /* JSONValue.swift */; };
 		43E0940423BAAA02E337AD27 /* ServerStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BB45CA5EE03D980C943857 /* ServerStoreTests.swift */; };
@@ -318,6 +322,7 @@
 		493FC7410F989B52896D6E1B /* ShellQuoting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DC857E28C19E13F3CE6E99A /* ShellQuoting.swift */; };
 		49F0B457C5A94A6FC9EFD747 /* NotificationReadiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FD1E5FB63583CCEEA1A5BB6 /* NotificationReadiness.swift */; };
 		4A20826C5FE101B76EA1064E /* ListeningPort.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87BAF2094ABF62A6CB111324 /* ListeningPort.swift */; };
+		4A53B973C1267A997F2DF6B4 /* ClaudeLimitsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79075D27B22B21460E865EC9 /* ClaudeLimitsViews.swift */; };
 		4A7328EA840D2E18A3B29D5D /* ProjectsUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE1A547C7728507E118A13BE /* ProjectsUpdater.swift */; };
 		4AB4AD1EC66262E917B53A7B /* SSHConfigHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C8D98F8AA68B063706E4D /* SSHConfigHost.swift */; };
 		4AD113DAA90446D0E07D8476 /* AgentStreamEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D63CB151C598DDFDE97D64F /* AgentStreamEvent.swift */; };
@@ -336,6 +341,7 @@
 		4FB1FAB4D81C0F246A396C6B /* FilesPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D2FE460795B4342E7429DB /* FilesPanelView.swift */; };
 		501E8C94EF56BEB5A0A34C27 /* LocalTerminalLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = E005FC4C09BC1D2BB3CA9FEC /* LocalTerminalLauncher.swift */; };
 		50262D24381D99AB728C774F /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = FC6E54AE421077969B9E7E5B /* Citadel */; };
+		502DC761A876DE9FB8E59C75 /* ClaudeLimitsSetupModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23CF7B564E374CBBD3E93A2F /* ClaudeLimitsSetupModel.swift */; };
 		50DE5D0D97BAD26752E053C7 /* TmuxWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B9AC8EA121AD6BE8DE16EB /* TmuxWindow.swift */; };
 		50F5069D0E9EAF70808E8332 /* SpreadsheetPreviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E6DF19A5A0D175A248B5B98 /* SpreadsheetPreviewTests.swift */; };
 		5128B2140BE2FBEC98506FDA /* ProjectSyncSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC6E208DA070ACD0BA4151A /* ProjectSyncSheet.swift */; };
@@ -443,6 +449,7 @@
 		6D03BF63E17CF224587F5B07 /* AgentHardeningShellTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19EF48D25D5A8DD22A4498DC /* AgentHardeningShellTests.swift */; };
 		6D0FCBFFAD22493FBC0B5E2D /* ClaudeLoginModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 925F38B70253DFF4C22AEADD /* ClaudeLoginModel.swift */; };
 		6D3149723DA04E4C461E8131 /* ArgosAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A237291B6D78110DFB279E36 /* ArgosAppDelegate.swift */; };
+		6FB113D4D295BF6C23544B38 /* ClaudeLimitsInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F3B415DEC1BEC0C1467FE7 /* ClaudeLimitsInstaller.swift */; };
 		6FB2397093DD9ED9EA17B4B1 /* ProjectConfirmation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8EFBB07798CB1DD54EE6A95 /* ProjectConfirmation.swift */; };
 		6FEB34DC55E6276D14974D02 /* ProjectStatusFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8A54ACE707D8F019851DD47 /* ProjectStatusFilter.swift */; };
 		6FFEB06C79401744AC98777F /* GitChangesModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DC5DB0244361DFEC2BA6061 /* GitChangesModel.swift */; };
@@ -633,6 +640,7 @@
 		9BCB191F21F83CB9D149A20B /* GitRepoSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E106E0AEFF98959A02815AE /* GitRepoSummary.swift */; };
 		9C0BC4920B62F23727FA1CC0 /* PersistentAgentAttentionTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60A3B0E6D2EE25013AEF6E15 /* PersistentAgentAttentionTracker.swift */; };
 		9C3943722C1B06E4801097C1 /* GoldenParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60D2AE4A6BD3C8D7D56367E5 /* GoldenParityTests.swift */; };
+		9C8EFA2B90FA65FCE1D32DB0 /* ClaudeLimitsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79075D27B22B21460E865EC9 /* ClaudeLimitsViews.swift */; };
 		9D03F87D598BD0DFD82A7D03 /* FolderNameValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9248D8F60C69D27BDE5BEB /* FolderNameValidator.swift */; };
 		9D0D342EEDFE98210B8F0EB9 /* CheckpointScriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA28719FE85EB306E68F29DB /* CheckpointScriptTests.swift */; };
 		9D27422A3D0C0BC2DAA4D42F /* ProjectStoppedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA1EBF755252AEAAD6F01EB /* ProjectStoppedView.swift */; };
@@ -644,6 +652,7 @@
 		9D8E4B3FA973BCE4166F60D2 /* DoctorScript.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37A169F9419A227E0C3E818 /* DoctorScript.swift */; };
 		9DA10A940EAA628713A2076E /* ArgosTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5A06C15E0E69E0D86623E5 /* ArgosTheme.swift */; };
 		9E78830CA13F3F0AA9E5092C /* SSHPortForwarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F7E7DFF7CC42793FDF7191 /* SSHPortForwarding.swift */; };
+		9E929FBDA493545A285A7CD2 /* ClaudeLimitsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79075D27B22B21460E865EC9 /* ClaudeLimitsViews.swift */; };
 		9EF87501EC78FE842D89BD4C /* PortForwardRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 685547EF5025C96197BDCF3E /* PortForwardRequest.swift */; };
 		9F45FD848383374C4F59D8F8 /* SessionsViewModel+CI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 073437B4E11F69087A8DE0B8 /* SessionsViewModel+CI.swift */; };
 		A03FFB21F42367C90AD32DDF /* HostKeyVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70128DFCBDD1912AAEF6B9D6 /* HostKeyVerifier.swift */; };
@@ -652,6 +661,7 @@
 		A0FD70FBEDB384A2AEC391E0 /* ImportedKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FAC2897E01638BA346A3B9 /* ImportedKeyStore.swift */; };
 		A1228BC919AB19F57B2DFB09 /* SSHAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5538896DF86FC303211E6F0 /* SSHAuthentication.swift */; };
 		A1C3889C1A8D2EE33DC764F0 /* WorktreesModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61E9E415C9B15D35560BAC9 /* WorktreesModel.swift */; };
+		A1D9E8E2C378E26A7ED1EDE9 /* ClaudeLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = B44E5726ED288B3B9956FC1B /* ClaudeLimits.swift */; };
 		A1E6FC9BA9058E08BC57087E /* SyncStaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1531A2AE12DCE16E1984FA34 /* SyncStaging.swift */; };
 		A1F9A9A471F3331411041FF1 /* FileIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF6D7AFEA9394DA7EFC42D6 /* FileIcon.swift */; };
 		A2284A50518E69C9767585D6 /* PosixChecksum.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7E1A20735CB52E6DFA7172 /* PosixChecksum.swift */; };
@@ -665,7 +675,9 @@
 		A4DAFDE7F4ECF89BCC9C85BE /* GitHubStatusModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 396775327D1EF4C9BD47B784 /* GitHubStatusModel.swift */; };
 		A4EE0E99545239CBB07DB466 /* LocalTerminalLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = E005FC4C09BC1D2BB3CA9FEC /* LocalTerminalLauncher.swift */; };
 		A56DB8827A4CB9D9F6C797D5 /* ServerHub+DeviceKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10A399CC46FFE11D41136B01 /* ServerHub+DeviceKey.swift */; };
+		A5E0D9163AFC0E15D7D121E5 /* ClaudeLimitsInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F3B415DEC1BEC0C1467FE7 /* ClaudeLimitsInstaller.swift */; };
 		A6048C7015DAA40666FDB29C /* ShutdownRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17192616A09A201A979537CB /* ShutdownRunner.swift */; };
+		A63D023302D706BCDAB904F9 /* ClaudeLimitsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9F41B2381443BEC7C043D7 /* ClaudeLimitsSheet.swift */; };
 		A66CA29EB7B34E65854ABACE /* ServerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81EAEEC76D8FB26502422469 /* ServerStore.swift */; };
 		A66DF41C673300FA53DF0591 /* TerminalKeysTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44065D32B5350CA319E8928F /* TerminalKeysTests.swift */; };
 		A6C6F476DFEE8352567DAAFC /* IntegrationProjectsFileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33A3580F04F083ECC5E12A05 /* IntegrationProjectsFileTests.swift */; };
@@ -686,6 +698,7 @@
 		A9D6CC4549FAA0AADB4E60FE /* SSHProjectSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6332E94046F3FEBA222631DC /* SSHProjectSync.swift */; };
 		AA471C29B5AB3BBBFA74DC4B /* Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156ECCC03245407DD5C767E6 /* Server.swift */; };
 		AA56FCF4EC3FA4100207ABA9 /* ServerResourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A3FF5CD86E296C2E241CDD /* ServerResourcesView.swift */; };
+		AAC0326A9409B51226C64D53 /* ClaudeLimitsInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F3B415DEC1BEC0C1467FE7 /* ClaudeLimitsInstaller.swift */; };
 		AAFFE954836758B2142E8C66 /* ReliabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F51C5E0B5665B50C8902B2E /* ReliabilityTests.swift */; };
 		AB22372E05BC69001D3E2DE9 /* GitHubCloneFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE42AFE5C03D390BA95A7220 /* GitHubCloneFields.swift */; };
 		AB280DBCC8DC1DD6AE0D9EA8 /* ProjectConfirmation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8EFBB07798CB1DD54EE6A95 /* ProjectConfirmation.swift */; };
@@ -759,6 +772,7 @@
 		B951B96CDE20D149B01FA8C7 /* SSHConfigReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63E2EF33D76A860F35F762F1 /* SSHConfigReader.swift */; };
 		BA44568C4B4F7EDCB6FAAD61 /* TmuxSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3BD8E282B642B7EA3FBD64 /* TmuxSession.swift */; };
 		BB159019BB99AEB3E64F3BB3 /* SSHServicing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DD1F33B059017BF1D7A73AE /* SSHServicing.swift */; };
+		BB5E08BCA07DEF33EEADF9CF /* SSHClaudeLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F16285FA55AE87F15F09EC9 /* SSHClaudeLimits.swift */; };
 		BB8EA01242D29160F8B7764E /* ProjectSyncJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = B224353F8D7B9EF8C253A56E /* ProjectSyncJob.swift */; };
 		BB989DA5CDD301EE7AF84D70 /* TerminalAttach.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC4FDB9B0A8AF8463CF2C8A8 /* TerminalAttach.swift */; };
 		BBA5563275BC1A18E2A30BAF /* Checkpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EB78425ED445DB586840F1 /* Checkpoint.swift */; };
@@ -888,6 +902,7 @@
 		DAA8661739F163BC383D0CE6 /* ProjectsDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1086AE1D12471C6A5EB0977E /* ProjectsDocument.swift */; };
 		DB4727A48403F18E2C48EDB5 /* ServerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81EAEEC76D8FB26502422469 /* ServerStore.swift */; };
 		DB88F2E9947A43488ACBCFE4 /* SSHAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5538896DF86FC303211E6F0 /* SSHAuthentication.swift */; };
+		DBA701BBC56E4A304A36AFB9 /* SSHClaudeLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F16285FA55AE87F15F09EC9 /* SSHClaudeLimits.swift */; };
 		DBA7F71DE11B83F6F542EF53 /* ProjectLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03E297A38B4DE514422CC7D /* ProjectLifecycleTests.swift */; };
 		DBA945AEC687198528B3AF54 /* DeadlineValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA430F7567B4A648127E2DD1 /* DeadlineValue.swift */; };
 		DC7465DFF1450038B4484B9A /* TmuxErrorClassificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD9D527CAB785756EB0FCB9 /* TmuxErrorClassificationTests.swift */; };
@@ -902,6 +917,7 @@
 		DE3BDF69942A527B06CEE36F /* MockSSHService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC724DB505B98A68667B540E /* MockSSHService.swift */; };
 		DE3CD8C7745EC55EEFBD1C8B /* ProjectsUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE1A547C7728507E118A13BE /* ProjectsUpdater.swift */; };
 		DE52F5C2EED60922F25BC0BD /* DiagnosticLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 443AE47B01A95EF95E627025 /* DiagnosticLog.swift */; };
+		DED49EB911C7A4FD8C6BA58A /* ClaudeLimitsSetupModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23CF7B564E374CBBD3E93A2F /* ClaudeLimitsSetupModel.swift */; };
 		DF49736CE76FF4A51BFC6EBC /* ProjectRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 410C22953E31B83A9B58B822 /* ProjectRow.swift */; };
 		DFB7BD20A04B223E4F215DC6 /* SessionsViewModel+Worktrees.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48A220ECFAAEB1A663460AE /* SessionsViewModel+Worktrees.swift */; };
 		DFD1C6FC4F8CC48FBA1EA50C /* TerminalMouseSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC74D5206AEF8E75B044932F /* TerminalMouseSelection.swift */; };
@@ -956,6 +972,7 @@
 		EF80115750E0FEE83262C536 /* SSHDirectoryGrant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 306D20FCB4B399C70A82CA1E /* SSHDirectoryGrant.swift */; };
 		EFA3C575532638ED0311035F /* IntegrationKeysTimeoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98ECCDAFCCC960A77DF0CDAC /* IntegrationKeysTimeoutTests.swift */; };
 		EFFEFDF8F7C6046286BC3711 /* GitStatusParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A8DF898B51E5F3CB1C1DD6B /* GitStatusParser.swift */; };
+		F105354330C06B65FE453DA2 /* ClaudeLimitsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E2B06DD0139332D256D49BA /* ClaudeLimitsTests.swift */; };
 		F1389A946277CD49FBCEB188 /* SafeLocalFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9188DC75269C1B5FA4D3D72 /* SafeLocalFile.swift */; };
 		F196152A7EF6F710D99EC8D1 /* QuickSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E4BF9725F48E501C0A92760 /* QuickSwitcher.swift */; };
 		F1D1E45D592CF1ECD9EBD448 /* RemoteTimeout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AB1694BFBB72CBD1ADDDA4 /* RemoteTimeout.swift */; };
@@ -985,6 +1002,7 @@
 		F72D7998D125B5FB7F23E8A3 /* GitStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 528E0503344321946C760884 /* GitStatus.swift */; };
 		F76F2080B8A49B85D310119D /* CheckpointHardeningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E3C9C9BA4D14DAB2168E413 /* CheckpointHardeningTests.swift */; };
 		F79E54AD009A684B0BD69821 /* WindowTabsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 185DE56CCE558E8A7D188FFA /* WindowTabsTests.swift */; };
+		F8266D32385693E34266B262 /* ClaudeLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = B44E5726ED288B3B9956FC1B /* ClaudeLimits.swift */; };
 		F83E82C08CD8BD92ED360B73 /* SSHKeyAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE75C08C11A58E74DCB6E5D0 /* SSHKeyAuthorization.swift */; };
 		F89953748CA3ACF05C483ED7 /* AgentConversationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849D735DF41B96D22DDFE331 /* AgentConversationState.swift */; };
 		F8B66694EA4387ACDB5924ED /* ProjectsDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1086AE1D12471C6A5EB0977E /* ProjectsDocument.swift */; };
@@ -995,6 +1013,7 @@
 		FAE7252B4EA4EDD2215E1AEE /* FilePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA64F65BCA426875F7CA98E /* FilePreview.swift */; };
 		FB027B8BAF36735A33E61754 /* GitHubCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59554FA9BE89761BE96FB8B4 /* GitHubCommands.swift */; };
 		FBAE8C4EC81BC90852A75EC3 /* ServerTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25E5112B5FE6C2392B747A54 /* ServerTransfer.swift */; };
+		FBFCDE7616CB569DC86EB160 /* ClaudeLimitsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9F41B2381443BEC7C043D7 /* ClaudeLimitsSheet.swift */; };
 		FC296948E419CF0F848DCD46 /* GitHubCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59554FA9BE89761BE96FB8B4 /* GitHubCommands.swift */; };
 		FC30863BDE5283C1CFA6D0B3 /* SSHDirectoryAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D2489483C8D0A34206467C8 /* SSHDirectoryAccessTests.swift */; };
 		FC52AD87A63A38C999445556 /* AgentStdinExchange.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34D2B4ACF75F19D7ABD274B3 /* AgentStdinExchange.swift */; };
@@ -1088,6 +1107,7 @@
 		1BBEDFA397323EAD761FBBBD /* AgentPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelView.swift; sourceTree = "<group>"; };
 		1BE6FD7F6A2A59ACBE3B30D3 /* ShortcutLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutLogicTests.swift; sourceTree = "<group>"; };
 		1C29BCBCABF041D3AB511AA6 /* CheckpointHookInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckpointHookInstaller.swift; sourceTree = "<group>"; };
+		1F16285FA55AE87F15F09EC9 /* SSHClaudeLimits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHClaudeLimits.swift; sourceTree = "<group>"; };
 		1FE92B40FC41601577DCFAAB /* AgentHardeningLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentHardeningLogicTests.swift; sourceTree = "<group>"; };
 		2015AD532F2536FD57847917 /* ArgosAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArgosAppModel.swift; sourceTree = "<group>"; };
 		20181BDC9CAA7658CE1D1C5D /* MacPersistentAgentsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPersistentAgentsTests.swift; sourceTree = "<group>"; };
@@ -1102,6 +1122,7 @@
 		233DA3F629B63D1365B0DC65 /* ReconnectPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectPolicy.swift; sourceTree = "<group>"; };
 		2340E4E406F5E1286DE2EDD1 /* WorkspacePollCommandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspacePollCommandTests.swift; sourceTree = "<group>"; };
 		238C559B7C54D727F0CEA341 /* TerminalSessionMissingPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionMissingPanel.swift; sourceTree = "<group>"; };
+		23CF7B564E374CBBD3E93A2F /* ClaudeLimitsSetupModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLimitsSetupModel.swift; sourceTree = "<group>"; };
 		249EF73854BFD8DED6C58FDC /* IntegrationCheckpointSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationCheckpointSupport.swift; sourceTree = "<group>"; };
 		25C9583A1D16EDB12515DD5A /* Deadline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Deadline.swift; sourceTree = "<group>"; };
 		25E5112B5FE6C2392B747A54 /* ServerTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerTransfer.swift; sourceTree = "<group>"; };
@@ -1217,7 +1238,9 @@
 		5CF69BF4BB6CFCB1DD0BAAAD /* LocalProjectFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalProjectFiles.swift; sourceTree = "<group>"; };
 		5D043C2BB71FC8E591EAF0E0 /* TerminalScriptBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalScriptBridge.swift; sourceTree = "<group>"; };
 		5E0BCEC1C82EA7137ADF5AA1 /* SyntaxHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntaxHighlighter.swift; sourceTree = "<group>"; };
+		5E2B06DD0139332D256D49BA /* ClaudeLimitsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLimitsTests.swift; sourceTree = "<group>"; };
 		5E4BF9725F48E501C0A92760 /* QuickSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickSwitcher.swift; sourceTree = "<group>"; };
+		5E53F2D1206A578389A338EB /* ClaudeLimitsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLimitsScreen.swift; sourceTree = "<group>"; };
 		5E7CA427D62834D91A8EDD69 /* TerminalKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalKeys.swift; sourceTree = "<group>"; };
 		5EE7487FD202B2F6186A4C36 /* GitHubModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubModels.swift; sourceTree = "<group>"; };
 		6050D37D176F10FE7DDBEC69 /* AttentionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttentionViews.swift; sourceTree = "<group>"; };
@@ -1250,6 +1273,7 @@
 		6AE6042D54B1DBC3E322EFBC /* Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logging.swift; sourceTree = "<group>"; };
 		6B3C9EA0D67DBD87506B7FE4 /* AgentSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionStore.swift; sourceTree = "<group>"; };
 		6BEEB470B3CCA2FF5C05799D /* WindowManagementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManagementTests.swift; sourceTree = "<group>"; };
+		6D9F41B2381443BEC7C043D7 /* ClaudeLimitsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLimitsSheet.swift; sourceTree = "<group>"; };
 		6DE172C9ECB80009AEFCD1CE /* SSHGitHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHGitHub.swift; sourceTree = "<group>"; };
 		6E16CAFC9EAA1A46AFDF73B6 /* IntegrationDoctorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationDoctorTests.swift; sourceTree = "<group>"; };
 		6E6BC91AEAEA9B47B29B9FB7 /* GoldenCatalog+Checkpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GoldenCatalog+Checkpoints.swift"; sourceTree = "<group>"; };
@@ -1276,6 +1300,7 @@
 		77ECA29809ED0B649C4C5AA6 /* AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLock.swift; sourceTree = "<group>"; };
 		780DF45938449580B85ADEC2 /* CheckpointTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckpointTestSupport.swift; sourceTree = "<group>"; };
 		7877ECB210D4ADE7B068DEF8 /* WindowCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCommands.swift; sourceTree = "<group>"; };
+		79075D27B22B21460E865EC9 /* ClaudeLimitsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLimitsViews.swift; sourceTree = "<group>"; };
 		7A8DF898B51E5F3CB1C1DD6B /* GitStatusParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitStatusParser.swift; sourceTree = "<group>"; };
 		7B9922128E97B568E4104FD3 /* PersistentAgentHibernation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentAgentHibernation.swift; sourceTree = "<group>"; };
 		7CAFF9E44AE68CF5A984E35B /* AgentPanelRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelRegistry.swift; sourceTree = "<group>"; };
@@ -1389,7 +1414,9 @@
 		B2076170325D00594A23D1E7 /* TerminalUploadQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalUploadQueue.swift; sourceTree = "<group>"; };
 		B224353F8D7B9EF8C253A56E /* ProjectSyncJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSyncJob.swift; sourceTree = "<group>"; };
 		B3F078655196FDEFE85D4FB1 /* PDFDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFDocumentView.swift; sourceTree = "<group>"; };
+		B44E5726ED288B3B9956FC1B /* ClaudeLimits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLimits.swift; sourceTree = "<group>"; };
 		B4B9AC8EA121AD6BE8DE16EB /* TmuxWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxWindow.swift; sourceTree = "<group>"; };
+		B4F3B415DEC1BEC0C1467FE7 /* ClaudeLimitsInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeLimitsInstaller.swift; sourceTree = "<group>"; };
 		B52A0DF05049D85D634854BF /* ShellQuotingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellQuotingTests.swift; sourceTree = "<group>"; };
 		B5B141663A032DDBE018951E /* TerminalPoolEvictionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPoolEvictionTests.swift; sourceTree = "<group>"; };
 		B61E9E415C9B15D35560BAC9 /* WorktreesModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreesModel.swift; sourceTree = "<group>"; };
@@ -1615,6 +1642,7 @@
 			isa = PBXGroup;
 			children = (
 				60B2FCCF2E14C8F1274C541E /* ClaudeActivityNotifier.swift */,
+				6D9F41B2381443BEC7C043D7 /* ClaudeLimitsSheet.swift */,
 			);
 			path = ClaudeStatus;
 			sourceTree = "<group>";
@@ -1634,6 +1662,7 @@
 			children = (
 				FA93F1EDC5E97DEF86043735 /* AgentPermissionPicker.swift */,
 				873A06A0506476768AE34595 /* ClaudeActivityBadge.swift */,
+				79075D27B22B21460E865EC9 /* ClaudeLimitsViews.swift */,
 				1925E36B7C272ED0F9641803 /* ClaudeMascot.swift */,
 				C3E89EFDE24BA0BFC45E5AF0 /* GitDiffView.swift */,
 				FE42AFE5C03D390BA95A7220 /* GitHubCloneFields.swift */,
@@ -1941,6 +1970,7 @@
 				EAE443CE3B4D06B3DD92713B /* CheckpointsModelTests.swift */,
 				780DF45938449580B85ADEC2 /* CheckpointTestSupport.swift */,
 				6EB505950A24A675F5D87A4A /* ClaudeAgentCommandTests.swift */,
+				5E2B06DD0139332D256D49BA /* ClaudeLimitsTests.swift */,
 				5A61425D8B07F0B3D7A2F127 /* ClaudeLoginModelTests.swift */,
 				4C88A364DE5AFD0F5B8418AC /* ClaudeLoginOutputTests.swift */,
 				C77C948AAE0767A64ECA8DB0 /* ClaudeStatusTests.swift */,
@@ -2156,6 +2186,17 @@
 			path = ClaudeStatus;
 			sourceTree = "<group>";
 		};
+		B2D012D9DCFF9D52F1ED149A /* ClaudeUsage */ = {
+			isa = PBXGroup;
+			children = (
+				B44E5726ED288B3B9956FC1B /* ClaudeLimits.swift */,
+				B4F3B415DEC1BEC0C1467FE7 /* ClaudeLimitsInstaller.swift */,
+				23CF7B564E374CBBD3E93A2F /* ClaudeLimitsSetupModel.swift */,
+				1F16285FA55AE87F15F09EC9 /* SSHClaudeLimits.swift */,
+			);
+			path = ClaudeUsage;
+			sourceTree = "<group>";
+		};
 		B3D64735B1F3DE6BD74F8C7E /* Workspace */ = {
 			isa = PBXGroup;
 			children = (
@@ -2206,6 +2247,7 @@
 				48056A3283F055D7BCAA4C62 /* Agent */,
 				9F097335E37D28D7F16DC0AE /* Attention */,
 				B0450DAD639F0B398CFD5A71 /* ClaudeStatus */,
+				B2D012D9DCFF9D52F1ED149A /* ClaudeUsage */,
 				2AB263C7C602C5CC8B6F78A7 /* CloudSync */,
 				DAC2FACEB5693CE9744238C0 /* Doctor */,
 				4423997F444D36E4E2E8D4C6 /* Files */,
@@ -2360,6 +2402,7 @@
 				81B077DE45FF394D5752CA9B /* Assets.xcassets */,
 				2B1D021B1EDA14665B1D2BFC /* CheckpointsView.swift */,
 				33DBD98B9A52D93687874697 /* CheckpointsViewDialogs.swift */,
+				5E53F2D1206A578389A338EB /* ClaudeLimitsScreen.swift */,
 				B63163E5BF671519256CF0A0 /* ClaudeLoginSheet.swift */,
 				E4AB2165A47F4ED715E81A3F /* GitChangesView.swift */,
 				8A15CA50E39310F32E5487BA /* ImportServerSheet.swift */,
@@ -2671,6 +2714,11 @@
 				1FCF4BE73DE9EBADAAFFFFD9 /* ClaudeAgentCommand.swift in Sources */,
 				188F2B60330900DA73A8B412 /* ClaudeAgentSession.swift in Sources */,
 				04F7590F87FAD9A92785E1F5 /* ClaudeHookInstaller.swift in Sources */,
+				F8266D32385693E34266B262 /* ClaudeLimits.swift in Sources */,
+				AAC0326A9409B51226C64D53 /* ClaudeLimitsInstaller.swift in Sources */,
+				DED49EB911C7A4FD8C6BA58A /* ClaudeLimitsSetupModel.swift in Sources */,
+				A63D023302D706BCDAB904F9 /* ClaudeLimitsSheet.swift in Sources */,
+				9E929FBDA493545A285A7CD2 /* ClaudeLimitsViews.swift in Sources */,
 				97FA4EE3586D2608559BE89B /* ClaudeLoginModel.swift in Sources */,
 				106A3D5939FFCD9A4AC5FFE3 /* ClaudeLoginOutput.swift in Sources */,
 				34E23C3B76059D5F90C4ABCB /* ClaudeMascot.swift in Sources */,
@@ -2803,6 +2851,7 @@
 				33028194EE09F9131687C16D /* SSHAgentExec.swift in Sources */,
 				A1228BC919AB19F57B2DFB09 /* SSHAuthentication.swift in Sources */,
 				593B6EC44B7B3CAB02BEECBB /* SSHCheckpoints.swift in Sources */,
+				BB5E08BCA07DEF33EEADF9CF /* SSHClaudeLimits.swift in Sources */,
 				693AF938D8890A3A22D634BA /* SSHClaudeStatus.swift in Sources */,
 				761B6DA38108E55FEDE81ABE /* SSHCommandRunner.swift in Sources */,
 				D553397FC0BEDA29BFDFD179 /* SSHConfigHost.swift in Sources */,
@@ -2961,6 +3010,11 @@
 				0B21DA7B48754F324FC724B9 /* ClaudeAgentCommand.swift in Sources */,
 				CE70C4667F3AA10E9620FDB0 /* ClaudeAgentSession.swift in Sources */,
 				74CC24229540104ECA3F516A /* ClaudeHookInstaller.swift in Sources */,
+				A1D9E8E2C378E26A7ED1EDE9 /* ClaudeLimits.swift in Sources */,
+				6FB113D4D295BF6C23544B38 /* ClaudeLimitsInstaller.swift in Sources */,
+				1443F8028CB1B5D37AA02786 /* ClaudeLimitsScreen.swift in Sources */,
+				502DC761A876DE9FB8E59C75 /* ClaudeLimitsSetupModel.swift in Sources */,
+				9C8EFA2B90FA65FCE1D32DB0 /* ClaudeLimitsViews.swift in Sources */,
 				551BF8AC59A34AD0A1C6889B /* ClaudeLoginModel.swift in Sources */,
 				92D93573246C733B464CD011 /* ClaudeLoginOutput.swift in Sources */,
 				FF293AC5D852DCBEC5D1BC75 /* ClaudeLoginSheet.swift in Sources */,
@@ -3077,6 +3131,7 @@
 				D45D1D82FB0304383D1B5F6C /* SSHAgentExec.swift in Sources */,
 				DB88F2E9947A43488ACBCFE4 /* SSHAuthentication.swift in Sources */,
 				90BB6E9259E44E8CE37A4045 /* SSHCheckpoints.swift in Sources */,
+				DBA701BBC56E4A304A36AFB9 /* SSHClaudeLimits.swift in Sources */,
 				D4B237C619D8652031FD540F /* SSHClaudeStatus.swift in Sources */,
 				B09A45BEEB2AD14A75E2CBF0 /* SSHCommandRunner.swift in Sources */,
 				4AB4AD1EC66262E917B53A7B /* SSHConfigHost.swift in Sources */,
@@ -3238,6 +3293,11 @@
 				8A1DCE66754A95617BECE703 /* ClaudeAgentCommand.swift in Sources */,
 				3E962F0BBE098EE2DA22EA88 /* ClaudeAgentSession.swift in Sources */,
 				1B94EFC0E78D0A27ABB166A7 /* ClaudeHookInstaller.swift in Sources */,
+				2A09DFC3BBD635C04109B435 /* ClaudeLimits.swift in Sources */,
+				A5E0D9163AFC0E15D7D121E5 /* ClaudeLimitsInstaller.swift in Sources */,
+				1DDAEB4680B9F385B531B727 /* ClaudeLimitsSetupModel.swift in Sources */,
+				FBFCDE7616CB569DC86EB160 /* ClaudeLimitsSheet.swift in Sources */,
+				4A53B973C1267A997F2DF6B4 /* ClaudeLimitsViews.swift in Sources */,
 				6D0FCBFFAD22493FBC0B5E2D /* ClaudeLoginModel.swift in Sources */,
 				6235DDEECED77E2985B68E0A /* ClaudeLoginOutput.swift in Sources */,
 				0E8099B683D8FAC047330BB4 /* ClaudeMascot.swift in Sources */,
@@ -3370,6 +3430,7 @@
 				1CB7D4773E3D2853723C96D9 /* SSHAgentExec.swift in Sources */,
 				95128BC3DB4AABEC6EB21034 /* SSHAuthentication.swift in Sources */,
 				78A122BF7862BCC546BCB216 /* SSHCheckpoints.swift in Sources */,
+				431549E8FB1B94A6AEF068DD /* SSHClaudeLimits.swift in Sources */,
 				1F969D7F184847E56CD58CC0 /* SSHClaudeStatus.swift in Sources */,
 				9AA66B9AF7DBF13F9A45B35E /* SSHCommandRunner.swift in Sources */,
 				78D3E6D44F83F3EA35FFF631 /* SSHConfigHost.swift in Sources */,
@@ -3504,6 +3565,7 @@
 				049E9B71F74A860C28FF5261 /* CheckpointTestSupport.swift in Sources */,
 				09894B4DA549F940F90BE849 /* CheckpointsModelTests.swift in Sources */,
 				D9133F6112661892126C7B4B /* ClaudeAgentCommandTests.swift in Sources */,
+				F105354330C06B65FE453DA2 /* ClaudeLimitsTests.swift in Sources */,
 				24CB32A02699F9D9F53EA3C4 /* ClaudeLoginModelTests.swift in Sources */,
 				953194EB68DD0AE6D6A5BB81 /* ClaudeLoginOutputTests.swift in Sources */,
 				445FE3EA6A6C3769A07480CF /* ClaudeStatusTests.swift in Sources */,

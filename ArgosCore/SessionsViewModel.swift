@@ -46,6 +46,9 @@ final class SessionsViewModel {
     /// Memoria del servidor según el último sondeo (`nil` = sin dato o servidor no Linux).
     /// Ver `ServerMemoryPressure`: avisa antes de que el sistema empiece a cerrar procesos.
     private(set) var memoryPressure: ServerMemoryPressure?
+    /// Límites de uso de Claude según el último sondeo (`nil` = sin statusline de Argos o
+    /// sin datos aún). Ver `ClaudeLimitsStatus`.
+    private(set) var claudeLimits: ClaudeLimitsStatus?
     /// Última lectura suelta de memoria (iPhone/iPad), para espaciarlas.
     @ObservationIgnored private var lastMemoryRead: ContinuousClock.Instant?
     /// Cada cuánto, como mucho, se relee la memoria fuera del sondeador del Mac.
@@ -273,23 +276,33 @@ final class SessionsViewModel {
         await refreshSessionsQuietly()
     }
 
+    /// Aplica la sección `limits` de un sondeo. Devuelve el aviso si una ventana acaba de
+    /// pasar al 85 % (o al 95 %).
+    @discardableResult
+    func absorbLimits(_ reading: ClaudeLimitsReading?, now: Date = Date()) -> ClaudeLimitAlert? {
+        let previous = claudeLimits
+        claudeLimits = reading.flatMap { ClaudeLimitsStatus.evaluate($0, now: now) }
+        return ClaudeLimitAlert.transition(from: previous, to: claudeLimits)
+    }
+
     /// Aplica una lectura de memoria (con histéresis sobre el nivel anterior).
     func absorbMemory(_ reading: ServerMemoryReading) {
         memoryPressure = ServerMemoryPressure.evaluate(reading, previous: memoryPressure?.level)
     }
 
-    /// Relee solo la memoria (iPhone/iPad, que no usa el sondeador del Mac). Un fallo no
-    /// borra la última lectura.
-    func refreshMemoryPressure() async {
+    /// Relee la memoria y los límites de Claude (iPhone/iPad, que no usa el sondeador del
+    /// Mac). Un fallo no borra la última lectura.
+    func refreshServerReadings() async {
         guard case .loaded = state else { return }
         let now = ContinuousClock.now
         if let lastMemoryRead, now - lastMemoryRead < Self.memoryReadInterval { return }
         lastMemoryRead = now
         do {
-            let output = try await ConnectionPriority.background { try await service.workspacePoll([.memory]) }
+            let output = try await ConnectionPriority.background { try await service.workspacePoll([.memory, .limits]) }
             if let memory = output.memory { absorbMemory(memory) }
+            if output.limitsChecked { absorbLimits(output.limits) }
         } catch {
-            noteBackgroundFailure(error, during: "leer la memoria del servidor")
+            noteBackgroundFailure(error, during: "leer la memoria y los límites del servidor")
         }
     }
 

@@ -1,0 +1,1 @@
+printf 'now %s\n' "$(date +%s)"; cat "$HOME/.config/argos/claude-limits.json" 2>/dev/null
