@@ -52,7 +52,8 @@ enum ClaudeScreenSignal: String, Sendable {
     case idle = "0"
     /// Línea del spinner (`✻ Pensando… (12s · …)`) en algún sitio: señal débil.
     case spinner = "1"
-    /// «esc to interrupt» en el pie (últimas líneas): seguro que está trabajando.
+    /// «esc to interrupt» en el pie (últimas líneas) o subagentes en segundo plano
+    /// («Waiting for N background agent…»): seguro que está trabajando.
     case busy = "2"
 }
 
@@ -75,10 +76,12 @@ struct ClaudePaneActivity: Equatable, Sendable, Codable {
     /// Corrige el estado de los hooks con la pantalla:
     /// - `working` sin rastro de trabajo -> interrumpido: `done` silencioso.
     /// - `waiting` con «esc to interrupt» en el pie -> ya se respondió y está trabajando.
+    /// - `done` con trabajo seguro en pantalla -> `Stop` saltó al acabar el turno principal,
+    ///   pero quedan subagentes en segundo plano: sigue trabajando (y no se avisa aún).
     static func resolve(hook: ClaudeActivity, screen: ClaudeScreenSignal) -> (ClaudeActivity, quiet: Bool) {
         switch (hook, screen) {
         case (.working, .idle): return (.done, true)
-        case (.waiting, .busy): return (.working, false)
+        case (.waiting, .busy), (.done, .busy): return (.working, false)
         default: return (hook, false)
         }
     }

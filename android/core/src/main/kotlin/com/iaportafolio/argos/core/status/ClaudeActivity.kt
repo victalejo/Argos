@@ -69,11 +69,13 @@ data class ClaudePaneActivity(
     companion object {
         /**
          * Corrige el estado de los hooks con la pantalla: `working` sin rastro de trabajo es una
-         * interrupción (`done` silencioso); `waiting` con «esc to interrupt» ya está trabajando.
+         * interrupción (`done` silencioso); `waiting` con «esc to interrupt» ya está trabajando;
+         * `done` con trabajo seguro en pantalla (subagentes en segundo plano) sigue trabajando.
          */
         fun resolve(hook: ClaudeActivity, screen: ClaudeScreenSignal): Pair<ClaudeActivity, Boolean> = when {
             hook == ClaudeActivity.WORKING && screen == ClaudeScreenSignal.IDLE -> ClaudeActivity.DONE to true
             hook == ClaudeActivity.WAITING && screen == ClaudeScreenSignal.BUSY -> ClaudeActivity.WORKING to false
+            hook == ClaudeActivity.DONE && screen == ClaudeScreenSignal.BUSY -> ClaudeActivity.WORKING to false
             else -> hook to false
         }
     }

@@ -10,18 +10,20 @@ package com.iaportafolio.argos.core.status
 object ClaudeStatusCommands {
 
     /**
-     * Un `list-panes -a` y, SOLO en los paneles working/waiting, un vistazo a su pantalla
-     * ([ClaudeScreenSignal]): `2` si el pie dice «esc to interrupt», `1` si hay línea de spinner,
+     * Un `list-panes -a` y, SOLO en los paneles working/waiting/done, un vistazo a su pantalla
+     * ([ClaudeScreenSignal]): `2` si el pie dice «esc to interrupt» o hay subagentes en segundo
+     * plano («Waiting for 1 background agent to finish»), `1` si hay línea de spinner,
      * `0` si nada, `-` si no se miró. Vale en sh y zsh (por eso `[|]` en los patrones). Salida:
      * `pantalla|estado|pane|ventana|sesión` (ver [ClaudeActivitySnapshot.fromListPanes]).
      */
     const val CLAUDE_ACTIVITY_COMMAND =
         "tmux -u list-panes -a -F '#{${ClaudeHookInstaller.OPTION}}|#{pane_id}|#{window_index}|#{session_name}' 2>/dev/null " +
             "| while IFS= read -r l; do s=\${l%%[|]*}; r=\${l#*[|]}; p=\${r%%[|]*}; c=-; " +
-            "if [ \"\$s\" = working ] || [ \"\$s\" = waiting ]; then " +
+            "if [ \"\$s\" = working ] || [ \"\$s\" = waiting ] || [ \"\$s\" = done ]; then " +
             "t=\$(tmux -u capture-pane -p -t \"\$p\" 2>/dev/null | grep -v '^[[:space:]]*\$'); c=0; " +
             "printf '%s\\n' \"\$t\" | grep -q '… ([0-9]' && c=1; " +
             "printf '%s\\n' \"\$t\" | tail -n 4 | grep -q 'esc to interrupt' && c=2; " +
+            "printf '%s\\n' \"\$t\" | grep -q '^[^ ]* Waiting for [0-9]* background' && c=2; " +
             "fi; printf '%s|%s\\n' \"\$c\" \"\$l\"; done"
 
     /** settings.json de Claude Code, relativo al home del servidor. */

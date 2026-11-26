@@ -86,6 +86,7 @@ struct ClaudeStatusTests {
         ("working", "0", .done), ("working", "-", .working),
         ("waiting", "2", .working), ("waiting", "1", .waiting),
         ("waiting", "0", .waiting), ("done", "0", .done),
+        ("done", "2", .working), ("done", "1", .done), ("done", "-", .done),
     ])
     func screenCorrection(hook: String, screen: String, expected: ClaudeActivity) {
         let snapshot = ClaudeActivitySnapshot(listPanesOutput: "\(screen)|\(hook)|%1|1|s")

@@ -89,6 +89,8 @@ class ClaudeStatusTest {
             Triple("working", "0", ClaudeActivity.DONE), Triple("working", "-", ClaudeActivity.WORKING),
             Triple("waiting", "2", ClaudeActivity.WORKING), Triple("waiting", "1", ClaudeActivity.WAITING),
             Triple("waiting", "0", ClaudeActivity.WAITING), Triple("done", "0", ClaudeActivity.DONE),
+            Triple("done", "2", ClaudeActivity.WORKING), Triple("done", "1", ClaudeActivity.DONE),
+            Triple("done", "-", ClaudeActivity.DONE),
         )
         for ((hook, screen, expected) in cases) {
             assertEquals(expected, snap("$screen|$hook|%1|1|s").activity("s"), "$hook/$screen")
