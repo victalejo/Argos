@@ -91,6 +91,8 @@ fun ServersScreen(
     onEnableClaude: (Server) -> Unit = {},
     /** «Doctor del servidor» del menú de un servidor. */
     onOpenDoctor: (Server) -> Unit = {},
+    /** «Límites de Claude» del menú de un servidor. */
+    onOpenClaudeLimits: (Server) -> Unit = {},
     /** Ajustes globales extra del menú (p. ej. el comando de arranque). */
     extraSettings: @Composable (closeMenu: () -> Unit) -> Unit = {},
 ) {
@@ -198,6 +200,7 @@ fun ServersScreen(
                         onForgetHostKey = { onForgetHostKey(server) },
                         onEnableClaude = { onEnableClaude(server) },
                         onOpenDoctor = { onOpenDoctor(server) },
+                        onOpenClaudeLimits = { onOpenClaudeLimits(server) },
                     )
                 }
             }
@@ -253,6 +256,7 @@ private fun ServerRow(
     onForgetHostKey: () -> Unit,
     onEnableClaude: () -> Unit,
     onOpenDoctor: () -> Unit,
+    onOpenClaudeLimits: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     ListItem(
@@ -289,6 +293,11 @@ private fun ServerRow(
                         text = { Text(stringResource(R.string.claude_hooks_menu)) },
                         leadingIcon = { Icon(painterResource(R.drawable.ic_sparkles), contentDescription = null) },
                         onClick = { menuOpen = false; onEnableClaude() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.claude_limits_menu)) },
+                        leadingIcon = { Icon(painterResource(R.drawable.ic_gauge), contentDescription = null) },
+                        onClick = { menuOpen = false; onOpenClaudeLimits() },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.doctor_menu)) },

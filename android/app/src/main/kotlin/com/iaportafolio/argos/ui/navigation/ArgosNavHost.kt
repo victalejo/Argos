@@ -35,6 +35,7 @@ import androidx.navigation.toRoute
 import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.R
 import com.iaportafolio.argos.background.AgentChatTarget
+import com.iaportafolio.argos.ui.claude.ClaudeLimitsScreen
 import com.iaportafolio.argos.ui.doctor.DoctorScreen
 import com.iaportafolio.argos.ui.doctor.doctorViewModel
 import com.iaportafolio.argos.background.CheckTrigger
@@ -108,6 +109,9 @@ data class DoctorRoute(val serverId: String)
 
 @Serializable
 data class MonitorRoute(val serverId: String)
+
+@Serializable
+data class ClaudeLimitsRoute(val serverId: String)
 
 @Serializable
 data class TerminalRoute(val serverId: String, val sessionName: String)
@@ -189,6 +193,7 @@ fun ArgosNavHost(
                 onOpenPorts = { id -> navController.navigate(PortsRoute(id)) },
                 onOpenMonitor = { id -> navController.navigate(MonitorRoute(id)) },
                 onOpenDoctor = { id -> navController.navigate(DoctorRoute(id)) },
+                onOpenClaudeLimits = { id -> navController.navigate(ClaudeLimitsRoute(id)) },
             )
         }
         composable<ServerFormRoute> { entry ->
@@ -252,11 +257,16 @@ fun ArgosNavHost(
                 onOpenTerminal = { openTerminal(route.serverId, it) },
                 onOpenPorts = { navController.navigate(PortsRoute(route.serverId)) },
                 onOpenMonitor = { navController.navigate(MonitorRoute(route.serverId)) },
+                onOpenClaudeLimits = { navController.navigate(ClaudeLimitsRoute(route.serverId)) },
             )
         }
         composable<MonitorRoute> { entry ->
             val route = entry.toRoute<MonitorRoute>()
             ResourceMonitorScreen(resourceMonitorViewModel(container, route.serverId), onBack = { navController.popBackStack() })
+        }
+        composable<ClaudeLimitsRoute> { entry ->
+            val route = entry.toRoute<ClaudeLimitsRoute>()
+            ClaudeLimitsScreen(claudeLimitsViewModel(container, route.serverId), onBack = { navController.popBackStack() })
         }
         composable<DoctorRoute> { entry ->
             val route = entry.toRoute<DoctorRoute>()
@@ -362,6 +372,7 @@ private fun ServersDestination(
     onOpenPorts: (serverId: String) -> Unit,
     onOpenMonitor: (serverId: String) -> Unit,
     onOpenDoctor: (serverId: String) -> Unit,
+    onOpenClaudeLimits: (serverId: String) -> Unit,
 ) {
     val viewModel = serversViewModel(container)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -411,6 +422,7 @@ private fun ServersDestination(
                 diagnostics = { onDismiss -> DiagnosticsDestination(container, onDismiss) },
                 onEnableClaude = { server -> claudeHooksFor = server.id },
                 onOpenDoctor = { server -> onOpenDoctor(server.id) },
+                onOpenClaudeLimits = { server -> onOpenClaudeLimits(server.id) },
                 extraSettings = { closeMenu ->
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.startup_command_menu)) },
@@ -443,6 +455,7 @@ private fun ServersDestination(
                         onOpenTerminal = { onOpenTerminal(selected, it) },
                         onOpenPorts = { onOpenPorts(selected) },
                         onOpenMonitor = { onOpenMonitor(selected) },
+                        onOpenClaudeLimits = { onOpenClaudeLimits(selected) },
                     )
                 }
             }
@@ -459,6 +472,7 @@ private fun ProjectsDestination(
     onOpenTerminal: (sessionName: String) -> Unit,
     onOpenPorts: () -> Unit,
     onOpenMonitor: () -> Unit,
+    onOpenClaudeLimits: () -> Unit,
 ) {
     val viewModel = projectsViewModel(container, serverId)
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -484,9 +498,9 @@ private fun ProjectsDestination(
         if (viewModel.state.value.load == SessionsLoad.Loaded) viewModel.refresh()
         onPauseOrDispose { }
     }
-    // Aviso de memoria del servidor: se relee solo mientras la lista está a la vista.
+    // Aviso de memoria y límites de Claude del servidor: se releen solo mientras la lista está a la vista.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(viewModel, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.pollMemoryWhileVisible() } }
+    LaunchedEffect(viewModel, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.pollServerReadingsWhileVisible() } }
     val picker = folderPickerViewModel(container, serverId)
     val hooks = claudeHooksViewModel(container, serverId)
     val hooksState by hooks.state.collectAsStateWithLifecycle()
@@ -510,6 +524,7 @@ private fun ProjectsDestination(
         onBack = onBack,
         onOpenPorts = onOpenPorts,
         onOpenMonitor = onOpenMonitor,
+        onOpenClaudeLimits = onOpenClaudeLimits,
         onSendCommand = { sendCommand.open(state.sessions.map { it.name }) },
         onEnableClaude = hooks::requestInstall,
         claudeHint = { if (hooksState.showHint) ClaudeHooksHint(onEnable = hooks::requestInstall, onDismiss = hooks::dismissHint) },

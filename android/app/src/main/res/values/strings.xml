@@ -830,4 +830,32 @@
         <item quantity="other">Usa el %1$d\u00A0%% de la memoria (RAM y swap) con %2$d procesos de Claude. Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando.</item>
     </plurals>
     <string name="memory_pressure_start_anyway">Iniciar igualmente</string>
+    <!-- Límites de uso de Claude (ClaudeLimits) -->
+    <string name="claude_limits_menu">Límites de Claude</string>
+    <string name="claude_limits_title">Límites de Claude</string>
+    <string name="claude_limits_five_hour">Ventana de 5 h</string>
+    <string name="claude_limits_seven_day">Semana</string>
+    <string name="claude_limits_seven_day_scoped">Semana (%1$s)</string>
+    <string name="claude_limits_window_percent">%1$s %2$d\u00A0%%</string>
+    <string name="claude_limits_percent">%1$d\u00A0%%</string>
+    <string name="claude_limits_title_normal">Uso de Claude</string>
+    <string name="claude_limits_title_high">Te acercas al límite de Claude</string>
+    <string name="claude_limits_title_critical">Claude está casi en el límite</string>
+    <string name="claude_limits_message">Llevas el %1$d\u00A0%% de «%2$s».</string>
+    <string name="claude_limits_message_reset">Llevas el %1$d\u00A0%% de «%2$s»; se reinicia %3$s.</string>
+    <string name="claude_limits_reset_today">a las %1$s</string>
+    <string name="claude_limits_reset_tomorrow">mañana a las %1$s</string>
+    <string name="claude_limits_reset_later">el %1$s a las %2$s</string>
+    <string name="claude_limits_resets">Se reinicia %1$s</string>
+    <string name="claude_limits_updated">Actualizado %1$s</string>
+    <string name="claude_limits_intro">Argos puede enseñarte cuánto llevas usado de tus límites de Claude en «%1$s»: la ventana de 5 horas y la semanal, con la hora a la que se reinician, y avisarte al llegar al %2$d\u00A0%%.</string>
+    <string name="claude_limits_explanation">Claude Code solo entrega esos datos a su barra de estado, así que Argos pone la suya en ~/.claude/settings.json (con copia en settings.json.argos-backup): guarda los límites en ~/.config/argos y después ejecuta tu barra de estado anterior, que se sigue viendo igual. Al quitarla vuelve la tuya.</string>
+    <string name="claude_limits_activate">Activar límites de Claude</string>
+    <string name="claude_limits_active">Activo</string>
+    <string name="claude_limits_remove">Quitar</string>
+    <string name="claude_limits_no_data">Aún no hay datos: aparecen en cuanto Claude Code refresque su barra de estado en este servidor.</string>
+    <string name="claude_limits_activated">Activado. Los límites aparecen en cuanto Claude Code refresque su barra de estado (al usarlo); las sesiones ya abiertas lo recogen solas.</string>
+    <string name="claude_limits_removed">Quitado. Claude Code vuelve a usar tu barra de estado anterior.</string>
+    <string name="claude_limits_activate_failed">No se pudo activar: %1$s</string>
+    <string name="claude_limits_remove_failed">No se pudo quitar: %1$s</string>
 </resources>

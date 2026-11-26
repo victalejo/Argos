@@ -5,6 +5,8 @@ import com.iaportafolio.argos.core.SSHServicing
 import com.iaportafolio.argos.core.Server
 import com.iaportafolio.argos.core.monitor.ServerMemoryReader
 import com.iaportafolio.argos.core.monitor.ServerMemoryReading
+import com.iaportafolio.argos.core.usage.ClaudeLimitsAccess
+import com.iaportafolio.argos.core.usage.ClaudeLimitsReading
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.status.ClaudeActivityReading
 import com.iaportafolio.argos.core.status.ClaudeActivitySnapshot
@@ -145,7 +147,36 @@ class FakeServiceProvider(var service: FakeSSHService = FakeSSHService()) : Serv
 }
 
 /** Doble de [SSHServicing] para tmux, proyectos y el indicador de Claude; el resto no se usa todavía. */
-open class FakeSSHService : SSHServicing, ClaudeActivityReading, ClaudeHookMaintenance, ServerMemoryReader {
+open class FakeSSHService : SSHServicing, ClaudeActivityReading, ClaudeHookMaintenance, ServerMemoryReader, ClaudeLimitsAccess {
+    /** Límites que devuelve [claudeLimits] (`null` = sin datos). No se anotan en [calls]. */
+    var limits: ClaudeLimitsReading? = null
+    var limitsError: Exception? = null
+    var limitsReads = 0
+    var limitsInstalled = false
+
+    override suspend fun claudeLimits(): ClaudeLimitsReading? {
+        limitsReads++
+        limitsError?.let { throw it }
+        return limits
+    }
+
+    override suspend fun claudeLimitsInstalled(): Boolean {
+        limitsError?.let { throw it }
+        return limitsInstalled
+    }
+
+    override suspend fun installClaudeLimits() {
+        calls += "installLimits"
+        limitsError?.let { throw it }
+        limitsInstalled = true
+    }
+
+    override suspend fun uninstallClaudeLimits() {
+        calls += "uninstallLimits"
+        limitsError?.let { throw it }
+        limitsInstalled = false
+    }
+
     /** Memoria que devuelve [serverMemory] (`null` = el servidor no la da). No se anota en [calls]. */
     var memory: ServerMemoryReading? = null
     var memoryError: Exception? = null

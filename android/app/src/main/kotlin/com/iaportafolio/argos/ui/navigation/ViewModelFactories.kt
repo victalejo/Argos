@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.iaportafolio.argos.AppContainer
 import com.iaportafolio.argos.ui.agents.AgentChatViewModel
 import com.iaportafolio.argos.ui.claude.ClaudeHooksViewModel
+import com.iaportafolio.argos.ui.claude.ClaudeLimitsViewModel
 import com.iaportafolio.argos.ui.monitor.ResourceMonitorViewModel
 import com.iaportafolio.argos.ui.share.ShareTargetViewModel
 import com.iaportafolio.argos.ui.agents.AgentListViewModel
@@ -91,6 +92,13 @@ internal fun sendCommandViewModel(container: AppContainer, serverId: String): Se
 internal fun resourceMonitorViewModel(container: AppContainer, serverId: String): ResourceMonitorViewModel = viewModel(
     key = "monitor:$serverId",
     factory = viewModelFactory { initializer { ResourceMonitorViewModel(serverId, container.servers, container.services, container.io) } },
+)
+
+/** «Límites de Claude» de un servidor. */
+@Composable
+internal fun claudeLimitsViewModel(container: AppContainer, serverId: String): ClaudeLimitsViewModel = viewModel(
+    key = "claude-limits:$serverId",
+    factory = viewModelFactory { initializer { ClaudeLimitsViewModel(serverId, container.servers, container.services, container.io) } },
 )
 
 /** «Compartir» → Argos: elegir servidor y proyecto para lo compartido. */

@@ -15,6 +15,10 @@ import com.iaportafolio.argos.core.github.GitHubRepositoriesResult
 import com.iaportafolio.argos.core.github.GitHubRepository
 import com.iaportafolio.argos.core.monitor.ServerMemoryPressure
 import com.iaportafolio.argos.core.monitor.ServerMemoryReader
+import com.iaportafolio.argos.core.usage.ClaudeLimitAlert
+import com.iaportafolio.argos.core.usage.ClaudeLimitsAccess
+import com.iaportafolio.argos.core.usage.ClaudeLimitsReading
+import com.iaportafolio.argos.core.usage.ClaudeLimitsStatus
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectConfirmation
 import com.iaportafolio.argos.core.projects.ProjectEntry
@@ -73,6 +77,7 @@ class ProjectsViewModel(
     /** Sesiones que un terminal vio desaparecer ([sessionDidDisappear]). */
     vanished: Flow<VanishedSession> = emptyFlow(),
     private val memoryIntervalMillis: Long = MEMORY_REFRESH_MILLIS,
+    private val clock: () -> Instant = Instant::now,
 ) : ViewModel(), ProjectsActions, SessionDialogActions {
 
     private val mutableState = MutableStateFlow(
@@ -251,17 +256,44 @@ class ProjectsViewModel(
         mutableState.update { it.copy(projects = next, projectsError = null) }
     }
 
-    // MARK: - Memoria del servidor
+    // MARK: - Memoria y límites de Claude del servidor
 
     /**
-     * Lo lanza la pantalla mientras está a la vista (y lo cancela al salir): relee la memoria del
-     * servidor cada [memoryIntervalMillis] solo con la lista cargada (la conexión ya está abierta).
+     * Lo lanza la pantalla mientras está a la vista (y lo cancela al salir): relee la memoria y los
+     * límites de Claude del servidor cada [memoryIntervalMillis] solo con la lista cargada (la
+     * conexión ya está abierta). Como `refreshServerReadings` de iOS.
      */
-    suspend fun pollMemoryWhileVisible() {
+    suspend fun pollServerReadingsWhileVisible() {
         while (true) {
-            if (state.value.load == SessionsLoad.Loaded) refreshMemory()
+            if (state.value.load == SessionsLoad.Loaded) {
+                refreshMemory()
+                refreshClaudeLimits()
+            }
             delay(memoryIntervalMillis)
         }
+    }
+
+    /**
+     * Una lectura de los límites de uso de Claude como sondeo de fondo. Un fallo («no se leyó»)
+     * conserva la última; «no hay» (sin statusline de Argos o aún sin datos) la retira.
+     */
+    suspend fun refreshClaudeLimits() {
+        val server = repository.server(serverId) ?: return
+        logFailures(ArgosLog.TAG_SSH, "No se pudieron leer los límites de Claude de ${server.endpoint}") {
+            val access = services.service(server) as? ClaudeLimitsAccess ?: return
+            ConnectionPriority.background { withContext(io) { access.claudeLimits() } }
+        }.onSuccess { reading -> absorbLimits(reading) }
+    }
+
+    /**
+     * Aplica una lectura de límites. Devuelve el aviso si una ventana acaba de pasar al 85 % (o al
+     * 95 %); hoy Android no lo notifica (como iOS), pero queda calculado.
+     */
+    fun absorbLimits(reading: ClaudeLimitsReading?): ClaudeLimitAlert? {
+        val previous = state.value.claudeLimits
+        val current = reading?.let { ClaudeLimitsStatus.evaluate(it, clock()) }
+        mutableState.update { it.copy(claudeLimits = current) }
+        return ClaudeLimitAlert.transition(previous, current)
     }
 
     /**

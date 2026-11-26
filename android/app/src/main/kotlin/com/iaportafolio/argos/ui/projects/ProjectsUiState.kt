@@ -6,6 +6,7 @@ import com.iaportafolio.argos.core.monitor.ServerMemoryPressure
 import com.iaportafolio.argos.core.monitor.ServerMemoryPressureLevel
 import com.iaportafolio.argos.core.monitor.ServerMemoryReading
 import com.iaportafolio.argos.core.monitor.ServerMemoryWarning
+import com.iaportafolio.argos.core.usage.ClaudeLimitsStatus
 import com.iaportafolio.argos.core.projects.Project
 import com.iaportafolio.argos.core.projects.ProjectConfirmation
 import com.iaportafolio.argos.core.projects.ProjectEntry
@@ -89,6 +90,8 @@ data class ProjectsUiState(
     val memory: ServerMemoryReading? = null,
     /** Nivel del aviso de memoria (con histéresis respecto al anterior). */
     val memoryLevel: ServerMemoryPressureLevel = ServerMemoryPressureLevel.NORMAL,
+    /** Límites de uso de Claude del último sondeo (`null` = sin statusline de Argos o sin datos). */
+    val claudeLimits: ClaudeLimitsStatus? = null,
 ) {
     /** Aviso de memoria que mostrar sobre la lista (`null` = nivel normal). */
     val memoryWarning: ServerMemoryWarning? get() = ServerMemoryPressure.warning(memory, memoryLevel)

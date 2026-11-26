@@ -18,7 +18,7 @@ El detalle por commit vive en el historial git (Conventional Commits):
   últimos 7 o de los últimos 30 días, con una gráfica por día y el desglose por proyecto y por
   modelo. Se calcula en el servidor a partir del historial de Claude Code; la primera vez tarda
   unos minutos y después solo lee lo nuevo.
-- **Límites de Claude (Mac e iPhone/iPad).** Cuánto llevas de la ventana de 5 horas y de
+- **Límites de Claude (Mac, iPhone/iPad y Android).** Cuánto llevas de la ventana de 5 horas y de
   la semanal de tu suscripción de Claude, con la hora a la que se reinician, en la lista de
   cada servidor; al llegar al 85 % la línea se convierte en aviso (y en el Mac, en una
   notificación). Es opcional: se activa por servidor desde «Límites de Claude» en su menú.

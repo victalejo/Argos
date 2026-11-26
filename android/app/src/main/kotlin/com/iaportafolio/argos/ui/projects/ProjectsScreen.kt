@@ -76,6 +76,7 @@ import com.iaportafolio.argos.ui.claude.ClaudeActivityBadge
 import com.iaportafolio.argos.ui.common.MessageEffect
 import com.iaportafolio.argos.ui.common.ProgressMessage
 import com.iaportafolio.argos.ui.common.StatusMessage
+import com.iaportafolio.argos.ui.claude.ClaudeLimitsListRow
 import com.iaportafolio.argos.ui.monitor.ServerMemoryBanner
 import com.iaportafolio.argos.ui.sessions.ConnectStep
 import com.iaportafolio.argos.ui.sessions.SessionDialogActions
@@ -103,6 +104,8 @@ fun ProjectsScreen(
     onOpenMonitor: (() -> Unit)? = null,
     /** «Enviar comando…» a sesiones en marcha (`null` = no se ofrece). */
     onSendCommand: (() -> Unit)? = null,
+    /** «Límites de Claude» del menú (`null` = no se ofrece). */
+    onOpenClaudeLimits: (() -> Unit)? = null,
     /** Sugerencia contextual sobre el indicador de Claude, encima de la lista. */
     claudeHint: @Composable () -> Unit = {},
 ) {
@@ -111,7 +114,7 @@ fun ProjectsScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = { ProjectsTopBar(state, actions, onBack, onOpenPorts, ProjectsMenuExtras(onEnableClaude, onOpenMonitor, onSendCommand)) },
+        topBar = { ProjectsTopBar(state, actions, onBack, onOpenPorts, ProjectsMenuExtras(onEnableClaude, onOpenMonitor, onSendCommand, onOpenClaudeLimits)) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) { ProjectsContent(state, actions, claudeHint) }
@@ -191,6 +194,13 @@ private fun ProjectsTopBar(
                             onClick = { menuOpen = false; onEnableClaude() },
                         )
                     }
+                    extras.onOpenClaudeLimits?.let { onOpenClaudeLimits ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.claude_limits_menu)) },
+                            leadingIcon = { Icon(painterResource(R.drawable.ic_gauge), contentDescription = null) },
+                            onClick = { menuOpen = false; onOpenClaudeLimits() },
+                        )
+                    }
                 }
             }
         },
@@ -198,7 +208,12 @@ private fun ProjectsTopBar(
 }
 
 /** Entradas opcionales del menú «Más» de la lista. */
-private class ProjectsMenuExtras(val onEnableClaude: (() -> Unit)?, val onOpenMonitor: (() -> Unit)?, val onSendCommand: (() -> Unit)?)
+private class ProjectsMenuExtras(
+    val onEnableClaude: (() -> Unit)?,
+    val onOpenMonitor: (() -> Unit)?,
+    val onSendCommand: (() -> Unit)?,
+    val onOpenClaudeLimits: (() -> Unit)?,
+)
 
 @Composable
 private fun ProjectsContent(state: ProjectsUiState, actions: ProjectsActions, claudeHint: @Composable () -> Unit) {
@@ -252,6 +267,7 @@ private fun RetryButton(onClick: () -> Unit) {
 private fun ProjectList(state: ProjectsUiState, actions: ProjectsActions, claudeHint: @Composable () -> Unit) {
     // Siempre desplazable: así el pull-to-refresh funciona también vacía.
     LazyColumn(Modifier.fillMaxSize()) {
+        state.claudeLimits?.let { limits -> item(key = "claude-limits") { ClaudeLimitsListRow(limits) } }
         state.memoryWarning?.let { warning -> item(key = "memory-warning") { ServerMemoryBanner(warning) } }
         item(key = "claude-hint") { claudeHint() }
         if (!state.isEmpty) item(key = "search") { ProjectSearchField(state.query, actions::setQuery) }

@@ -120,7 +120,7 @@ class ServerMemoryWarningTest {
     fun `el sondeo relee cada intervalo solo con la lista cargada`() = runTest(main.dispatcher) {
         ssh.memory = memory(0.5)
         val vm = projects()
-        val poll = launch { vm.pollMemoryWhileVisible() }
+        val poll = launch { vm.pollServerReadingsWhileVisible() }
         runCurrent()
         assertEquals(1, ssh.memoryReads)
         advanceTimeBy(ProjectsViewModel.MEMORY_REFRESH_MILLIS)

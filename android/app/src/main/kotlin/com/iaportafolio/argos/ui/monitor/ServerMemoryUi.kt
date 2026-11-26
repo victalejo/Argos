@@ -41,8 +41,8 @@ fun ServerMemoryWarning.messageText(): UiText = citedClaudeProcesses
     ?: UiText.res(R.string.memory_pressure_message, usedPercent)
 
 /** Colores del aviso alto: ámbar legible en claro y oscuro (el tema no trae un color de aviso). */
-private val WARNING_LIGHT = Color(0xFFFFE0B2) to Color(0xFF4E2F00)
-private val WARNING_DARK = Color(0xFF4A3200) to Color(0xFFFFDDB3)
+internal val WARNING_LIGHT = Color(0xFFFFE0B2) to Color(0xFF4E2F00)
+internal val WARNING_DARK = Color(0xFF4A3200) to Color(0xFFFFDDB3)
 
 /** Tarjeta sobre la lista de proyectos: crítico con el color de error del tema, alto en ámbar. */
 @Composable
