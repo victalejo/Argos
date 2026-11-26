@@ -50,7 +50,7 @@ struct ServerActionItems: View {
             .disabled(ImportedKeyStore.needsImport(server))
         Button("Activar indicador de Claude…", systemImage: "sparkles") { perform(.installHooks(server)) }
             .disabled(ImportedKeyStore.needsImport(server))
-        Button("Límites de Claude", systemImage: "gauge.with.dots.needle.33percent") { perform(.claudeLimits(server)) }
+        Button("Uso y límites de Claude", systemImage: "gauge.with.dots.needle.33percent") { perform(.claudeLimits(server)) }
             .disabled(ImportedKeyStore.needsImport(server))
         if server.authMethod == .password {
             Button("Usar una clave de este iPhone…", systemImage: "key.horizontal") { perform(.deviceKey(server)) }

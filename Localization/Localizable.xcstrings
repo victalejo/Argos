@@ -2257,6 +2257,38 @@
         }
       }
     },
+    "30 días" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 días"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 days"
+          }
+        }
+      }
+    },
+    "7 días" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 días"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 days"
+          }
+        }
+      }
+    },
     ">_" : {
       "localizations" : {
         "en" : {
@@ -3117,6 +3149,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Actualizado"
+          }
+        }
+      }
+    },
+    "Actualizando" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizando"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updating"
           }
         }
       }
@@ -5005,6 +5053,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cada una es un Claude en el servidor (~%@). Elige cuál cerrar para abrir otra; podrás reanudarla después. Los agentes que siguen en el servidor no cuentan aquí."
+          }
+        }
+      }
+    },
+    "Calculando el uso en el servidor a partir del historial de Claude Code. La primera vez puede tardar unos minutos; las siguientes, segundos." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculando el uso en el servidor a partir del historial de Claude Code. La primera vez puede tardar unos minutos; las siguientes, segundos."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calculating usage on the server from Claude Code’s history. The first time can take a few minutes; after that, seconds."
           }
         }
       }
@@ -8089,6 +8153,54 @@
         }
       }
     },
+    "Coste" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coste"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cost"
+          }
+        }
+      }
+    },
+    "Coste equivalente en precios de la API de Anthropic. Con una suscripción no pagas por token: sirve para comparar proyectos y días." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coste equivalente en precios de la API de Anthropic. Con una suscripción no pagas por token: sirve para comparar proyectos y días."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Equivalent cost at Anthropic API prices. With a subscription you don’t pay per token: use it to compare projects and days."
+          }
+        }
+      }
+    },
+    "Coste por día" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coste por día"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cost per day"
+          }
+        }
+      }
+    },
     "Crea hosts con `Host alias` en ese archivo y aparecerán aquí." : {
       "localizations" : {
         "en" : {
@@ -8373,22 +8485,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cuenta solo lo que espera tu respuesta: Claude esperando, permisos del agente y puertos."
-          }
-        }
-      }
-    },
-    "Cuánto llevas de la ventana de 5 h y de la semanal de Claude" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "How much of Claude’s 5-hour and weekly windows you have used"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cuánto llevas de la ventana de 5 h y de la semanal de Claude"
           }
         }
       }
@@ -9765,6 +9861,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dormidas"
+          }
+        }
+      }
+    },
+    "Día" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Día"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day"
           }
         }
       }
@@ -13259,16 +13371,16 @@
     },
     "Falta ~/.config/argos/statusline-previous en este servidor (¿settings.json copiado o sincronizado desde otro?), así que Argos no sabe cuál era tu barra de estado y no la toca. Quítala desde el servidor donde la activaste o restaura ~/.claude/settings.json.argos-backup." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Falta ~/.config/argos/statusline-previous en este servidor (¿settings.json copiado o sincronizado desde otro?), así que Argos no sabe cuál era tu barra de estado y no la toca. Quítala desde el servidor donde la activaste o restaura ~/.claude/settings.json.argos-backup."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "~/.config/argos/statusline-previous is missing on this server (was settings.json copied or synced from another one?), so Argos doesn’t know what your status line was and leaves it alone. Remove it from the server where you turned it on, or restore ~/.claude/settings.json.argos-backup."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falta ~/.config/argos/statusline-previous en este servidor (¿settings.json copiado o sincronizado desde otro?), así que Argos no sabe cuál era tu barra de estado y no la toca. Quítala desde el servidor donde la activaste o restaura ~/.claude/settings.json.argos-backup."
           }
         }
       }
@@ -13836,16 +13948,16 @@
     },
     "Hay que repararla" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hay que repararla"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Needs repair"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay que repararla"
           }
         }
       }
@@ -14054,6 +14166,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hosts de ~/.ssh/config"
+          }
+        }
+      }
+    },
+    "Hoy" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoy"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
           }
         }
       }
@@ -15276,32 +15404,32 @@
     },
     "La barra de estado de Argos está en settings.json pero falta su script o es de otra versión. «Reparar» lo reinstala." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La barra de estado de Argos está en settings.json pero falta su script o es de otra versión. «Reparar» lo reinstala."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Argos’s status line is in settings.json but its script is missing or from another version. “Repair” reinstalls it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La barra de estado de Argos está en settings.json pero falta su script o es de otra versión. «Reparar» lo reinstala."
           }
         }
       }
     },
     "La barra de estado de Argos está en settings.json, pero en este servidor falta la copia de tu barra anterior (¿settings.json sincronizado desde otro equipo?). «Reparar» reinstala el script para que vuelva a funcionar; tu barra anterior solo se puede recuperar desde el servidor donde lo activaste o desde settings.json.argos-backup." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La barra de estado de Argos está en settings.json, pero en este servidor falta la copia de tu barra anterior (¿settings.json sincronizado desde otro equipo?). «Reparar» reinstala el script para que vuelva a funcionar; tu barra anterior solo se puede recuperar desde el servidor donde lo activaste o desde settings.json.argos-backup."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Argos’s status line is in settings.json, but this server is missing the copy of your previous one (was settings.json synced from another machine?). “Repair” reinstalls the script so it works again; your previous status line can only be recovered from the server where you turned this on or from settings.json.argos-backup."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La barra de estado de Argos está en settings.json, pero en este servidor falta la copia de tu barra anterior (¿settings.json sincronizado desde otro equipo?). «Reparar» reinstala el script para que vuelva a funcionar; tu barra anterior solo se puede recuperar desde el servidor donde lo activaste o desde settings.json.argos-backup."
           }
         }
       }
@@ -16538,34 +16666,18 @@
         }
       }
     },
-    "Límites de Claude" : {
+    "Límites de la suscripción" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude limits"
-          }
-        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Límites de Claude"
+            "value" : "Límites de la suscripción"
           }
-        }
-      }
-    },
-    "Límites de Claude…" : {
-      "localizations" : {
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Claude Limits…"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Límites de Claude…"
+            "value" : "Subscription limits"
           }
         }
       }
@@ -17932,16 +18044,16 @@
     },
     "No se pudieron borrar los límites guardados." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudieron borrar los límites guardados."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t delete the saved limits."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron borrar los límites guardados."
           }
         }
       }
@@ -18486,6 +18598,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo buscar"
+          }
+        }
+      }
+    },
+    "No se pudo calcular el uso de Claude en el servidor." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo calcular el uso de Claude en el servidor."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t calculate Claude usage on the server."
           }
         }
       }
@@ -19286,6 +19414,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo leer el terminal"
+          }
+        }
+      }
+    },
+    "No se pudo leer el uso de Claude del servidor." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el uso de Claude del servidor."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read Claude usage from the server."
           }
         }
       }
@@ -21418,6 +21562,22 @@
         }
       }
     },
+    "Periodo" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periodo"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Period"
+          }
+        }
+      }
+    },
     "Permiso denegado en el servidor: tu usuario no puede acceder a ese archivo o carpeta." : {
       "localizations" : {
         "en" : {
@@ -21958,6 +22118,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Por defecto los servidores, usuarios e IPs se sustituyen por marcadores como «servidor-1». Argos oculta los secretos que reconoce, pero no puede garantizar que no se escape alguno: revisa el texto antes de publicarlo. El detalle técnico (depuración y agente) puede contener texto del servidor."
+          }
+        }
+      }
+    },
+    "Por modelo" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por modelo"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By model"
+          }
+        }
+      }
+    },
+    "Por proyecto" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por proyecto"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By project"
           }
         }
       }
@@ -23548,16 +23740,16 @@
     },
     "Reparar" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reparar"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Repair"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reparar"
           }
         }
       }
@@ -26707,6 +26899,22 @@
         }
       }
     },
+    "Tokens y coste por proyecto y día, y cuánto llevas de la ventana de 5 h y de la semanal" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens y coste por proyecto y día, y cuánto llevas de la ventana de 5 h y de la semanal"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens and cost per project and day, and how much of the 5-hour and weekly windows you’ve used"
+          }
+        }
+      }
+    },
     "Trabaja con Claude Code en cada proyecto." : {
       "localizations" : {
         "en" : {
@@ -27359,6 +27567,22 @@
         }
       }
     },
+    "Uso" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uso"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usage"
+          }
+        }
+      }
+    },
     "Uso de Claude" : {
       "localizations" : {
         "en" : {
@@ -27371,6 +27595,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uso de Claude"
+          }
+        }
+      }
+    },
+    "Uso y límites de Claude" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uso y límites de Claude"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude usage and limits"
+          }
+        }
+      }
+    },
+    "Uso y límites de Claude…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uso y límites de Claude…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Usage and Limits…"
           }
         }
       }
@@ -28663,6 +28919,22 @@
         }
       }
     },
+    "coste equivalente" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "coste equivalente"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "equivalent cost"
+          }
+        }
+      }
+    },
     "código %@" : {
       "localizations" : {
         "en" : {
@@ -29863,6 +30135,22 @@
         }
       }
     },
+    "respuestas" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "respuestas"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "responses"
+          }
+        }
+      }
+    },
     "se hicieron %lld commits" : {
       "localizations" : {
         "en" : {
@@ -30207,6 +30495,22 @@
         }
       }
     },
+    "tokens" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tokens"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tokens"
+          }
+        }
+      }
+    },
     "una clave %@ en formato PEM antiguo" : {
       "localizations" : {
         "en" : {
@@ -30319,6 +30623,22 @@
         }
       }
     },
+    "y %lld proyectos más" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "y %lld proyectos más"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld more projects"
+          }
+        }
+      }
+    },
     "~/%@ es un enlace simbólico y Argos no lo reemplaza. Sustitúyelo por un archivo normal en el servidor." : {
       "localizations" : {
         "en" : {
@@ -30337,16 +30657,16 @@
     },
     "~/.claude/settings.json cambió mientras Argos lo editaba (¿Claude Code o otro dispositivo?). No se modificó: vuelve a intentarlo." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "~/.claude/settings.json cambió mientras Argos lo editaba (¿Claude Code o otro dispositivo?). No se modificó: vuelve a intentarlo."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "~/.claude/settings.json changed while Argos was editing it (Claude Code or another device?). It wasn’t modified: try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/.claude/settings.json cambió mientras Argos lo editaba (¿Claude Code o otro dispositivo?). No se modificó: vuelve a intentarlo."
           }
         }
       }

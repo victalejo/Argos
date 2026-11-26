@@ -106,6 +106,9 @@ extension GoldenCatalog {
                 ClaudeLimitsInstaller.removing(from: installed.settings, previousCommand: installed.previousCommand ?? "")
             ),
             "limits-previous": ClaudeLimitsInstaller.previousFileContents(installed.previousCommand ?? ""),
+            "usage-index-script": ClaudeUsageIndex.script,
+            "usage-index-start": ClaudeUsageIndex.startCommand,
+            "usage-index-read": ClaudeUsageIndex.readCommand,
         ]
     }
 

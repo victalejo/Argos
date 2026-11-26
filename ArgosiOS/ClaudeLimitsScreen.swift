@@ -14,21 +14,28 @@ struct ClaudeLimitsScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var setup: ClaudeLimitsSetupModel
+    @State private var usage: ClaudeUsageModel
 
     init(server: Server, viewModel: SessionsViewModel) {
         self.server = server
         self.viewModel = viewModel
         _setup = State(initialValue: ClaudeLimitsSetupModel(service: viewModel.service))
+        _usage = State(initialValue: ClaudeUsageModel(service: viewModel.service, projects: viewModel.projects))
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                ClaudeLimitsSetupView(model: setup, status: viewModel.claudeLimits, serverName: server.name)
+                VStack(alignment: .leading, spacing: 22) {
+                    Text("Uso").font(.headline)
+                    ClaudeUsageView(model: usage)
+                    Text("Límites de la suscripción").font(.headline)
+                    ClaudeLimitsSetupView(model: setup, status: viewModel.claudeLimits, serverName: server.name)
+                }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .navigationTitle("Límites de Claude")
+            .navigationTitle("Uso y límites de Claude")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Listo") { dismiss() } }

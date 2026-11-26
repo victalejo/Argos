@@ -86,6 +86,9 @@ protocol SSHServicing: Sendable {
     func claudeLimitsState() async throws -> ClaudeLimitsInstallState
     func installClaudeLimits() async throws
     func uninstallClaudeLimits() async throws
+    /// Índice de uso de tokens de Claude (ver `ClaudeUsageIndex`).
+    func startClaudeUsageIndex() async throws
+    func readClaudeUsage() async throws -> ClaudeUsageSnapshot
 
     // MARK: - Proyectos (carpetas con sesión tmux efímera)
 

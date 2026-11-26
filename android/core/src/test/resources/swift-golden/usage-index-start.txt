@@ -1,0 +1,1 @@
+(nohup sh "$HOME/.config/argos/usage-index.sh" >/dev/null 2>&1 &); exit 0

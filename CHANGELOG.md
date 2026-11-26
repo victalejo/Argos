@@ -7,6 +7,11 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [Unreleased]
 
 ### Añadido
+- **Uso de Claude por proyecto y día (Mac e iPhone/iPad).** En «Uso y límites de Claude» (menú
+  del servidor): tokens, respuestas y coste equivalente en precios de la API de hoy, de los
+  últimos 7 o de los últimos 30 días, con una gráfica por día y el desglose por proyecto y por
+  modelo. Se calcula en el servidor a partir del historial de Claude Code; la primera vez tarda
+  unos minutos y después solo lee lo nuevo.
 - **Límites de Claude (Mac e iPhone/iPad).** Cuánto llevas de la ventana de 5 horas y de
   la semanal de tu suscripción de Claude, con la hora a la que se reinician, en la lista de
   cada servidor; al llegar al 85 % la línea se convierte en aviso (y en el Mac, en una

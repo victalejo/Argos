@@ -121,6 +121,13 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func claudeLimitsState() async throws -> ClaudeLimitsInstallState { claudeLimitsActive ? .active : .inactive }
     func installClaudeLimits() async throws { claudeLimitsActive = true }
     func uninstallClaudeLimits() async throws { claudeLimitsActive = false }
+    private(set) var claudeUsageStarts = 0
+    /// Lecturas sucesivas del uso (la última se repite).
+    var claudeUsageSnapshots: [ClaudeUsageSnapshot] = [ClaudeUsageSnapshot(status: .never, records: [])]
+    func startClaudeUsageIndex() async throws { claudeUsageStarts += 1 }
+    func readClaudeUsage() async throws -> ClaudeUsageSnapshot {
+        claudeUsageSnapshots.count > 1 ? claudeUsageSnapshots.removeFirst() : claudeUsageSnapshots[0]
+    }
 
     var storedProjects: [Project] = []
     var panePaths: [String: String] = [:]

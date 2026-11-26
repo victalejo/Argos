@@ -1,0 +1,1 @@
+d="$HOME/.config/argos/usage"; printf 'status %s\n' "$(cat "$d/status" 2>/dev/null)"; [ -d "$d/lock" ] && printf 'running\n'; cat "$d/ledger.tsv" 2>/dev/null; exit 0

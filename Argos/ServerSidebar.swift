@@ -116,9 +116,9 @@ struct ServerSidebar: View {
             .help("Ver y revocar los iPhone/iPad con acceso a este servidor")
         Button("Activar indicador de Claude Code…") { onRequest(.claudeHooks(server)) }
             .disabled(!connected)
-        Button("Límites de Claude…", systemImage: "gauge.with.dots.needle.33percent") { onRequest(.claudeLimits(server)) }
+        Button("Uso y límites de Claude…", systemImage: "gauge.with.dots.needle.33percent") { onRequest(.claudeLimits(server)) }
             .disabled(!connected)
-            .help("Cuánto llevas de la ventana de 5 h y de la semanal de Claude")
+            .help("Tokens y coste por proyecto y día, y cuánto llevas de la ventana de 5 h y de la semanal")
         Button("Doctor del servidor…", systemImage: "stethoscope") { onRequest(.doctor(server)) }
             .disabled(!connected)
             .help("Comprueba tmux, Claude Code, git y la conexión con este servidor")
