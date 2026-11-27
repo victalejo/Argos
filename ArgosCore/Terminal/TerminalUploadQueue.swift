@@ -65,7 +65,11 @@ struct TerminalUploadRequest: Sendable {
 @Observable
 final class TerminalUploadQueue {
 
-    private(set) var queue = UploadQueue()
+    private(set) var queue = UploadQueue() {
+        didSet { pruneThumbnails() }
+    }
+    /// Miniaturas de las imágenes de la cola (para ver que es la correcta).
+    private(set) var thumbnails: [UUID: UploadThumbnail] = [:]
 
     /// Recibe la ruta remota de cada archivo subido (se escribe en el prompt).
     @ObservationIgnored var onUploaded: (@MainActor (String) -> Void)?
@@ -105,6 +109,9 @@ final class TerminalUploadQueue {
             return item
         }
         queue = queue.appending(items)
+        for item in items {
+            if let request = requests[item.id] { makeThumbnail(for: item.id, source: request.source) }
+        }
         startIfNeeded()
     }
 
@@ -143,6 +150,27 @@ final class TerminalUploadQueue {
         worker = nil
         requests = [:]
         queue = UploadQueue()
+    }
+
+    // MARK: - Miniaturas
+
+    /// Se calcula fuera del hilo principal (una captura grande tarda en decodificarse).
+    private func makeThumbnail(for id: UUID, source: TerminalUploadRequest.Source) {
+        Task { [weak self] in
+            let thumbnail = await Task.detached(priority: .utility) {
+                UploadThumbnail.make(from: source)
+            }.value
+            guard let self, let thumbnail, self.queue.items.contains(where: { $0.id == id }) else { return }
+            self.thumbnails[id] = thumbnail
+        }
+    }
+
+    private func pruneThumbnails() {
+        guard !thumbnails.isEmpty else { return }
+        let live = Set(queue.items.map(\.id))
+        if thumbnails.keys.contains(where: { !live.contains($0) }) {
+            thumbnails = thumbnails.filter { live.contains($0.key) }
+        }
     }
 
     // MARK: - Proceso

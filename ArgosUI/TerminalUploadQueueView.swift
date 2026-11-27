@@ -10,6 +10,8 @@ import SwiftUI
 
 struct TerminalUploadQueueView: View {
     let model: TerminalUploadQueue
+    /// Vista previa grande de la imagen en curso (se abre al pulsar la miniatura).
+    @State private var isPreviewExpanded = false
 
     /// Filas visibles antes de desplazar la lista.
     private static let maxVisibleRows = 4
@@ -19,6 +21,13 @@ struct TerminalUploadQueueView: View {
         let queue = model.queue
         VStack(alignment: .leading, spacing: 8) {
             header(queue)
+            if isPreviewExpanded, let thumbnail = featuredThumbnail(queue) {
+                UploadThumbnailImage(thumbnail: thumbnail)
+                    .frame(maxWidth: .infinity, maxHeight: 220)
+                    .onTapGesture { isPreviewExpanded = false }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityLabel(Text("Ocultar vista previa"))
+            }
             if queue.isBusy {
                 ProgressView(value: queue.overallFraction)
                     .progressViewStyle(.linear)
@@ -41,6 +50,14 @@ struct TerminalUploadQueueView: View {
     private func header(_ queue: UploadQueue) -> some View {
         HStack(spacing: 8) {
             headerIcon(queue)
+            if let thumbnail = featuredThumbnail(queue) {
+                Button { isPreviewExpanded.toggle() } label: {
+                    UploadThumbnailImage(thumbnail: thumbnail).frame(width: 40, height: 40)
+                }
+                .buttonStyle(.plain)
+                .help(Text("Ver la imagen que se sube"))
+                .accessibilityLabel(Text(isPreviewExpanded ? "Ocultar vista previa" : "Ver la imagen que se sube"))
+            }
             Text(headline(queue))
                 .font(.callout.weight(.medium))
                 .lineLimit(1)
@@ -55,6 +72,12 @@ struct TerminalUploadQueueView: View {
                     .buttonStyle(.borderless)
             }
         }
+    }
+
+    /// La imagen del archivo en curso o, si ya no hay nada pendiente, la del último.
+    private func featuredThumbnail(_ queue: UploadQueue) -> UploadThumbnail? {
+        guard let item = queue.current ?? queue.items.last else { return nil }
+        return model.thumbnails[item.id]
     }
 
     @ViewBuilder
@@ -93,6 +116,7 @@ struct TerminalUploadQueueView: View {
                 ForEach(queue.items) { item in
                     TerminalUploadQueueRow(
                         item: item,
+                        thumbnail: model.thumbnails[item.id],
                         onCancel: { model.cancel(item.id) },
                         onRetry: { model.retry(item.id) }
                     )
@@ -107,6 +131,7 @@ struct TerminalUploadQueueView: View {
 /// Un archivo de la cola.
 private struct TerminalUploadQueueRow: View {
     let item: UploadQueueItem
+    let thumbnail: UploadThumbnail?
     let onCancel: () -> Void
     let onRetry: () -> Void
 
@@ -114,6 +139,9 @@ private struct TerminalUploadQueueRow: View {
         HStack(spacing: 8) {
             icon
                 .frame(width: 16)
+            if let thumbnail {
+                UploadThumbnailImage(thumbnail: thumbnail).frame(width: 26, height: 26)
+            }
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.name)
                     .font(.callout)
@@ -178,5 +206,18 @@ private struct TerminalUploadQueueRow: View {
             .help(Text("Reintentar"))
             .accessibilityLabel(Text("Reintentar"))
         }
+    }
+}
+
+/// Miniatura recortada con esquinas redondeadas.
+struct UploadThumbnailImage: View {
+    let thumbnail: UploadThumbnail
+
+    var body: some View {
+        Image(decorative: thumbnail.image, scale: 1)
+            .resizable()
+            .aspectRatio(thumbnail.aspectRatio, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.quaternary))
     }
 }

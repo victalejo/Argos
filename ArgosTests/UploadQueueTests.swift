@@ -177,3 +177,19 @@ struct TerminalUploadQueueTests {
         #expect(mock.uploadedNames.isEmpty)
     }
 }
+
+@Suite("Miniatura de la subida")
+struct UploadThumbnailTests {
+    /// PNG 1×1 rojo.
+    static let png = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")!
+
+    @Test func imagenDaMiniatura() throws {
+        let thumbnail = try #require(UploadThumbnail.make(from: .data(Self.png)))
+        #expect(thumbnail.image.width == 1)
+        #expect(thumbnail.aspectRatio == 1)
+    }
+
+    @Test func otroArchivoNoDaMiniatura() {
+        #expect(UploadThumbnail.make(from: .data(Data("hola".utf8))) == nil)
+    }
+}

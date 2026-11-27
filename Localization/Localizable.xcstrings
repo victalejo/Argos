@@ -21242,6 +21242,22 @@
         }
       }
     },
+    "Ocultar vista previa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide preview"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar vista previa"
+          }
+        }
+      }
+    },
     "Olvidar host key" : {
       "localizations" : {
         "en" : {
@@ -28747,6 +28763,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ver fuente"
+          }
+        }
+      }
+    },
+    "Ver la imagen que se sube" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View the image being uploaded"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver la imagen que se sube"
           }
         }
       }
