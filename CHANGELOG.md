@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-26
+
 ### Añadido
 - **Tareas programadas (Mac e iPhone/iPad).** En «Encargos», «Nueva tarea programada»:
   «cada noche a las 3:00, corre los tests y arregla lo que falle» o «los lunes, actualiza las
