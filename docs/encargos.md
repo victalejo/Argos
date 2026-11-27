@@ -99,10 +99,14 @@ programadas): un despachador viejo, que reinstala una app publicada, no sube nad
 sube con `review_push=1` (o con un `push=1` anterior) y solo tras revisar. Tras el commit y
 la comprobación (`check=`), el hook `Stop` lanza `dispatch.sh finish` desacoplado
 (`setsid`/`nohup`) y este pasa el encargo por `claude -p --model claude-sonnet-5-5` (alias
-`sonnet` con opciones más viejas si el CLI no lo acepta) en la carpeta del encargo:
-contexto limpio (`--no-session-persistence`), solo `Read,Grep,Glob` (`--permission-mode
-dontAsk`, o `plan` en la reserva; nunca `bypassPermissions`), con plazo
-(`ARGOS_REVIEW_SECONDS`, 600 s).
+`sonnet` y `--permission-mode plan` si el CLI no lo acepta; nada más cambia) desde una
+carpeta vacía propia (`mktemp -d`, nunca el repo: su `.claude/settings*.json`, hooks, MCP o
+`CLAUDE.md` vienen del propio cambio), con el repo por `--add-dir`, `--setting-sources user`,
+`--strict-mcp-config --mcp-config '{"mcpServers":{}}'`, contexto limpio
+(`--no-session-persistence`) y solo `Read,Grep,Glob` (`--tools`, `--allowedTools`,
+`--disallowedTools`; `--permission-mode dontAsk`; nunca `bypassPermissions`), con plazo
+(`ARGOS_REVIEW_SECONDS`, 600 s). Si el CLI no acepta esas opciones, no concluyente: nunca se
+amplía.
 
 Al empezar fija en `review.head` el commit revisado y el destino del push (en agente,
 `origin refs/heads/main`; en la terminal, el remoto y la rama de seguimiento de la rama
@@ -111,6 +115,11 @@ arreglo: `prompt.original`), `git diff --stat` y el diff `merge-base(head, origi
 @{u})..head` con `--text --no-ext-diff --no-textconv`, recortado a `ARGOS_REVIEW_MAX_DIFF`
 (150 KB, y se le dice). Debe responder un JSON
 `{"verdict":"approve|block","summary","findings":[{severity,category,file,line,message}]}`.
+La lectura es estricta (python3 con claves duplicadas prohibidas, o un awk que sigue la
+profundidad si no hay python3): `verdict` de nivel superior exactamente una vez y solo
+`approve` o `block`; `findings` de nivel superior como lista; sin escapes `\u` ni caracteres
+de control; y toda `severity` (sin distinguir mayúsculas) que no sea `low`, `medium` o
+`info` cuenta como alta.
 
 - Aprobado y sin `high`/`critical`: se sube EXACTAMENTE `review.head` (`git push <remoto>
   <sha>:<rama>`, sin forzar: falla si no es fast-forward), nunca lo que llegó después a la

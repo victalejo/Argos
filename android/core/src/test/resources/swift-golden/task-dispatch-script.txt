@@ -311,6 +311,93 @@ review_json() {
     }' "$1"
 }
 
+# Veredicto del informe $1 (una línea de `review_json`): approve | block | invalid.
+# Estricto: `verdict` de nivel superior una sola vez (approve o block; cualquier otro
+# valor, duplicado o ausente → invalid), `findings` de nivel superior como lista, sin
+# escapes \u ni caracteres de control, y toda `severity` (sin distinguir mayúsculas)
+# que no sea low, medium o info cuenta como alta (→ block). Con python3 si lo hay
+# (detecta claves duplicadas); si no, un awk que recorre el JSON con su profundidad.
+review_decide() {
+  if [ "${ARGOS_REVIEW_PARSER:-}" != awk ] && command -v python3 >/dev/null 2>&1; then
+    rd=$(printf '%s' "$1" | python3 -c "$review_py" 2>/dev/null)
+    case "$rd" in approve|block|invalid) printf '%s\n' "$rd"; return 0 ;; esac
+  fi
+  printf '%s' "$1" | LC_ALL=C awk "$review_awk"
+}
+
+review_py='
+import json, sys
+def pairs(items):
+    keys = [k.lower() for k, _ in items]
+    if len(keys) != len(set(keys)):
+        raise ValueError("clave repetida")
+    return dict(items)
+def high(x):
+    if isinstance(x, dict):
+        for k, v in x.items():
+            if k.lower() == "severity" and not (isinstance(v, str) and v.lower() in ("low", "medium", "info")):
+                return True
+            if high(v):
+                return True
+    elif isinstance(x, list):
+        return any(high(v) for v in x)
+    return False
+raw = sys.stdin.read()
+try:
+    if "\\u" in raw or any(ord(ch) < 32 for ch in raw):
+        raise ValueError("escape o control")
+    o = json.loads(raw, object_pairs_hook=pairs)
+except Exception:
+    print("invalid"); sys.exit(0)
+if not isinstance(o, dict) or not isinstance(o.get("findings"), list) or o.get("verdict") not in ("approve", "block"):
+    print("invalid")
+elif o["verdict"] == "block" or high(o):
+    print("block")
+else:
+    print("approve")
+'
+
+review_awk='
+function bad() { print "invalid"; done = 1; exit 0 }
+function value(kind, str) {
+  if (vk == "") return
+  if (vk == "severity") { v = tolower(str); if (kind != "s" || (v != "low" && v != "medium" && v != "info")) hi = 1 }
+  if (vd == 1 && vk == "verdict") { nv++; verdict = (kind == "s") ? str : "" }
+  if (vd == 1 && vk == "findings" && kind == "a") fl = 1
+  vk = ""
+}
+{ s = s $0 }
+END {
+  if (done) exit 0
+  if (index(s, "\\u") || s ~ /[\001-\037]/) bad()
+  n = length(s); d = 0; ins = 0; esc = 0; vk = ""
+  for (i = 1; i <= n; i++) {
+    ch = substr(s, i, 1)
+    if (ins) {
+      if (esc) { esc = 0; str = str ch }
+      else if (ch == "\\") { esc = 1; str = str ch }
+      else if (ch == "\"") {
+        ins = 0
+        if (ty[d] == "o" && ek[d]) { key[d] = tolower(str); ek[d] = 0 }
+        else value("s", str)
+      } else str = str ch
+      continue
+    }
+    if (ch == "\"") { ins = 1; str = ""; continue }
+    if (ch == "{" || ch == "[") { value(ch == "{" ? "o" : "a", ""); d++; ty[d] = (ch == "{") ? "o" : "a"; ek[d] = (ch == "{"); continue }
+    if (ch == "}" || ch == "]") { d--; if (d < 0) bad(); continue }
+    if (ch == ",") { if (ty[d] == "o") ek[d] = 1; continue }
+    if (ch == ":") { if (ty[d] != "o") bad(); vk = key[d]; vd = d; continue }
+    if (ch == " ") continue
+    # Número, true, false o null: un valor que no es texto.
+    value("l", "")
+  }
+  if (d != 0 || nv != 1 || !fl) { print "invalid"; exit 0 }
+  if (verdict == "block" || hi) { print "block"; exit 0 }
+  print (verdict == "approve") ? "approve" : "invalid"
+}
+'
+
 # Guarda el informe $2 (veredicto final $3): si no cabe en el listado, uno reducido.
 review_save() {
   if [ "$(printf '%s\n' "$2" | wc -c | tr -d ' ')" -le 12000 ]; then
@@ -421,7 +508,8 @@ ARGOS_REVIEW_EOF
       cat "$t/prompt.original"; printf '\n\n## Encargo de arreglo (sobre el anterior)\n\n'
     fi
     cat "$t/prompt"
-    printf '\n\n## Archivos cambiados\n\n'; git -C "$dir" diff --stat --text --no-ext-diff --no-textconv "$rb" "$head" 2>/dev/null
+    printf '\n\n## Repositorio\n\nEstá en %s: léelo con rutas absolutas.\n' "$dir"
+    printf '\n## Archivos cambiados\n\n'; git -C "$dir" diff --stat --text --no-ext-diff --no-textconv "$rb" "$head" 2>/dev/null
     if [ "$cut" = 1 ]; then
       printf '\n## Diff (RECORTADO: solo los primeros %s de %s bytes; el resto no se ve, lee los archivos si hace falta)\n\n' "$max" "$size"
     else
@@ -432,28 +520,34 @@ ARGOS_REVIEW_EOF
   rm -f "$t/review.diff"
   [ -s "$t/review.in" ] || { review_fail "$t" error; return 1; }
   c=$(review_claude "$t") || { review_fail "$t" no-claude; return 1; }
-  # Contexto limpio y solo lectura: sin sesión guardada, sin herramientas que escriban
-  # ni ejecuten y sin los marcadores de tmux del Claude que lo llamó.
-  (cd "$dir" && bounded "$secs" "$t/review.in" "$t/review.out" env -u CLAUDECODE -u TMUX -u TMUX_PANE \
-    "$c" -p --model claude-sonnet-5-5 --permission-mode dontAsk --tools Read,Grep,Glob \
-    --allowedTools Read,Grep,Glob --no-session-persistence --output-format text)
-  rrc=$?
-  if [ "$rrc" != 0 ] && [ "$rrc" != 124 ]; then
-    # CLI más viejo (o sin ese modelo): alias y opciones de siempre, también de solo lectura.
-    (cd "$dir" && bounded "$secs" "$t/review.in" "$t/review.out" env -u CLAUDECODE -u TMUX -u TMUX_PANE \
-      "$c" -p --model sonnet --permission-mode plan --allowedTools Read,Grep,Glob \
-      --disallowedTools Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch,Task --output-format text)
+  # Contexto limpio y solo lectura: desde una carpeta vacía propia (nunca el repo: su
+  # .claude/settings*.json, hooks, MCP o CLAUDE.md vienen del propio cambio revisado),
+  # solo la configuración del usuario, sin servidores MCP, el repo con --add-dir, sin
+  # sesión guardada, solo Read/Grep/Glob y sin los marcadores de tmux de quien lo llamó.
+  # La reserva (CLI más viejo o sin ese modelo) solo cambia modelo y modo; si tampoco
+  # acepta estas opciones, no concluyente: nunca se amplía nada.
+  nd=$(mktemp -d "${TMPDIR:-/tmp}/argos-review.XXXXXX" 2>/dev/null)
+  [ -n "$nd" ] && [ -d "$nd" ] || { review_fail "$t" error; return 1; }
+  for rmode in claude-sonnet-5-5:dontAsk sonnet:plan; do
+    (cd "$nd" && bounded "$secs" "$t/review.in" "$t/review.out" env -u CLAUDECODE -u TMUX -u TMUX_PANE \
+      "$c" -p --model "${rmode%%:*}" --permission-mode "${rmode##*:}" \
+      --setting-sources user --strict-mcp-config --mcp-config '{"mcpServers":{}}' --add-dir "$dir" \
+      --tools Read,Grep,Glob --allowedTools Read,Grep,Glob \
+      --disallowedTools Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch,Task \
+      --no-session-persistence --output-format text)
     rrc=$?
-  fi
+    [ "$rrc" = 0 ] || [ "$rrc" = 124 ] && break
+  done
+  rm -rf "$nd"
   [ "$rrc" = 124 ] && { review_fail "$t" timeout; return 1; }
   [ "$rrc" = 0 ] || { review_fail "$t" error; return 1; }
   head -c 65536 "$t/review.out" > "$t/review.md"
   j=$(review_json "$t/review.out") || { review_fail "$t" invalid; return 1; }
-  printf '%s\n' "$j" | grep -q '"findings"[[:space:]]*:[[:space:]]*\[' || { review_fail "$t" invalid; return 1; }
-  if printf '%s\n' "$j" | grep -Eq '"verdict"[[:space:]]*:[[:space:]]*"block"|"severity"[[:space:]]*:[[:space:]]*"(high|critical|HIGH|CRITICAL|High|Critical)"'; then
-    review_save "$t" "$j" block; put "$t" reason review; put "$t" state paused; return 1
-  fi
-  printf '%s\n' "$j" | grep -q '"verdict"[[:space:]]*:[[:space:]]*"approve"' || { review_fail "$t" invalid; return 1; }
+  case "$(review_decide "$j")" in
+    block) review_save "$t" "$j" block; put "$t" reason review; put "$t" state paused; return 1 ;;
+    approve) ;;
+    *) review_fail "$t" invalid; return 1 ;;
+  esac
   # Aprobado sin ver todo el cambio: no se sube sin que el usuario lo decida.
   [ "$cut" = 1 ] && { review_fail "$t" truncated; return 1; }
   review_save "$t" "$j" approve

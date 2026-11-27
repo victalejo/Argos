@@ -21,6 +21,7 @@ struct ClaudeTaskReviewDispatcherTests {
     static let fakeClaude = #"""
         #!/bin/sh
         printf '%s\n' "$*" >> "$HOME/claude-args"
+        pwd >> "$HOME/claude-cwd"
         cat > "$HOME/claude-stdin"
         case "$(cat "$HOME/claude-mode" 2>/dev/null)" in
           approve) echo 'Revisado: {"verdict":"approve","summary":"Todo bien","findings":[{"severity":"low","category":"other","file":"b.txt","line":1,"message":"Un detalle menor"}]} fin' ;;
@@ -38,6 +39,15 @@ struct ClaudeTaskReviewDispatcherTests {
           oldcli)
             case "$*" in *claude-sonnet-5-5*) echo "error: unknown model" >&2; exit 1 ;; esac
             echo '{"verdict":"approve","summary":"","findings":[]}' ;;
+          nested) printf '%s\n' '{"verdict":"needs_changes","summary":"","findings":[{"severity":"low","message":"x","verdict":"approve"}]}' ;;
+          # Severidad "high" escrita con un escape unicode de JSON (\134 = barra invertida).
+          escaped) printf '{"verdict":"approve","summary":"","findings":[{"severity":"\134u0068igh","message":"x"}]}\n' ;;
+          dupe) printf '%s\n' '{"verdict":"block","verdict":"approve","summary":"","findings":[]}' ;;
+          upper) printf '%s\n' '{"verdict":"approve","summary":"","findings":[{"severity":"HiGh","message":"x"}]}' ;;
+          unknownsev) printf '%s\n' '{"verdict":"approve","summary":"","findings":[{"severity":"severe","message":"x"}]}' ;;
+          noflags)
+            case "$*" in *--setting-sources*) echo "error: unknown option '--setting-sources'" >&2; exit 1 ;; esac
+            printf '%s\n' '{"verdict":"approve","summary":"","findings":[]}' ;;
           *) exit 3 ;;
         esac
         """#
@@ -277,6 +287,73 @@ struct ClaudeTaskReviewDispatcherTests {
         let args = box.file("claude-args")
         #expect(args.contains("--model sonnet") && args.contains("--permission-mode plan"))
         #expect(args.contains("--disallowedTools Bash,Edit,Write"))
+        // La reserva no quita nada: mismas herramientas y la misma configuración aislada.
+        for line in args.split(separator: "\n") {
+            #expect(line.contains("--tools Read,Grep,Glob") && line.contains("--setting-sources user"))
+            #expect(line.contains("--strict-mcp-config"))
+        }
+    }
+
+    // MARK: - El revisor no carga la configuración del propio cambio
+
+    @Test func elRevisorCorreFueraDelRepoConSoloLaConfiguracionDelUsuario() throws {
+        let box = try Box(mode: "approve")
+        defer { box.close() }
+        try box.enqueueTask()
+        // El propio cambio trae configuración de Claude que no se debe cargar.
+        try box.sh("cd \"$HOME/work\" && mkdir -p .claude && echo '{\"permissions\":{\"allow\":[\"Bash\"]}}' > .claude/settings.json")
+        try box.finish()
+        try box.waitForReview()
+        #expect(box.pushed)
+        let cwds = box.file("claude-cwd").split(separator: "\n").map(String.init)
+        #expect(!cwds.isEmpty)
+        for cwd in cwds {
+            #expect(!cwd.contains("/work"), "nunca con cwd en el repo del encargo")
+            #expect(cwd.contains("argos-review."), "una carpeta vacía propia")
+            #expect(!FileManager.default.fileExists(atPath: cwd), "y se borra al terminar")
+        }
+        let args = box.file("claude-args")
+        #expect(args.contains("--setting-sources user") && args.contains("--strict-mcp-config"))
+        #expect(args.contains(#"--mcp-config {"mcpServers":{}}"#))
+        #expect(args.contains("--add-dir \(box.work.path)") && args.contains("--tools Read,Grep,Glob"))
+        #expect(box.file("claude-stdin").contains("Está en \(box.work.path)"))
+    }
+
+    @Test func unCLIQueNoAceptaElAislamientoNoSeAmpliaYNoSube() throws {
+        let box = try Box(mode: "noflags")
+        defer { box.close() }
+        let before = box.remoteMain
+        try box.enqueueTask()
+        try box.finish()
+        try box.waitForReview()
+        #expect(box.remoteMain == before)
+        let task = try #require(try box.task())
+        #expect(task.reason == .reviewInconclusive && task.review?.cause == "error")
+        let calls = box.file("claude-args").split(separator: "\n")
+        #expect(calls.count == 2, "el modelo nuevo y la reserva, nada más")
+        #expect(calls.allSatisfy { $0.contains("--setting-sources user") && $0.contains("--tools Read,Grep,Glob") })
+    }
+
+    // MARK: - Veredicto estricto (python3 y awk)
+
+    @Test(arguments: [
+        ("nested", ClaudeTaskReason.reviewInconclusive),
+        ("escaped", .reviewInconclusive),
+        ("dupe", .reviewInconclusive),
+        ("upper", .review),
+        ("unknownsev", .review),
+    ], ["python3", "awk"])
+    func unVeredictoAmbiguoNuncaAprueba(_ variant: (String, ClaudeTaskReason), parser: String) throws {
+        let box = try Box(mode: variant.0, extraEnv: ["ARGOS_REVIEW_PARSER": parser])
+        defer { box.close() }
+        let before = box.remoteMain
+        try box.enqueueTask()
+        try box.finish()
+        try box.waitForReview()
+        #expect(box.remoteMain == before, "\(variant.0) con \(parser): sin push")
+        let listing = try box.sh(ClaudeTaskScript.listCommand)
+        let task = ClaudeTask.parse(listOutput: listing).first
+        #expect(task?.reason == variant.1, "\(variant.0) con \(parser): \(listing)")
     }
 
     @Test func unDiffRecortadoSeDiceYAunqueApruebeNoSube() throws {

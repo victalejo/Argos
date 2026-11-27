@@ -18,6 +18,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
   Argos en todos tus dispositivos: una versión anterior que encole encargos en el mismo
   servidor reinstala un despachador sin presupuesto (la pantalla te avisa si pasa).
 
+### Corregido
+- **Revisor automático antes del push, más difícil de engañar.** Solo aprueba con un
+  veredicto claro en su respuesta (uno ambiguo, repetido o disfrazado ya no cuenta como
+  aprobado, y cualquier gravedad que no sea baja o media bloquea), y ya no lee la
+  configuración de Claude que traiga el propio cambio que revisa (ajustes, hooks o
+  servidores MCP del repositorio).
+
 ## [1.13.1] - 2026-11-27
 
 ### Corregido
