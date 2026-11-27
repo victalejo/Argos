@@ -120,9 +120,10 @@ struct ClaudeResponseExtractorTests {
         #expect(ClaudeResponseExtractor.lastResponse(lines: lines)?.text == "Hola, ¿en qué te ayudo?")
     }
 
-    @Test func soloHerramientasDevuelveLaUltima() {
+    @Test func soloHerramientasNoEsUnaRespuesta() {
         let lines = ["> haz algo", "⏺ Read(main.swift)", "  ⎿  Read 20 lines", "", "✢ Pensando… (esc to interrupt)"]
-        #expect(ClaudeResponseExtractor.lastResponse(lines: lines)?.text == "Read(main.swift)\n⎿  Read 20 lines")
+        #expect(ClaudeResponseExtractor.lastResponse(lines: lines) == nil)
+        #expect(ClaudeResponseExtractor.isWorking(lines: lines))
         #expect(ClaudeResponseExtractor.lastResponse(lines: ["> hola", "nada de claude"]) == nil)
     }
 

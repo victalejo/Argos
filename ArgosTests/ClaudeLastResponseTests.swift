@@ -68,6 +68,7 @@ struct ClaudeScreenResponseTests {
         #expect(response.text.hasPrefix("Ya se lo mandé a Sebastián, con un tono más natural"))
         #expect(response.text.hasSuffix("noviembre se cobra a la tarjeta nueva cuando le dé Emitir y cobrar."))
         #expect(!response.text.contains("✻") && !response.text.contains("new task?") && !response.text.contains("Called"))
+        #expect(!ClaudeResponseExtractor.isWorking(lines: ClaudePaneFixture.lines))
     }
 
     @Test func siLaRespuestaEmpezoArribaCopiaLaParteVisible() throws {
@@ -81,23 +82,59 @@ struct ClaudeScreenResponseTests {
         #expect(!response.text.contains("✻") && !response.text.contains("new task?") && !response.text.contains("⏵⏵"))
     }
 
-    @Test func herramientasResumidasYAvisoDeLaDerecha() throws {
+    @Test func soloQuitaLasHerramientasConSuFormatoExacto() throws {
         let lines = [
             "  Called claude-in-chrome 6 times (ctrl+o to expand)",
-            "  - viñeta con * dentro",
-            "  * otra viñeta",
+            "  Called the API twice and it failed.",
+            "  * una viñeta",
+            "  - otra viñeta",
             "",
             "✻ Baked for 1m 51s · done 12:29 PM",
             "                                    new task? /clear to save 199.9k tokens",
         ]
         let response = try #require(ClaudeResponseExtractor.lastResponse(lines: lines))
-        #expect(response == .init(text: "- viñeta con * dentro\n* otra viñeta", isPartial: true))
-        #expect(ClaudeResponseExtractor.withoutTrailingStatus(["  texto", "new task? /clear to save 1k tokens"]) == ["  texto"])
+        #expect(response == .init(text: "Called the API twice and it failed.\n* una viñeta\n- otra viñeta", isPartial: true))
+        #expect(ClaudeResponseExtractor.isToolCall(["● Called waha"]))
+        #expect(!ClaudeResponseExtractor.isToolCall(["● Called the API twice and it failed."]))
+        #expect(ClaudeResponseExtractor.withoutTrailingStatus(["  texto", "  ✻ Worked for 3s", "new task? /clear to save 1k tokens"]) == ["  texto"])
         #expect(ClaudeResponseExtractor.isUserMessage("❯\u{00A0}hola"))
-        #expect(ClaudeResponseExtractor.lastResponse(lines: ["❯ pregunta sin respuesta", "", "  Called waha"]) == nil)
     }
 
-    @Test func elAvisoDiceQueEsLaParteVisible() async {
+    @Test func sinSenalDeRespuestaNoCopiaNada() {
+        let welcome = [
+            "╭───────────────────────────────────────────╮",
+            "│ ✻ Welcome to Claude Code!                 │",
+            "│   /help for help, /status for your setup   │",
+            "╰───────────────────────────────────────────╯",
+            "  Tips for getting started:",
+            "  1. Ask Claude to create a new app",
+            "",
+            "──────────────────────────────────────────────",
+            "❯\u{00A0}",
+            "──────────────────────────────────────────────",
+        ]
+        #expect(ClaudeResponseExtractor.lastResponse(lines: welcome) == nil)
+        #expect(ClaudeResponseExtractor.lastResponse(lines: ["❯ pregunta sin respuesta", "", "  Called waha"]) == nil)
+        #expect(ClaudeResponseExtractor.lastResponse(lines: ["❯ haz algo", "● Bash(ls)", "  ⎿  a.txt"]) == nil, "solo herramientas")
+    }
+
+    @Test func aMitadDeTurnoNoSeCopia() {
+        let working = ["❯ haz algo", "", "● Voy a mirarlo.", "", "✢ Pensando… (esc to interrupt)"]
+        #expect(ClaudeResponseExtractor.isWorking(lines: working))
+        let permission = [
+            "● Bash(rm -rf build)",
+            "╭──────────────────────────────╮",
+            "│ Do you want to proceed?       │",
+            "│ ❯ 1. Yes                      │",
+            "│   2. No                       │",
+            "╰──────────────────────────────╯",
+        ]
+        #expect(ClaudeResponseExtractor.isWorking(lines: permission))
+        let output = "ARGOS_LO_T_n\n" + working.joined(separator: "\n") + "\n"
+        #expect(TerminalLastOutput.extract(output, kind: .claude, nonce: "n") == .failure(.inProgress))
+    }
+
+    @Test func elAvisoDiceQueEsLaParteVisible() {
         let output = "ARGOS_LO_T_n\n" + Array(ClaudePaneFixture.lines[0..<25]).joined(separator: "\n") + "\n"
         #expect(TerminalLastOutput.extract(output, kind: .claude, nonce: "n").map(\.isPartial) == .success(true))
     }
@@ -116,67 +153,128 @@ struct ClaudeTranscriptTests {
 
     static let sample: [String] = [
         assistant(id: "msg_1", [["type": "text", "text": "Respuesta vieja."]]),
+        "{\"type\":\"assistant\",roto",
         line(["type": "user", "message": ["role": "user", "content": "otra"]]),
         assistant(id: "msg_2", [["type": "thinking", "thinking": "pienso"]]),
         assistant(id: "msg_2", [["type": "text", "text": "Primera parte."]]),
         assistant(id: "msg_2", [["type": "tool_use", "name": "Bash", "input": ["command": "ls"]]]),
-        assistant(id: "msg_2", [["type": "text", "text": "Segunda parte\ncon dos líneas."]]),
-        assistant(id: "msg_3", [["type": "tool_use", "name": "Read", "input": [:]]]),
+        assistant(id: "msg_2", [["type": "text", "text": "Segunda parte\ncon **dos** líneas."]]),
         assistant(id: "sub", [["type": "text", "text": "De un subagente."]], sidechain: true),
-        "{\"type\":\"assistant\",roto",
-        "basura",
+        assistant(id: "msg_3", [["type": "tool_use", "name": "Read", "input": [:]]]),
+    ]
+    static let expected = "Primera parte.\n\nSegunda parte\ncon **dos** líneas."
+
+    /// Pantalla en la que se ve el final de `expected`.
+    static let matchingScreen = [
+        "● Segunda parte", "  con dos líneas.", "", "✻ Baked for 3s · done",
+        "──────────────────────────────────────────", "❯ ", "──────────────────────────────────────────",
     ]
 
     @Test func uneLosTextosDelUltimoMensajeConTexto() {
-        #expect(ClaudeTranscript.lastAssistantText(Self.sample) == "Primera parte.\n\nSegunda parte\ncon dos líneas.")
+        #expect(ClaudeTranscript.lastAssistantText(Self.sample) == Self.expected)
         #expect(ClaudeTranscript.lastAssistantText(["basura", Self.assistant(id: "x", [["type": "tool_use"]])]) == nil)
         #expect(ClaudeTranscript.lastAssistantText([]) == nil)
     }
 
-    @Test func soloLeeEntreSusMarcas() {
-        let output = ["ruido", "ARGOS_CT_n|file|a.jsonl", "uno", "ARGOS_CT_n|end", "ARGOS_LO_T_n"]
-        #expect(ClaudeTranscript.transcriptLines(in: output, nonce: "n") == ["uno"])
-        #expect(ClaudeTranscript.transcriptLines(in: ["ARGOS_CT_n|end"], nonce: "n") == nil)
-        #expect(ClaudeTranscript.transcriptLines(in: output, nonce: "otro") == nil)
+    @Test func siLaLineaMasRecienteNoSeLeeNoSeFiaDeLasAnteriores() {
+        #expect(ClaudeTranscript.lastAssistantText(Self.sample + ["{\"type\":\"assistant\",cortada"]) == nil)
+        let huge = Self.assistant(id: "big", [["type": "text", "text": String(repeating: "x", count: ClaudeTranscript.maxLineLength)]])
+        #expect(ClaudeTranscript.lastAssistantText(Self.sample + [huge]) == nil)
     }
 
-    /// El comando de verdad (sh y, si está, dash) con un HOME temporal y un `tmux` falso
+    @Test func soloLeeEntreSusMarcasYConFin() {
+        let output = "ruido\nARGOS_CT_n|file|a.jsonl|2\nuno\nARGOS_CT_n|end\n"
+        #expect(ClaudeTranscript.excerpt(in: output, nonce: "n") == .init(lines: ["uno"], recentSessions: 2))
+        #expect(ClaudeTranscript.excerpt(in: "ARGOS_CT_n|file|a.jsonl|1\nuno\n", nonce: "n") == nil, "sin |end")
+        #expect(ClaudeTranscript.excerpt(in: "ARGOS_CT_n|none\n", nonce: "n") == nil)
+        #expect(ClaudeTranscript.excerpt(in: output, nonce: "otro") == nil)
+    }
+
+    @Test func clavesDeCarpetaComoClaudeCode() {
+        #expect(ClaudeTranscript.folderKeys(for: "/srv/año.x_1") == ["-srv-a-o-x-1", "-srv-año-x_1"])
+        #expect(ClaudeTranscript.folderKeys(for: "/home/v/app") == ["-home-v-app"])
+        #expect(ClaudeTranscript.folderKeys(for: "/a/😀") == ["-a---", "-a-😀"], "un emoji son dos unidades UTF-16")
+    }
+
+    @Test func decideEntreTranscriptYPantalla() {
+        func transcript(recent: Int) -> String {
+            "ARGOS_CT_n|file|s.jsonl|\(recent)\n" + Self.sample.joined(separator: "\n") + "\nARGOS_CT_n|end\n"
+        }
+        func screen(_ lines: [String]) -> String { "ARGOS_LO_T_n\n" + lines.joined(separator: "\n") + "\n" }
+        // Cuadra con la pantalla: el texto entero del transcript.
+        #expect(TerminalLastOutput.extractClaude(screenOutput: screen(Self.matchingScreen), transcriptOutput: transcript(recent: 3), nonce: "n")
+            == .success(.init(text: Self.expected)))
+        // No cuadra (otra sesión): la pantalla.
+        let other = ["● Otra cosa distinta.", "", "✻ Baked for 3s · done"]
+        #expect(TerminalLastOutput.extractClaude(screenOutput: screen(other), transcriptOutput: transcript(recent: 1), nonce: "n")
+            == .success(.init(text: "Otra cosa distinta.")))
+        // Sin nada reconocible en pantalla y varias sesiones activas: dudoso.
+        let blank = ["", "──────────────────────────────────────────", "❯ ", "──────────────────────────────────────────"]
+        var uncertain = TerminalLastOutput.Extracted(text: Self.expected)
+        uncertain.isUncertain = true
+        #expect(TerminalLastOutput.extractClaude(screenOutput: screen(blank), transcriptOutput: transcript(recent: 2), nonce: "n")
+            == .success(uncertain))
+        #expect(TerminalLastOutput.extractClaude(screenOutput: screen(blank), transcriptOutput: transcript(recent: 1), nonce: "n")
+            == .success(.init(text: Self.expected)))
+        // Trabajando: nada, aunque el transcript tenga el turno anterior.
+        let working = Self.matchingScreen + ["  ⏵⏵ bypass permissions on · esc to interrupt"]
+        #expect(TerminalLastOutput.extractClaude(screenOutput: screen(working), transcriptOutput: transcript(recent: 1), nonce: "n")
+            == .failure(.inProgress))
+    }
+
+    /// Los comandos de verdad (sh y, si está, dash) con un HOME temporal y un `tmux` falso
     /// que dice la carpeta del panel y enseña la pantalla.
     @Test(arguments: ["/bin/sh", "/bin/dash"])
-    func elComandoLeeElTranscriptMasReciente(shell: String) throws {
+    func losComandosLeenElTranscriptMasReciente(shell: String) throws {
         guard FileManager.default.isExecutableFile(atPath: shell) else { return }
         let home = try LocalShell.makeTemporaryDirectory()
         defer { LocalShell.remove(home) }
-        let projectPath = home.appendingPathComponent("mi.proyecto_1").path
-        let folderName = projectPath.map { $0.isLetter && $0.isASCII || $0.isNumber && $0.isASCII ? String($0) : "-" }.joined()
-        let folder = home.appendingPathComponent(".claude/projects/\(folderName)", isDirectory: true)
+        // Concatenado a mano: `URL.path` devolvería la «ñ» descompuesta (n + tilde).
+        let projectPath = home.path + "/mi.proyecto_\u{00F1}"
+        let key = try #require(ClaudeTranscript.folderKeys(for: projectPath).first)
+        #expect(key.hasSuffix("-mi-proyecto--"))
+        let folder = home.appendingPathComponent(".claude/projects/\(key)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let old = Self.assistant(id: "viejo", [["type": "text", "text": "De otra sesión."]])
         try (old + "\n").write(to: folder.appendingPathComponent("vieja.jsonl"), atomically: true, encoding: .utf8)
-        try (Self.sample.joined(separator: "\n") + "\n").write(to: folder.appendingPathComponent("nueva.jsonl"), atomically: true, encoding: .utf8)
+        // Más de `tailBytes`, con una primera línea larga de «ñ»: el corte cae a mitad de carácter.
+        let filler = "{\"type\":\"user\",\"text\":\"" + String(repeating: "ñ", count: ClaudeTranscript.tailBytes / 2 + 10) + "\"}"
+        let content = ([filler] + Self.sample).joined(separator: "\n") + "\n"
+        try content.write(to: folder.appendingPathComponent("nueva.jsonl"), atomically: true, encoding: .utf8)
         _ = try LocalShell.run("touch -t 202001010000 \(ShellQuoting.singleQuoted(folder.appendingPathComponent("vieja.jsonl").path))", home: home)
 
         let bin = home.appendingPathComponent("bin", isDirectory: true)
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        let screenRows = Self.matchingScreen.map(ShellQuoting.singleQuoted).joined(separator: " ")
         let fakeTmux = """
             #!/bin/sh
             case "$*" in
               *display*) printf '%s\\n' \(ShellQuoting.singleQuoted(projectPath)) ;;
-              *capture-pane*) printf '%s\\n' '  final visible' '✻ Baked for 3s · done' ;;
+              *capture-pane*) printf '%s\\n' \(screenRows) ;;
             esac
             """
         try fakeTmux.write(to: bin.appendingPathComponent("tmux"), atomically: true, encoding: .utf8)
         _ = try LocalShell.run("chmod +x bin/tmux", home: home)
 
-        let script = TerminalLastOutput.command(target: TerminalPaneTarget(session: "s", window: 0), kind: .claude, navigateMarks: false, nonce: "n")
-        let result = try LocalShell.run("PATH=\"$HOME/bin:$PATH\" \(shell) -c \(ShellQuoting.singleQuoted(script))", home: home)
-        #expect(result.exitCode == 0, "\(result.stderr)")
-        let extracted = TerminalLastOutput.extract(result.stdout, kind: .claude, nonce: "n")
-        #expect(extracted == .success(.init(text: "Primera parte.\n\nSegunda parte\ncon dos líneas.")))
+        func run(_ script: String) throws -> String {
+            let result = try LocalShell.run("PATH=\"$HOME/bin:$PATH\" \(shell) -c \(ShellQuoting.singleQuoted(script))", home: home)
+            #expect(result.exitCode == 0, "\(result.stderr)")
+            return result.stdout
+        }
+        let screenCommand = TerminalLastOutput.command(target: TerminalPaneTarget(session: "s", window: 0), kind: .claude, navigateMarks: false, nonce: "n")
+        let screenOutput = try run(screenCommand)
+        let path = ClaudeTranscript.panePath(in: screenOutput.components(separatedBy: "\n"), nonce: "n")
+        #expect(path == projectPath)
+        let transcriptOutput = try run(ClaudeTranscript.readCommand(keys: ClaudeTranscript.folderKeys(for: projectPath), nonce: "n"))
+        #expect(ClaudeTranscript.excerpt(in: transcriptOutput, nonce: "n")?.recentSessions == 1)
+        #expect(TerminalLastOutput.extractClaude(screenOutput: screenOutput, transcriptOutput: transcriptOutput, nonce: "n")
+            == .success(.init(text: Self.expected)))
 
-        // Sin transcript: la pantalla, como parte visible.
+        // Sin transcript: `none`, y se usa la pantalla.
         try FileManager.default.removeItem(at: folder)
-        let screen = try LocalShell.run("PATH=\"$HOME/bin:$PATH\" \(shell) -c \(ShellQuoting.singleQuoted(script))", home: home)
-        #expect(TerminalLastOutput.extract(screen.stdout, kind: .claude, nonce: "n") == .success(.init(text: "final visible", isPartial: true)))
+        let none = try run(ClaudeTranscript.readCommand(keys: ClaudeTranscript.folderKeys(for: projectPath), nonce: "n"))
+        #expect(none.contains("ARGOS_CT_n|none"))
+        #expect(TerminalLastOutput.extractClaude(screenOutput: screenOutput, transcriptOutput: none, nonce: "n")
+            == .success(.init(text: "Segunda parte\ncon dos líneas.")))
     }
 }
