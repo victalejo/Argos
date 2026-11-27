@@ -6,6 +6,10 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Corregido
+- **iPhone: tocar un proyecto no hacía nada.** Tras volver atrás desde un proyecto, la app
+  podía creer que seguía en el terminal y ningún proyecto se abría al tocarlo.
+
 ## [1.12.0] - 2026-11-27
 
 ### Añadido

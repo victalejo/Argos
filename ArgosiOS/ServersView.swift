@@ -41,6 +41,7 @@ struct RootView: View {
     @State private var linkImport: ImportRequest?
     @State private var linkError: String?
     @Environment(AppLock.self) private var lock
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     /// Enlace recibido con la app bloqueada: se atiende al desbloquear.
     @State private var deferredLink: URL?
 
@@ -67,6 +68,9 @@ struct RootView: View {
                 if let server, let target = navigation.target {
                     ProjectScreen(server: server, target: target, mode: $navigation.mode)
                         .id("\(server.id)/\(target.id)")
+                        .onDisappear {
+                            navigation.detailDidDisappear(targetID: target.id, isCompact: horizontalSizeClass == .compact)
+                        }
                 } else {
                     ContentUnavailableView("Elige un proyecto", systemImage: "folder")
                 }

@@ -33,10 +33,32 @@ final class AppNavigation {
     }
 
     /// Abre un proyecto o sesión en el detalle.
+    ///
+    /// Si el modelo ya creía estar en el detalle (iOS no siempre devuelve el cambio de
+    /// columna al volver atrás deslizando), asignar `.detail` otra vez no haría nada y el
+    /// toque quedaría muerto: se pasa por la lista y se vuelve a pedir el detalle en la
+    /// siguiente vuelta del bucle principal.
     func open(_ newTarget: ProjectTarget?) {
         if newTarget?.id != target?.id { mode = .terminal }
         target = newTarget
-        if newTarget != nil { compactColumn = .detail }
+        guard newTarget != nil else { return }
+        if compactColumn == .detail {
+            compactColumn = .content
+            Task { @MainActor [weak self] in
+                guard let self, self.target != nil else { return }
+                self.compactColumn = .detail
+            }
+        } else {
+            compactColumn = .detail
+        }
+    }
+
+    /// El detalle de `targetID` dejó de verse (en iPhone, volver atrás a la lista). Si
+    /// sigue siendo el abierto, el modelo vuelve a la columna de proyectos aunque iOS no
+    /// lo haya comunicado por el enlace de `preferredCompactColumn`.
+    func detailDidDisappear(targetID: String, isCompact: Bool) {
+        guard isCompact, target?.id == targetID, compactColumn == .detail else { return }
+        compactColumn = .content
     }
 
     /// Si el servidor guardado ya no existe (borrado, otro dispositivo), se vuelve al inicio.
