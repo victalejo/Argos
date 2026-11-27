@@ -18,11 +18,23 @@ enum TerminalLastOutput {
         case claude
     }
 
+    /// Lo que se copia.
+    struct Extracted: Equatable, Sendable {
+        let text: String
+        /// Solo la parte visible de la respuesta de Claude (empezó por encima).
+        var isPartial = false
+        /// Del transcript sin poder comprobarlo con la pantalla y con varias sesiones de
+        /// Claude activas en la carpeta: puede ser de otra.
+        var isUncertain = false
+    }
+
     enum Failure: Error, Equatable {
         /// No se reconoce el prompt (o la respuesta de Claude).
         case notRecognized
         /// El último comando no escribió nada.
         case empty
+        /// Claude sigue en su turno (o espera una elección).
+        case inProgress
     }
 
     /// Líneas que se leen del historial (la última salida suele estar cerca del final).
@@ -69,6 +81,9 @@ enum TerminalLastOutput {
                     "fi",
                 ]
             }
+        } else {
+            // Claude Code: la carpeta del panel, para leer luego su transcript.
+            lines.append(ClaudeTranscript.pathCommandLine(nonce: nonce))
         }
         lines += [
             "printf '%s\\n' \(textMarker(nonce))",
@@ -78,9 +93,10 @@ enum TerminalLastOutput {
     }
 
     /// Lo que se copia, a partir de la salida de `command`.
-    static func extract(_ output: String, kind: Kind, nonce: String) -> Result<String, Failure> {
+    static func extract(_ output: String, kind: Kind, nonce: String) -> Result<Extracted, Failure> {
         var all = output.components(separatedBy: "\n")
         if all.last == "" { all.removeLast() }
+        if kind == .claude { return claude(rows: rows(after: all, nonce: nonce), transcript: nil) }
         if let flags = all.firstIndex(of: flagsMarker(nonce)) {
             let flagged = Array(all[(flags + 1)...])
             if case .output(let text) = ShellOutputExtractor.markedOutput(flaggedLines: flagged) {
@@ -98,6 +114,40 @@ enum TerminalLastOutput {
         return heuristic(rows, kind: kind)
     }
 
+    /// Claude Code: el transcript (`transcriptOutput`, salida de
+    /// `ClaudeTranscript.readCommand`) si cuadra con la pantalla; si no, la pantalla.
+    static func extractClaude(screenOutput: String, transcriptOutput: String?, nonce: String) -> Result<Extracted, Failure> {
+        var all = screenOutput.components(separatedBy: "\n")
+        if all.last == "" { all.removeLast() }
+        let excerpt = transcriptOutput.flatMap { ClaudeTranscript.excerpt(in: $0, nonce: nonce) }
+        return claude(rows: rows(after: all, nonce: nonce), transcript: excerpt)
+    }
+
+    /// Filas capturadas del panel (tras la marca de texto).
+    private static func rows(after all: [String], nonce: String) -> [String] {
+        all.firstIndex(of: textMarker(nonce)).map { Array(all[($0 + 1)...]) } ?? []
+    }
+
+    private static func claude(rows: [String], transcript: ClaudeTranscript.Excerpt?) -> Result<Extracted, Failure> {
+        // A mitad de turno, lo último del transcript sería el turno anterior.
+        if ClaudeResponseExtractor.isWorking(lines: rows) { return .failure(.inProgress) }
+        let screen = ClaudeResponseExtractor.lastResponse(lines: rows)
+        if let transcript, let text = ClaudeTranscript.lastAssistantText(transcript.lines) {
+            if let screen {
+                // Si la pantalla no muestra su final, es de otra sesión: manda la pantalla.
+                guard ClaudeTranscript.appearsOnScreen(text, screen: rows) else {
+                    return result(screen.text, isPartial: screen.isPartial)
+                }
+                return result(text)
+            }
+            var extracted = Extracted(text: text)
+            extracted.isUncertain = (transcript.recentSessions ?? 0) > 1
+            return .success(extracted)
+        }
+        guard let screen else { return .failure(.notRecognized) }
+        return result(screen.text, isPartial: screen.isPartial)
+    }
+
     private static func ranged(_ line: String, rows: [String]) -> ShellOutputExtractor.MarkedResult {
         let fields = line.split(separator: ";", omittingEmptySubsequences: false).dropFirst().map(String.init)
         guard fields.count == 3,
@@ -109,18 +159,20 @@ enum TerminalLastOutput {
         return ShellOutputExtractor.rangedOutput(rows: rows, firstLine: firstLine, bottom: bottom, start: start, end: end)
     }
 
-    private static func heuristic(_ lines: [String], kind: Kind) -> Result<String, Failure> {
-        let text: String?
+    private static func heuristic(_ lines: [String], kind: Kind) -> Result<Extracted, Failure> {
         switch kind {
-        case .shell: text = ShellOutputExtractor.heuristicOutput(lines: lines)
-        case .claude: text = ClaudeResponseExtractor.lastResponse(lines: lines)
+        case .shell:
+            guard let text = ShellOutputExtractor.heuristicOutput(lines: lines) else { return .failure(.notRecognized) }
+            return result(text)
+        case .claude:
+            return claude(rows: lines, transcript: nil)
         }
-        guard let text else { return .failure(.notRecognized) }
-        return result(text)
     }
 
-    private static func result(_ text: String) -> Result<String, Failure> {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .failure(.empty) : .success(text)
+    private static func result(_ text: String, isPartial: Bool = false) -> Result<Extracted, Failure> {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? .failure(.empty)
+            : .success(Extracted(text: text, isPartial: isPartial))
     }
 
     static func stripFlags(_ line: String) -> String {
@@ -138,6 +190,8 @@ final class TerminalLastOutputModel {
         case idle
         case working
         case copied(lines: Int)
+        /// Solo la parte visible de la respuesta de Claude.
+        case copiedVisiblePart
         case info(String)
         case failed(String)
     }
@@ -160,10 +214,25 @@ final class TerminalLastOutputModel {
         let command = TerminalLastOutput.command(target: target, kind: kind, navigateMarks: navigateMarks, nonce: nonce)
         do {
             let output = try await run(command)
-            switch TerminalLastOutput.extract(output, kind: kind, nonce: nonce) {
-            case .success(let text):
-                copy(text)
-                show(.copied(lines: text.components(separatedBy: "\n").count))
+            let extraction: Result<TerminalLastOutput.Extracted, TerminalLastOutput.Failure>
+            if kind == .claude {
+                let transcriptOutput = await transcript(for: output, nonce: nonce)
+                extraction = TerminalLastOutput.extractClaude(screenOutput: output, transcriptOutput: transcriptOutput, nonce: nonce)
+            } else {
+                extraction = TerminalLastOutput.extract(output, kind: kind, nonce: nonce)
+            }
+            switch extraction {
+            case .success(let extracted):
+                copy(extracted.text)
+                if extracted.isPartial {
+                    show(.copiedVisiblePart)
+                } else if extracted.isUncertain {
+                    show(.info(String(localized: "Copiada la última respuesta de Claude, pero hay varias sesiones de Claude en esta carpeta: puede ser de otra.")))
+                } else {
+                    show(.copied(lines: extracted.text.components(separatedBy: "\n").count))
+                }
+            case .failure(.inProgress):
+                show(.failed(String(localized: "Claude todavía está en su turno: espera a que termine para copiar su respuesta.")))
             case .failure(.empty):
                 show(.failed(String(localized: "El último comando no escribió nada.")))
             case .failure(.notRecognized):
@@ -173,6 +242,20 @@ final class TerminalLastOutputModel {
             }
         } catch {
             show(.failed(error.userMessage))
+        }
+    }
+
+    /// Segundo paso con Claude: lee su transcript de la carpeta del panel. `nil` si no se
+    /// sabe la carpeta o falla (se usa la pantalla).
+    private func transcript(for screenOutput: String, nonce: String) async -> String? {
+        let lines = screenOutput.components(separatedBy: "\n")
+        guard let path = ClaudeTranscript.panePath(in: lines, nonce: nonce) else { return nil }
+        let command = ClaudeTranscript.readCommand(keys: ClaudeTranscript.folderKeys(for: path), nonce: nonce)
+        do {
+            return try await run(command)
+        } catch {
+            Log.terminal.notice("No se pudo leer el transcript de Claude: \(error.userMessage, privacy: .public)")
+            return nil
         }
     }
 
@@ -208,6 +291,8 @@ final class TerminalLastOutputModel {
             return lines == 1
                 ? String(localized: "Copiada 1 línea")
                 : String(localized: "Copiadas \(lines) líneas")
+        case .copiedVisiblePart:
+            return String(localized: "Copiada la parte visible de la última respuesta")
         case .info(let message), .failed(let message): return message
         }
     }

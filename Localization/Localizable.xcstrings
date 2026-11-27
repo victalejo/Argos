@@ -6945,6 +6945,22 @@
         }
       }
     },
+    "Claude todavía está en su turno: espera a que termine para copiar su respuesta." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude is still working on its turn: wait for it to finish to copy its reply."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude todavía está en su turno: espera a que termine para copiar su respuesta."
+          }
+        }
+      }
+    },
     "Claude trabajando" : {
       "localizations" : {
         "en" : {
@@ -8485,6 +8501,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copiada 1 línea"
+          }
+        }
+      }
+    },
+    "Copiada la parte visible de la última respuesta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied the visible part of the last reply"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiada la parte visible de la última respuesta"
+          }
+        }
+      }
+    },
+    "Copiada la última respuesta de Claude, pero hay varias sesiones de Claude en esta carpeta: puede ser de otra." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied Claude’s last reply, but there are several Claude sessions in this folder: it may be from another one."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiada la última respuesta de Claude, pero hay varias sesiones de Claude en esta carpeta: puede ser de otra."
           }
         }
       }

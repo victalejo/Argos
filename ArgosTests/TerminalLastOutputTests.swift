@@ -51,9 +51,9 @@ struct ShellOutputExtractorTests {
 
     @Test func eligeSegunLaSalidaDelComando() {
         let flagged = "ARGOS_LO_F_n\nP $ echo hi\nO hi\nP $ \n"
-        #expect(TerminalLastOutput.extract(flagged, kind: .shell, nonce: "n") == .success("hi"))
+        #expect(TerminalLastOutput.extract(flagged, kind: .shell, nonce: "n") == .success(.init(text: "hi")))
         let unflagged = "ARGOS_LO_F_n\n- $ echo hi\n- hi\n- $ \n"
-        #expect(TerminalLastOutput.extract(unflagged, kind: .shell, nonce: "n") == .success("hi"), "sin marcas: heurística")
+        #expect(TerminalLastOutput.extract(unflagged, kind: .shell, nonce: "n") == .success(.init(text: "hi")), "sin marcas: heurística")
         let empty = "ARGOS_LO_F_n\nP $ true\nOP $ \n"
         #expect(TerminalLastOutput.extract(empty, kind: .shell, nonce: "n") == .failure(.empty))
         #expect(TerminalLastOutput.extract("basura", kind: .shell, nonce: "n") == .failure(.notRecognized))
@@ -62,7 +62,7 @@ struct ShellOutputExtractorTests {
     @Test func conRangoLeeLasFilasAbsolutas() {
         // Historial de 1 línea + 4 visibles: las filas capturadas empiezan en la 0.
         let ranged = "ARGOS_LO_R_n;1|0|3;1|0|1;1|0|3\nARGOS_LO_T_n\nviejo\n$ ls\nuno\ndos\n$ \n"
-        #expect(TerminalLastOutput.extract(ranged, kind: .shell, nonce: "n") == .success("uno\ndos"))
+        #expect(TerminalLastOutput.extract(ranged, kind: .shell, nonce: "n") == .success(.init(text: "uno\ndos")))
     }
 
     @Test func elComandoEntrecomillaYSoloNavegaSiSePide() {
@@ -106,7 +106,7 @@ struct ClaudeResponseExtractorTests {
             "  ⏵⏵ bypass permissions on (shift+tab to cycle)",
         ]
         let expected = "Listo: los tres tests pasan.\n\n- Cambié `foo`.\n- Añadí un caso."
-        #expect(ClaudeResponseExtractor.lastResponse(lines: lines) == expected)
+        #expect(ClaudeResponseExtractor.lastResponse(lines: lines)?.text == expected)
     }
 
     @Test func cajaAntiguaYSinTurnoDelUsuario() {
@@ -117,12 +117,13 @@ struct ClaudeResponseExtractorTests {
             "╰──────────────────────────╯",
             "  ? for shortcuts",
         ]
-        #expect(ClaudeResponseExtractor.lastResponse(lines: lines) == "Hola, ¿en qué te ayudo?")
+        #expect(ClaudeResponseExtractor.lastResponse(lines: lines)?.text == "Hola, ¿en qué te ayudo?")
     }
 
-    @Test func soloHerramientasDevuelveLaUltima() {
+    @Test func soloHerramientasNoEsUnaRespuesta() {
         let lines = ["> haz algo", "⏺ Read(main.swift)", "  ⎿  Read 20 lines", "", "✢ Pensando… (esc to interrupt)"]
-        #expect(ClaudeResponseExtractor.lastResponse(lines: lines) == "Read(main.swift)\n⎿  Read 20 lines")
+        #expect(ClaudeResponseExtractor.lastResponse(lines: lines) == nil)
+        #expect(ClaudeResponseExtractor.isWorking(lines: lines))
         #expect(ClaudeResponseExtractor.lastResponse(lines: ["> hola", "nada de claude"]) == nil)
     }
 
