@@ -463,6 +463,8 @@ class TerminalViewModel<S : TerminalSink>(
 
     fun setKeepScreenOn(enabled: Boolean) = settingsStore.setKeepScreenOn(enabled)
 
+    fun setPrivateKeyboard(enabled: Boolean) = settingsStore.setPrivateKeyboard(enabled)
+
     private companion object {
         /** Bloques de salida en vuelo antes de frenar al lector SSH. */
         const val OUTPUT_CAPACITY = 64

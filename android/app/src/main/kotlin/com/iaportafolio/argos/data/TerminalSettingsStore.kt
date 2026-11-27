@@ -15,6 +15,11 @@ data class TerminalSettings(
     val keepScreenOn: Boolean = true,
     /** Seguir conectado en segundo plano con un servicio en primer plano. */
     val keepAliveInBackground: Boolean = true,
+    /**
+     * Pedir al teclado que no aprenda lo tecleado (IME_FLAG_NO_PERSONALIZED_LEARNING). Gboard y
+     * otros lo muestran como modo incógnito, así que es opcional y viene desactivado.
+     */
+    val privateKeyboard: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_FONT_SIZE_SP = 12
@@ -30,6 +35,7 @@ interface TerminalSettingsStore {
     fun setFontSize(sp: Int)
     fun setKeepScreenOn(enabled: Boolean)
     fun setKeepAliveInBackground(enabled: Boolean)
+    fun setPrivateKeyboard(enabled: Boolean)
 }
 
 /** [TerminalSettingsStore] sobre `SharedPreferences` (no son secretos). */
@@ -41,6 +47,7 @@ class SharedPreferencesTerminalSettings(context: Context) : TerminalSettingsStor
             fontSizeSp = TerminalSettings.clampFontSize(prefs.getInt(KEY_FONT_SIZE, TerminalSettings.DEFAULT_FONT_SIZE_SP)),
             keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
             keepAliveInBackground = prefs.getBoolean(KEY_KEEP_ALIVE, true),
+            privateKeyboard = prefs.getBoolean(KEY_PRIVATE_KEYBOARD, false),
         ),
     )
     override val settings: StateFlow<TerminalSettings> = state.asStateFlow()
@@ -62,10 +69,16 @@ class SharedPreferencesTerminalSettings(context: Context) : TerminalSettingsStor
         prefs.edit { putBoolean(KEY_KEEP_ALIVE, enabled) }
     }
 
+    override fun setPrivateKeyboard(enabled: Boolean) {
+        state.update { it.copy(privateKeyboard = enabled) }
+        prefs.edit { putBoolean(KEY_PRIVATE_KEYBOARD, enabled) }
+    }
+
     private companion object {
         const val FILE = "terminal"
         const val KEY_FONT_SIZE = "terminal.fontSize"
         const val KEY_KEEP_SCREEN_ON = "terminal.keepScreenOn"
         const val KEY_KEEP_ALIVE = "terminal.keepAliveInBackground"
+        const val KEY_PRIVATE_KEYBOARD = "terminal.privateKeyboard"
     }
 }

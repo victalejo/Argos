@@ -8,7 +8,9 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ### Corregido
 - **Android: el teclado del terminal se abría en modo incógnito.** Ahora abre el teclado
-  normal (sigue sin autocorrección ni predicciones, que rompen lo que tecleas).
+  normal (sigue sin autocorrección ni predicciones, que rompen lo que tecleas). Si prefieres
+  que el teclado no aprenda lo que escribes (contraseñas, tokens), activa «Teclado privado»
+  en el menú ⋮ del terminal.
 
 ## [1.15.0] - 2026-11-27
 
