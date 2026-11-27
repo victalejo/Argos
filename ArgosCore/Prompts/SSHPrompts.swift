@@ -44,12 +44,23 @@ extension SSHService {
         let token = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         let path = PromptPasteScript.relativePath(token: token)
         try await writeHomeFilePrivately(Data(clean.utf8), to: path)
-        let client = try await connectedClient()
-        let result = try await capture(client, command: PromptPasteScript.command(session: session, window: window, relativePath: path))
+        let result: CommandOutput
+        do {
+            let client = try await connectedClient()
+            result = try await capture(client, command: PromptPasteScript.command(session: session, window: window, relativePath: path))
+        } catch {
+            // El script no llegó a borrar el archivo; si tampoco se puede ahora, lo barre
+            // el siguiente envío (`PromptPasteScript.staleMinutes`).
+            if let client = try? await connectedClient() {
+                _ = try? await capture(client, command: PromptPasteScript.removeCommand(relativePath: path))
+            }
+            throw error
+        }
         switch result.exitCode {
         case 0: return
         case PromptPasteScript.missingPaneExitCode: throw PromptSendError.noPane
         case PromptPasteScript.notClaudeExitCode: throw PromptSendError.notClaude
+        case PromptPasteScript.busyExitCode: throw PromptSendError.busy
         default: throw PromptSendError.tmux
         }
     }

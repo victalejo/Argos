@@ -6577,6 +6577,22 @@
         }
       }
     },
+    "Claude está ocupado o esperando tu respuesta en esa ventana." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude is busy or waiting for your answer in that window."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude está ocupado o esperando tu respuesta en esa ventana."
+          }
+        }
+      }
+    },
     "Claude está trabajando en este proyecto: no se restaura mientras pueda seguir cambiando archivos. Espera a que termine o detenlo." : {
       "localizations" : {
         "en" : {
@@ -17670,6 +17686,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Las subidas de archivos y capturas pasan por /tmp."
+          }
+        }
+      }
+    },
+    "Las variables se envían tal cual en las tareas programadas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Variables are sent as-is in scheduled tasks"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las variables se envían tal cual en las tareas programadas"
           }
         }
       }

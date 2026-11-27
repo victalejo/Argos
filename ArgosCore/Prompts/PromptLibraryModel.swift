@@ -142,9 +142,14 @@ final class PromptLibraryModel {
         }
     }
 
-    /// Ventana con Claude libre; sin ventanas conocidas, la activa.
-    private var preferredWindow: Int? {
-        claudeWindows.isEmpty ? nil : ClaudeTasksModel.suggestedWindow(claudeWindows)
+    private var preferredWindow: Int? { Self.pasteWindow(claudeWindows) }
+
+    /// Ventana donde pegar: SOLO una con Claude libre (`done`), la de número más bajo. Si
+    /// ninguna lo está (o no hay estado conocido), la activa: el script vuelve a mirar
+    /// justo antes de pegar y no pega si Claude trabaja o espera un permiso (el Enter
+    /// elegiría «Sí»). Nunca se propone una ventana `working`/`waiting`.
+    nonisolated static func pasteWindow(_ windows: [Int: ClaudeActivity]) -> Int? {
+        windows.filter { $0.value == .done }.keys.min()
     }
 
     // MARK: - Interno

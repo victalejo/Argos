@@ -92,6 +92,10 @@ final class ClaudeSchedulesModel {
 
     /// Copia un prompt de la biblioteca. Las variables se quedan tal cual: la tarea corre
     /// más tarde y repetidas veces, y unos valores de hoy serían falsos mañana.
+    /// El encargo lleva `{rama}`, `{fecha}`…: en una tarea programada no se rellenan (la
+    /// interfaz lo avisa).
+    var promptHasVariables: Bool { PromptVariables.containsVariables(prompt) }
+
     func usePrompt(_ prompt: SavedPrompt) {
         if title.trimmingCharacters(in: .whitespaces).isEmpty { title = prompt.displayTitle }
         self.prompt = prompt.text

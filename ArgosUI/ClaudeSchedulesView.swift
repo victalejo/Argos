@@ -84,6 +84,11 @@ private struct ClaudeScheduleForm: View {
                 .frame(minHeight: 70, maxHeight: 140)
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.quaternary))
                 .accessibilityLabel(Text("Encargo para Claude"))
+            if model.promptHasVariables {
+                Label("Las variables se envían tal cual en las tareas programadas", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             ClaudeWeekdayPicker(selection: $model.weekdays)
             DatePicker("Hora", selection: $model.time, displayedComponents: .hourAndMinute)
             Stepper("Tiempo máximo: \(model.maxMinutes) min", value: $model.maxMinutes, in: 10...480, step: 10)

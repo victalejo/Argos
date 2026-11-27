@@ -41,6 +41,10 @@ struct PromptLibraryView: View {
         Section {
             ForEach(prompts) { (prompt: SavedPrompt) in
                 PromptLibraryRow(model: model, prompt: prompt, scope: scope)
+                    // Mientras se guarda un cambio no se puede mover ni borrar otra fila:
+                    // `perform` lo ignoraría y la lista volvería sola a su sitio.
+                    .moveDisabled(model.isWorking)
+                    .deleteDisabled(model.isWorking)
             }
             .onMove { (source: IndexSet, destination: Int) in
                 Task { await model.move(scope: scope, from: source, to: destination) }

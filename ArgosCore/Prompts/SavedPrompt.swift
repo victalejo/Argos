@@ -6,7 +6,7 @@
 //  servidor, comunes (clave `prompts` del archivo) o de un proyecto (clave `prompts` de
 //  cada proyecto). Lo comparten Mac, iPhone/iPad y Android con versiones distintas, así
 //  que cada prompt conserva sus claves desconocidas y uno ilegible se guarda tal cual.
-//  El servidor no es de fiar: título y texto se validan y se recortan.
+//  El servidor no es de fiar: el texto se valida y el título se limpia al mostrarlo.
 //
 
 import Foundation
@@ -63,7 +63,9 @@ struct SavedPrompt: Identifiable, Equatable, Sendable {
               let text = object["text"]?.stringValue, text.count <= Self.maxTextLength
         else { return nil }
         self.id = id
-        self.title = String(PromptText.singleLine(title).prefix(Self.maxTitleLength))
+        // Tal cual: al reescribir el archivo no se cambia el título que puso otro
+        // dispositivo. Se limpia al mostrarlo (`displayTitle`).
+        self.title = title
         self.text = text
         self.model = object[Self.modelKey]?.stringValue.flatMap(Model.init(rawValue:))
         self.effort = object[Self.effortKey]?.stringValue.flatMap(Effort.init(rawValue:))
@@ -84,9 +86,10 @@ struct SavedPrompt: Identifiable, Equatable, Sendable {
         return .object(object)
     }
 
-    /// Título visible (uno vacío muestra el principio del texto).
+    /// Título visible: una línea, sin caracteres de control y con tope (viene del
+    /// servidor); uno vacío muestra el principio del texto.
     var displayTitle: String {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = String(PromptText.singleLine(title).prefix(Self.maxTitleLength))
         if !trimmed.isEmpty { return trimmed }
         return String(PromptText.singleLine(text).prefix(60))
     }
