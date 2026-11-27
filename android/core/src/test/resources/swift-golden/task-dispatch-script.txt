@@ -1,6 +1,7 @@
 # argos-tasks v1: despachador de encargos de Argos (cola por proyecto).
 # Uso: dispatch.sh tick | stop <panel> | failure <panel> | enqueue <proyecto> <id>
 #      | cancel <proyecto> <encargo> | retry <proyecto> <encargo> | next <proyecto>
+#      | run <tarea programada>
 base="${ARGOS_TASKS_DIR:-$HOME/.config/argos/tasks}"
 limits="${ARGOS_LIMITS_FILE:-$HOME/.config/argos/claude-limits.json}"
 self="$base/dispatch.sh"
@@ -146,14 +147,85 @@ commit_task() {
   git -C "$dir" add -A 2>/dev/null
   git -C "$dir" diff --cached --quiet 2>/dev/null && return 0
   git -C "$dir" commit -q -m "$(meta "$1" title)" -m "Encargo de Argos." >/dev/null 2>&1 || { put "$1" reason "commit"; return 0; }
-  [ "$(meta "$1" push)" = 1 ] && { git -C "$dir" push -q >/dev/null 2>&1 || put "$1" reason "push"; }
+  [ "$(meta "$1" push)" = 1 ] || return 0
+  # Push a main solo si pasa la comprobación (si la hay). Desde un worktree se sube
+  # su rama como main del remoto (fast-forward): nunca toca el checkout del usuario.
+  check=$(meta "$1" check)
+  if [ -n "$check" ] && ! (cd "$dir" && sh -c "$check") >"$1/check.log" 2>&1; then put "$1" reason "check"; return 0; fi
+  if [ "$(meta "$1" target)" = agent ]; then
+    git -C "$dir" push -q origin HEAD:main >/dev/null 2>&1 || put "$1" reason "push"
+  else
+    git -C "$dir" push -q >/dev/null 2>&1 || put "$1" reason "push"
+  fi
   return 0
+}
+
+# Un encargo en agente que pasa de su tiempo máximo se detiene y se marca fallido.
+expire() {
+  for t in "$base"/*/[0-9]*-*; do
+    [ -d "$t" ] && [ "$(state "$t")" = running ] && [ "$(meta "$t" target)" = agent ] || continue
+    mx=$(meta "$t" max_minutes); st=$(cat "$t/started" 2>/dev/null)
+    case "$mx$st" in ''|*[!0-9]*) continue ;; esac
+    [ $(( $(date +%s) - st )) -gt $(( mx * 60 )) ] || continue
+    [ -f "$t/stop.sh" ] && sh "$t/stop.sh" >/dev/null 2>&1
+    put "$t" reason timeout; put "$t" finished "$(date +%s)"; put "$t" state failed
+  done
+}
+
+rand_hex() { od -An -N6 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n'; }
+new_uuid() {
+  u=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null)
+  printf '%s' "$u" | tr 'A-Z' 'a-z'
+}
+conf() { sed -n "s/^$2=//p" "$1/config" 2>/dev/null | head -n 1; }
+
+# ¿Toca la tarea programada $1? Hoy es uno de sus días, ya pasó su hora (hace menos
+# de 12 h: si el servidor estuvo apagado, se recupera) y no corrió desde entonces.
+due() {
+  [ "$(conf "$1" enabled)" = 1 ] || return 1
+  case ",$(conf "$1" days)," in *",$(date +%u),"*) ;; *) return 1 ;; esac
+  hm=$(conf "$1" time); h=${hm%%:*}; m=${hm##*:}
+  case "$h$m" in ''|*[!0-9]*) return 1 ;; esac
+  now_m=$(( $(date +%H | sed 's/^0//') * 60 + $(date +%M | sed 's/^0//') ))
+  at_m=$(( $(printf '%s' "$h" | sed 's/^0//') * 60 + $(printf '%s' "$m" | sed 's/^0//') ))
+  late=$(( now_m - at_m ))
+  [ "$late" -ge 0 ] && [ "$late" -le 720 ] || return 1
+  last=$(cat "$1/last" 2>/dev/null); case "$last" in ''|*[!0-9]*) last=0 ;; esac
+  [ "$last" -lt $(( $(date +%s) - late * 60 - 60 )) ]
+}
+
+# Claude trabajando o esperando en alguna ventana de la sesión del proyecto.
+in_use() {
+  tmux -u list-panes -s -t "=$1" -F '#{@argos_claude}' 2>/dev/null | grep -qE '^(working|waiting)$'
+}
+
+# Crea el encargo de una ejecución de la tarea programada $1 a partir de sus plantillas.
+spawn() {
+  s=$1; proj=$(conf "$s" project)
+  case "$proj" in ''|*[!A-Za-z0-9_-]*) return 1 ;; esac
+  in_use "$(conf "$s" session)" && return 1
+  run=$(rand_hex); aid=$(new_uuid); now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  case "$run" in ''|*[!0-9a-f]*) return 1 ;; esac
+  case "$aid" in ''|*[!0-9a-f-]*) return 1 ;; esac
+  i="$base/incoming"; mkdir -p "$i" || return 1
+  sub="s/@@RUN@@/$run/g; s/@@NOW@@/$now/g; s/a7905000-0000-4000-8000-000000000000/$aid/g"
+  b64=$(sed "$sub" "$s/meta.tpl" | base64 | tr -d '\n')
+  { printf "ARGOS_META_B64='%s'\n" "$b64"; sed "$sub" "$s/launch.tpl"; } > "$i/$run.launch.sh" || return 1
+  sed "$sub" "$s/send.tpl" > "$i/$run.send.sh" && sed "$sub" "$s/stop.tpl" > "$i/$run.stop.sh" \
+    && sed "$sub" "$s/task.tpl" > "$i/$run.meta" && cp "$s/prompt" "$i/$run.prompt" || return 1
+  date +%s > "$s/last"
+  sh "$self" enqueue "$proj" "$run"
 }
 
 case "$1" in
   tick)
+    expire
+    for s in "$base"/schedules/*/; do
+      s=${s%/}; [ -f "$s/config" ] || continue
+      due "$s" && spawn "$s"
+    done
     for p in "$base"/*/; do
-      p=${p%/}; [ "${p##*/}" = incoming ] && continue
+      p=${p%/}; case "${p##*/}" in incoming|schedules) continue ;; esac
       [ -d "$p" ] && advance "$p" 0
     done
     ;;
@@ -199,12 +271,17 @@ case "$1" in
     n=$(printf '%06d' $(( ${n:-0} + 1 )) 2>/dev/null) || { unlock "$p"; exit 0; }
     t="$p/$n-$id"
     mkdir "$t" && mv -f "$base/incoming/$id.prompt" "$t/prompt" && mv -f "$base/incoming/$id.meta" "$t/meta" \
-      && for f in launch.sh send.sh; do
+      && for f in launch.sh send.sh stop.sh; do
            [ -f "$base/incoming/$id.$f" ] && mv -f "$base/incoming/$id.$f" "$t/$f"
          done
     [ -f "$t/meta" ] && put "$t" state pending
     unlock "$p"
     advance "$p" 0
+    ;;
+  run)
+    # «Ejecutar ahora» una tarea programada (sin esperar a su hora).
+    case "$2" in ''|*[!0-9a-f]*) exit 0 ;; esac
+    [ -f "$base/schedules/$2/config" ] && spawn "$base/schedules/$2"
     ;;
   cancel|retry)
     case "$2$3" in *[!A-Za-z0-9_-]*|'') exit 0 ;; esac

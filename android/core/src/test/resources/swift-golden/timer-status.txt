@@ -1,0 +1,4 @@
+if [ "$(uname -s)" = Darwin ] && launchctl list 2>/dev/null | grep -q "com.iaportafolio.argos.tasks"; then echo launchd; exit 0; fi
+if command -v systemctl >/dev/null 2>&1 && systemctl --user is-active argos-tasks.timer >/dev/null 2>&1; then echo systemd; exit 0; fi
+if command -v crontab >/dev/null 2>&1 && crontab -l 2>/dev/null | grep -q 'argos-tasks-timer'; then echo cron; exit 0; fi
+echo none

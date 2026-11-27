@@ -173,7 +173,7 @@ enum LocalTmux {
 @Suite("Encargos (despachador con tmux)", .enabled(if: LocalTmux.path != nil), .serialized)
 struct ClaudeTaskDispatcherTests {
 
-    private final class Box {
+    final class Box {
         let home: URL
         let tasks: URL
         let received: URL

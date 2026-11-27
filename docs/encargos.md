@@ -114,9 +114,14 @@ un proyecto sin puntos de restauración, la app ofrece activarlos.
    `argos/encargo-<id>` y arranca claude headless con el modo de permisos de Ajustes) y
    `send.sh` (entrega el encargo por la FIFO). El hook `Stop` de un agente headless no
    tiene `$TMUX_PANE`: el despachador lo reconoce por el `session_id` del JSON del hook.
-3. **Tareas programadas**: `schedules`, instalación del temporizador (systemd --user,
-   launchd en macOS, cron), frenos de proyecto en uso y tiempo máximo, push si pasan los
-   tests, resumen de la ejecución anterior y recuperación de horas perdidas (< 12 h).
+3. **Tareas programadas** (hecho): `tasks/schedules/<id>/` con `config` y plantillas
+   (`launch.tpl` con un id de agente centinela y los datos del agente en `$ARGOS_META_B64`,
+   `meta.tpl`/`task.tpl`/`send.tpl`/`stop.tpl` con huecos `@@RUN@@` y `@@NOW@@`). El
+   temporizador (launchd en macOS, systemd --user en Linux, cron si no) llama a `tick`
+   cada minuto; `tick` crea la ejecución si es su día y ya pasó su hora (hasta 12 h tarde,
+   una vez), salvo con Claude trabajando en el proyecto, y corta las que pasan de su
+   tiempo máximo. Push a main desde el worktree (`HEAD:main`) solo si pasa la
+   comprobación. Pendiente: el resumen de la ejecución anterior en el encargo.
 4. **CI/PR → Claude**: botón en la bandeja (CI fallida con referencia + extracto, revisiones
    de PR, bots, comentarios en commits, issues asignados), vigilar hasta verde con 3
    intentos como máximo.

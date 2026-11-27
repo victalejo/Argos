@@ -1,0 +1,6 @@
+{
+  "createdAt" : "@@NOW@@",
+  "permissionMode" : "acceptEdits",
+  "title" : "Tests de la noche",
+  "workingDirectory" : "/srv/repos/app-prog-abc12345-@@RUN@@"
+}

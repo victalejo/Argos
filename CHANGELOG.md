@@ -7,6 +7,14 @@ El detalle por commit vive en el historial git (Conventional Commits):
 ## [Unreleased]
 
 ### Añadido
+- **Tareas programadas (Mac e iPhone/iPad).** En «Encargos», «Nueva tarea programada»:
+  «cada noche a las 3:00, corre los tests y arregla lo que falle» o «los lunes, actualiza las
+  dependencias». Cada ejecución trabaja en un agente aparte, en su propia rama, hace commit
+  y, si lo pides, push a main solo si pasa una comprobación (p. ej. `npm test`). No arranca
+  con Claude trabajando en el proyecto, cerca del límite de uso o con el servidor justo de
+  memoria; se corta al pasar de su tiempo máximo y, si el servidor estaba apagado a su hora,
+  se ejecuta al volver (hasta 12 horas tarde). Argos pone un temporizador en el servidor
+  (launchd en macOS, systemd en Linux o cron).
 - **Encargos en un agente aparte (Mac e iPhone/iPad).** En «Encargos», «En un agente aparte,
   en su propia rama» hace que el encargo trabaje en una carpeta y una rama nuevas
   (`argos/encargo-…`) sin tocar lo que tengas abierto en el proyecto, con el modo de

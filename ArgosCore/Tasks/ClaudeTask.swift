@@ -44,6 +44,8 @@ enum ClaudeTaskReason: String, Equatable, Sendable {
     case commit
     case push
     case agent
+    case timeout
+    case check
 
     var text: String {
         switch self {
@@ -57,6 +59,8 @@ enum ClaudeTaskReason: String, Equatable, Sendable {
         case .commit: return String(localized: "Terminó, pero no se pudo hacer el commit.")
         case .push: return String(localized: "Terminó y se hizo el commit, pero no se pudo subir (push).")
         case .agent: return String(localized: "No se pudo arrancar el agente del encargo (¿existe ya la rama o la carpeta?).")
+        case .timeout: return String(localized: "Se detuvo por pasar de su tiempo máximo.")
+        case .check: return String(localized: "Terminó, pero la comprobación no pasó: no se subió a main (la rama queda con el commit).")
         }
     }
 }
@@ -164,6 +168,8 @@ struct ClaudeTaskRequest: Equatable, Sendable {
     var target: Target = .terminal
     /// Modo de permisos del agente (solo en agente): el de Ajustes para ese proyecto.
     var permissionMode: ClaudeAgentCommand.PermissionMode = AgentPermissionPreferences.fallback
+    /// Título fijo (tareas programadas); si no, la primera línea del encargo.
+    var customTitle: String?
     /// Identificador del encargo (también nombra su worktree y su rama).
     var taskID = ClaudeTaskRequest.makeID()
     var cleanContext = false
@@ -174,6 +180,7 @@ struct ClaudeTaskRequest: Equatable, Sendable {
 
     /// Título: primera línea con texto, recortada.
     var title: String {
+        if let customTitle, !customTitle.isEmpty { return customTitle }
         let first = prompt.split(whereSeparator: \.isNewline).first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         let line = first.map { String($0).trimmingCharacters(in: .whitespaces) } ?? ""
         return line.count > 72 ? String(line.prefix(71)) + "…" : line

@@ -13,6 +13,7 @@ struct ClaudeTasksSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var model: ClaudeTasksModel
+    @State private var schedules: ClaudeSchedulesModel
 
     init(project: Project, vm: SessionsViewModel, serverID: Server.ID) {
         self.project = project
@@ -23,6 +24,7 @@ struct ClaudeTasksSheet: View {
             project: project,
             claudeWindows: vm.claudeActivity.windows(forSession: project.sessionName)
         ))
+        _schedules = State(initialValue: ClaudeSchedulesModel(service: vm.service, serverID: serverID, project: project))
     }
 
     var body: some View {
@@ -32,8 +34,13 @@ struct ClaudeTasksSheet: View {
                 Text(project.name).font(.callout).foregroundStyle(.secondary)
             }
             ScrollView {
-                ClaudeTasksView(model: model)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 24) {
+                    ClaudeTasksView(model: model)
+                    Divider()
+                    Text("Tareas programadas").font(.headline)
+                    ClaudeSchedulesView(model: schedules)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack {
                 Spacer()
@@ -42,6 +49,6 @@ struct ClaudeTasksSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 560, height: 620)
+        .frame(width: 580, height: 680)
     }
 }

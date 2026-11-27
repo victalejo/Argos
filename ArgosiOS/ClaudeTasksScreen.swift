@@ -14,6 +14,7 @@ struct ClaudeTasksScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var model: ClaudeTasksModel
+    @State private var schedules: ClaudeSchedulesModel
 
     init(project: Project, viewModel: SessionsViewModel, serverID: Server.ID) {
         self.project = project
@@ -24,12 +25,18 @@ struct ClaudeTasksScreen: View {
             project: project,
             claudeWindows: viewModel.claudeActivity.windows(forSession: project.sessionName)
         ))
+        _schedules = State(initialValue: ClaudeSchedulesModel(service: viewModel.service, serverID: serverID, project: project))
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                ClaudeTasksView(model: model)
+                VStack(alignment: .leading, spacing: 24) {
+                    ClaudeTasksView(model: model)
+                    Divider()
+                    Text("Tareas programadas").font(.headline)
+                    ClaudeSchedulesView(model: schedules)
+                }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

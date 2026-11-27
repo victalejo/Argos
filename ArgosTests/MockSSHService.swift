@@ -133,6 +133,16 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     func listTasks() async throws -> [ClaudeTask] { tasks }
     func cancelTask(_ task: ClaudeTask) async throws { taskActions.append("cancel \(task.folder)") }
     func retryTask(_ task: ClaudeTask) async throws { taskActions.append("retry \(task.folder)") }
+    var schedules: [ClaudeSchedule] = []
+    func saveSchedule(_ schedule: ClaudeSchedule) async throws -> ClaudeTaskTimer.Kind {
+        schedules.removeAll { $0.id == schedule.id }
+        schedules.append(schedule)
+        return .launchd
+    }
+    func listSchedules(projects: [Project]) async throws -> [ClaudeSchedule] { schedules }
+    func deleteSchedule(id: String) async throws { schedules.removeAll { $0.id == id } }
+    func runScheduleNow(id: String) async throws { taskActions.append("run \(id)") }
+    func taskTimerStatus() async throws -> ClaudeTaskTimer.Kind { schedules.isEmpty ? .none : .launchd }
     func readClaudeUsage() async throws -> ClaudeUsageSnapshot {
         claudeUsageSnapshots.count > 1 ? claudeUsageSnapshots.removeFirst() : claudeUsageSnapshots[0]
     }

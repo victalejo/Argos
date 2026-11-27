@@ -1,0 +1,11 @@
+v=1
+title=Tests de la noche
+project=-srv-repos-app
+session=app
+days=1,2,3,4,5
+time=03:00
+enabled=1
+push=1
+max_minutes=45
+mode=acceptEdits
+check=npm test

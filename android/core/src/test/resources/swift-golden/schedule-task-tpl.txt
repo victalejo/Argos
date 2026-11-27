@@ -1,0 +1,12 @@
+v=1
+title=Tests de la noche
+source=schedule
+target=agent
+agent=a7905000-0000-4000-8000-000000000000
+branch=argos/prog-abc12345-@@RUN@@
+dir=/srv/repos/app-prog-abc12345-@@RUN@@
+commit=1
+push=1
+ref=abc12345
+max_minutes=45
+check=npm test

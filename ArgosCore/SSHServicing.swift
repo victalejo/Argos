@@ -95,6 +95,12 @@ protocol SSHServicing: Sendable {
     func listTasks() async throws -> [ClaudeTask]
     func cancelTask(_ task: ClaudeTask) async throws
     func retryTask(_ task: ClaudeTask) async throws
+    /// Tareas programadas (ver `ClaudeSchedule`).
+    @discardableResult func saveSchedule(_ schedule: ClaudeSchedule) async throws -> ClaudeTaskTimer.Kind
+    func listSchedules(projects: [Project]) async throws -> [ClaudeSchedule]
+    func deleteSchedule(id: String) async throws
+    func runScheduleNow(id: String) async throws
+    func taskTimerStatus() async throws -> ClaudeTaskTimer.Kind
 
     // MARK: - Proyectos (carpetas con sesión tmux efímera)
 

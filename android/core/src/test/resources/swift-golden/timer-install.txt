@@ -1,0 +1,33 @@
+d="$HOME/.config/argos/tasks/dispatch.sh"
+if [ "$(uname -s)" = Darwin ]; then
+  a="$HOME/Library/LaunchAgents"; f="$a/com.iaportafolio.argos.tasks.plist"
+  mkdir -p "$a" && cat > "$f" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.iaportafolio.argos.tasks</string>
+  <key>ProgramArguments</key><array><string>/bin/sh</string><string>$d</string><string>tick</string></array>
+  <key>StartInterval</key><integer>60</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/dev/null</string>
+  <key>StandardErrorPath</key><string>/dev/null</string>
+</dict></plist>
+EOF
+  launchctl bootout "gui/$(id -u)/com.iaportafolio.argos.tasks" >/dev/null 2>&1
+  launchctl bootstrap "gui/$(id -u)" "$f" >/dev/null 2>&1 \
+    || launchctl bootstrap "user/$(id -u)" "$f" >/dev/null 2>&1 \
+    || launchctl load -w "$f" >/dev/null 2>&1
+  launchctl list 2>/dev/null | grep -q "com.iaportafolio.argos.tasks" && { echo launchd; exit 0; }
+fi
+if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
+  u="$HOME/.config/systemd/user"; mkdir -p "$u"
+  printf '[Unit]\nDescription=Argos: encargos programados\n\n[Service]\nType=oneshot\nExecStart=/bin/sh %s tick\n' "$d" > "$u/argos-tasks.service"
+  printf '[Unit]\nDescription=Argos: encargos programados cada minuto\n\n[Timer]\nOnCalendar=*-*-* *:*:00\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n' > "$u/argos-tasks.timer"
+  systemctl --user daemon-reload >/dev/null 2>&1
+  systemctl --user enable --now argos-tasks.timer >/dev/null 2>&1 && { echo systemd; exit 0; }
+fi
+if command -v crontab >/dev/null 2>&1; then
+  { crontab -l 2>/dev/null | grep -v 'argos-tasks-timer'; echo "* * * * * /bin/sh \"$d\" tick >/dev/null 2>&1 # argos-tasks-timer"; } | crontab - \
+    && { echo cron; exit 0; }
+fi
+echo none

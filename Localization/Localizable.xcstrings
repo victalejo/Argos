@@ -468,6 +468,22 @@
         }
       }
     },
+    "%@ a las %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ a las %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ at %2$@"
+          }
+        }
+      }
+    },
     "%@ de %@" : {
       "localizations" : {
         "en" : {
@@ -2849,6 +2865,22 @@
         }
       }
     },
+    "Activa" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        }
+      }
+    },
     "Activa (cargada y conectada)" : {
       "localizations" : {
         "en" : {
@@ -4993,6 +5025,22 @@
         }
       }
     },
+    "Cada ejecución trabaja en un agente aparte, en su propia rama, y hace commit al terminar. No arranca si Claude está trabajando en el proyecto, si vas cerca del límite de uso o si el servidor va justo de memoria." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cada ejecución trabaja en un agente aparte, en su propia rama, y hace commit al terminar. No arranca si Claude está trabajando en el proyecto, si vas cerca del límite de uso o si el servidor va justo de memoria."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each run works in a separate agent, on its own branch, and commits when done. It won’t start if Claude is working on the project, if you’re close to your usage limit or if the server is low on memory."
+          }
+        }
+      }
+    },
     "Cada proyecto puede usar otro desde el panel del agente. Se aplica a las conversaciones nuevas." : {
       "localizations" : {
         "en" : {
@@ -7081,6 +7129,22 @@
         }
       }
     },
+    "Comprobación antes del push (p. ej. npm test)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobación antes del push (p. ej. npm test)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check before pushing (e.g. npm test)"
+          }
+        }
+      }
+    },
     "Comprobando Claude Code en %@…" : {
       "localizations" : {
         "en" : {
@@ -8761,6 +8825,22 @@
         }
       }
     },
+    "De lunes a viernes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De lunes a viernes"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monday to Friday"
+          }
+        }
+      }
+    },
     "Decide qué puede hacer Claude sin preguntarte." : {
       "localizations" : {
         "en" : {
@@ -10137,6 +10217,22 @@
         }
       }
     },
+    "Ejecutar ahora" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecutar ahora"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run now"
+          }
+        }
+      }
+    },
     "El CI de un commit pasó o falló (con la app abierta)" : {
       "localizations" : {
         "en" : {
@@ -10571,16 +10667,16 @@
     },
     "El encargo es demasiado largo para un agente (más de 12 KB). Acórtalo o envíalo a la terminal." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El encargo es demasiado largo para un agente (más de 12 KB). Acórtalo o envíalo a la terminal."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The task is too long for an agent (over 12 KB). Shorten it or send it to the terminal."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El encargo es demasiado largo para un agente (más de 12 KB). Acórtalo o envíalo a la terminal."
           }
         }
       }
@@ -12299,16 +12395,16 @@
     },
     "En un agente aparte, en su propia rama (worktree)" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En un agente aparte, en su propia rama (worktree)"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "In a separate agent, on its own branch (worktree)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En un agente aparte, en su propia rama (worktree)"
           }
         }
       }
@@ -14010,6 +14106,22 @@
         }
       }
     },
+    "Guardada, pero el servidor no tiene launchd, systemd ni cron: no se ejecutará sola." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardada, pero el servidor no tiene launchd, systemd ni cron: no se ejecutará sola."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved, but the server has no launchd, systemd or cron: it won’t run on its own."
+          }
+        }
+      }
+    },
     "Guardado: %@" : {
       "localizations" : {
         "en" : {
@@ -14070,6 +14182,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Guardar el estado actual costará"
+          }
+        }
+      }
+    },
+    "Guardar tarea" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar tarea"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save task"
           }
         }
       }
@@ -14422,6 +14550,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hooks de Claude de Argos"
+          }
+        }
+      }
+    },
+    "Hora" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hora"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time"
           }
         }
       }
@@ -18506,6 +18650,22 @@
         }
       }
     },
+    "No se pudieron leer las tareas programadas." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron leer las tareas programadas."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read the scheduled tasks."
+          }
+        }
+      }
+    },
     "No se pudieron leer las ventanas para cerrar" : {
       "localizations" : {
         "en" : {
@@ -18876,16 +19036,16 @@
     },
     "No se pudo arrancar el agente del encargo (¿existe ya la rama o la carpeta?)." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo arrancar el agente del encargo (¿existe ya la rama o la carpeta?)."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t start the task’s agent (does the branch or folder already exist?)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo arrancar el agente del encargo (¿existe ya la rama o la carpeta?)."
           }
         }
       }
@@ -18966,6 +19126,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo añadir el servidor: %@"
+          }
+        }
+      }
+    },
+    "No se pudo borrar la tarea programada." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo borrar la tarea programada."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t delete the scheduled task."
           }
         }
       }
@@ -19190,6 +19366,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo comprobar el servidor"
+          }
+        }
+      }
+    },
+    "No se pudo comprobar el temporizador." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo comprobar el temporizador."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t check the timer."
           }
         }
       }
@@ -19690,6 +19882,22 @@
         }
       }
     },
+    "No se pudo lanzar la tarea programada." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo lanzar la tarea programada."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t start the scheduled task."
+          }
+        }
+      }
+    },
     "No se pudo leer" : {
       "localizations" : {
         "en" : {
@@ -20090,6 +20298,22 @@
         }
       }
     },
+    "No se pudo poner el temporizador de las tareas programadas." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo poner el temporizador de las tareas programadas."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t set up the scheduled tasks timer."
+          }
+        }
+      }
+    },
     "No se pudo preparar el agente" : {
       "localizations" : {
         "en" : {
@@ -20458,6 +20682,22 @@
         }
       }
     },
+    "Nombre (p. ej. Tests de la noche)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre (p. ej. Tests de la noche)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name (e.g. Nightly tests)"
+          }
+        }
+      }
+    },
     "Nombre (p. ej. producción)" : {
       "localizations" : {
         "en" : {
@@ -20678,6 +20918,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nueva sesión"
+          }
+        }
+      }
+    },
+    "Nueva tarea programada" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nueva tarea programada"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New scheduled task"
           }
         }
       }
@@ -23258,6 +23514,22 @@
         }
       }
     },
+    "Push a main al terminar" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push a main al terminar"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push to main when done"
+          }
+        }
+      }
+    },
     "Página aislada: sin JavaScript ni conexiones a internet. Pulsa para permitirlos (solo si confías en ella)." : {
       "localizations" : {
         "en" : {
@@ -25210,6 +25482,22 @@
         }
       }
     },
+    "Se detuvo por pasar de su tiempo máximo." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se detuvo por pasar de su tiempo máximo."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped for exceeding its time limit."
+          }
+        }
+      }
+    },
     "Se ejecuta el instalador oficial de Anthropic en el servidor. Tarda menos de un minuto." : {
       "localizations" : {
         "en" : {
@@ -26827,6 +27115,22 @@
         }
       }
     },
+    "Tareas programadas" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tareas programadas"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scheduled tasks"
+          }
+        }
+      }
+    },
     "Te acercas al límite de Claude" : {
       "localizations" : {
         "en" : {
@@ -27115,6 +27419,22 @@
         }
       }
     },
+    "Terminó, pero la comprobación no pasó: no se subió a main (la rama queda con el commit)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminó, pero la comprobación no pasó: no se subió a main (la rama queda con el commit)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finished, but the check failed: nothing was pushed to main (the branch keeps the commit)."
+          }
+        }
+      }
+    },
     "Terminó, pero no se pudo hacer el commit." : {
       "localizations" : {
         "en" : {
@@ -27175,6 +27495,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tiempo de espera agotado: el servidor no respondió. Comprueba tu conexión a internet y que el servidor esté encendido."
+          }
+        }
+      }
+    },
+    "Tiempo máximo: %lld min" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo máximo: %lld min"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time limit: %lld min"
           }
         }
       }
@@ -27327,6 +27663,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Todos los agentes de este servidor…"
+          }
+        }
+      }
+    },
+    "Todos los días" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los días"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every day"
           }
         }
       }
@@ -30615,6 +30967,22 @@
         }
       }
     },
+    "push a main" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "push a main"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "push to main"
+          }
+        }
+      }
+    },
     "python3 (opcional)" : {
       "localizations" : {
         "en" : {
@@ -31371,6 +31739,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "«%@» se eliminó en otro dispositivo mientras lo editabas; no se ha vuelto a crear. Si lo quieres, añádelo de nuevo."
+          }
+        }
+      }
+    },
+    "«%@» se ha añadido a la cola de encargos." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» se ha añadido a la cola de encargos."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” was added to the task queue."
           }
         }
       }
@@ -32147,6 +32531,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Última pestaña"
+          }
+        }
+      }
+    },
+    "última: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "última: %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "last: %@"
           }
         }
       }
