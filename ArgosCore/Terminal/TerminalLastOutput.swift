@@ -18,6 +18,13 @@ enum TerminalLastOutput {
         case claude
     }
 
+    /// Lo que se copia.
+    struct Extracted: Equatable, Sendable {
+        let text: String
+        /// Solo la parte visible de la respuesta de Claude (empezó por encima).
+        var isPartial = false
+    }
+
     enum Failure: Error, Equatable {
         /// No se reconoce el prompt (o la respuesta de Claude).
         case notRecognized
@@ -69,6 +76,9 @@ enum TerminalLastOutput {
                     "fi",
                 ]
             }
+        } else {
+            // Claude Code: primero su transcript (tiene la respuesta entera).
+            lines += ClaudeTranscript.commandLines(nonce: nonce)
         }
         lines += [
             "printf '%s\\n' \(textMarker(nonce))",
@@ -78,9 +88,13 @@ enum TerminalLastOutput {
     }
 
     /// Lo que se copia, a partir de la salida de `command`.
-    static func extract(_ output: String, kind: Kind, nonce: String) -> Result<String, Failure> {
+    static func extract(_ output: String, kind: Kind, nonce: String) -> Result<Extracted, Failure> {
         var all = output.components(separatedBy: "\n")
         if all.last == "" { all.removeLast() }
+        if kind == .claude, let transcript = ClaudeTranscript.transcriptLines(in: all, nonce: nonce),
+           let text = ClaudeTranscript.lastAssistantText(transcript) {
+            return result(text)
+        }
         if let flags = all.firstIndex(of: flagsMarker(nonce)) {
             let flagged = Array(all[(flags + 1)...])
             if case .output(let text) = ShellOutputExtractor.markedOutput(flaggedLines: flagged) {
@@ -109,18 +123,21 @@ enum TerminalLastOutput {
         return ShellOutputExtractor.rangedOutput(rows: rows, firstLine: firstLine, bottom: bottom, start: start, end: end)
     }
 
-    private static func heuristic(_ lines: [String], kind: Kind) -> Result<String, Failure> {
-        let text: String?
+    private static func heuristic(_ lines: [String], kind: Kind) -> Result<Extracted, Failure> {
         switch kind {
-        case .shell: text = ShellOutputExtractor.heuristicOutput(lines: lines)
-        case .claude: text = ClaudeResponseExtractor.lastResponse(lines: lines)
+        case .shell:
+            guard let text = ShellOutputExtractor.heuristicOutput(lines: lines) else { return .failure(.notRecognized) }
+            return result(text)
+        case .claude:
+            guard let response = ClaudeResponseExtractor.lastResponse(lines: lines) else { return .failure(.notRecognized) }
+            return result(response.text, isPartial: response.isPartial)
         }
-        guard let text else { return .failure(.notRecognized) }
-        return result(text)
     }
 
-    private static func result(_ text: String) -> Result<String, Failure> {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .failure(.empty) : .success(text)
+    private static func result(_ text: String, isPartial: Bool = false) -> Result<Extracted, Failure> {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? .failure(.empty)
+            : .success(Extracted(text: text, isPartial: isPartial))
     }
 
     static func stripFlags(_ line: String) -> String {
@@ -138,6 +155,8 @@ final class TerminalLastOutputModel {
         case idle
         case working
         case copied(lines: Int)
+        /// Solo la parte visible de la respuesta de Claude.
+        case copiedVisiblePart
         case info(String)
         case failed(String)
     }
@@ -161,9 +180,11 @@ final class TerminalLastOutputModel {
         do {
             let output = try await run(command)
             switch TerminalLastOutput.extract(output, kind: kind, nonce: nonce) {
-            case .success(let text):
-                copy(text)
-                show(.copied(lines: text.components(separatedBy: "\n").count))
+            case .success(let extracted):
+                copy(extracted.text)
+                show(extracted.isPartial
+                    ? .copiedVisiblePart
+                    : .copied(lines: extracted.text.components(separatedBy: "\n").count))
             case .failure(.empty):
                 show(.failed(String(localized: "El último comando no escribió nada.")))
             case .failure(.notRecognized):
@@ -208,6 +229,8 @@ final class TerminalLastOutputModel {
             return lines == 1
                 ? String(localized: "Copiada 1 línea")
                 : String(localized: "Copiadas \(lines) líneas")
+        case .copiedVisiblePart:
+            return String(localized: "Copiada la parte visible de la última respuesta")
         case .info(let message), .failed(let message): return message
         }
     }

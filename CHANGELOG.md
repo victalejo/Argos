@@ -6,6 +6,12 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Corregido
+- **«Copiar la salida del último comando» con Claude Code** ya no dice «No se encontró la
+  última respuesta de Claude» con las versiones actuales: copia la respuesta entera desde
+  la conversación guardada de Claude en el servidor. Si no la encuentra, copia la parte
+  visible en pantalla y lo avisa.
+
 ## [1.13.1] - 2026-11-27
 
 ### Corregido

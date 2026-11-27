@@ -20,15 +20,50 @@ enum ClaudeResponseExtractor {
     /// Indicadores de «trabajando» y de turno terminado («✻ Worked for 12s»).
     static let spinnerCharacters: Set<Character> = ["✻", "✢", "✳", "✶", "✽", "·", "*", "∗"]
 
+    /// Lo que se copia de la pantalla.
+    struct Response: Equatable {
+        let text: String
+        /// La respuesta empezó por encima de lo visible: solo está su final.
+        let isPartial: Bool
+    }
+
     /// La última respuesta de texto, o `nil` si no se reconoce ninguna.
-    static func lastResponse(lines rawLines: [String]) -> String? {
+    ///
+    /// Claude Code redibuja en su sitio y tmux no guarda historial de ese panel: si la
+    /// respuesta empezó por encima de lo visible (no se ve su `●` ni el mensaje del
+    /// usuario), se toma lo visible hasta el indicador de fin de turno como parcial.
+    static func lastResponse(lines rawLines: [String]) -> Response? {
         let lines = rawLines.map(TerminalSearchMatcher.trimmingTrailingSpaces)
         let body = withoutTrailingStatus(Array(lines[..<inputBoxStart(lines)]))
-        let start = (body.lastIndex(where: isUserMessage) ?? -1) + 1
+        let userMessage = body.lastIndex(where: isUserMessage)
+        let start = (userMessage ?? -1) + 1
         let blocks = messageBlocks(Array(body[start...]))
-        guard let text = blocks.last(where: { !isToolCall($0) }) ?? blocks.last else { return nil }
-        let cleaned = ShellOutputExtractor.joined(dedented(text))
-        return cleaned.isEmpty ? nil : cleaned
+        if let block = blocks.last(where: { !isToolCall($0) }) ?? blocks.last {
+            let cleaned = ShellOutputExtractor.joined(dedented(block))
+            return cleaned.isEmpty ? nil : Response(text: cleaned, isPartial: false)
+        }
+        guard userMessage == nil else { return nil }
+        let visible = body.filter { !isToolSummary($0) && !isStatusLine($0) }
+            .map { $0.hasPrefix("  ") ? String($0.dropFirst(2)) : $0 }
+        let cleaned = ShellOutputExtractor.joined(visible)
+        return cleaned.isEmpty ? nil : Response(text: cleaned, isPartial: true)
+    }
+
+    /// Herramientas resumidas de Claude Code reciente: `  Called waha`,
+    /// `  Called claude-in-chrome 6 times…`, y la salida `⎿`.
+    static func isToolSummary(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        return trimmed.hasPrefix("Called ") || trimmed == "Called" || trimmed.hasPrefix("⎿")
+    }
+
+    /// Indicador de trabajo o de fin de turno (`✻ Baked for 1m 51s · done 12:29 PM`) y el
+    /// aviso de la derecha (`new task? /clear to save 199.9k tokens`).
+    static func isStatusLine(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("new task?") && trimmed.contains("/clear") { return true }
+        // En la columna 0: con sangría, `*` o `·` son viñetas de la respuesta.
+        guard let first = line.first else { return false }
+        return spinnerCharacters.contains(first)
     }
 
     // MARK: - Piezas
@@ -55,16 +90,18 @@ enum ClaudeResponseExtractor {
         return trimmed.hasPrefix(">") || trimmed.hasPrefix("❯")
     }
 
+    /// `> texto` o `❯ texto` (con espacio normal o duro) al principio de la línea.
     static func isUserMessage(_ line: String) -> Bool {
-        line.hasPrefix("> ") || line.hasPrefix("❯ ") || line == ">" || line == "❯"
+        guard let first = line.first, first == ">" || first == "❯" else { return false }
+        let rest = line.dropFirst()
+        return rest.isEmpty || rest.first == " " || rest.first == "\u{00A0}"
     }
 
-    /// Quita del final las líneas vacías y las del indicador («✻ Thinking… (esc to interrupt)»).
+    /// Quita del final las líneas vacías, las del indicador («✻ Thinking… (esc to
+    /// interrupt)», «✻ Baked for 8s · done») y el aviso «new task? /clear…».
     static func withoutTrailingStatus(_ lines: [String]) -> [String] {
         var lines = ShellOutputExtractor.trimmedTrailingBlank(lines)
-        while let last = lines.last {
-            let trimmed = last.trimmingCharacters(in: .whitespaces)
-            guard let first = trimmed.first, spinnerCharacters.contains(first) else { break }
+        while let last = lines.last, isStatusLine(last) {
             lines.removeLast()
             lines = ShellOutputExtractor.trimmedTrailingBlank(lines)
         }
@@ -89,6 +126,7 @@ enum ClaudeResponseExtractor {
         guard let first = block.first else { return false }
         let title = first.dropFirst().trimmingCharacters(in: .whitespaces)
         if title.contains("(ctrl+o to expand)") || title.contains("(ctrl+r to expand)") { return true }
+        if title.hasPrefix("Called ") { return true }
         if block.dropFirst().contains(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("⎿") }) { return true }
         let name = title.prefix { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" || $0 == ":" || $0 == "." }
         return !name.isEmpty && title.dropFirst(name.count).hasPrefix("(")

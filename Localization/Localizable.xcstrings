@@ -8297,6 +8297,22 @@
         }
       }
     },
+    "Copiada la parte visible de la última respuesta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied the visible part of the last reply"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiada la parte visible de la última respuesta"
+          }
+        }
+      }
+    },
     "Copiadas %lld líneas" : {
       "localizations" : {
         "en" : {
