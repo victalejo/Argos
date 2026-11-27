@@ -35,6 +35,8 @@ struct ClaudeSchedule: Identifiable, Equatable, Sendable {
     /// Tiempo máximo de una ejecución, en minutos.
     var maxMinutes = 60
     var permissionMode: ClaudeAgentCommand.PermissionMode = AgentPermissionPreferences.fallback
+    /// Modelo y esfuerzo de cada ejecución (en la línea de `claude`).
+    var modelChoice: ClaudeTaskModelChoice = .default
 
     /// Última ejecución (la escribe el despachador).
     var lastRun: Date?
@@ -79,7 +81,8 @@ enum ClaudeScheduleScripts {
 
         let meta = PersistentAgentMeta(
             workingDirectory: worktree, title: schedule.title, createdAt: placeholderDate,
-            permissionMode: schedule.permissionMode.rawValue
+            permissionMode: schedule.permissionMode.rawValue,
+            model: schedule.modelChoice.model?.rawValue, effort: schedule.modelChoice.effort?.rawValue
         )
         let metaJSON = String(decoding: try JSONEncoder.projects.encode(meta), as: UTF8.self)
         let metaB64 = Data(metaJSON.utf8).base64EncodedString()
@@ -90,7 +93,8 @@ enum ClaudeScheduleScripts {
             repository: schedule.projectPath, branch: branch, createsBranch: true, base: "HEAD", path: worktree
         ))
         let invocation = ClaudeAgentCommand.persistent(
-            claudePath: claudePath, sessionID: sentinelAgentID, resume: false, permissionMode: schedule.permissionMode
+            claudePath: claudePath, sessionID: sentinelAgentID, resume: false, permissionMode: schedule.permissionMode,
+            modelChoice: schedule.modelChoice
         )
         let launcher = try PersistentAgentScript.launch(id: sentinelAgentID, meta: meta, claudeInvocation: invocation)
         // Los datos del agente se leen de la variable que prepara el despachador.
@@ -103,6 +107,7 @@ enum ClaudeScheduleScripts {
         request.reference = schedule.id
         request.commit = true
         request.push = schedule.push
+        request.modelChoice = schedule.modelChoice
         request.target = .agent(id: sentinelAgentID, worktree: worktree, branch: branch)
         var task = request.metaText(directory: schedule.projectPath)
         task += "max_minutes=\(max(1, schedule.maxMinutes))\n"
@@ -122,7 +127,7 @@ enum ClaudeScheduleScripts {
     }
 
     static func configText(_ schedule: ClaudeSchedule) -> String {
-        [
+        ([
             "v=1",
             "title=\(clean(schedule.title))",
             "project=\(ClaudeUsageProjects.key(forPath: schedule.projectPath))",
@@ -134,7 +139,7 @@ enum ClaudeScheduleScripts {
             "max_minutes=\(max(1, schedule.maxMinutes))",
             "mode=\(schedule.permissionMode.rawValue)",
             "check=\(clean(schedule.checkCommand))",
-        ].joined(separator: "\n") + "\n"
+        ] + schedule.modelChoice.keyValueLines).joined(separator: "\n") + "\n"
     }
 
     private static func clean(_ text: String) -> String {
@@ -184,6 +189,7 @@ enum ClaudeScheduleScripts {
                 checkCommand: fields["check"] ?? "",
                 maxMinutes: Int(fields["max_minutes"] ?? "") ?? 60,
                 permissionMode: fields["mode"].flatMap(ClaudeAgentCommand.PermissionMode.init(rawValue:)) ?? AgentPermissionPreferences.unrecognized,
+                modelChoice: ClaudeTaskModelChoice(modelText: fields["model"], effortText: fields["effort"]),
                 lastRun: last
             ))
         }

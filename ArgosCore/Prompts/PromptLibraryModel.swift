@@ -133,10 +133,11 @@ final class PromptLibraryModel {
     func enqueue(_ prompt: SavedPrompt) async {
         await perform {
             let text = await PromptExpansion.expand(prompt.text, service: self.service, projectPath: self.project.path)
-            let request = ClaudeTaskRequest(
+            var request = ClaudeTaskRequest(
                 prompt: text, session: self.project.sessionName,
                 window: ClaudeTasksModel.suggestedWindow(self.claudeWindows), cleanContext: false, commit: false
             )
+            request.modelChoice = ClaudeTaskModelChoice(savedPrompt: prompt)
             try await self.service.enqueueTask(request, projectPath: self.project.path)
             self.notice = String(localized: "«\(prompt.displayTitle)» se ha añadido a la cola de encargos.")
         }

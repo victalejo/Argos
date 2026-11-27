@@ -58,6 +58,8 @@ enum ClaudeTaskReviewFix {
         }
         request.customTitle = "Arreglo de la revisión: \(task.title)"  // se guarda en el servidor: no se traduce
         request.source = "review"
+        // El arreglo sigue con el modelo y el esfuerzo del encargo revisado.
+        request.modelChoice = task.modelChoice
         request.reference = task.folder
         request.commit = true
         request.push = true

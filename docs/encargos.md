@@ -59,7 +59,25 @@ commit=0|1                                # commit al terminar
 push=0|1                                  # push a main (solo si pasan los tests en tareas programadas)
 attempts=<n>                              # CI: intentos hasta verde
 max_minutes=<n>                           # tiempo máximo
+model=haiku|sonnet|opus                   # opcional: alias del CLI (sin la clave = por defecto)
+effort=low|medium|high|xhigh|max          # opcional: esfuerzo (--effort / /effort)
 ```
+
+### Modelo y esfuerzo (`ClaudeTaskModelChoice`)
+
+Lista cerrada: valores desconocidos se leen como «por defecto». En **agente** y en
+**tareas programadas** van en la línea de `claude` (`--model`, `--effort`) y en el
+`meta.json` del agente (`model`, `effort`), para que reanudarlo los conserve; la `config`
+de la programada lleva también `model=`/`effort=`.
+
+En la **terminal**, el despachador escribe `/model <alias>` y `/effort <nivel>` antes del
+prompt. Claude Code interactivo los guarda además como predeterminados en
+`~/.claude/settings.json` (claves `model` y `effortLevel`), así que antes apunta lo que
+había en `<encargo>/restore` y, cuando el encargo termina (`stop`) o se pausa
+(`failure`), escribe `/model <anterior>` (o `/model default` si no había) y
+`/effort <anterior>` (o `/effort auto`). Si el valor guardado no es un texto sencillo, no
+se restaura ese ajuste. Lo que se restaura es lo **guardado**: si la ventana se abrió con
+`--model` u otro modelo de proyecto, vuelve al predeterminado guardado, no a ese.
 
 Un archivo por encargo y un cerrojo por proyecto (`mkdir lock`) evitan que la app (al
 encolar) y el despachador (al avanzar) se pisen. El texto del prompt nunca pasa por la

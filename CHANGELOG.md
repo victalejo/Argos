@@ -16,6 +16,11 @@ El detalle por commit vive en el historial git (Conventional Commits):
   en el servidor, pueden llevar el modelo y el esfuerzo que prefieras, y la biblioteca
   empieza con unos ejemplos que puedes cambiar. Se guardan en el servidor: los ves en todos
   tus dispositivos.
+- **Modelo y esfuerzo por encargo (Mac e iPhone/iPad).** Al añadir un encargo o una tarea
+  programada eliges el modelo (Haiku, Sonnet u Opus) y el esfuerzo: Haiku para «actualiza
+  las dependencias», Opus para «rediseña esto»; una plantilla de la biblioteca los rellena
+  sola. La lista de encargos enseña el modelo de cada uno. En la terminal, la ventana usa
+  ese modelo mientras dura el encargo y al terminar vuelve al que tenías.
 
 ## [1.14.0] - 2026-11-27
 

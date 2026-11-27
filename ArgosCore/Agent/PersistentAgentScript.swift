@@ -42,6 +42,12 @@ struct PersistentAgentMeta: Codable, Equatable, Sendable {
     /// Cuándo lo hibernó el vigilante por inactividad (`nil` si no). Lo escribe el
     /// servidor; al reanudar se quita. Es aditivo: las versiones antiguas lo ignoran.
     var hibernatedAt: Date? = nil
+    /// Modelo y esfuerzo con que se creó (encargos y tareas programadas): reanudar los
+    /// conserva. Texto, aditivo y validado contra la lista al leerlo (`modelChoice`).
+    var model: String? = nil
+    var effort: String? = nil
+
+    var modelChoice: ClaudeTaskModelChoice { ClaudeTaskModelChoice(modelText: model, effortText: effort) }
 
     /// Hibernado (parado por inactividad): escribirle lo reanuda solo.
     var isHibernated: Bool { hibernatedAt != nil }

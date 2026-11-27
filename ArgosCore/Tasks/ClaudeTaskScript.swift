@@ -97,6 +97,55 @@ enum ClaudeTaskScript {
 
         \#(ClaudeBudgetScript.functions)
 
+        # Modelo y esfuerzo de un encargo en la terminal (ver `ClaudeTaskModelChoice`). En
+        # Claude Code interactivo, `/model` y `/effort` también los guardan como predeterminados
+        # en ~/.claude/settings.json: antes se apunta lo que había (`restore`) y al acabar el
+        # encargo se vuelve a poner. Solo valores de una lista cerrada.
+        say() { tmux -u send-keys -t "$1" -l "$2" 2>/dev/null; tmux -u send-keys -t "$1" Enter 2>/dev/null; }
+        # Valor guardado de la clave $1 en los ajustes de Claude Code: vacío si no está, «?» si
+        # está pero no es un texto sencillo (entonces no se toca).
+        setting() {
+          sf="$HOME/.claude/settings.json"
+          grep -qs "\"$1\"[[:space:]]*:" "$sf" || return 0
+          sv=$(grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$sf" | head -n 1 | sed 's/.*"\([^"]*\)"$/\1/')
+          case "$sv" in ''|*[!]A-Za-z0-9._:[-]*) sv='?' ;; esac
+          [ ${#sv} -le 80 ] || sv='?'
+          printf '%s\n' "$sv"
+        }
+        # Antes del encargo $1 en el panel $2: apunta lo que había y escribe /model y /effort.
+        set_model() {
+          md=$(meta "$1" model); ef=$(meta "$1" effort)
+          case "$md" in haiku|sonnet|opus) ;; *) md= ;; esac
+          case "$ef" in low|medium|high|xhigh|max) ;; *) ef= ;; esac
+          [ -n "$md$ef" ] || return 0
+          rsm=; rse=
+          if [ -n "$md" ]; then
+            pv=$(setting model)
+            case "$pv" in '') rsm=default ;; '?') ;; *) rsm=$pv ;; esac
+          fi
+          if [ -n "$ef" ]; then
+            pv=$(setting effortLevel)
+            case "$pv" in '') rse=auto ;; low|medium|high|xhigh|max) rse=$pv ;; esac
+          fi
+          printf 'model=%s\neffort=%s\n' "$rsm" "$rse" > "$1/restore"
+          [ -n "$md" ] && { say "$2" "/model $md"; sleep 2; }
+          [ -n "$ef" ] && { say "$2" "/effort $ef"; sleep 1; }
+          return 0
+        }
+        # Al acabar (o pausarse) un encargo en la terminal: vuelve a poner el modelo y el
+        # esfuerzo que había, si Claude sigue abierto en su panel.
+        restore_model() {
+          [ -f "$1/restore" ] || return 0
+          rp=$(cat "$1/pane" 2>/dev/null)
+          rmd=$(sed -n 's/^model=//p' "$1/restore" | head -n 1); ref=$(sed -n 's/^effort=//p' "$1/restore" | head -n 1)
+          rm -f "$1/restore"
+          [ -n "$rp" ] && tmux -u list-panes -a -F '#{pane_id}' 2>/dev/null | grep -qxF "$rp" || return 0
+          shell_only "$rp" && return 0
+          case "$rmd" in ''|*[!]A-Za-z0-9._:[-]*) ;; *) say "$rp" "/model $rmd"; sleep 2 ;; esac
+          case "$ref" in auto|low|medium|high|xhigh|max) say "$rp" "/effort $ref"; sleep 1 ;; esac
+          return 0
+        }
+
         # Lanza el encargo $2 del proyecto $1 en su panel. $3=1: Claude acaba de terminar
         # (hook Stop), no hace falta mirar si está libre.
         launch() {
@@ -112,6 +161,7 @@ enum ClaudeTaskScript {
           if [ "$(meta "$t" context)" = clear ]; then
             tmux -u send-keys -t "$pane" /clear Enter 2>/dev/null; sleep 2
           fi
+          set_model "$t" "$pane"
           if [ "$(meta "$t" resume)" = 1 ]; then
             printf '%s' "Continúa con el encargo anterior donde lo dejaste." > "$t/prompt.resume"
             src="$t/prompt.resume"
@@ -294,7 +344,7 @@ enum ClaudeTaskScript {
                 # por vencida.
                 detach sh "$self" finish "${p##*/}" "${t##*/}"
               else
-                (sleep 2; sh "$self" next "${p##*/}") >/dev/null 2>&1 &
+                (sleep 2; restore_model "$t"; sh "$self" next "${p##*/}") >/dev/null 2>&1 &
               fi
             else
               case "$i" in
@@ -303,6 +353,7 @@ enum ClaudeTaskScript {
               esac
               printf 'resume=1\n' >> "$t/meta"
               put "$t" state paused
+              [ -f "$t/restore" ] && { (sleep 2; restore_model "$t") >/dev/null 2>&1 & }
             fi
             ;;
           enqueue)
@@ -360,6 +411,7 @@ enum ClaudeTaskScript {
             # Interno (hook Stop): commit, comprobación, revisión y push; luego el siguiente.
             case "$2$3" in *[!A-Za-z0-9_-]*|'') exit 0 ;; esac
             t="$base/$2/$3"; [ -d "$t" ] || exit 0
+            [ -f "$t/restore" ] && { sleep 2; restore_model "$t"; }
             commit_task "$t"
             advance "$base/$2" 1
             ;;

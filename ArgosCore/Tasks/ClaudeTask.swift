@@ -120,6 +120,8 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
     var isBlockedByReview: Bool {
         state == .paused && (reason == .review || reason == .reviewInconclusive)
     }
+    /// Modelo y esfuerzo pedidos (por defecto si no se pidió nada o es desconocido).
+    var modelChoice: ClaudeTaskModelChoice = .default
 
     var id: String { "\(projectKey)/\(folder)" }
     var sequence: Int { Int(folder.prefix { $0.isNumber }) ?? 0 }
@@ -178,7 +180,8 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
                 commit: meta["commit"] == "1",
                 window: meta["window"].flatMap(Int.init),
                 isAgent: meta["target"] == "agent",
-                branch: meta["branch"].map { String($0.prefix(200)) }
+                branch: meta["branch"].map { String($0.prefix(200)) },
+                modelChoice: ClaudeTaskModelChoice(modelText: meta["model"], effortText: meta["effort"])
             )
             task.push = meta["push"] == "1" || meta["review_push"] == "1"
             task.directory = meta["dir"].map { String($0.prefix(1024)) }
@@ -219,6 +222,9 @@ struct ClaudeTaskRequest: Equatable, Sendable {
     var cleanContext = false
     var commit = false
     var push = false
+    /// Modelo y esfuerzo del encargo: en agente van en la línea de `claude`; en la terminal,
+    /// el despachador escribe `/model` y `/effort` antes del encargo y los restaura al acabar.
+    var modelChoice = ClaudeTaskModelChoice.default
     var source = "manual"
     var reference: String?
     /// En agente: el worktree ya existe (arreglo de un encargo en su misma rama).
@@ -253,6 +259,7 @@ struct ClaudeTaskRequest: Equatable, Sendable {
         // nada; el nuevo sube con `review_push=1`, y solo tras el revisor automático.
         lines += ["commit=\(commit ? 1 : 0)", "push=0"]
         if push { lines.append("review_push=1") }
+        lines += modelChoice.keyValueLines
         if let reference { lines.append("ref=\(clean(reference))") }
         for key in extraMeta.keys.sorted() where !key.isEmpty && key.allSatisfy({ $0.isLetter || $0 == "_" }) {
             lines.append("\(key)=\(clean(extraMeta[key] ?? ""))")

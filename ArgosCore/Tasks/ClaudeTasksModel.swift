@@ -28,6 +28,8 @@ final class ClaudeTasksModel {
     var commit = false
     /// En un agente aparte, en su propio worktree y rama (no en la terminal).
     var inAgent = false
+    /// Modelo y esfuerzo del encargo (por defecto, los de Claude Code).
+    var modelChoice = ClaudeTaskModelChoice.default
 
     /// Ventanas del proyecto con Claude (índice → estado), para elegir dónde.
     let claudeWindows: [Int: ClaudeActivity]
@@ -110,6 +112,7 @@ final class ClaudeTasksModel {
         var request = ClaudeTaskRequest(
             prompt: prompt, session: project.sessionName, window: window, cleanContext: cleanContext, commit: commit
         )
+        request.modelChoice = modelChoice
         if inAgent {
             request.target = ClaudeTaskRequest.agentTarget(projectPath: project.path, taskID: request.taskID)
             request.permissionMode = AgentPermissionPreferences.effectiveMode(serverID: serverID, workingDirectory: project.path)
@@ -123,6 +126,7 @@ final class ClaudeTasksModel {
     /// Pone en el borrador un prompt de la biblioteca con sus variables ya rellenas.
     func usePrompt(_ prompt: SavedPrompt) async {
         draft = await PromptExpansion.expand(prompt.text, service: service, projectPath: project.path)
+        modelChoice = modelChoice.applying(ClaudeTaskModelChoice(savedPrompt: prompt))
     }
 
     func cancel(_ task: ClaudeTask) async {
