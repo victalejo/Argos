@@ -103,6 +103,7 @@
 		1443F8028CB1B5D37AA02786 /* ClaudeLimitsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E53F2D1206A578389A338EB /* ClaudeLimitsScreen.swift */; };
 		145B98D05020F9DAD5F628B8 /* SSHFileTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813BA47AFE3577E5DFBB180C /* SSHFileTransfer.swift */; };
 		14CDFBABDA1688F97A9A9CA6 /* FileDownloadStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EEC0CBCE324EDB6B2A1FEE /* FileDownloadStatus.swift */; };
+		1532D6C2C723ECA5F87CF432 /* ShellRcProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E486C4D093D178B515E3F9 /* ShellRcProbe.swift */; };
 		15B828AEF1BE77A1701FC3D5 /* AgentSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B3C9EA0D67DBD87506B7FE4 /* AgentSessionStore.swift */; };
 		15C48A613BB79AF4F7B3A7B4 /* CodeTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F251957F678499F81BD72941 /* CodeTextView.swift */; };
 		15DB10716D07B06AE8CD7071 /* SSHGitHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DE172C9ECB80009AEFCD1CE /* SSHGitHub.swift */; };
@@ -508,6 +509,7 @@
 		71CA42AF9BF002DD0F798592 /* ServerSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0198CA4C350E592E08584E5F /* ServerSectionHeader.swift */; };
 		7270ED7D307653FDFEEAA05E /* ShortcutEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F52867D421A8F0C5615179F /* ShortcutEntities.swift */; };
 		72711383ACF576CB777114EA /* CommitMessageSuggestion.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE55D150D74888B11887DF41 /* CommitMessageSuggestion.swift */; };
+		72871815946A2E20ABC39AAD /* ShellRcProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E486C4D093D178B515E3F9 /* ShellRcProbe.swift */; };
 		72E7093330B0E2489398C161 /* FileDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = 975AAB05D9AA8D80989D1FB4 /* FileDownloads.swift */; };
 		7303CB8F4EDD6ECB4BCB6F31 /* AboutPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56204FF1A755CA9F351EA23 /* AboutPanel.swift */; };
 		7308BC8EAA052B9843F9854C /* GitCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72084BEF258CF2ACC99C4BF8 /* GitCommands.swift */; };
@@ -1095,6 +1097,7 @@
 		F6825B682E23A98EBE43DDCD /* GitHubCloneModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 386FE83F1B1525F312EF21A6 /* GitHubCloneModel.swift */; };
 		F6B7AABC13AF156FE02446B3 /* WorktreesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E8BAF7B265A748D3A0D5FF /* WorktreesSheet.swift */; };
 		F6DA0377D130C2775E929FBC /* ArgosTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5A06C15E0E69E0D86623E5 /* ArgosTheme.swift */; };
+		F70F0F4AAFD05DC2C7EC0E3F /* ShellRcProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E486C4D093D178B515E3F9 /* ShellRcProbe.swift */; };
 		F7125C9088A40A1DB6A6087A /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03FE981FC132007E9E69798B /* ProjectDetailView.swift */; };
 		F72D7998D125B5FB7F23E8A3 /* GitStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 528E0503344321946C760884 /* GitStatus.swift */; };
 		F76F2080B8A49B85D310119D /* CheckpointHardeningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E3C9C9BA4D14DAB2168E413 /* CheckpointHardeningTests.swift */; };
@@ -1192,6 +1195,7 @@
 		110F44106530164F3BA852AB /* GitHubTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubTests.swift; sourceTree = "<group>"; };
 		111AD854094F2E2B29B9318C /* SessionsViewModel+Git.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionsViewModel+Git.swift"; sourceTree = "<group>"; };
 		13DB75C7DE936C5BBF1ECE64 /* ProjectsDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsDocumentTests.swift; sourceTree = "<group>"; };
+		14E486C4D093D178B515E3F9 /* ShellRcProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellRcProbe.swift; sourceTree = "<group>"; };
 		15206157CED5944A892856BF /* AppActivityProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppActivityProbe.swift; sourceTree = "<group>"; };
 		1531A2AE12DCE16E1984FA34 /* SyncStaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStaging.swift; sourceTree = "<group>"; };
 		156ECCC03245407DD5C767E6 /* Server.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Server.swift; sourceTree = "<group>"; };
@@ -2055,6 +2059,7 @@
 				D93BDA53240FC862ADCDCFC4 /* ShellIntegrationBlock.swift */,
 				69FB82A9B246B52977F79137 /* ShellIntegrationModel.swift */,
 				6F60D35D0E5338AC6A207A65 /* ShellOutputExtractor.swift */,
+				14E486C4D093D178B515E3F9 /* ShellRcProbe.swift */,
 				E8A50EAD923C69BCC9AC2CB9 /* SSHTerminalTools.swift */,
 				AC4FDB9B0A8AF8463CF2C8A8 /* TerminalAttach.swift */,
 				0B3D747B6CB0EA458D463DC6 /* TerminalKeepAlivePool.swift */,
@@ -3131,6 +3136,7 @@
 				27675A45A28729B9B8C0C909 /* ShellIntegrationModel.swift in Sources */,
 				1D9088CCE5BD1F80719D464A /* ShellOutputExtractor.swift in Sources */,
 				8F17F1650BA32C5BBE88888D /* ShellQuoting.swift in Sources */,
+				1532D6C2C723ECA5F87CF432 /* ShellRcProbe.swift in Sources */,
 				26474FEEFD907D2AC840F951 /* ShortcutAgentPlanner.swift in Sources */,
 				0C3212F571D892DDA9BC89A6 /* ShortcutDeliveryCheck.swift in Sources */,
 				94DACC1EE2D44F940FFF0B43 /* ShortcutRoutes.swift in Sources */,
@@ -3434,6 +3440,7 @@
 				054B4C82D0541FC0721D08B1 /* ShellIntegrationModel.swift in Sources */,
 				81E13829C461A4F4E5EE0E8C /* ShellOutputExtractor.swift in Sources */,
 				370771AC1DD92B7C262DDFAA /* ShellQuoting.swift in Sources */,
+				72871815946A2E20ABC39AAD /* ShellRcProbe.swift in Sources */,
 				6854539CB9EC267234C20D70 /* ShortcutAgentPlanner.swift in Sources */,
 				39DB4B27C7CC1C8750C8FDD2 /* ShortcutAgentSender.swift in Sources */,
 				99ED1B5E8EA2064A2401D35D /* ShortcutAuthenticator.swift in Sources */,
@@ -3773,6 +3780,7 @@
 				8BFE538785B0EBF8FF93634E /* ShellIntegrationModel.swift in Sources */,
 				DEF4E6B32F8D130652237769 /* ShellOutputExtractor.swift in Sources */,
 				493FC7410F989B52896D6E1B /* ShellQuoting.swift in Sources */,
+				F70F0F4AAFD05DC2C7EC0E3F /* ShellRcProbe.swift in Sources */,
 				80C169DA8FDF03CFAC6E58FB /* ShortcutAgentPlanner.swift in Sources */,
 				019DFD5AF9F2E90A7DEB8246 /* ShortcutDeliveryCheck.swift in Sources */,
 				D9E411DA30059A7C1FE3DDBB /* ShortcutRoutes.swift in Sources */,

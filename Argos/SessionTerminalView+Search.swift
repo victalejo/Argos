@@ -81,7 +81,7 @@ extension SessionTerminalView {
                 marks.errorMessage = nil
                 notice.notify(error, isError: true)
             } else {
-                notice.notify(ShellIntegrationModel.resultMessage(enabled: enabled), isError: false)
+                notice.notify(marks.resultMessage(enabled: enabled), isError: enabled && marks.warning != nil)
             }
         }
     }

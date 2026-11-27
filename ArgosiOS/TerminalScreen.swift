@@ -194,6 +194,7 @@ struct TerminalScreen: View {
                 await pollWindows()
             }
             .task(id: sessionName) { await loadAgentsAndBranch() }
+            .onChange(of: sessionName) { renewTools() }
             .onChange(of: windows) { windowsDidChange() }
             .onChange(of: controller?.isSessionMissing) { (_: Bool?, missing: Bool?) in
                 guard missing == true else { return }
@@ -227,15 +228,21 @@ struct TerminalScreen: View {
 
     private func didAppear() {
         if controller == nil { controller = hub.terminal(for: server, sessionName: sessionName) }
-        if tools == nil {
-            let created = TerminalTools(service: service, sessionName: sessionName)
-            tools = created
-            Task { await created.marks.load() }
-        }
+        if tools == nil { renewTools() }
         updateFocus()
     }
 
+    /// Herramientas de la sesión a la vista (la anterior sale del modo copia).
+    private func renewTools() {
+        tools?.search.dismiss()
+        let created = TerminalTools(service: service, sessionName: sessionName)
+        tools = created
+        Task { await created.marks.load() }
+    }
+
     private func didDisappear() {
+        // Que el panel no se quede en modo copia al salir de la pantalla.
+        tools?.search.dismiss()
         hub.unfocusTerminal(owner: focusOwner)
         // Aparcado, no cerrado: volver desde Archivos/Cambios/Agentes, o tras girar o
         // redimensionar, reutiliza la conexión.

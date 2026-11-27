@@ -132,6 +132,58 @@ struct TerminalSearchTmuxTests {
         #expect(try !box.paneInMode(), "al cerrar sale del modo copia")
     }
 
+    @Test func unPuntoYComaFinalNoSeComeTmux() async throws {
+        let box = try makeBox()
+        defer { box.close() }
+        try box.type("echo \"punto y co\"\"ma;\"; echo lis\"to\"", until: "\nlisto")
+        let model = TerminalSearchModel(sessionName: "proj", debounce: .zero, run: box.runner)
+        model.present(window: 0)
+        await search(model, "coma;")
+        #expect(model.status == .found(count: 1, current: 1, partial: false))
+        model.dismiss()
+        await model.waitForPendingWork()
+    }
+
+    @Test func cerrarDuranteUnaBusquedaDejaElPanelFueraDelModoCopia() async throws {
+        let box = try makeBox()
+        defer { box.close() }
+        let model = TerminalSearchModel(sessionName: "proj", debounce: .zero, run: box.runner)
+        model.present(window: 0)
+        await search(model, "hola")
+        // Otra búsqueda y cerrar enseguida, sin esperar: la salida va detrás de lo enviado.
+        model.query = "linea"
+        model.searchNow()
+        await Task.yield()
+        model.dismiss()
+        await model.waitForPendingWork()
+        #expect(try !box.paneInMode())
+        // Reabrir enseguida no anula la salida anterior.
+        model.present(window: 0)
+        model.dismiss()
+        await model.waitForPendingWork()
+        #expect(try !box.paneInMode())
+    }
+
+    @Test func cambiarDeVentanaSacaALaAnteriorDelModoCopia() async throws {
+        let box = try makeBox()
+        defer { box.close() }
+        try box.run("tmux new-window -t '=proj' sh")
+        Thread.sleep(forTimeInterval: 0.4)
+        try box.type("echo h\"\"ola uno; echo lis\"to\"", window: 1, until: "\nlisto")
+        let model = TerminalSearchModel(sessionName: "proj", debounce: .zero, run: box.runner)
+        model.present(window: nil)
+        await search(model, "hola")
+        #expect(model.target.window == 1, "fija la ventana activa")
+        #expect(try box.paneInMode(window: 1))
+        model.present(window: 0)
+        await model.waitForPendingWork()
+        #expect(try !box.paneInMode(window: 1))
+        #expect(try box.paneInMode(window: 0))
+        model.dismiss()
+        await model.waitForPendingWork()
+        #expect(try !box.paneInMode(window: 0))
+    }
+
     @Test func siElUsuarioSaleDelModoCopiaVuelveABuscar() async throws {
         let box = try makeBox()
         defer { box.close() }
@@ -256,5 +308,12 @@ struct TerminalLastOutputTmuxTests {
         }
         #expect(ranged == "tres\ncuatro", "con el modo copia")
         #expect(try !box.paneInMode(), "deja el panel como estaba")
+
+        // Si el plazo mata el script a medias, el panel tampoco se queda en modo copia.
+        _ = await copy(box, kind: .shell, navigateMarks: true) {
+            $0.replacingOccurrences(of: "capture-pane -p -F -S 0 -E 0", with: "capture-pane -p -Z -S 0 -E 0")
+                .replacingOccurrences(of: "  tmux -u send-keys -t \"$t\" -X history-bottom", with: "  kill -TERM $$")
+        }
+        #expect(try !box.paneInMode(), "el trap sale del modo copia")
     }
 }

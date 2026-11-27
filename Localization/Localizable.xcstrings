@@ -11337,6 +11337,22 @@
         }
       }
     },
+    "El servidor define ZDOTDIR=%@: zsh no lee ~/.zshrc y las marcas no se activarán." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server sets ZDOTDIR=%@: zsh doesn’t read ~/.zshrc, so the marks won’t take effect."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor define ZDOTDIR=%@: zsh no lee ~/.zshrc y las marcas no se activarán."
+          }
+        }
+      }
+    },
     "El servidor indica que este agente usa este modo. %@ Si no lo elegiste tú, borra la conversación y crea otra." : {
       "localizations" : {
         "en" : {
@@ -32175,6 +32191,38 @@
         }
       }
     },
+    "~/%@ cambió mientras Argos lo editaba. Vuelve a intentarlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/%@ changed while Argos was editing it. Try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/%@ cambió mientras Argos lo editaba. Vuelve a intentarlo."
+          }
+        }
+      }
+    },
+    "~/%@ es un enlace o no es un archivo normal: Argos no lo modifica. Añade el bloque a mano o sustitúyelo por un archivo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/%@ is a link or not a regular file, so Argos won’t modify it. Add the block by hand or replace it with a file."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/%@ es un enlace o no es un archivo normal: Argos no lo modifica. Añade el bloque a mano o sustitúyelo por un archivo."
+          }
+        }
+      }
+    },
     "~/%@ es un enlace simbólico y Argos no lo reemplaza. Sustitúyelo por un archivo normal en el servidor." : {
       "localizations" : {
         "en" : {
@@ -32187,6 +32235,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "~/%@ es un enlace simbólico y Argos no lo reemplaza. Sustitúyelo por un archivo normal en el servidor."
+          }
+        }
+      }
+    },
+    "~/%@ no carga ~/.bashrc: en los shells de login (los de tmux) las marcas no se activarán." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/%@ doesn’t load ~/.bashrc: in login shells (the ones tmux opens) the marks won’t take effect."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/%@ no carga ~/.bashrc: en los shells de login (los de tmux) las marcas no se activarán."
+          }
+        }
+      }
+    },
+    "~/%@ no es texto UTF-8: Argos no lo modifica para no estropearlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/%@ isn’t UTF-8 text, so Argos won’t modify it to avoid damaging it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/%@ no es texto UTF-8: Argos no lo modifica para no estropearlo."
           }
         }
       }

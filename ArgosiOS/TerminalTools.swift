@@ -57,7 +57,7 @@ final class TerminalTools {
                 marks.errorMessage = nil
                 notice.notify(error, isError: true)
             } else {
-                notice.notify(ShellIntegrationModel.resultMessage(enabled: enabled), isError: false)
+                notice.notify(marks.resultMessage(enabled: enabled), isError: enabled && marks.warning != nil)
             }
         }
     }
@@ -110,6 +110,9 @@ struct TerminalToolsMenuItems: View {
         }
         Toggle("Marcas de prompt (OSC 133)", systemImage: "text.line.first.and.arrowtriangle.forward", isOn: marksBinding)
             .disabled(tools.marks.status == nil || tools.marks.isBusy)
+        if let warning = tools.marks.warning {
+            Text(warning)
+        }
         Text("Instala en .zshrc/.bashrc del servidor (con copia) un bloque que marca prompts y salidas: copiar la última salida es exacto.")
     }
 

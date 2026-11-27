@@ -31,8 +31,11 @@ struct TerminalSearchBar: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.12), lineWidth: 1))
         .shadow(color: .black.opacity(0.2), radius: 8, y: 2)
         .onAppear { fieldFocused = true }
-        .onChange(of: model.query) { model.queryDidChange() }
-        .onChange(of: model.options) { model.queryDidChange() }
+        // Si el foco vuelve al terminal (un clic o un toque en él), lo que se teclee iría al
+        // modo copia de tmux: la búsqueda se cierra.
+        .onChange(of: fieldFocused) { (wasFocused: Bool, isFocused: Bool) in
+            if wasFocused && !isFocused && model.isPresented { model.dismiss() }
+        }
     }
 
     private var controls: some View {
@@ -48,6 +51,7 @@ struct TerminalSearchBar: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .focusable(false)
             .help("Cerrar (Esc)")
             .accessibilityLabel("Cerrar la búsqueda")
         }
@@ -106,6 +110,8 @@ struct TerminalSearchBar: View {
                 .accessibilityLabel("Más reciente")
         }
         .buttonStyle(.borderless)
+        // Los botones no se llevan el foco del campo (perderlo cierra la búsqueda).
+        .focusable(false)
         .disabled(!model.canStep)
     }
 
@@ -121,6 +127,7 @@ struct TerminalSearchBar: View {
             Image(systemName: hasOptions ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
         }
         .menuIndicator(.hidden)
+        .focusable(false)
         .fixedSize()
         .help("Opciones de búsqueda")
         .accessibilityLabel("Opciones de búsqueda")
@@ -182,6 +189,7 @@ struct TerminalWindowResultsList: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .focusable(false)
     }
 }
 

@@ -136,7 +136,7 @@ enum TerminalSearchCommands {
             targetLine(target),
             "tmux -u copy-mode -t \"$t\" || exit 3",
             "tmux -u send-keys -t \"$t\" -X history-bottom",
-            "tmux -u send-keys -t \"$t\" -X \(search.command) \(ShellQuoting.singleQuoted(search.argument))",
+            "tmux -u send-keys -t \"$t\" -X \(search.command) \(ShellQuoting.singleQuoted(tmuxArgument(search.argument)))",
         ]
         lines += reportPosition(nonce)
         lines += [
@@ -173,6 +173,16 @@ enum TerminalSearchCommands {
     /// Historial con las líneas partidas unidas (para «Copiar coincidencias»).
     static func captureJoined(target: TerminalPaneTarget) -> String {
         "tmux -u capture-pane -p -J -S -\(captureLines) -t " + ShellQuoting.singleQuoted(target.tmuxTarget)
+    }
+
+    /// tmux toma un `;` al final de un argumento como separador de órdenes: se escapa.
+    static func tmuxArgument(_ argument: String) -> String {
+        argument.hasSuffix(";") ? String(argument.dropLast()) + "\\;" : argument
+    }
+
+    /// Número de la ventana activa de la sesión.
+    static func activeWindowCommand(session: String) -> String {
+        "tmux -u display -p -t " + ShellQuoting.singleQuoted("=\(session):") + " '#{window_index}'"
     }
 
     static func selectWindow(session: String, window: Int) -> String {

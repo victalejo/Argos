@@ -175,7 +175,11 @@ struct SessionTerminalView: View {
         // mensaje deja el estado igual (`.failed(msg)`), y solo por el estado no se vería.
         .onChange(of: StatusKey(controller: controller)) { _, key in handleStatusChange(key.status) }
         .onChange(of: sleepMonitor.isAsleep) { _, asleep in handleSleepChange(asleep: asleep) }
-        .onDisappear { reconnect.cancel() }
+        .onDisappear {
+            reconnect.cancel()
+            // Que el panel no se quede en modo copia al cambiar de proyecto o sesión.
+            search.dismiss()
+        }
     }
 
     private var terminalArea: some View {

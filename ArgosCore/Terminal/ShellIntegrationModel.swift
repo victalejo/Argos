@@ -16,6 +16,8 @@ final class ShellIntegrationModel {
 
     /// `nil` mientras no se sabe.
     private(set) var status: ShellIntegrationStatus?
+    /// Por qué el bloque no llegaría a cargarse (ZDOTDIR, perfil de bash), si se sabe.
+    private(set) var warning: String?
     private(set) var isBusy = false
     var errorMessage: String?
 
@@ -34,7 +36,7 @@ final class ShellIntegrationModel {
 
     func load() async {
         do {
-            status = try await ConnectionPriority.background { try await service.shellIntegrationStatus() }
+            apply(try await ConnectionPriority.background { try await service.shellIntegrationStatus() })
         } catch {
             Log.terminal.notice("No se pudo leer el estado de las marcas de prompt: \(error.userMessage, privacy: .public)")
         }
@@ -51,10 +53,21 @@ final class ShellIntegrationModel {
             } else {
                 try await service.removeShellIntegration()
             }
-            status = try await service.shellIntegrationStatus()
+            apply(try await service.shellIntegrationStatus())
         } catch {
             errorMessage = error.userMessage
             Log.terminal.error("Marcas de prompt: \(error.userMessage, privacy: .public)")
         }
+    }
+
+    /// Mensaje tras instalar o quitar: el aviso de que no se cargarían, si lo hay.
+    func resultMessage(enabled: Bool) -> String {
+        if enabled, let warning { return warning }
+        return Self.resultMessage(enabled: enabled)
+    }
+
+    private func apply(_ report: ShellIntegrationReport) {
+        status = report.status
+        warning = report.warning
     }
 }

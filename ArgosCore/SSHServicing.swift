@@ -171,7 +171,7 @@ protocol SSHServicing: Sendable {
     /// comando» (sh POSIX, con plazo). Devuelve stdout; lanza si sale con error.
     func runTerminalCommand(_ script: String) async throws -> String
     /// Marcas de prompt OSC 133 en los rc del servidor (ver `ShellIntegrationBlock`).
-    func shellIntegrationStatus() async throws -> ShellIntegrationStatus
+    func shellIntegrationStatus() async throws -> ShellIntegrationReport
     func installShellIntegration() async throws
     func removeShellIntegration() async throws
 

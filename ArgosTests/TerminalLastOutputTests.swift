@@ -165,13 +165,93 @@ struct ShellIntegrationBlockTests {
         #expect(!ShellIntegrationBlock.isInstalled(in: quoted))
     }
 
+    private func report(
+        shell: String, files: [ShellIntegrationBlock.Shell: ShellRcProbe.FileState] = [:]
+    ) -> ShellRcProbe.Report {
+        var report = ShellRcProbe.Report()
+        report.loginShell = shell
+        report.files = [.zsh: .absent, .bash: .absent].merging(files) { $1 }
+        report.complete = true
+        return report
+    }
+
     @Test func eligeLosRcSegunLoQueHay() throws {
-        #expect(try SSHService.shellIntegrationTargets(probeOutput: "shell /usr/bin/zsh\n") == [.zsh])
-        #expect(try SSHService.shellIntegrationTargets(probeOutput: "shell /bin/bash\nrc .zshrc\n") == [.zsh, .bash])
-        #expect(try SSHService.shellIntegrationTargets(probeOutput: "shell /usr/bin/fish\nrc .bashrc\n") == [.bash])
+        let rc = ShellRcProbe.FileState.file(Data("x\n".utf8), mode: "644")
+        #expect(try ShellRcProbe.targets(report(shell: "/usr/bin/zsh")) == [.zsh])
+        #expect(try ShellRcProbe.targets(report(shell: "/bin/bash", files: [.zsh: rc])) == [.zsh, .bash])
+        #expect(try ShellRcProbe.targets(report(shell: "/usr/bin/fish", files: [.bash: rc])) == [.bash])
         #expect(throws: ShellIntegrationError.unsupportedShell("fish")) {
-            try SSHService.shellIntegrationTargets(probeOutput: "shell /usr/bin/fish\n")
+            try ShellRcProbe.targets(report(shell: "/usr/bin/fish"))
         }
+    }
+
+    @Test func planEscribeConHuellaYConservaPermisos() throws {
+        let original = Data("alias ll='ls -l'\n".utf8)
+        let edits = try ShellRcEdit.plan(report(shell: "/bin/zsh", files: [.zsh: .file(original, mode: "644")]), enable: true)
+        #expect(edits.count == 1)
+        #expect(edits[0].expectation == .fingerprint(PosixChecksum.fingerprint(of: original)))
+        #expect(edits[0].mode == "644")
+        #expect(String(decoding: edits[0].content, as: UTF8.self).hasPrefix("alias ll='ls -l'\n\n# >>> argos"))
+        let created = try ShellRcEdit.plan(report(shell: "/bin/bash"), enable: true)
+        #expect(created.map(\.expectation) == [.absentOrEmpty])
+        let installed = edits[0].content
+        let removal = try ShellRcEdit.plan(report(shell: "/bin/zsh", files: [.zsh: .file(installed, mode: "600")]), enable: false)
+        #expect(removal.first?.content == original)
+        #expect(try ShellRcEdit.plan(report(shell: "/bin/zsh", files: [.zsh: .file(installed, mode: nil)]), enable: true).isEmpty, "ya está")
+    }
+
+    @Test func noReescribeEnlacesNiTextoQueNoEsUTF8() {
+        #expect(throws: ShellIntegrationError.notRegularFile(".zshrc")) {
+            try ShellRcEdit.plan(report(shell: "/bin/zsh", files: [.zsh: .notRegular]), enable: true)
+        }
+        #expect(throws: ShellIntegrationError.notUTF8(".zshrc")) {
+            try ShellRcEdit.plan(report(shell: "/bin/zsh", files: [.zsh: .file(Data([0x61, 0xFF, 0x0A]), mode: "644")]), enable: true)
+        }
+        var cut = report(shell: "/bin/zsh")
+        cut.complete = false
+        #expect(throws: ShellIntegrationError.unreadable) { try ShellRcEdit.plan(cut, enable: true) }
+    }
+
+    @Test func avisaSiElBloqueNoSeCargaria() {
+        var zsh = report(shell: "/usr/bin/zsh")
+        zsh.home = "/home/v"
+        zsh.zdotdir = "/home/v/.config/zsh"
+        #expect(ShellRcProbe.warning(zsh)?.contains("ZDOTDIR") == true)
+        zsh.zdotdir = "/home/v/"
+        #expect(ShellRcProbe.warning(zsh) == nil)
+        var bash = report(shell: "/bin/bash")
+        bash.bashLoginProfile = .init(name: ".bash_profile", loadsRc: false)
+        #expect(ShellRcProbe.warning(bash)?.contains(".bash_profile") == true)
+        bash.bashLoginProfile = .init(name: ".profile", loadsRc: true)
+        #expect(ShellRcProbe.warning(bash) == nil)
+    }
+
+    /// El script de lectura de verdad, con un HOME temporal: ruido del arranque, bytes que
+    /// no son UTF-8, permisos, enlaces simbólicos y duros.
+    @Test func elScriptDeLecturaIgnoraElRuidoYDetectaEnlaces() throws {
+        let home = try LocalShell.makeTemporaryDirectory()
+        defer { LocalShell.remove(home) }
+        let zshrc = Data([0x65, 0x63, 0x68, 0x6F, 0x20, 0xFF, 0x0A]) // «echo \xFF»
+        try zshrc.write(to: home.appendingPathComponent(".zshrc"))
+        try "x".write(to: home.appendingPathComponent("real"), atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: home.appendingPathComponent(".bashrc"), withDestinationURL: home.appendingPathComponent("real"))
+        try "if [ -f ~/.bashrc ]; then . ~/.bashrc; fi\n".write(to: home.appendingPathComponent(".profile"), atomically: true, encoding: .utf8)
+        _ = try LocalShell.run("chmod 640 .zshrc", home: home)
+
+        let noisy = "echo 'Bienvenido|ARGOS'; " + ShellQuoting.posixShell(ShellRcProbe.command(nonce: "t1"))
+        let result = try LocalShell.run("SHELL=/bin/zsh; export SHELL; " + noisy, home: home)
+        #expect(result.exitCode == 0, "\(result.stderr)")
+        let report = ShellRcProbe.parse(result.stdout, nonce: "t1")
+        #expect(report.complete)
+        #expect(report.loginShell == "/bin/zsh")
+        #expect(report.files[.zsh] == .file(zshrc, mode: "640"), "bytes intactos y permisos")
+        #expect(report.files[.bash] == .notRegular, "enlace simbólico")
+        #expect(report.bashLoginProfile == .init(name: ".profile", loadsRc: true))
+
+        try FileManager.default.removeItem(at: home.appendingPathComponent(".bashrc"))
+        try FileManager.default.linkItem(at: home.appendingPathComponent("real"), to: home.appendingPathComponent(".bashrc"))
+        let hard = ShellRcProbe.parse(try LocalShell.run(noisy, home: home).stdout, nonce: "t1")
+        #expect(hard.files[.bash] == .notRegular, "enlace duro")
     }
 
     @Test(arguments: [(ShellIntegrationBlock.Shell.zsh, "/bin/zsh"), (.bash, "/bin/bash")])
