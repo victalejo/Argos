@@ -222,14 +222,14 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
         // Texto «visible password»: sin autocorrección ni predicciones (rompen la entrada en un
-        // terminal), pero con acentos, ñ y emoji vía commitText. Sin aprendizaje: en un
-        // terminal se teclean contraseñas.
+        // terminal), pero con acentos, ñ y emoji vía commitText. Sin IME_FLAG_NO_PERSONALIZED_LEARNING:
+        // Gboard y otros lo muestran como teclado de incógnito; el tipo «visible password» ya
+        // evita que el teclado aprenda lo que se teclea (p. ej. contraseñas).
         outAttrs.inputType = EditorInfo.TYPE_CLASS_TEXT or
             EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
             EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN or
-            EditorInfo.IME_FLAG_NO_EXTRACT_UI or
-            EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+            EditorInfo.IME_FLAG_NO_EXTRACT_UI
         return TerminalInputConnection()
     }
 
