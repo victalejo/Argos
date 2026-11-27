@@ -6,6 +6,13 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **Biblioteca de encargos: ves el texto antes de enviarlo.** Si el encargo lleva variables
+  (`{rama}`, `{ultimo_commit}`…), «Enviar ya» y «Añadir a la cola» enseñan primero el texto
+  ya relleno con lo que dice git, y no sale nada hasta que pulsas Enviar. Además, la rama y
+  los nombres de archivo solo llevan letras, números y `. _ / @ + -` (lo demás sale como
+  «?»), y el último commit es su hash y un asunto corto en una sola línea.
+
 ### Corregido
 - **«Copiar la salida del último comando» con Claude Code** ya no dice «No se encontró la
   última respuesta de Claude» con las versiones actuales: copia la respuesta entera desde

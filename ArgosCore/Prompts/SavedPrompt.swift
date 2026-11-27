@@ -203,10 +203,15 @@ struct PromptLibrary: Equatable, Sendable {
 
 /// Recortes de texto venido del servidor.
 enum PromptText {
-    /// Una línea: los saltos pasan a espacio y se quitan los caracteres de control.
+    /// Una línea: los saltos (también U+2028/U+2029, que no son de control) pasan a
+    /// espacio y se quitan los caracteres de control.
     static func singleLine(_ text: String) -> String {
         let scalars = text.unicodeScalars.map { scalar -> String in
             if scalar == "\n" || scalar == "\r" || scalar == "\t" { return " " }
+            switch scalar.properties.generalCategory {
+            case .lineSeparator, .paragraphSeparator: return " "
+            default: break
+            }
             return isControl(scalar) ? "" : String(scalar)
         }
         return scalars.joined().trimmingCharacters(in: .whitespaces)

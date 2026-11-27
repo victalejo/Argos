@@ -21,6 +21,9 @@ final class PromptLibraryModel {
     private(set) var errorMessage: String?
     private(set) var notice: String?
 
+    /// Texto ya relleno con lo que dice git, esperando a que se confirme antes de enviarlo.
+    var pendingUse: PendingPromptUse?
+
     /// Prompt en edición (nuevo o existente) y dónde se guarda.
     var editing: SavedPrompt?
     var editingScope: PromptScope = .common
@@ -118,27 +121,52 @@ final class PromptLibraryModel {
 
     // MARK: - Usar un prompt
 
-    /// Pega el prompt (con las variables rellenas) en la terminal del proyecto.
+    /// Pega el prompt en la terminal del proyecto. Con variables, antes se enseña el texto
+    /// ya relleno para confirmarlo (`pendingUse`).
     func sendToTerminal(_ prompt: SavedPrompt) async {
+        await use(prompt, .send)
+    }
+
+    /// Añade el prompt a la cola de encargos del proyecto (en la terminal). Con variables,
+    /// antes se confirma el texto relleno.
+    func enqueue(_ prompt: SavedPrompt) async {
+        await use(prompt, .enqueue)
+    }
+
+    /// Envía el texto que se acaba de confirmar, tal cual se enseñó (no se vuelve a leer git).
+    func confirmPendingUse() async {
+        guard let pending = pendingUse else { return }
+        pendingUse = nil
+        await perform { try await self.run(pending.kind, prompt: pending.prompt, text: pending.text) }
+    }
+
+    func cancelPendingUse() {
+        pendingUse = nil
+    }
+
+    private func use(_ prompt: SavedPrompt, _ kind: PendingPromptUse.Kind) async {
+        guard PromptVariables.containsVariables(prompt.text) else {
+            await perform { try await self.run(kind, prompt: prompt, text: prompt.text) }
+            return
+        }
         await perform {
             let text = await PromptExpansion.expand(prompt.text, service: self.service, projectPath: self.project.path)
-            try await self.service.pastePromptToTerminal(
-                session: self.project.sessionName, window: self.preferredWindow, text: text
-            )
-            self.notice = String(localized: "«\(prompt.displayTitle)» enviado a la terminal.")
+            self.pendingUse = PendingPromptUse(prompt: prompt, kind: kind, text: text)
         }
     }
 
-    /// Añade el prompt a la cola de encargos del proyecto (en la terminal).
-    func enqueue(_ prompt: SavedPrompt) async {
-        await perform {
-            let text = await PromptExpansion.expand(prompt.text, service: self.service, projectPath: self.project.path)
+    private func run(_ kind: PendingPromptUse.Kind, prompt: SavedPrompt, text: String) async throws {
+        switch kind {
+        case .send:
+            try await service.pastePromptToTerminal(session: project.sessionName, window: preferredWindow, text: text)
+            notice = String(localized: "«\(prompt.displayTitle)» enviado a la terminal.")
+        case .enqueue:
             let request = ClaudeTaskRequest(
-                prompt: text, session: self.project.sessionName,
-                window: ClaudeTasksModel.suggestedWindow(self.claudeWindows), cleanContext: false, commit: false
+                prompt: text, session: project.sessionName,
+                window: ClaudeTasksModel.suggestedWindow(claudeWindows), cleanContext: false, commit: false
             )
-            try await self.service.enqueueTask(request, projectPath: self.project.path)
-            self.notice = String(localized: "«\(prompt.displayTitle)» se ha añadido a la cola de encargos.")
+            try await service.enqueueTask(request, projectPath: project.path)
+            notice = String(localized: "«\(prompt.displayTitle)» se ha añadido a la cola de encargos.")
         }
     }
 
@@ -174,4 +202,15 @@ final class PromptLibraryModel {
             errorMessage = error.userMessage
         }
     }
+}
+
+/// Un uso de un prompt con variables a la espera de confirmación: el texto exacto que se
+/// enviará, ya relleno con lo que dijo git.
+struct PendingPromptUse: Identifiable, Equatable, Sendable {
+    enum Kind: Sendable { case send, enqueue }
+
+    let id = UUID()
+    let prompt: SavedPrompt
+    let kind: Kind
+    let text: String
 }

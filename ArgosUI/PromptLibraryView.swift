@@ -28,6 +28,12 @@ struct PromptLibraryView: View {
         .sheet(item: $model.editing) { (prompt: SavedPrompt) in
             PromptEditorView(model: model, prompt: prompt)
         }
+        // En otra vista que la del editor: dos `.sheet` en la misma no se llevan bien.
+        .background {
+            Color.clear.sheet(item: $model.pendingUse) { (pending: PendingPromptUse) in
+                PromptConfirmationView(model: model, pending: pending)
+            }
+        }
     }
 
     private var intro: some View {
