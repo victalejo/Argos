@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-11-27
+
 ### Añadido
 - **Vista previa de lo que subes al terminal**: la imagen pegada, la foto o el archivo de
   imagen salen en miniatura en el aviso de subida (y en la cola); púlsala para verla en
