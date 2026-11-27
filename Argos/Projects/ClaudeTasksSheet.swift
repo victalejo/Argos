@@ -14,11 +14,12 @@ struct ClaudeTasksSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: ClaudeTasksModel
 
-    init(project: Project, vm: SessionsViewModel) {
+    init(project: Project, vm: SessionsViewModel, serverID: Server.ID) {
         self.project = project
         self.vm = vm
         _model = State(initialValue: ClaudeTasksModel(
             service: vm.service,
+            serverID: serverID,
             project: project,
             claudeWindows: vm.claudeActivity.windows(forSession: project.sessionName)
         ))

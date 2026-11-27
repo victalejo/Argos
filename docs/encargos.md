@@ -109,7 +109,11 @@ un proyecto sin puntos de restauración, la app ofrece activarlos.
 
 1. **Motor + cola en terminal** (Mac e iPhone/iPad): `dispatch.sh`, hooks, encolar,
    sondeo, pantalla de encargos, bandeja. Android lo porta un subagente.
-2. **Agentes persistentes y worktrees**: encargos con `target=agent`.
+2. **Agentes persistentes y worktrees** (hecho): encargos con `target=agent`. Al encolar, la
+   app deja `launch.sh` (crea el worktree `<proyecto>-encargo-<id>` con la rama
+   `argos/encargo-<id>` y arranca claude headless con el modo de permisos de Ajustes) y
+   `send.sh` (entrega el encargo por la FIFO). El hook `Stop` de un agente headless no
+   tiene `$TMUX_PANE`: el despachador lo reconoce por el `session_id` del JSON del hook.
 3. **Tareas programadas**: `schedules`, instalación del temporizador (systemd --user,
    launchd en macOS, cron), frenos de proyecto en uso y tiempo máximo, push si pasan los
    tests, resumen de la ejecución anterior y recuperación de horas perdidas (< 12 h).

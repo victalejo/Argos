@@ -68,6 +68,7 @@ blocked() {
 # (hook Stop), no hace falta mirar si está libre.
 launch() {
   t=$2
+  if [ "$(meta "$t" target)" = agent ]; then launch_agent "$t"; return $?; fi
   session=$(meta "$t" session); window=$(meta "$t" window)
   pane=$(tmux -u list-panes -t "=$session:$window" -F '#{pane_id}' 2>/dev/null | head -n 1)
   if [ -z "$pane" ]; then put "$t" reason "no-pane"; return 1; fi
@@ -94,6 +95,21 @@ launch() {
   return 0
 }
 
+# Encargo en un agente persistente (en su worktree): la app dejó preparados
+# `launch.sh` (crea el worktree y arranca claude headless; el token, vacío, va por
+# stdin) y `send.sh` (entrega el encargo por la FIFO del agente).
+launch_agent() {
+  t=$1
+  why=$(blocked) && { put "$t" reason "$why"; return 1; }
+  [ -f "$t/launch.sh" ] && [ -f "$t/send.sh" ] || { put "$t" reason "agent"; return 1; }
+  if ! printf '\n' | sh "$t/launch.sh" > "$t/launch.out" 2>&1; then put "$t" reason "agent"; return 1; fi
+  sleep 2
+  if ! sh "$t/send.sh" >> "$t/launch.out" 2>&1; then put "$t" reason "agent"; return 1; fi
+  put "$t" started "$(date +%s)"; rm -f "$t/reason"
+  put "$t" state running
+  return 0
+}
+
 # Avanza un proyecto: si nada corre, lanza el primer pendiente.
 advance() {
   p=$1
@@ -108,11 +124,17 @@ advance() {
   unlock "$p"
 }
 
-# El encargo que corre en el panel $1 (o nada).
+# El encargo que corre en el panel $1 o, sin panel (agente headless), en la sesión de
+# Claude $2 (o nada).
 running_on() {
   for t in "$base"/*/[0-9]*-*; do
     [ -d "$t" ] || continue
-    [ "$(state "$t")" = running ] && [ "$(cat "$t/pane" 2>/dev/null)" = "$1" ] && { printf '%s\n' "$t"; return 0; }
+    [ "$(state "$t")" = running ] || continue
+    if [ -n "$1" ]; then
+      [ "$(cat "$t/pane" 2>/dev/null)" = "$1" ] && { printf '%s\n' "$t"; return 0; }
+    elif [ -n "$2" ]; then
+      [ "$(meta "$t" agent)" = "$2" ] && { printf '%s\n' "$t"; return 0; }
+    fi
   done
   return 1
 }
@@ -139,12 +161,15 @@ case "$1" in
     [ -d "$base/$2" ] && advance "$base/$2" 1
     ;;
   stop|failure)
-    [ -n "$2" ] || exit 0
-    t=$(running_on "$2") || exit 0
+    # El hook pasa su JSON por stdin: de ahí la sesión de Claude (agentes sin panel).
+    i=$(head -c 8192)
+    sid=$(printf '%s' "$i" | sed -n 's/.*"session_id":"\([A-Za-z0-9-]*\)".*/\1/p' | head -n 1)
+    [ -n "$2" ] || [ -n "$sid" ] || exit 0
+    t=$(running_on "$2" "$sid") || exit 0
     p=${t%/*}
     # `Stop` llega al acabar el turno principal aunque queden subagentes en segundo
     # plano: el encargo no ha terminado (habrá otro `Stop` cuando acaben).
-    if [ "$1" = stop ] && tmux -u capture-pane -p -t "$2" 2>/dev/null | grep -q '^[^ ]* Waiting for [0-9]* background'; then
+    if [ "$1" = stop ] && [ -n "$2" ] && tmux -u capture-pane -p -t "$2" 2>/dev/null | grep -q '^[^ ]* Waiting for [0-9]* background'; then
       exit 0
     fi
     if [ "$1" = stop ]; then
@@ -155,7 +180,6 @@ case "$1" in
         (sleep 2; sh "$self" next "${p##*/}") >/dev/null 2>&1 &
       fi
     else
-      i=$(head -c 4096)
       case "$i" in
         *rate_limit*|*usage*limit*|*'429'*) put "$t" reason limit ;;
         *) put "$t" reason api ;;
@@ -175,7 +199,10 @@ case "$1" in
     n=$(printf '%06d' $(( ${n:-0} + 1 )) 2>/dev/null) || { unlock "$p"; exit 0; }
     t="$p/$n-$id"
     mkdir "$t" && mv -f "$base/incoming/$id.prompt" "$t/prompt" && mv -f "$base/incoming/$id.meta" "$t/meta" \
-      && put "$t" state pending
+      && for f in launch.sh send.sh; do
+           [ -f "$base/incoming/$id.$f" ] && mv -f "$base/incoming/$id.$f" "$t/$f"
+         done
+    [ -f "$t/meta" ] && put "$t" state pending
     unlock "$p"
     advance "$p" 0
     ;;

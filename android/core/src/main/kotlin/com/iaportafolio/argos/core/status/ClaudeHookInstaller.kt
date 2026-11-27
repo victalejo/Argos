@@ -73,7 +73,9 @@ object ClaudeHookInstaller {
 
     fun dispatchCommand(argument: String): String {
         val script = "\"\$HOME/$TASK_DISPATCHER_RELATIVE_PATH\""
-        return "[ -n \"\$TMUX_PANE\" ] && [ -f $script ] && sh $script $argument \"\$TMUX_PANE\" >/dev/null 2>&1; exit 0 # $MARKER"
+        // Sin exigir `$TMUX_PANE`: los agentes headless no tienen panel; el despachador los
+        // reconoce por la sesión que llega en el JSON del hook (stdin).
+        return "[ -f $script ] && sh $script $argument \"\$TMUX_PANE\" >/dev/null 2>&1; exit 0 # $MARKER"
     }
 
     private data class Hook(val event: String, val matcher: String?, val command: String)

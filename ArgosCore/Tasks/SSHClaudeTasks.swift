@@ -22,9 +22,18 @@ extension SSHService {
 
     func enqueueTask(_ request: ClaudeTaskRequest, projectPath: String) async throws {
         try await ensureTaskDispatcher()
-        let id = ClaudeTaskRequest.makeID()
+        let id = request.taskID
         let key = ClaudeUsageProjects.key(forPath: projectPath)
         let incoming = ClaudeTaskScript.incomingRelativePath
+        if case .agent(let agentID, let worktree, let branch) = request.target {
+            guard let claudePath = try await locateClaude() else { throw PersistentAgentError.claudeMissing }
+            let scripts = try ClaudeTaskAgentScripts.make(
+                request: request, agentID: agentID, worktree: worktree, branch: branch,
+                projectPath: projectPath, claudePath: claudePath
+            )
+            try await writeHomeFilePrivately(Data(scripts.launch.utf8), to: "\(incoming)/\(id).launch.sh")
+            try await writeHomeFilePrivately(Data(scripts.send.utf8), to: "\(incoming)/\(id).send.sh")
+        }
         try await writeHomeFilePrivately(Data(request.prompt.utf8), to: "\(incoming)/\(id).prompt")
         try await writeHomeFilePrivately(Data(request.metaText(directory: projectPath).utf8), to: "\(incoming)/\(id).meta")
         _ = try await runChecked(

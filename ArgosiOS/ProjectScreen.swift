@@ -62,7 +62,7 @@ struct ProjectScreen: View {
             }
             .sheet(isPresented: $showTasks) {
                 if let project {
-                    ClaudeTasksScreen(project: project, viewModel: hub.viewModel(for: server))
+                    ClaudeTasksScreen(project: project, viewModel: hub.viewModel(for: server), serverID: server.id)
                 }
             }
             .portForwardRequests(service: service, serverName: server.name)

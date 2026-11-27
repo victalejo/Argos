@@ -15,11 +15,12 @@ struct ClaudeTasksScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: ClaudeTasksModel
 
-    init(project: Project, viewModel: SessionsViewModel) {
+    init(project: Project, viewModel: SessionsViewModel, serverID: Server.ID) {
         self.project = project
         self.viewModel = viewModel
         _model = State(initialValue: ClaudeTasksModel(
             service: viewModel.service,
+            serverID: serverID,
             project: project,
             claudeWindows: viewModel.claudeActivity.windows(forSession: project.sessionName)
         ))

@@ -43,6 +43,7 @@ enum ClaudeTaskReason: String, Equatable, Sendable {
     case tmux
     case commit
     case push
+    case agent
 
     var text: String {
         switch self {
@@ -55,6 +56,7 @@ enum ClaudeTaskReason: String, Equatable, Sendable {
         case .tmux: return String(localized: "No se pudo escribir en la ventana de tmux.")
         case .commit: return String(localized: "Terminó, pero no se pudo hacer el commit.")
         case .push: return String(localized: "Terminó y se hizo el commit, pero no se pudo subir (push).")
+        case .agent: return String(localized: "No se pudo arrancar el agente del encargo (¿existe ya la rama o la carpeta?).")
         }
     }
 }
@@ -74,6 +76,10 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
     let cleanContext: Bool
     let commit: Bool
     let window: Int?
+    /// Corre en un agente persistente en su propia rama (no en la terminal).
+    let isAgent: Bool
+    /// Rama del worktree del encargo (solo en agente).
+    let branch: String?
 
     var id: String { "\(projectKey)/\(folder)" }
     var sequence: Int { Int(folder.prefix { $0.isNumber }) ?? 0 }
@@ -130,7 +136,9 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
                 promptPreview: preview,
                 cleanContext: meta["context"] == "clear",
                 commit: meta["commit"] == "1",
-                window: meta["window"].flatMap(Int.init)
+                window: meta["window"].flatMap(Int.init),
+                isAgent: meta["target"] == "agent",
+                branch: meta["branch"].map { String($0.prefix(200)) }
             )
         }
 
@@ -142,9 +150,22 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
 
 /// Lo que la app pide al encolar.
 struct ClaudeTaskRequest: Equatable, Sendable {
+
+    /// Dónde corre: el Claude de la terminal del proyecto o un agente persistente aparte,
+    /// en su propio worktree y rama.
+    enum Target: Equatable, Sendable {
+        case terminal
+        case agent(id: String, worktree: String, branch: String)
+    }
+
     var prompt: String
     var session: String
     var window: Int
+    var target: Target = .terminal
+    /// Modo de permisos del agente (solo en agente): el de Ajustes para ese proyecto.
+    var permissionMode: ClaudeAgentCommand.PermissionMode = AgentPermissionPreferences.fallback
+    /// Identificador del encargo (también nombra su worktree y su rama).
+    var taskID = ClaudeTaskRequest.makeID()
     var cleanContext = false
     var commit = false
     var push = false
@@ -163,13 +184,30 @@ struct ClaudeTaskRequest: Equatable, Sendable {
         func clean(_ text: String) -> String {
             text.replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: " ")
         }
-        var lines = [
-            "v=1", "title=\(clean(title))", "source=\(clean(source))", "target=terminal",
-            "session=\(clean(session))", "window=\(window)", "context=\(cleanContext ? "clear" : "same")",
-            "dir=\(clean(directory))", "commit=\(commit ? 1 : 0)", "push=\(push ? 1 : 0)",
-        ]
+        var lines = ["v=1", "title=\(clean(title))", "source=\(clean(source))"]
+        switch target {
+        case .terminal:
+            lines += [
+                "target=terminal", "session=\(clean(session))", "window=\(window)",
+                "context=\(cleanContext ? "clear" : "same")", "dir=\(clean(directory))",
+            ]
+        case .agent(let id, let worktree, let branch):
+            lines += ["target=agent", "agent=\(clean(id))", "branch=\(clean(branch))", "dir=\(clean(worktree))"]
+        }
+        lines += ["commit=\(commit ? 1 : 0)", "push=\(push ? 1 : 0)"]
         if let reference { lines.append("ref=\(clean(reference))") }
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// Worktree y rama de un encargo en agente: junto al proyecto, con el id del encargo.
+    static func agentTarget(projectPath: String, taskID: String) -> Target {
+        let folder = (projectPath as NSString).lastPathComponent
+        let parent = (projectPath as NSString).deletingLastPathComponent
+        return .agent(
+            id: UUID().uuidString.lowercased(),
+            worktree: "\(parent)/\(folder)-encargo-\(taskID)",
+            branch: "argos/encargo-\(taskID)"
+        )
     }
 
     /// Identificador del encargo: aleatorio y seguro para rutas.

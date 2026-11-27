@@ -273,15 +273,23 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
         try (syncServerData[file.path] ?? Data()).write(to: localURL)
     }
     func makeRemoteDirectories(root: String, relativeDirectories: [String]) async throws {}
+    /// Las subidas llegan desde tareas en paralelo (`ProjectSyncEngine`): sin cerrojo, dos
+    /// escrituras a la vez en estos diccionarios perdían una (test intermitente en la CI).
+    private let syncLock = NSLock()
     func uploadSyncFile(root: String, file: SyncFile, from localURL: URL) async throws {
-        uploadedSyncPaths.append(file.path)
-        syncServerData[file.path] = try Data(contentsOf: localURL)
-        syncServerFiles.removeAll { $0.path == file.path }
-        syncServerFiles.append(file)
+        let data = try Data(contentsOf: localURL)
+        syncLock.withLock {
+            uploadedSyncPaths.append(file.path)
+            syncServerData[file.path] = data
+            syncServerFiles.removeAll { $0.path == file.path }
+            syncServerFiles.append(file)
+        }
     }
     func deleteRemoteSyncFile(root: String, relativePath: String) async throws {
-        deletedSyncPaths.append(relativePath)
-        syncServerFiles.removeAll { $0.path == relativePath }
+        syncLock.withLock {
+            deletedSyncPaths.append(relativePath)
+            syncServerFiles.removeAll { $0.path == relativePath }
+        }
     }
     func stopSession(named sessionName: String) async throws {
         stoppedSessions.append(sessionName)

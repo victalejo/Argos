@@ -2995,16 +2995,16 @@
     },
     "Activar el indicador" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activar el indicador"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Turn on the indicator"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar el indicador"
           }
         }
       }
@@ -4403,16 +4403,16 @@
     },
     "Añadir a la cola" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Añadir a la cola"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Add to queue"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir a la cola"
           }
         }
       }
@@ -6291,16 +6291,16 @@
     },
     "Claude no está abierto en esa ventana: arráncalo y el encargo empezará solo." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude no está abierto en esa ventana: arráncalo y el encargo empezará solo."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude isn’t open in that window: start it and the task will begin on its own."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude no está abierto en esa ventana: arráncalo y el encargo empezará solo."
           }
         }
       }
@@ -6435,16 +6435,16 @@
     },
     "Claude se detuvo por un error de la API. Reinténtalo cuando quieras." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude se detuvo por un error de la API. Reinténtalo cuando quieras."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude stopped because of an API error. Retry whenever you like."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude se detuvo por un error de la API. Reinténtalo cuando quieras."
           }
         }
       }
@@ -6755,32 +6755,32 @@
     },
     "Cola" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cola"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Queue"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cola"
           }
         }
       }
     },
     "Cola de encargos para Claude: empiezan solos al terminar el anterior" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cola de encargos para Claude: empiezan solos al terminar el anterior"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Task queue for Claude: each one starts on its own when the previous finishes"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cola de encargos para Claude: empiezan solos al terminar el anterior"
           }
         }
       }
@@ -10569,6 +10569,22 @@
         }
       }
     },
+    "El encargo es demasiado largo para un agente (más de 12 KB). Acórtalo o envíalo a la terminal." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El encargo es demasiado largo para un agente (más de 12 KB). Acórtalo o envíalo a la terminal."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The task is too long for an agent (over 12 KB). Shorten it or send it to the terminal."
+          }
+        }
+      }
+    },
     "El encargo está vacío: escribe qué quieres que haga Claude." : {
       "localizations" : {
         "en" : {
@@ -11883,16 +11899,16 @@
     },
     "Empezar con la conversación limpia (/clear)" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Empezar con la conversación limpia (/clear)"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Start with a clean conversation (/clear)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empezar con la conversación limpia (/clear)"
           }
         }
       }
@@ -11947,16 +11963,16 @@
     },
     "En cola" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En cola"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Queued"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En cola"
           }
         }
       }
@@ -12219,16 +12235,16 @@
     },
     "En pausa" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En pausa"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Paused"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En pausa"
           }
         }
       }
@@ -12281,6 +12297,22 @@
         }
       }
     },
+    "En un agente aparte, en su propia rama (worktree)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En un agente aparte, en su propia rama (worktree)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In a separate agent, on its own branch (worktree)"
+          }
+        }
+      }
+    },
     "Encargo" : {
       "localizations" : {
         "en" : {
@@ -12299,48 +12331,48 @@
     },
     "Encargo para Claude" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Encargo para Claude"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Task for Claude"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encargo para Claude"
           }
         }
       }
     },
     "Encargos" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Encargos"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tasks"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encargos"
           }
         }
       }
     },
     "Encargos…" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Encargos…"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tasks…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encargos…"
           }
         }
       }
@@ -13067,16 +13099,16 @@
     },
     "Espera a que Claude termine lo que está haciendo." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Espera a que Claude termine lo que está haciendo."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for Claude to finish what it’s doing."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espera a que Claude termine lo que está haciendo."
           }
         }
       }
@@ -13099,16 +13131,16 @@
     },
     "Espera: el servidor va justo de memoria." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Espera: el servidor va justo de memoria."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting: the server is low on memory."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espera: el servidor va justo de memoria."
           }
         }
       }
@@ -14140,16 +14172,16 @@
     },
     "Hacer commit al terminar" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hacer commit al terminar"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Commit when finished"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hacer commit al terminar"
           }
         }
       }
@@ -15884,16 +15916,16 @@
     },
     "La cola necesita el indicador de Claude" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La cola necesita el indicador de Claude"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The queue needs the Claude indicator"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La cola necesita el indicador de Claude"
           }
         }
       }
@@ -16284,16 +16316,16 @@
     },
     "La ventana del proyecto ya no existe: abre el proyecto o elige otra ventana." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La ventana del proyecto ya no existe: abre el proyecto o elige otra ventana."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The project’s window no longer exists: open the project or pick another window."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La ventana del proyecto ya no existe: abre el proyecto o elige otra ventana."
           }
         }
       }
@@ -18108,16 +18140,16 @@
     },
     "No hay encargos. Escribe uno arriba: empezará en cuanto Claude quede libre, y los siguientes, al terminar el anterior." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No hay encargos. Escribe uno arriba: empezará en cuanto Claude quede libre, y los siguientes, al terminar el anterior."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No tasks. Write one above: it starts as soon as Claude is free, and the next ones when the previous finishes."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay encargos. Escribe uno arriba: empezará en cuanto Claude quede libre, y los siguientes, al terminar el anterior."
           }
         }
       }
@@ -18842,6 +18874,22 @@
         }
       }
     },
+    "No se pudo arrancar el agente del encargo (¿existe ya la rama o la carpeta?)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo arrancar el agente del encargo (¿existe ya la rama o la carpeta?)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t start the task’s agent (does the branch or folder already exist?)."
+          }
+        }
+      }
+    },
     "No se pudo arrancar el agente en el servidor (respuesta: %@)." : {
       "localizations" : {
         "en" : {
@@ -18876,16 +18924,16 @@
     },
     "No se pudo añadir el encargo a la cola." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo añadir el encargo a la cola."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t add the task to the queue."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo añadir el encargo a la cola."
           }
         }
       }
@@ -19004,16 +19052,16 @@
     },
     "No se pudo cambiar el encargo." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo cambiar el encargo."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t change the task."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cambiar el encargo."
           }
         }
       }
@@ -19516,16 +19564,16 @@
     },
     "No se pudo escribir en la ventana de tmux." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo escribir en la ventana de tmux."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t type into the tmux window."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo escribir en la ventana de tmux."
           }
         }
       }
@@ -19884,16 +19932,16 @@
     },
     "No se pudo leer la cola de encargos." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo leer la cola de encargos."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn’t read the task queue."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer la cola de encargos."
           }
         }
       }
@@ -21772,16 +21820,16 @@
     },
     "Pausado por el límite de uso de Claude: sigue solo cuando se reinicie la ventana." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pausado por el límite de uso de Claude: sigue solo cuando se reinicie la ventana."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Paused by Claude’s usage limit: it resumes on its own when the window resets."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausado por el límite de uso de Claude: sigue solo cuando se reinicie la ventana."
           }
         }
       }
@@ -26685,16 +26733,16 @@
     },
     "Sus hooks avisan cuando Claude termina, y así empieza el siguiente encargo aunque la app esté cerrada." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sus hooks avisan cuando Claude termina, y así empieza el siguiente encargo aunque la app esté cerrada."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Its hooks report when Claude finishes, so the next task starts even with the app closed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sus hooks avisan cuando Claude termina, y así empieza el siguiente encargo aunque la app esté cerrada."
           }
         }
       }
@@ -26845,16 +26893,16 @@
     },
     "Terminados" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terminados"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finished"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminados"
           }
         }
       }
@@ -27053,32 +27101,32 @@
     },
     "Terminó y se hizo el commit, pero no se pudo subir (push)." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terminó y se hizo el commit, pero no se pudo subir (push)."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finished and committed, but couldn’t push."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminó y se hizo el commit, pero no se pudo subir (push)."
           }
         }
       }
     },
     "Terminó, pero no se pudo hacer el commit." : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terminó, pero no se pudo hacer el commit."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finished, but couldn’t commit."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminó, pero no se pudo hacer el commit."
           }
         }
       }
@@ -28161,32 +28209,32 @@
     },
     "Ventana" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ventana"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Window"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ventana"
           }
         }
       }
     },
     "Ventana %lld" : {
       "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ventana %lld"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Window %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ventana %lld"
           }
         }
       }

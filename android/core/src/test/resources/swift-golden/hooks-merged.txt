@@ -95,7 +95,7 @@
       {
         "hooks" : [
           {
-            "command" : "[ -n \"$TMUX_PANE\" ] && [ -f \"$HOME/.config/argos/tasks/dispatch.sh\" ] && sh \"$HOME/.config/argos/tasks/dispatch.sh\" stop \"$TMUX_PANE\" >/dev/null 2>&1; exit 0 # argos-claude-status",
+            "command" : "[ -f \"$HOME/.config/argos/tasks/dispatch.sh\" ] && sh \"$HOME/.config/argos/tasks/dispatch.sh\" stop \"$TMUX_PANE\" >/dev/null 2>&1; exit 0 # argos-claude-status",
             "timeout" : 5,
             "type" : "command"
           }
@@ -115,7 +115,7 @@
       {
         "hooks" : [
           {
-            "command" : "[ -n \"$TMUX_PANE\" ] && [ -f \"$HOME/.config/argos/tasks/dispatch.sh\" ] && sh \"$HOME/.config/argos/tasks/dispatch.sh\" failure \"$TMUX_PANE\" >/dev/null 2>&1; exit 0 # argos-claude-status",
+            "command" : "[ -f \"$HOME/.config/argos/tasks/dispatch.sh\" ] && sh \"$HOME/.config/argos/tasks/dispatch.sh\" failure \"$TMUX_PANE\" >/dev/null 2>&1; exit 0 # argos-claude-status",
             "timeout" : 5,
             "type" : "command"
           }

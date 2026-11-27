@@ -6,6 +6,12 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **Encargos en un agente aparte (Mac e iPhone/iPad).** En «Encargos», «En un agente aparte,
+  en su propia rama» hace que el encargo trabaje en una carpeta y una rama nuevas
+  (`argos/encargo-…`) sin tocar lo que tengas abierto en el proyecto, con el modo de
+  permisos de tus Ajustes; si pides commit, se hace en esa rama.
+
 ## [1.10.0] - 2026-11-26
 
 ### Añadido

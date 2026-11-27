@@ -91,14 +91,17 @@ private struct ClaudeTaskComposer: View {
 
     @ViewBuilder
     private var options: some View {
-        if model.claudeWindows.count > 1 {
+        Toggle("En un agente aparte, en su propia rama (worktree)", isOn: $model.inAgent)
+        if !model.inAgent && model.claudeWindows.count > 1 {
             Picker("Ventana", selection: $model.window) {
                 ForEach(model.claudeWindows.keys.sorted(), id: \.self) { (index: Int) in
                     Text("Ventana \(index)").tag(index)
                 }
             }
         }
-        Toggle("Empezar con la conversación limpia (/clear)", isOn: $model.cleanContext)
+        if !model.inAgent {
+            Toggle("Empezar con la conversación limpia (/clear)", isOn: $model.cleanContext)
+        }
         Toggle("Hacer commit al terminar", isOn: $model.commit)
     }
 }

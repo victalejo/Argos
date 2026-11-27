@@ -68,6 +68,36 @@ struct ClaudeTaskParsingTests {
         #expect(ClaudeTaskRequest.makeID().count == 12)
     }
 
+    @Test func unEncargoEnAgenteLlevaSuWorktreeRamaYScripts() throws {
+        var request = ClaudeTaskRequest(prompt: "Actualiza las dependencias", session: "app", window: 0, commit: true)
+        request.target = ClaudeTaskRequest.agentTarget(projectPath: "/srv/repos/app", taskID: request.taskID)
+        request.permissionMode = .acceptEdits
+        guard case .agent(let agentID, let worktree, let branch) = request.target else {
+            Issue.record("no es agente"); return
+        }
+        #expect(worktree == "/srv/repos/app-encargo-\(request.taskID)")
+        #expect(branch == "argos/encargo-\(request.taskID)")
+        #expect(PersistentAgentScript.isValidID(agentID))
+        let meta = request.metaText(directory: "/srv/repos/app")
+        #expect(meta.contains("target=agent\n") && meta.contains("agent=\(agentID)\n") && meta.contains("dir=\(worktree)\n"))
+        #expect(!meta.contains("session="), "en agente no hay panel")
+
+        let scripts = try ClaudeTaskAgentScripts.make(
+            request: request, agentID: agentID, worktree: worktree, branch: branch,
+            projectPath: "/srv/repos/app", claudePath: "/usr/local/bin/claude"
+        )
+        #expect(scripts.launch.contains("worktree add"))
+        #expect(scripts.launch.contains("--permission-mode acceptEdits"))
+        #expect(scripts.launch.contains(agentID))
+        #expect(!scripts.send.contains("Actualiza las dependencias"), "el encargo viaja en base64, nunca como texto del shell")
+
+        var long = request
+        long.prompt = String(repeating: "x", count: ClaudeTaskAgentScripts.maxPromptBytes + 1)
+        #expect(throws: ClaudeTaskAgentError.promptTooLong) {
+            try ClaudeTaskAgentScripts.make(request: long, agentID: agentID, worktree: worktree, branch: branch, projectPath: "/srv", claudePath: "c")
+        }
+    }
+
     @Test func losHooksAvisanAlDespachadorSoloSiExiste() throws {
         let installed = ClaudeHookInstaller.installing(into: [:])
         #expect(ClaudeHookInstaller.isInstalled(in: installed))
@@ -100,7 +130,7 @@ struct ClaudeTasksModelTests {
         #expect(ClaudeTasksModel.suggestedWindow([:]) == 0)
 
         let mock = MockSSHService()
-        let model = ClaudeTasksModel(service: mock, project: Self.project, claudeWindows: [1: .done])
+        let model = ClaudeTasksModel(service: mock, serverID: UUID(), project: Self.project, claudeWindows: [1: .done])
         #expect(!model.canAdd)
         model.draft = "  Arregla el build  "
         model.commit = true
@@ -124,7 +154,7 @@ struct ClaudeTasksModelTests {
             @@task -otro/000001-c
             state pending
             """)
-        let model = ClaudeTasksModel(service: mock, project: Self.project, claudeWindows: [:])
+        let model = ClaudeTasksModel(service: mock, serverID: UUID(), project: Self.project, claudeWindows: [:])
         await model.reload()
         #expect(model.openTasks.map(\.folder) == ["000002-b"])
         #expect(model.finishedTasks.map(\.folder) == ["000001-a"])
@@ -253,6 +283,32 @@ struct ClaudeTaskDispatcherTests {
         try box.enqueue("aaa", prompt: "echo hola")
         #expect(try box.list().first?.reason == .noClaude)
         #expect(try box.list().first?.state == .pending)
+    }
+
+    @Test func unEncargoEnAgenteSeLanzaConSusScriptsYTerminaPorSuSesion() throws {
+        let box = try Box(fakeClaude: "awk -v f=\"$HOME/received\" '{ print > f; fflush(f) }'")
+        defer { box.close() }
+        let agentID = "11111111-2222-4333-8444-555555555555"
+        var request = ClaudeTaskRequest(prompt: "Encargo del agente", session: "proj", window: 0)
+        request.target = .agent(id: agentID, worktree: box.home.path, branch: "argos/encargo-x")
+        let incoming = box.tasks.appendingPathComponent("incoming")
+        try "Encargo del agente".write(to: incoming.appendingPathComponent("ag1.prompt"), atomically: true, encoding: .utf8)
+        try request.metaText(directory: box.home.path).write(to: incoming.appendingPathComponent("ag1.meta"), atomically: true, encoding: .utf8)
+        try "read -r token; echo lanzado > \"$HOME/launched\"\n".write(to: incoming.appendingPathComponent("ag1.launch.sh"), atomically: true, encoding: .utf8)
+        try "echo enviado > \"$HOME/sent\"\n".write(to: incoming.appendingPathComponent("ag1.send.sh"), atomically: true, encoding: .utf8)
+        try box.sh("sh \"$HOME/.config/argos/tasks/dispatch.sh\" enqueue proyecto ag1")
+
+        #expect(FileManager.default.fileExists(atPath: box.home.appendingPathComponent("launched").path))
+        #expect(FileManager.default.fileExists(atPath: box.home.appendingPathComponent("sent").path))
+        #expect(box.receivedText.isEmpty, "no toca la terminal")
+        let running = try #require(try box.list().first)
+        #expect(running.state == .running && running.isAgent && running.branch == "argos/encargo-x")
+
+        // Un Stop de otra sesión no lo termina; el de la suya, sí (sin panel: agente headless).
+        try box.sh("sh \"$HOME/.config/argos/tasks/dispatch.sh\" stop ''", input: #"{"session_id":"99999999-0000-4000-8000-000000000000"}"#)
+        #expect(try box.list().first?.state == .running)
+        try box.sh("sh \"$HOME/.config/argos/tasks/dispatch.sh\" stop ''", input: #"{"session_id":"\#(agentID)","hook_event_name":"Stop"}"#)
+        #expect(try box.list().first?.state == .done)
     }
 
     @Test func unaVentanaQueNoExisteSeDice() throws {

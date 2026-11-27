@@ -26,12 +26,15 @@ final class ClaudeTasksModel {
     var window: Int
     var cleanContext = false
     var commit = false
+    /// En un agente aparte, en su propio worktree y rama (no en la terminal).
+    var inAgent = false
 
     /// Ventanas del proyecto con Claude (índice → estado), para elegir dónde.
     let claudeWindows: [Int: ClaudeActivity]
 
     @ObservationIgnored private let service: any SSHServicing
     @ObservationIgnored let project: Project
+    @ObservationIgnored private let serverID: Server.ID
     @ObservationIgnored private let refreshInterval: Duration
 
     /// Cada cuánto se relee la cola con la pantalla abierta.
@@ -41,11 +44,13 @@ final class ClaudeTasksModel {
 
     init(
         service: any SSHServicing,
+        serverID: Server.ID,
         project: Project,
         claudeWindows: [Int: ClaudeActivity],
         refreshInterval: Duration = ClaudeTasksModel.refreshInterval
     ) {
         self.service = service
+        self.serverID = serverID
         self.project = project
         self.claudeWindows = claudeWindows
         self.refreshInterval = refreshInterval
@@ -95,9 +100,13 @@ final class ClaudeTasksModel {
     func add() async {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }
-        let request = ClaudeTaskRequest(
+        var request = ClaudeTaskRequest(
             prompt: prompt, session: project.sessionName, window: window, cleanContext: cleanContext, commit: commit
         )
+        if inAgent {
+            request.target = ClaudeTaskRequest.agentTarget(projectPath: project.path, taskID: request.taskID)
+            request.permissionMode = AgentPermissionPreferences.effectiveMode(serverID: serverID, workingDirectory: project.path)
+        }
         await perform {
             try await self.service.enqueueTask(request, projectPath: self.project.path)
             self.draft = ""
