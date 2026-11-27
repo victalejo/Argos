@@ -134,6 +134,7 @@ fun TerminalScreen(
                 onReconnect = viewModel::reconnect,
                 onFontSize = viewModel::setFontSize,
                 onKeepScreenOn = viewModel::setKeepScreenOn,
+                onPrivateKeyboard = viewModel::setPrivateKeyboard,
             )
         },
     ) { padding ->
@@ -207,6 +208,7 @@ internal fun TerminalHost(
         update = { view ->
             view.setFontSize(state.settings.fontSizeSp)
             view.keepScreenOn = state.settings.keepScreenOn
+            view.privateKeyboard = state.settings.privateKeyboard
             view.contentDescription = description
         },
         onRelease = { view ->
@@ -239,6 +241,7 @@ private fun TerminalTopBar(
     onReconnect: () -> Unit,
     onFontSize: (Int) -> Unit,
     onKeepScreenOn: (Boolean) -> Unit,
+    onPrivateKeyboard: (Boolean) -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     TopAppBar(
@@ -299,10 +302,30 @@ private fun TerminalTopBar(
                         trailingIcon = { Checkbox(checked = state.settings.keepScreenOn, onCheckedChange = null) },
                         onClick = { onKeepScreenOn(!state.settings.keepScreenOn) },
                     )
+                    PrivateKeyboardMenuItem(state.settings.privateKeyboard, onPrivateKeyboard)
                     if (panes != null) PaneMenuItems(panes) { menuOpen = false }
                 }
             }
         },
+    )
+}
+
+/** Casilla del modo privado del teclado, con una línea que explica qué cambia. */
+@Composable
+private fun PrivateKeyboardMenuItem(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    DropdownMenuItem(
+        text = {
+            Column {
+                Text(stringResource(R.string.terminal_private_keyboard))
+                Text(
+                    stringResource(R.string.terminal_private_keyboard_detail),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        trailingIcon = { Checkbox(checked = enabled, onCheckedChange = null) },
+        onClick = { onChange(!enabled) },
     )
 }
 

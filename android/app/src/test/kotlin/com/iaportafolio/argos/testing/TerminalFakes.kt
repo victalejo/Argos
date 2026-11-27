@@ -134,4 +134,6 @@ class InMemoryTerminalSettings(initial: TerminalSettings = TerminalSettings()) :
     override fun setKeepScreenOn(enabled: Boolean) = state.update { it.copy(keepScreenOn = enabled) }
 
     override fun setKeepAliveInBackground(enabled: Boolean) = state.update { it.copy(keepAliveInBackground = enabled) }
+
+    override fun setPrivateKeyboard(enabled: Boolean) = state.update { it.copy(privateKeyboard = enabled) }
 }

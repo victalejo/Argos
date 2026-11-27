@@ -130,6 +130,17 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
         invalidate()
     }
 
+    /**
+     * Pide al teclado que no aprenda lo tecleado (Gboard y otros lo muestran como incógnito).
+     * Al cambiarlo se reinicia la entrada para que el teclado abierto lo aplique ya.
+     */
+    var privateKeyboard: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            context.getSystemService(InputMethodManager::class.java)?.restartInput(this)
+        }
+
     /** Muestra el teclado si está oculto y viceversa. */
     fun toggleKeyboard() {
         val imm = context.getSystemService(InputMethodManager::class.java) ?: return
@@ -222,14 +233,14 @@ class RemoteTerminalView(context: Context, private val callbacks: Callbacks) : V
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
         // Texto «visible password»: sin autocorrección ni predicciones (rompen la entrada en un
-        // terminal), pero con acentos, ñ y emoji vía commitText. Sin aprendizaje: en un
-        // terminal se teclean contraseñas.
+        // terminal), pero con acentos, ñ y emoji vía commitText. Muchos teclados tampoco aprenden
+        // en ese tipo de campo, pero no es una garantía: el modo privado lo pide explícitamente.
         outAttrs.inputType = EditorInfo.TYPE_CLASS_TEXT or
             EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
             EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN or
             EditorInfo.IME_FLAG_NO_EXTRACT_UI or
-            EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+            (if (privateKeyboard) EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING else 0)
         return TerminalInputConnection()
     }
 

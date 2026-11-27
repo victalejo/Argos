@@ -443,6 +443,8 @@
     <string name="terminal_font_larger">Texto más grande</string>
     <string name="terminal_font_smaller">Texto más pequeño</string>
     <string name="terminal_keep_screen_on">Mantener la pantalla encendida</string>
+    <string name="terminal_private_keyboard">Teclado privado</string>
+    <string name="terminal_private_keyboard_detail">Pide al teclado que no aprenda lo que escribes, como contraseñas o tokens. Muchos teclados lo muestran en modo incógnito.</string>
     <string name="terminal_connecting">Conectando…</string>
     <string name="terminal_reconnecting">Reconectando (intento %1$d)…</string>
     <string name="terminal_disconnected_title">Desconectado</string>
