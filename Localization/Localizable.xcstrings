@@ -6689,22 +6689,6 @@
         }
       }
     },
-    "Claude no está abierto en la terminal del proyecto: arráncalo y vuelve a enviarlo." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude isn’t open in the project’s terminal: start it and send it again."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude no está abierto en la terminal del proyecto: arráncalo y vuelve a enviarlo."
-          }
-        }
-      }
-    },
     "Claude no propuso ningún mensaje." : {
       "localizations" : {
         "en" : {
@@ -12917,6 +12901,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "En el servidor: sigue aunque cierres la pestaña o Argos. Puedes continuarla desde el iPhone."
+          }
+        }
+      }
+    },
+    "En esa ventana no está Claude Code abierto: ábrelo y vuelve a enviarlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code isn’t open in that window: open it and send it again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En esa ventana no está Claude Code abierto: ábrelo y vuelve a enviarlo."
           }
         }
       }

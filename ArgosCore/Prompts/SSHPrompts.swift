@@ -49,7 +49,7 @@ extension SSHService {
         switch result.exitCode {
         case 0: return
         case PromptPasteScript.missingPaneExitCode: throw PromptSendError.noPane
-        case PromptPasteScript.shellOnlyExitCode: throw PromptSendError.shellOnly
+        case PromptPasteScript.notClaudeExitCode: throw PromptSendError.notClaude
         default: throw PromptSendError.tmux
         }
     }

@@ -228,41 +228,89 @@ struct PromptLibraryTests {
         #expect(try Self.sh(PromptVariables.command(projectPath: dir.path + "/no-existe")).status == PromptVariables.missingFolderExitCode)
     }
 
-    @Test(
-        "Pegar en la terminal: pega en el panel, pulsa Enter y borra el archivo; con un shell no pega",
-        .enabled(if: FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/tmux")
-            || FileManager.default.isExecutableFile(atPath: "/usr/local/bin/tmux")
-            || FileManager.default.isExecutableFile(atPath: "/usr/bin/tmux"))
-    )
-    func pasteScriptRuns() throws {
-        // Servidor tmux propio (TMUX_TMPDIR) y HOME temporal: no toca el tmux del usuario.
+    private static let hasTmux = ["/opt/homebrew/bin/tmux", "/usr/local/bin/tmux", "/usr/bin/tmux"]
+        .contains { FileManager.default.isExecutableFile(atPath: $0) }
+
+    /// Servidor tmux propio (TMUX_TMPDIR), HOME temporal y programas falsos (enlaces a
+    /// `cat` con otro nombre) en `bin/`: no toca el tmux del usuario.
+    private struct PasteLab {
         let dir = URL(fileURLWithPath: "/tmp").appendingPathComponent("argos-pp-\(UUID().uuidString.prefix(8))")
-        let outbox = dir.appendingPathComponent(PromptPasteScript.outboxDirectory)
-        try FileManager.default.createDirectory(at: outbox, withIntermediateDirectories: true)
-        let env = "export HOME='\(dir.path)' TMUX_TMPDIR='\(dir.path)' PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; "
-        defer {
-            _ = try? Self.sh(env + "tmux kill-server 2>/dev/null")
+        var env: String {
+            "export HOME='\(dir.path)' TMUX_TMPDIR='\(dir.path)' PATH=\"\(dir.path)/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"; "
+        }
+
+        func setUp() throws {
+            try FileManager.default.createDirectory(at: dir.appendingPathComponent(PromptPasteScript.outboxDirectory), withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: dir.appendingPathComponent("bin"), withIntermediateDirectories: true)
+            for name in ["claude", "node", "python3"] {
+                // Enlace, no copia: macOS mata una copia de un binario del sistema. Así
+                // además `pane_current_command` dice `cat`, como con el `claude` real
+                // (enlace a un binario con versión) en macOS: se reconoce por el argv.
+                try FileManager.default.createSymbolicLink(atPath: dir.appendingPathComponent("bin/\(name)").path, withDestinationPath: "/bin/cat")
+            }
+        }
+
+        func tearDown() {
+            _ = try? PromptLibraryTests.sh(env + "tmux kill-server 2>/dev/null")
             try? FileManager.default.removeItem(at: dir)
         }
-        let out = dir.appendingPathComponent("out.txt").path
-        #expect(try Self.sh(env + "tmux -u new-session -d -s 'proy/a' -x 80 -y 20 'cat > \(out)' && tmux -u new-session -d -s shell 'sh'").status == 0)
 
-        let path = PromptPasteScript.relativePath(token: "t1")
-        try "hola\nmundo".write(to: dir.appendingPathComponent(path), atomically: true, encoding: .utf8)
-        let sent = try Self.sh(env + PromptPasteScript.command(session: "proy/a", window: nil, relativePath: path))
-        #expect(sent.status == 0)
-        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent(path).path))
-        _ = try Self.sh("sleep 1")
-        #expect((try? String(contentsOfFile: out, encoding: .utf8)) == "hola\nmundo\n")
+        func output(_ session: String) -> String { dir.appendingPathComponent("out-\(session).txt").path }
 
-        try "rm -rf ~".write(to: dir.appendingPathComponent(path), atomically: true, encoding: .utf8)
-        let shell = try Self.sh(env + PromptPasteScript.command(session: "shell", window: nil, relativePath: path))
-        #expect(shell.status == Int32(PromptPasteScript.shellOnlyExitCode))
-        let missing = try Self.sh(env + PromptPasteScript.command(session: "no-existe", window: nil, relativePath: path))
-        #expect(missing.status == Int32(PromptPasteScript.missingPaneExitCode))
+        /// Abre `session` con `program` escribiendo lo que recibe en su archivo de salida.
+        func open(_ session: String, running program: String) throws -> Bool {
+            try PromptLibraryTests.sh(env + "tmux -u new-session -d -s \(session) -x 80 -y 20 '\(program) > \(output(session))'").status == 0
+        }
+
+        /// Deja el texto en el buzón y ejecuta el script de pegado contra `session`.
+        func send(_ text: String, to session: String) throws -> Int32 {
+            let path = PromptPasteScript.relativePath(token: "t-\(session)")
+            try text.write(to: dir.appendingPathComponent(path), atomically: true, encoding: .utf8)
+            let status = try PromptLibraryTests.sh(env + PromptPasteScript.command(session: session, window: nil, relativePath: path)).status
+            #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent(path).path), "el buzón no se borró")
+            return status
+        }
+
+        func received(_ session: String) -> String {
+            (try? String(contentsOfFile: output(session), encoding: .utf8)) ?? ""
+        }
     }
 
-    private static func sh(_ command: String) throws -> (status: Int32, output: String) {
+    @Test("Pegar en la terminal: con Claude Code pega, pulsa Enter y borra el archivo", .enabled(if: hasTmux))
+    func pasteReachesClaude() throws {
+        let lab = PasteLab()
+        try lab.setUp()
+        defer { lab.tearDown() }
+        #expect(try lab.open("cc", running: "claude"))
+        #expect(try lab.open("cc-node", running: "node - \(lab.dir.path)/lib/node_modules/@anthropic-ai/claude-code/cli.js"))
+        _ = try Self.sh("sleep 1")
+
+        #expect(try lab.send("hola\nmundo", to: "cc") == 0)
+        #expect(try lab.send("desde node", to: "cc-node") == 0)
+        _ = try Self.sh("sleep 1")
+        #expect(lab.received("cc") == "hola\nmundo\n")
+        #expect(lab.received("cc-node") == "desde node\n")
+    }
+
+    @Test(
+        "Pegar en la terminal: sin Claude Code (shell, REPL, cat) no pega nada",
+        .enabled(if: hasTmux),
+        arguments: [("shell", "sh"), ("python", "python3"), ("node-repl", "node"), ("cat", "cat")]
+    )
+    func pasteRefusesOtherPrograms(session: String, program: String) throws {
+        let lab = PasteLab()
+        try lab.setUp()
+        defer { lab.tearDown() }
+        #expect(try lab.open(session, running: program))
+        _ = try Self.sh("sleep 1")
+
+        #expect(try lab.send("echo pegado", to: session) == Int32(PromptPasteScript.notClaudeExitCode))
+        _ = try Self.sh("sleep 1")
+        #expect(lab.received(session).isEmpty)
+        #expect(try lab.send("x", to: "no-existe") == Int32(PromptPasteScript.missingPaneExitCode))
+    }
+
+    fileprivate static func sh(_ command: String) throws -> (status: Int32, output: String) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
         process.arguments = ["-c", command]
