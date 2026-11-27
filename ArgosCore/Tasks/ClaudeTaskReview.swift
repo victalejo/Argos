@@ -54,6 +54,8 @@ struct ClaudeTaskReview: Equatable, Sendable {
     /// Por qué no fue concluyente (`timeout`, `invalid`, `no-claude`, `error`).
     let cause: String?
     let findings: [Finding]
+    /// El informe no cabía en el listado: el completo está en `review.md` en el servidor.
+    var truncated = false
 
     static let maxFindings = 50
     static let maxText = 1_000
@@ -70,6 +72,10 @@ struct ClaudeTaskReview: Equatable, Sendable {
         case "timeout": return String(localized: "El revisor no respondió a tiempo.")
         case "invalid": return String(localized: "La respuesta del revisor no se pudo leer.")
         case "no-claude": return String(localized: "No se encontró claude en el servidor.")
+        case "truncated": return String(localized: "El cambio es demasiado grande: el revisor no lo vio entero y no se subió.")
+        case "held": return String(localized: "Incluye un commit que el revisor bloqueó en otro encargo: resuelve ese primero.")
+        case "empty": return String(localized: "No había cambios que revisar.")
+        case "diff": return String(localized: "No se pudo obtener el cambio para revisarlo.")
         default: return String(localized: "El revisor no pudo ejecutarse.")
         }
     }
@@ -93,12 +99,14 @@ struct ClaudeTaskReview: Equatable, Sendable {
                 message: message
             )
         }
-        return ClaudeTaskReview(
+        var review = ClaudeTaskReview(
             verdict: (object["verdict"] as? String).flatMap(Verdict.init(rawValue:)),
             summary: clip(object["summary"] as? String ?? ""),
             cause: (object["cause"] as? String).map { clip($0, to: 40) },
             findings: findings
         )
+        review.truncated = object["truncated"] as? Bool ?? false
+        return review
     }
 
     private static func clip(_ text: String, to limit: Int = maxText) -> String {

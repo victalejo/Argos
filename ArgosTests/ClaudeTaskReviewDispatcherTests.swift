@@ -29,6 +29,12 @@ struct ClaudeTaskReviewDispatcherTests {
           broken) echo '{"verdict":"approve", "findings": [ {"severity":' ;;
           prose) echo 'Me parece bien, apruebo.' ;;
           hang) exec sleep 30 ;;
+          slow) sleep 2; echo '{"verdict":"approve","summary":"","findings":[]}' ;;
+          huge)
+            m=$(printf '%0500d' 0)
+            printf '{"verdict":"block","summary":"largo","findings":['
+            i=0; while [ $i -lt 40 ]; do [ $i -gt 0 ] && printf ','; printf '{"severity":"high","message":"%s"}' "$m"; i=$((i+1)); done
+            printf ']}\n' ;;
           oldcli)
             case "$*" in *claude-sonnet-5-5*) echo "error: unknown model" >&2; exit 1 ;; esac
             echo '{"verdict":"approve","summary":"","findings":[]}' ;;
@@ -112,10 +118,35 @@ struct ClaudeTaskReviewDispatcherTests {
             try enqueue("aaa", request: request)
         }
 
-        /// Claude «trabaja» (cambia un archivo) y su hook Stop termina el encargo.
-        func finish(agent: String = ClaudeTaskReviewDispatcherTests.agentID, file: String = "b.txt") throws {
-            try sh("echo dos >> \"$HOME/work/\(file)\"")
+        /// Claude «trabaja» (cambia un archivo, si se dice) y su hook Stop termina el encargo.
+        func finish(agent: String = ClaudeTaskReviewDispatcherTests.agentID, file: String? = "b.txt") throws {
+            if let file { try sh("echo dos >> \"$HOME/work/\(file)\"") }
             try dispatch("stop ''", input: #"{"session_id":"\#(agent)","hook_event_name":"Stop"}"#)
+        }
+
+        /// Un encargo hecho a mano en la cola (estado y archivos que dejaría el despachador).
+        func craft(_ folder: String, meta: String, state: String, reason: String? = nil, files: [String: String] = [:]) throws {
+            let dir = tasks.appendingPathComponent("proyecto/\(folder)", isDirectory: true)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            var all = files
+            all["meta"] = meta
+            all["state"] = state + "\n"
+            all["prompt"] = all["prompt"] ?? "Encargo hecho a mano"
+            if let reason { all["reason"] = reason + "\n" }
+            for (name, text) in all {
+                try text.write(to: dir.appendingPathComponent(name), atomically: true, encoding: .utf8)
+            }
+        }
+
+        /// Commit nuevo en `work` (lo que haría otro encargo) y su SHA.
+        @discardableResult
+        func commitOther(_ file: String = "otro.txt") throws -> String {
+            try sh("cd \"$HOME/work\" && echo otro >> \(file) && git add -A && git commit -q -m otro")
+            return workHead
+        }
+
+        func reviewedSHA(_ folder: String = "000001-aaa") -> String {
+            file(".config/argos/tasks/proyecto/\(folder)/review.head").split(separator: "\n").first.map(String.init) ?? ""
         }
 
         func list() throws -> [ClaudeTask] { ClaudeTask.parse(listOutput: try sh(ClaudeTaskScript.listCommand)) }
@@ -248,13 +279,203 @@ struct ClaudeTaskReviewDispatcherTests {
         #expect(args.contains("--disallowedTools Bash,Edit,Write"))
     }
 
-    @Test func unDiffEnormeSeRecortaYSeDice() throws {
+    @Test func unDiffRecortadoSeDiceYAunqueApruebeNoSube() throws {
         let box = try Box(mode: "approve", extraEnv: ["ARGOS_REVIEW_MAX_DIFF": "40"])
         defer { box.close() }
+        let before = box.remoteMain
         try box.enqueueTask()
         try box.finish()
         try box.waitForReview()
         #expect(box.file("claude-stdin").contains("RECORTADO"))
+        #expect(box.remoteMain == before, "aprobado sin ver todo el cambio: decide el usuario")
+        let task = try #require(try box.task())
+        #expect(task.reason == .reviewInconclusive && task.review?.cause == "truncated")
+    }
+
+    // MARK: - Lo que se sube es exactamente lo revisado
+
+    @Test func subeElCommitRevisadoAunqueLaRamaAvanceDuranteLaRevision() throws {
+        let box = try Box(mode: "slow")
+        defer { box.close() }
+        try box.enqueueTask()
+        try box.finish()
+        box.wait { (try? box.task()?.reason) == .reviewing && !box.file("claude-args").isEmpty }
+        let reviewed = box.reviewedSHA()
+        #expect(!reviewed.isEmpty)
+        let other = try box.commitOther()
+        box.wait(seconds: 15) { box.remoteMain == reviewed }
+        #expect(box.remoteMain == reviewed, "sube el commit revisado")
+        #expect(box.remoteMain != other, "nunca lo que llegó después sin revisar")
+        #expect(!box.file("claude-stdin").contains("otro.txt"))
+    }
+
+    @Test func subirIgualmenteSubeSoloElCommitRevisado() throws {
+        let box = try Box(mode: "block")
+        defer { box.close() }
+        try box.enqueueTask()
+        try box.finish()
+        try box.waitForReview()
+        let reviewed = box.reviewedSHA()
+        try box.commitOther()
+        try box.dispatch("push-anyway proyecto 000001-aaa")
+        box.wait { box.remoteMain == reviewed }
+        #expect(box.remoteMain == reviewed && box.remoteMain != box.workHead)
+    }
+
+    // MARK: - Lo bloqueado no se cuela por otro encargo
+
+    private static func terminalMeta(push: Bool, title: String = "T") -> String {
+        var request = ClaudeTaskRequest(prompt: title, session: "proj", window: 0)
+        request.commit = true
+        request.push = push
+        return request.metaText(directory: "/no-existe")
+    }
+
+    @Test func laVentanaEsperaMientrasElRevisorTieneBloqueadoUnoAnterior() throws {
+        let box = try Box(mode: "approve")
+        defer { box.close() }
+        try box.craft("000001-aaa", meta: Self.terminalMeta(push: true), state: "paused", reason: "review",
+                      files: ["review.head": "\(box.workHead)\norigin\nrefs/heads/main\n"])
+        let incoming = box.tasks.appendingPathComponent("incoming")
+        try "B".write(to: incoming.appendingPathComponent("bbb.prompt"), atomically: true, encoding: .utf8)
+        try Self.terminalMeta(push: true).write(to: incoming.appendingPathComponent("bbb.meta"), atomically: true, encoding: .utf8)
+        try box.dispatch("enqueue proyecto bbb")
+        #expect(try box.task(1)?.state == .pending)
+        #expect(try box.task(1)?.reason == .reviewWait, "no se lanza encima del commit bloqueado")
+
+        // Uno sin push sí puede seguir (no sube nada); aquí falla por no haber tmux.
+        try box.craft("000002-bbb", meta: Self.terminalMeta(push: false), state: "pending")
+        try box.dispatch("tick")
+        #expect(try box.task(1)?.reason == .noPane)
+
+        // Resuelto el bloqueado, el siguiente ya no espera.
+        try box.dispatch("cancel proyecto 000001-aaa")
+        try box.craft("000002-bbb", meta: Self.terminalMeta(push: true), state: "pending")
+        try box.dispatch("tick")
+        #expect(try box.task(1)?.reason == .noPane)
+    }
+
+    @Test func unCambioQueContieneUnCommitBloqueadoNoSeRevisaNiSeSube() throws {
+        let box = try Box(mode: "approve")
+        defer { box.close() }
+        let blocked = try box.commitOther("bloqueado.txt")
+        try box.craft("000001-aaa", meta: Self.terminalMeta(push: true), state: "paused", reason: "review",
+                      files: ["review.head": "\(blocked)\norigin\nrefs/heads/main\n"])
+        let before = box.remoteMain
+        var request = ClaudeTaskRequest(prompt: "Otro encargo encima", session: "proj", window: 0)
+        request.target = .agent(id: Self.agentID, worktree: box.work.path, branch: "argos/encargo-x")
+        request.commit = true
+        request.push = true
+        try box.enqueue("ccc", request: request)
+        try box.finish()
+        box.wait { (try? box.task(1)?.state) == .paused }
+        let task = try #require(try box.task(1))
+        #expect(task.reason == .reviewInconclusive && task.review?.cause == "held")
+        #expect(box.file("claude-args").isEmpty, "ni se le pregunta al revisor")
+        #expect(box.remoteMain == before)
+
+        // Tampoco «Subir igualmente»: colaría el bloqueado.
+        try box.dispatch("push-anyway proyecto \(task.folder)")
+        Thread.sleep(forTimeInterval: 0.5)
+        #expect(box.remoteMain == before)
+        #expect(try box.task(1)?.state == .paused)
+    }
+
+    // MARK: - Compatibilidad, diff y arreglos
+
+    @Test func elMetaNuevoNoSubeConUnDespachadorViejoYElViejoPushSigueRevisandose() throws {
+        var request = ClaudeTaskRequest(prompt: "x", session: "s", window: 0)
+        request.push = true
+        let meta = request.metaText(directory: "/d").split(separator: "\n").map(String.init)
+        #expect(meta.contains("push=0") && meta.contains("review_push=1"), "un despachador viejo solo mira push=1")
+        #expect(ClaudeTask.parse(listOutput: "@@task -p/000001-a\nmeta push=0\nmeta review_push=1\n")[0].push)
+
+        // Un `push=1` de antes (encargo o plantilla) también pasa por el revisor.
+        let box = try Box(mode: "block")
+        defer { box.close() }
+        let before = box.remoteMain
+        var legacy = ClaudeTaskRequest(prompt: "Antiguo", session: "proj", window: 0)
+        legacy.target = .agent(id: Self.agentID, worktree: box.work.path, branch: "argos/encargo-x")
+        legacy.commit = true
+        let incoming = box.tasks.appendingPathComponent("incoming")
+        try "Antiguo".write(to: incoming.appendingPathComponent("aaa.prompt"), atomically: true, encoding: .utf8)
+        try legacy.metaText(directory: box.work.path).replacingOccurrences(of: "push=0", with: "push=1")
+            .write(to: incoming.appendingPathComponent("aaa.meta"), atomically: true, encoding: .utf8)
+        try "read -r token\n".write(to: incoming.appendingPathComponent("aaa.launch.sh"), atomically: true, encoding: .utf8)
+        try "true\n".write(to: incoming.appendingPathComponent("aaa.send.sh"), atomically: true, encoding: .utf8)
+        try box.dispatch("enqueue proyecto aaa")
+        try box.finish()
+        try box.waitForReview()
+        #expect(try box.task()?.reason == .review)
+        #expect(box.remoteMain == before)
+    }
+
+    @Test func gitattributesNoEscondeElContenido() throws {
+        let box = try Box(mode: "approve")
+        defer { box.close() }
+        try box.enqueueTask()
+        try box.sh("cd \"$HOME/work\" && echo 'secreto.txt -diff' > .gitattributes && echo TOKEN_DE_PRUEBA > secreto.txt")
+        try box.finish(file: nil)
+        try box.waitForReview()
+        #expect(box.file("claude-stdin").contains("TOKEN_DE_PRUEBA"))
+    }
+
+    @Test func unArregloSinCambiosSubeElCommitQueQuedoPendiente() throws {
+        let box = try Box(mode: "block")
+        defer { box.close() }
+        try box.enqueueTask()
+        try box.finish()
+        try box.waitForReview()
+        let blocked = try #require(try box.task())
+        let pending = box.workHead
+        var fix = try #require(ClaudeTaskReviewFix.request(for: blocked, permissionMode: .default))
+        guard case .agent(let fixAgent, _, _) = fix.target else { Issue.record("no es agente"); return }
+        fix.taskID = "bbb"
+        try box.enqueue("bbb", request: fix)
+        try box.sh("printf approve > \"$HOME/claude-mode\"")
+        try box.finish(agent: fixAgent, file: nil)
+        box.wait(seconds: 15) { box.remoteMain == pending }
+        #expect(box.remoteMain == pending, "revisado de nuevo y subido")
+    }
+
+    @Test func unDiffVacioNoCuentaComoAprobado() throws {
+        let box = try Box(mode: "approve")
+        defer { box.close() }
+        var request = ClaudeTaskRequest(prompt: "Arreglo sin nada", session: "proj", window: 0)
+        request.target = .agent(id: Self.agentID, worktree: box.work.path, branch: "argos/encargo-x")
+        request.commit = true
+        request.push = true
+        request.extraMeta["fixes"] = "000009-zzz"
+        try box.enqueue("aaa", request: request)
+        try box.finish(file: nil)
+        box.wait { (try? box.task()?.state) == .paused }
+        #expect(try box.task()?.review?.cause == "empty")
+        #expect(box.file("claude-args").isEmpty)
+    }
+
+    @Test func unaRevisionColgadaPasaANoConcluyenteEnElTick() throws {
+        let box = try Box(mode: "approve")
+        defer { box.close() }
+        try box.craft("000001-aaa", meta: Self.terminalMeta(push: true), state: "done", reason: "reviewing",
+                      files: ["review.started": "1 5\n"])
+        try box.craft("000002-bbb", meta: Self.terminalMeta(push: true), state: "done", reason: "reviewing",
+                      files: ["review.started": "\(Int(Date().timeIntervalSince1970)) 600\n"])
+        try box.dispatch("tick")
+        #expect(try box.task()?.reason == .reviewInconclusive)
+        #expect(try box.task()?.review?.cause == "timeout")
+        #expect(try box.task(1)?.reason == .reviewing, "la que sigue en plazo no se toca")
+    }
+
+    @Test func unInformeEnormeSeGuardaReducidoYElListadoNoLlegaRoto() throws {
+        let box = try Box(mode: "huge")
+        defer { box.close() }
+        try box.enqueueTask()
+        try box.finish()
+        try box.waitForReview()
+        let task = try #require(try box.task())
+        #expect(task.reason == .review)
+        #expect(task.review?.truncated == true && task.review?.verdict == .block)
+        #expect(box.file(".config/argos/tasks/proyecto/000001-aaa/review.md").count > ClaudeTaskReviewScript.maxReportBytes)
     }
 
     @Test func sinPushNoSeRevisa() throws {

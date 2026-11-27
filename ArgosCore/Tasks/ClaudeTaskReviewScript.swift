@@ -8,11 +8,17 @@
 //  herramientas de lectura. Se le da el diff completo del encargo (base..HEAD, recortado si
 //  es enorme) y el prompt original, y debe responder un JSON con veredicto y hallazgos.
 //
-//  - Aprobado (y sin hallazgos high/critical): push como siempre.
+//  - Aprobado (y sin hallazgos high/critical): se sube EXACTAMENTE el commit revisado
+//    (`review.head`), nunca lo que haya en la rama después.
 //  - Bloqueado: no hay push, el commit queda en su rama, el encargo pasa a `paused` con
 //    motivo `review` e informe en `review.json` (y la respuesta tal cual en `review.md`).
-//  - JSON roto, plazo vencido o `claude` que no arranca: `paused` con `review-inconclusive`
-//    (nunca cuenta como aprobado).
+//  - No concluyente (`review-inconclusive`, nunca cuenta como aprobado): JSON roto, plazo
+//    vencido, `claude` o `git diff` que fallan, diff vacío o recortado, o un cambio que
+//    contiene el commit que el revisor bloqueó en otro encargo.
+//
+//  Para que un despachador viejo (de una app publicada que lo reinstala) nunca suba sin
+//  revisar, la app escribe `push=0` y `review_push=1`: solo este despachador sube, y solo
+//  tras revisar (también los `push=1` de encargos y plantillas anteriores).
 //
 //  La app ofrece «Subir igualmente» (`dispatch.sh push-anyway`) y «Pedir a Claude que lo
 //  arregle» (un encargo nuevo con `fixes=<encargo>` en la misma rama, que vuelve a pasar por
@@ -32,6 +38,9 @@ enum ClaudeTaskReviewScript {
     static let maxDiffBytes = 150_000
     /// Bytes del informe que viajan en el listado de encargos.
     static let maxListedReportBytes = 12_288
+    /// Bytes de `review.json` como máximo: por debajo de lo que lista la app, para que
+    /// nunca le llegue cortado (si no cabe, se guarda uno reducido con `truncated`).
+    static let maxReportBytes = 12_000
 
     /// Instrucciones del revisor (van a Claude: no se traducen).
     static let instructions = """
@@ -56,11 +65,12 @@ enum ClaudeTaskReviewScript {
         Responde SOLO con un objeto JSON, sin texto antes ni después y sin bloque de código, \
         con esta forma:
         {"verdict":"approve|block","summary":"una frase","findings":[{"severity":"low|medium|high|critical","category":"security|secrets|destructive|data|logic|tests|scope|other","file":"ruta","line":12,"message":"qué pasa y por qué"}]}
-        Escribe summary y message en español. Si no hay hallazgos, "findings":[].
+        Escribe summary y message en español. Si no hay hallazgos, "findings":[]. Como mucho \
+        20 hallazgos (los más graves) y cada message en menos de 300 caracteres.
         """
 
     /// Funciones del despachador (se insertan en `ClaudeTaskScript.script`). Usan `meta`,
-    /// `put` y `state` del propio despachador.
+    /// `put`, `state` y `lock` del propio despachador.
     static let functions = #"""
         # --- Revisor automático antes del push (ver ClaudeTaskReviewScript.swift) ---
         review_claude() {
@@ -70,6 +80,16 @@ enum ClaudeTaskReviewScript {
             case "$c" in /*) [ -x "$c" ] && { printf '%s\n' "$c"; return 0; } ;; esac
           done
           return 1
+        }
+
+        # El encargo sube (tras revisar): `review_push=1` de la app nueva o `push=1` de antes.
+        wants_push() { [ "$(meta "$1" review_push)" = 1 ] || [ "$(meta "$1" push)" = 1 ]; }
+
+        # En segundo plano y fuera del grupo del hook o del canal SSH que lo lanza.
+        detach() {
+          if command -v setsid >/dev/null 2>&1; then setsid "$@" </dev/null >/dev/null 2>&1 &
+          else nohup "$@" </dev/null >/dev/null 2>&1 &
+          fi
         }
 
         # Corre el resto con plazo $1 (s), stdin de $2 y salida en $3. Vencido: 124.
@@ -106,24 +126,94 @@ enum ClaudeTaskReviewScript {
             }' "$1"
         }
 
-        # Revisión no concluyente ($2: timeout | invalid | no-claude | error): bloquea.
+        # Guarda el informe $2 (veredicto final $3): si no cabe en el listado, uno reducido.
+        review_save() {
+          if [ "$(printf '%s\n' "$2" | wc -c | tr -d ' ')" -le \#(maxReportBytes) ]; then
+            printf '%s\n' "$2" > "$1/review.json"
+          else
+            printf '{"verdict":"%s","summary":"","findings":[],"truncated":true}\n' "$3" > "$1/review.json"
+          fi
+        }
+
+        # Revisión no concluyente ($2: timeout | invalid | no-claude | error | empty | truncated
+        # | held | diff): bloquea.
         review_fail() {
           printf '{"verdict":"inconclusive","cause":"%s","summary":"","findings":[]}\n' "$2" > "$1/review.json"
           put "$1" reason review-inconclusive; put "$1" state paused
         }
 
+        # ¿Lo bloqueó el revisor? (pausado con motivo de revisión)
+        review_blocked() {
+          [ "$(state "$1")" = paused ] || return 1
+          case "$(cat "$1/reason" 2>/dev/null)" in review|review-inconclusive) return 0 ;; esac
+          return 1
+        }
+
+        # Commit que se revisó (y es lo único que se sube).
+        review_sha() {
+          rs=$(head -n 1 "$1/review.head" 2>/dev/null)
+          case "$rs" in ''|*[!0-9a-f]*) return 1 ;; esac
+          printf '%s\n' "$rs"
+        }
+
+        # ¿El commit $3 (en la carpeta $2) contiene uno que el revisor bloqueó en otro encargo
+        # del proyecto de $1 y sigue sin resolver? Subirlo lo colaría sin revisar.
+        review_held() {
+          for rh in "${1%/*}"/[0-9]*-*; do
+            [ "$rh" = "$1" ] && continue
+            review_blocked "$rh" || continue
+            rhs=$(review_sha "$rh") || continue
+            git -C "$2" merge-base --is-ancestor "$rhs" "$3" 2>/dev/null && return 0
+          done
+          return 1
+        }
+
+        # ¿Hay un encargo de terminal de la misma ventana que $2 revisándose o bloqueado? El
+        # siguiente con push trabajaría sobre su commit: espera a que se resuelva.
+        review_barrier() {
+          [ "$(meta "$2" target)" = agent ] && return 1
+          wants_push "$2" || return 1
+          for rb in "$1"/[0-9]*-*; do
+            [ "$rb" = "$2" ] && continue
+            [ "$(meta "$rb" target)" = agent ] && continue
+            [ "$(meta "$rb" session)" = "$(meta "$2" session)" ] && [ "$(meta "$rb" window)" = "$(meta "$2" window)" ] || continue
+            review_blocked "$rb" && return 0
+            [ "$(state "$rb")" = done ] && [ "$(cat "$rb/reason" 2>/dev/null)" = reviewing ] && return 0
+          done
+          return 1
+        }
+
         # Revisa el encargo $1 (carpeta $2; $3 = HEAD antes del commit). 0 = se puede subir.
         review_task() {
           t=$1; dir=$2
-          if [ "$(meta "$t" target)" = agent ]; then up=origin/main; else up='@{u}'; fi
-          rb=$(git -C "$dir" merge-base HEAD "$up" 2>/dev/null) || rb=$3
-          [ -n "$rb" ] || rb=4b825dc642cb6eb9a060e54bf8d69288fbee4904
-          rm -f "$t/review.json" "$t/review.md" "$t/review.out" "$t/review.out.err" "$t/review.out.expired"
+          rm -f "$t/review.json" "$t/review.md" "$t/review.out" "$t/review.out.err" "$t/review.out.expired" "$t/review.head"
+          printf '%s %s\n' "$(date +%s)" "${ARGOS_REVIEW_SECONDS:-\#(timeoutSeconds)}" > "$t/review.started"
           put "$t" reason reviewing
           max=${ARGOS_REVIEW_MAX_DIFF:-\#(maxDiffBytes)}; secs=${ARGOS_REVIEW_SECONDS:-\#(timeoutSeconds)}
           case "$max$secs" in *[!0-9]*) max=\#(maxDiffBytes); secs=\#(timeoutSeconds) ;; esac
-          git -C "$dir" diff "$rb" HEAD > "$t/review.diff" 2>/dev/null
+          head=$(git -C "$dir" rev-parse -q --verify HEAD 2>/dev/null)
+          case "$head" in ''|*[!0-9a-f]*) review_fail "$t" error; return 1 ;; esac
+          # Destino del push, fijado ahora: en agente, main del remoto; en la terminal, la
+          # rama remota de la rama actual.
+          if [ "$(meta "$t" target)" = agent ]; then
+            remote=origin; ref=refs/heads/main; up=origin/main
+          else
+            br=$(git -C "$dir" symbolic-ref -q --short HEAD 2>/dev/null)
+            remote=$(git -C "$dir" config "branch.$br.remote" 2>/dev/null)
+            ref=$(git -C "$dir" config "branch.$br.merge" 2>/dev/null); up='@{u}'
+          fi
+          printf '%s\n%s\n%s\n' "$head" "$remote" "$ref" > "$t/review.head" || { review_fail "$t" error; return 1; }
+          if review_held "$t" "$dir" "$head"; then review_fail "$t" held; return 1; fi
+          rb=$(git -C "$dir" merge-base "$head" "$up" 2>/dev/null) || rb=$3
+          [ -n "$rb" ] || rb=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+          # Texto siempre (un .gitattributes con -diff no esconde nada) y sin conversores.
+          if ! git -C "$dir" diff --text --no-ext-diff --no-textconv "$rb" "$head" > "$t/review.diff" 2>/dev/null; then
+            rm -f "$t/review.diff"; review_fail "$t" diff; return 1
+          fi
           size=$(wc -c < "$t/review.diff" | tr -d ' ')
+          case "$size" in ''|*[!0-9]*) size=0 ;; esac
+          [ "$size" -gt 0 ] || { rm -f "$t/review.diff"; review_fail "$t" empty; return 1; }
+          cut=0; [ "$size" -gt "$max" ] && cut=1
           {
             cat <<'ARGOS_REVIEW_EOF'
         \#(instructions)
@@ -133,15 +223,16 @@ enum ClaudeTaskReviewScript {
               cat "$t/prompt.original"; printf '\n\n## Encargo de arreglo (sobre el anterior)\n\n'
             fi
             cat "$t/prompt"
-            printf '\n\n## Archivos cambiados\n\n'; git -C "$dir" diff --stat "$rb" HEAD 2>/dev/null
-            if [ "$size" -gt "$max" ]; then
+            printf '\n\n## Archivos cambiados\n\n'; git -C "$dir" diff --stat --text --no-ext-diff --no-textconv "$rb" "$head" 2>/dev/null
+            if [ "$cut" = 1 ]; then
               printf '\n## Diff (RECORTADO: solo los primeros %s de %s bytes; el resto no se ve, lee los archivos si hace falta)\n\n' "$max" "$size"
             else
               printf '\n## Diff\n\n'
             fi
             head -c "$max" "$t/review.diff"
-          } > "$t/review.in"
+          } > "$t/review.in" || { rm -f "$t/review.diff"; review_fail "$t" error; return 1; }
           rm -f "$t/review.diff"
+          [ -s "$t/review.in" ] || { review_fail "$t" error; return 1; }
           c=$(review_claude "$t") || { review_fail "$t" no-claude; return 1; }
           # Contexto limpio y solo lectura: sin sesión guardada, sin herramientas que escriban
           # ni ejecuten y sin los marcadores de tmux del Claude que lo llamó.
@@ -161,33 +252,41 @@ enum ClaudeTaskReviewScript {
           head -c 65536 "$t/review.out" > "$t/review.md"
           j=$(review_json "$t/review.out") || { review_fail "$t" invalid; return 1; }
           printf '%s\n' "$j" | grep -q '"findings"[[:space:]]*:[[:space:]]*\[' || { review_fail "$t" invalid; return 1; }
-          printf '%s\n' "$j" > "$t/review.json"
           if printf '%s\n' "$j" | grep -Eq '"verdict"[[:space:]]*:[[:space:]]*"block"|"severity"[[:space:]]*:[[:space:]]*"(high|critical|HIGH|CRITICAL|High|Critical)"'; then
-            put "$t" reason review; put "$t" state paused; return 1
+            review_save "$t" "$j" block; put "$t" reason review; put "$t" state paused; return 1
           fi
           printf '%s\n' "$j" | grep -q '"verdict"[[:space:]]*:[[:space:]]*"approve"' || { review_fail "$t" invalid; return 1; }
+          # Aprobado sin ver todo el cambio: no se sube sin que el usuario lo decida.
+          [ "$cut" = 1 ] && { review_fail "$t" truncated; return 1; }
+          review_save "$t" "$j" approve
           rm -f "$t/reason"
           return 0
         }
 
-        # Push del encargo $1: desde un worktree se sube su rama como main del remoto
-        # (fast-forward); en la terminal, el push normal. Nunca pide credenciales.
+        # Push del commit revisado del encargo $1 (`review.head`), nunca el HEAD de ahora:
+        # sin forzar, así que falla si no es fast-forward. Nunca pide credenciales.
         push_task() {
-          dir=$(meta "$1" dir); [ -d "$dir" ] || { put "$1" reason push; return 0; }
-          if [ "$(meta "$1" target)" = agent ]; then
-            GIT_TERMINAL_PROMPT=0 git -C "$dir" push -q origin HEAD:main >/dev/null 2>&1 || { put "$1" reason push; return 0; }
-          else
-            GIT_TERMINAL_PROMPT=0 git -C "$dir" push -q >/dev/null 2>&1 || { put "$1" reason push; return 0; }
-          fi
+          dir=$(meta "$1" dir)
+          sha=$(review_sha "$1") || { put "$1" reason push; return 0; }
+          remote=$(sed -n 2p "$1/review.head" 2>/dev/null); ref=$(sed -n 3p "$1/review.head" 2>/dev/null)
+          case "$remote" in ''|-*|*[!A-Za-z0-9._-]*) put "$1" reason push; return 0 ;; esac
+          case "$ref" in refs/heads/?*) ;; *) put "$1" reason push; return 0 ;; esac
+          case "$ref" in *[!A-Za-z0-9._/-]*|*..*) put "$1" reason push; return 0 ;; esac
+          [ -d "$dir" ] || { put "$1" reason push; return 0; }
+          GIT_TERMINAL_PROMPT=0 git -C "$dir" push -q "$remote" "$sha:$ref" >/dev/null 2>&1 || { put "$1" reason push; return 0; }
           rm -f "$1/reason"
           return 0
         }
 
-        # ¿Lo bloqueó el revisor? (pausado con motivo de revisión)
-        review_blocked() {
-          [ "$(state "$1")" = paused ] || return 1
-          case "$(cat "$1/reason" 2>/dev/null)" in review|review-inconclusive) return 0 ;; esac
-          return 1
+        # Revisiones que se quedaron colgadas (murió el proceso): pasan a no concluyentes.
+        review_expire() {
+          for t in "$base"/*/[0-9]*-*; do
+            [ -d "$t" ] && [ "$(state "$t")" = done ] && [ "$(cat "$t/reason" 2>/dev/null)" = reviewing ] || continue
+            rst=; rsecs=; read -r rst rsecs < "$t/review.started" 2>/dev/null
+            case "$rst$rsecs" in ''|*[!0-9]*) rst=0; rsecs=\#(timeoutSeconds) ;; esac
+            [ $(( $(date +%s) - rst )) -gt $(( rsecs * 2 + 120 )) ] && review_fail "$t" timeout
+          done
+          return 0
         }
         """#
 

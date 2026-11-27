@@ -41,6 +41,10 @@ struct ClaudeTaskReviewView: View {
         if let cause = task.review?.causeText ?? (task.review == nil ? defaultCause : nil) {
             Text(cause).font(.callout).fixedSize(horizontal: false, vertical: true)
         }
+        if task.review?.truncated == true {
+            Text("El informe es demasiado largo para la app: está completo en review.md, en la carpeta del encargo en el servidor.")
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
         if let summary = task.review?.summary, !summary.isEmpty {
             Text(summary).font(.callout).fixedSize(horizontal: false, vertical: true)
         }

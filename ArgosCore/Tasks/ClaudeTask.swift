@@ -56,6 +56,8 @@ enum ClaudeTaskReason: String, Equatable, Sendable {
     case reviewFixing = "review-fixing"
     /// «Subir igualmente»: el push está en marcha.
     case pushing
+    /// Espera: el revisor tiene bloqueado (o revisando) un encargo anterior de esa ventana.
+    case reviewWait = "review-wait"
 
     var text: String {
         switch self {
@@ -76,6 +78,7 @@ enum ClaudeTaskReason: String, Equatable, Sendable {
         case .reviewInconclusive: return String(localized: "La revisión automática no fue concluyente: no se subió (el commit queda en su rama).")
         case .reviewFixing: return String(localized: "El revisor lo bloqueó y se pidió a Claude que lo arregle en otro encargo.")
         case .pushing: return String(localized: "Subiendo (push) sin la aprobación del revisor…")
+        case .reviewWait: return String(localized: "Espera: el revisor tiene bloqueado un encargo anterior de esta ventana. Resuélvelo y empezará solo.")
         }
     }
 }
@@ -174,7 +177,7 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
                 isAgent: meta["target"] == "agent",
                 branch: meta["branch"].map { String($0.prefix(200)) }
             )
-            task.push = meta["push"] == "1"
+            task.push = meta["push"] == "1" || meta["review_push"] == "1"
             task.directory = meta["dir"].map { String($0.prefix(1024)) }
             task.session = meta["session"].map { String($0.prefix(200)) }
             task.checkCommand = meta["check"].map { String($0.prefix(1024)) }.flatMap { $0.isEmpty ? nil : $0 }
@@ -243,7 +246,10 @@ struct ClaudeTaskRequest: Equatable, Sendable {
         case .agent(let id, let worktree, let branch):
             lines += ["target=agent", "agent=\(clean(id))", "branch=\(clean(branch))", "dir=\(clean(worktree))"]
         }
-        lines += ["commit=\(commit ? 1 : 0)", "push=\(push ? 1 : 0)"]
+        // `push=0` siempre: un despachador viejo (que reinstala una app publicada) no sube
+        // nada; el nuevo sube con `review_push=1`, y solo tras el revisor automático.
+        lines += ["commit=\(commit ? 1 : 0)", "push=0"]
+        if push { lines.append("review_push=1") }
         if let reference { lines.append("ref=\(clean(reference))") }
         for key in extraMeta.keys.sorted() where !key.isEmpty && key.allSatisfy({ $0.isLetter || $0 == "_" }) {
             lines.append("\(key)=\(clean(extraMeta[key] ?? ""))")

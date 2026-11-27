@@ -30,7 +30,7 @@ struct ClaudeScheduleScriptsTests {
         #expect(files.meta.contains("@@NOW@@") && files.meta.contains("app-prog-abc12345-@@RUN@@"))
         #expect(files.send.contains(sentinel) && files.stop.contains(sentinel))
         #expect(files.task.contains("source=schedule\n") && files.task.contains("title=Tests de la noche\n"))
-        #expect(files.task.contains("push=1\n") && files.task.contains("check=npm test\n") && files.task.contains("max_minutes=45\n"))
+        #expect(files.task.contains("push=0\n") && files.task.contains("review_push=1\n") && files.task.contains("check=npm test\n") && files.task.contains("max_minutes=45\n"))
         #expect(files.task.contains("branch=argos/prog-abc12345-@@RUN@@\n"))
         #expect(files.config.contains("days=1,2,3,4,5\n") && files.config.contains("time=03:00\n"))
     }

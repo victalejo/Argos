@@ -150,7 +150,9 @@ enum ClaudeTaskScript {
             if t=$(first_in "$p" paused) && [ "$(cat "$t/reason" 2>/dev/null)" = limit ] && ! blocked >/dev/null; then
               put "$t" state pending
             fi
-            if t=$(first_in "$p" pending); then launch "$p" "$t" "$2"; fi
+            if t=$(first_in "$p" pending); then
+              if review_barrier "$p" "$t"; then put "$t" reason review-wait; else launch "$p" "$t" "$2"; fi
+            fi
           fi
           unlock "$p"
         }
@@ -175,13 +177,18 @@ enum ClaudeTaskScript {
         commit_task() {
           dir=$(meta "$1" dir); [ -d "$dir" ] || return 0
           git -C "$dir" add -A 2>/dev/null
-          git -C "$dir" diff --cached --quiet 2>/dev/null && return 0
           pre=$(git -C "$dir" rev-parse -q --verify HEAD 2>/dev/null)
-          git -C "$dir" commit -q -m "$(meta "$1" title)" -m "Encargo de Argos." >/dev/null 2>&1 || { put "$1" reason "commit"; return 0; }
-          [ "$(meta "$1" push)" = 1 ] || return 0
-          # Push a main solo si pasa la comprobación (si la hay) y el revisor lo aprueba.
-          # Desde un worktree se sube su rama como main del remoto (fast-forward): nunca
-          # toca el checkout del usuario.
+          if git -C "$dir" diff --cached --quiet 2>/dev/null; then
+            # Sin cambios: nada que hacer, salvo un arreglo de lo que bloqueó el revisor (su
+            # rama ya tiene el commit pendiente de subir).
+            [ -n "$(meta "$1" fixes)" ] || return 0
+          else
+            git -C "$dir" commit -q -m "$(meta "$1" title)" -m "Encargo de Argos." >/dev/null 2>&1 || { put "$1" reason "commit"; return 0; }
+          fi
+          wants_push "$1" || return 0
+          # Push a main solo si pasa la comprobación (si la hay) y el revisor lo aprueba, y
+          # solo del commit revisado. Desde un worktree se sube su rama como main del remoto
+          # (fast-forward): nunca toca el checkout del usuario.
           check=$(meta "$1" check)
           if [ -n "$check" ] && ! (cd "$dir" && sh -c "$check") >"$1/check.log" 2>&1; then put "$1" reason "check"; return 0; fi
           review_task "$1" "$dir" "$pre" || return 0
@@ -251,6 +258,7 @@ enum ClaudeTaskScript {
         case "$1" in
           tick)
             expire
+            review_expire
             for s in "$base"/schedules/*/; do
               s=${s%/}; [ -f "$s/config" ] || continue
               due "$s" && spawn "$s"
@@ -278,7 +286,9 @@ enum ClaudeTaskScript {
             if [ "$1" = stop ]; then
               put "$t" finished "$(date +%s)"; put "$t" state done
               if [ "$(meta "$t" commit)" = 1 ]; then
-                (commit_task "$t"; sh "$self" next "${p##*/}") >/dev/null 2>&1 &
+                # Fuera del hook (puede tardar lo que la revisión): si muere, `tick` la da
+                # por vencida.
+                detach sh "$self" finish "${p##*/}" "${t##*/}"
               else
                 (sleep 2; sh "$self" next "${p##*/}") >/dev/null 2>&1 &
               fi
@@ -329,11 +339,25 @@ enum ClaudeTaskScript {
             t="$base/$2/$3"; [ -d "$t" ] || exit 0
             lock "$base/$2" || exit 0
             ok=0
-            if review_blocked "$t"; then
+            # Solo el commit revisado, y nunca si contiene otro que el revisor bloqueó.
+            if review_blocked "$t" && sha=$(review_sha "$t") && ! review_held "$t" "$(meta "$t" dir)" "$sha"; then
               ok=1; date +%s > "$t/pushed_anyway"; put "$t" reason pushing; put "$t" state done
             fi
             unlock "$base/$2"
-            [ "$ok" = 1 ] && { push_task "$t" </dev/null >/dev/null 2>&1 & }
+            [ "$ok" = 1 ] && detach sh "$self" push-reviewed "$2" "$3"
+            ;;
+          push-reviewed)
+            # Interno (push-anyway): el push en segundo plano.
+            case "$2$3" in *[!A-Za-z0-9_-]*|'') exit 0 ;; esac
+            t="$base/$2/$3"
+            [ -d "$t" ] && [ "$(cat "$t/reason" 2>/dev/null)" = pushing ] && push_task "$t"
+            ;;
+          finish)
+            # Interno (hook Stop): commit, comprobación, revisión y push; luego el siguiente.
+            case "$2$3" in *[!A-Za-z0-9_-]*|'') exit 0 ;; esac
+            t="$base/$2/$3"; [ -d "$t" ] || exit 0
+            commit_task "$t"
+            advance "$base/$2" 1
             ;;
           cancel|retry)
             case "$2$3" in *[!A-Za-z0-9_-]*|'') exit 0 ;; esac

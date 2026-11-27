@@ -10825,6 +10825,22 @@
         }
       }
     },
+    "El cambio es demasiado grande: el revisor no lo vio entero y no se subió." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The change is too large: the reviewer couldn't see all of it, so it wasn't pushed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El cambio es demasiado grande: el revisor no lo vio entero y no se subió."
+          }
+        }
+      }
+    },
     "El clonado terminó pero no se encontró la carpeta." : {
       "localizations" : {
         "en" : {
@@ -11125,6 +11141,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El indicador ya estaba activo en %@."
+          }
+        }
+      }
+    },
+    "El informe es demasiado largo para la app: está completo en review.md, en la carpeta del encargo en el servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The report is too long for the app: the full report is in review.md, in the task's folder on the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El informe es demasiado largo para la app: está completo en review.md, en la carpeta del encargo en el servidor."
           }
         }
       }
@@ -13721,6 +13753,22 @@
         }
       }
     },
+    "Espera: el revisor tiene bloqueado un encargo anterior de esta ventana. Resuélvelo y empezará solo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting: the reviewer has blocked an earlier task in this window. Resolve it and this one will start on its own."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espera: el revisor tiene bloqueado un encargo anterior de esta ventana. Resuélvelo y empezará solo."
+          }
+        }
+      }
+    },
     "Espera: el servidor va justo de memoria." : {
       "localizations" : {
         "en" : {
@@ -15558,6 +15606,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Incluye la versión de Argos, tu sistema y los últimos minutos del registro de la app. Por defecto los servidores, usuarios e IPs se sustituyen por marcadores como «servidor-1». Argos oculta las claves, tokens y contraseñas que reconoce, pero no puede garantizar que no se escape alguno: revisa el texto antes de publicarlo. Para añadir el estado de un servidor, abre su Doctor desde el menú del servidor."
+          }
+        }
+      }
+    },
+    "Incluye un commit que el revisor bloqueó en otro encargo: resuelve ese primero." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It includes a commit the reviewer blocked in another task: resolve that one first."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incluye un commit que el revisor bloqueó en otro encargo: resuelve ese primero."
           }
         }
       }
@@ -18858,6 +18922,22 @@
         }
       }
     },
+    "No había cambios que revisar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There were no changes to review."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No había cambios que revisar."
+          }
+        }
+      }
+    },
     "No había conversación del Mac que llevar (para que viaje, sal de Claude Code con /exit antes de enviar)." : {
       "localizations" : {
         "en" : {
@@ -21110,6 +21190,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo listar los procesos (ps)."
+          }
+        }
+      }
+    },
+    "No se pudo obtener el cambio para revisarlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The change couldn't be read for review."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo obtener el cambio para revisarlo."
           }
         }
       }

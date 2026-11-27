@@ -93,30 +93,49 @@ Un encargo que no pasa los frenos sigue `pending` y se reintenta en el siguiente
 
 ### Revisor automático antes del push
 
-Todo encargo con `push=1` (también los de tareas programadas) pasa, tras el commit y la
-comprobación (`check=`) y antes del push, por `claude -p --model claude-sonnet-5-5` (alias
-`sonnet` con opciones más viejas si el CLI no lo acepta) en la carpeta del encargo: contexto
-limpio (`--no-session-persistence`), solo `Read,Grep,Glob` (`--permission-mode dontAsk`, o
-`plan` en la reserva; nunca `bypassPermissions`), con plazo (`ARGOS_REVIEW_SECONDS`, 600 s).
-Recibe por stdin las instrucciones, el prompt del encargo (y el original si es un arreglo:
-`prompt.original`), `git diff --stat` y el diff `merge-base(HEAD, origin/main | @{u})..HEAD`
-recortado a `ARGOS_REVIEW_MAX_DIFF` (150 KB, y se le dice). Debe responder un JSON
+La app escribe `push=0` y `review_push=1` (también en la plantilla de las tareas
+programadas): un despachador viejo, que reinstala una app publicada, no sube nada; el nuevo
+sube con `review_push=1` (o con un `push=1` anterior) y solo tras revisar. Tras el commit y
+la comprobación (`check=`), el hook `Stop` lanza `dispatch.sh finish` desacoplado
+(`setsid`/`nohup`) y este pasa el encargo por `claude -p --model claude-sonnet-5-5` (alias
+`sonnet` con opciones más viejas si el CLI no lo acepta) en la carpeta del encargo:
+contexto limpio (`--no-session-persistence`), solo `Read,Grep,Glob` (`--permission-mode
+dontAsk`, o `plan` en la reserva; nunca `bypassPermissions`), con plazo
+(`ARGOS_REVIEW_SECONDS`, 600 s).
+
+Al empezar fija en `review.head` el commit revisado y el destino del push (en agente,
+`origin refs/heads/main`; en la terminal, el remoto y la rama de seguimiento de la rama
+actual). Recibe por stdin las instrucciones, el prompt del encargo (y el original si es un
+arreglo: `prompt.original`), `git diff --stat` y el diff `merge-base(head, origin/main |
+@{u})..head` con `--text --no-ext-diff --no-textconv`, recortado a `ARGOS_REVIEW_MAX_DIFF`
+(150 KB, y se le dice). Debe responder un JSON
 `{"verdict":"approve|block","summary","findings":[{severity,category,file,line,message}]}`.
 
-- Aprobado y sin `high`/`critical`: push y `review.json` queda como registro (`reviewed` en
-  el listado).
+- Aprobado y sin `high`/`critical`: se sube EXACTAMENTE `review.head` (`git push <remoto>
+  <sha>:<rama>`, sin forzar: falla si no es fast-forward), nunca lo que llegó después a la
+  rama. `review.json` queda como registro (`reviewed` en el listado).
 - `block` o algún `high`/`critical`: `state=paused`, `reason=review`, sin push; el commit
-  queda en su rama. Informe en `review.json` (y la respuesta tal cual en `review.md`).
-- JSON roto, plazo vencido, `claude` ausente o que falla: `reason=review-inconclusive` y
-  `review.json` con `verdict=inconclusive` y `cause`. Nunca cuenta como aprobado.
+  queda en su rama. Informe en `review.json` (y la respuesta tal cual en `review.md`). Si
+  el informe pasa de 12 000 bytes se guarda uno reducido con `"truncated":true`.
+- `reason=review-inconclusive` (`review.json` con `verdict=inconclusive` y `cause`; nunca
+  cuenta como aprobado): `timeout`, `invalid` (JSON roto), `no-claude`, `error`, `diff`
+  (`git diff` falló), `empty` (nada que revisar), `truncated` (aprobado sin ver todo el
+  diff) y `held` (contiene el commit de `review.head` de otro encargo del proyecto que el
+  revisor tiene bloqueado). Una revisión que se queda en `reviewing` más de `2 × plazo +
+  120 s` (murió el proceso) la pasa `tick` a `timeout`.
 
-Salidas (app): `dispatch.sh push-anyway <proyecto> <encargo>` (push en segundo plano;
-`reason=pushing` mientras, `pushed_anyway` con la fecha) y «Pedir a Claude que lo arregle»:
-un encargo nuevo con `fixes=<encargo>` en el mismo agente/worktree/rama (o la misma ventana),
-commit, push y la misma comprobación; al encolarlo, el bloqueado pasa a `done` con
-`reason=review-fixing`. `retry` no repite un encargo bloqueado por el revisor. El sondeo
-trae los bloqueados (sección `reviews`) para la bandeja «Te necesita» del Mac. Motivos y
-archivos nuevos: las versiones publicadas los ignoran (motivo desconocido = sin texto).
+En la terminal, un encargo con push no se lanza mientras otro de la misma sesión y ventana
+esté revisándose o bloqueado (`reason=review-wait`): trabajaría sobre ese commit.
+
+Salidas (app): `dispatch.sh push-anyway <proyecto> <encargo>` (sube `review.head` en
+segundo plano salvo `held`; `reason=pushing` mientras, `pushed_anyway` con la fecha) y
+«Pedir a Claude que lo arregle»: un encargo nuevo con `fixes=<encargo>` en el mismo
+agente/worktree/rama (o la misma ventana), commit, push y la misma comprobación; al
+encolarlo, el bloqueado pasa a `done` con `reason=review-fixing`. Si el arreglo no cambia
+nada, se revisa y sube igualmente lo que quedó pendiente en la rama. `retry` no repite un
+encargo bloqueado por el revisor. El sondeo trae los bloqueados (sección `reviews`) para la
+bandeja «Te necesita» del Mac. Motivos, claves y archivos nuevos: las versiones publicadas
+los ignoran (motivo desconocido = sin texto).
 
 ## Puntos de restauración
 

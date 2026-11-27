@@ -14,6 +14,13 @@ enum AttentionReviewAction: Sendable {
     case requestFix
 }
 
+/// Encargos bloqueados con una acción en marcha desde la bandeja: un segundo clic (o el
+/// otro botón) no encola dos arreglos ni mezcla arreglo y subida.
+@MainActor
+enum AttentionReviewInFlight {
+    static var ids: Set<String> = []
+}
+
 extension ArgosAppModel {
 
     var attentionReviewInputs: [AttentionList.ReviewInput] {
@@ -38,7 +45,9 @@ extension ArgosAppModel {
     func performReviewAction(_ action: AttentionReviewAction, on item: AttentionItem) {
         guard case .taskReview(let serverID, let block, _) = item.destination, let vm = vms[serverID] else { return }
         let projectPath = vm.projects.first { ClaudeUsageProjects.key(forPath: $0.path) == block.projectKey }?.path
+        guard AttentionReviewInFlight.ids.insert(block.id).inserted else { return }
         Task { @MainActor in
+            defer { AttentionReviewInFlight.ids.remove(block.id) }
             do {
                 let task = try await ClaudeTaskReviewActions.task(for: block, service: vm.service)
                 switch action {
