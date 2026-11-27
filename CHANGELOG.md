@@ -6,6 +6,10 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Corregido
+- **iPhone: los proyectos vuelven a abrirse al tocarlos** (iOS 27). La 1.13.0 no bastaba:
+  el proyecto arrancaba en el servidor pero la pantalla se quedaba en la lista.
+
 ## [1.13.0] - 2026-11-27
 
 ### Añadido

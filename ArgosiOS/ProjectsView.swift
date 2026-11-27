@@ -252,9 +252,29 @@ struct ProjectsView: View {
         }
     }
 
+    /// Selección de la lista enlazada al proyecto abierto. En iOS 27 cambiar
+    /// `preferredCompactColumn` desde el código ya no navega en iPhone: la que lleva al
+    /// terminal es la selección nativa de la lista (también cuando la cambia el código).
+    /// Un toque en la fila pasa por `open(_:)` (puede tener que arrancar la sesión antes);
+    /// volver atrás la deja en `nil`.
+    private var listSelection: Binding<ProjectTarget?> {
+        Binding(
+            get: { selection },
+            set: { (newValue: ProjectTarget?) in
+                guard let newValue else { selection = nil; return }
+                guard newValue != selection else { return }
+                if let entry = viewModel.projectListing.entries.first(where: { $0.project.sessionName == newValue.sessionName }) {
+                    open(entry)
+                } else {
+                    open(newValue)
+                }
+            }
+        )
+    }
+
     private var projectList: some View {
         let visible = visibleListing
-        return List {
+        return List(selection: listSelection) {
             ServerTipsSection(server: currentServer, viewModel: viewModel)
             claudeLimitsRow
             if let pressure = viewModel.memoryPressure, pressure.level > .normal {
@@ -430,37 +450,35 @@ struct ProjectsView: View {
     }
 
     private func projectRow(_ entry: ProjectEntry) -> some View {
-        Button {
-            open(entry)
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: entry.isRunning ? "folder.fill" : "folder")
-                    .foregroundStyle(entry.isRunning ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                    .frame(width: 28)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.project.name).font(.body.weight(.medium))
-                    Text(subtitle(for: entry))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                Spacer()
-                if let claude = viewModel.claudeActivity.activity(forSession: entry.project.sessionName) {
-                    ClaudeActivityBadge(activity: claude, size: 15)
-                }
-                if let git = viewModel.gitSummary(for: entry.project) {
-                    GitSummaryBadge(summary: git)
-                }
-                if busyProject == entry.id {
-                    ProgressView()
-                } else if entry.isRunning {
-                    Circle().fill(.green).frame(width: 8, height: 8)
-                        .accessibilityLabel("En marcha")
-                }
+        HStack(spacing: 12) {
+            Image(systemName: entry.isRunning ? "folder.fill" : "folder")
+                .foregroundStyle(entry.isRunning ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.project.name).font(.body.weight(.medium))
+                Text(subtitle(for: entry))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer()
+            if let claude = viewModel.claudeActivity.activity(forSession: entry.project.sessionName) {
+                ClaudeActivityBadge(activity: claude, size: 15)
+            }
+            if let git = viewModel.gitSummary(for: entry.project) {
+                GitSummaryBadge(summary: git)
+            }
+            if busyProject == entry.id {
+                ProgressView()
+            } else if entry.isRunning {
+                Circle().fill(.green).frame(width: 8, height: 8)
+                    .accessibilityLabel("En marcha")
             }
         }
+        .contentShape(Rectangle())
         .foregroundStyle(.primary)
+        .tag(Self.target(for: entry.project))
         .swipeActions(edge: .trailing) {
             if let session = entry.session {
                 Button("Detener", systemImage: "stop.fill", role: .destructive) { pendingKill = session }
@@ -479,24 +497,22 @@ struct ProjectsView: View {
     }
 
     private func sessionRow(_ session: TmuxSession) -> some View {
-        Button {
-            show(session: session.name)
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "terminal").foregroundStyle(.tint).frame(width: 28)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(session.name).font(.body.weight(.medium))
-                    Text("\(session.windowCount) ventanas")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                if let claude = viewModel.claudeActivity.activity(forSession: session.name) {
-                    ClaudeActivityBadge(activity: claude, size: 15)
-                }
+        HStack(spacing: 12) {
+            Image(systemName: "terminal").foregroundStyle(.tint).frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(session.name).font(.body.weight(.medium))
+                Text("\(session.windowCount) ventanas")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if let claude = viewModel.claudeActivity.activity(forSession: session.name) {
+                ClaudeActivityBadge(activity: claude, size: 15)
             }
         }
+        .contentShape(Rectangle())
         .foregroundStyle(.primary)
+        .tag(Self.target(forSession: session.name))
         .swipeActions(edge: .trailing) {
             Button("Cerrar", systemImage: "xmark", role: .destructive) { pendingKill = session }
             Button("Renombrar", systemImage: "pencil") {
@@ -547,11 +563,19 @@ struct ProjectsView: View {
     }
 
     private func show(_ project: Project) {
-        open(ProjectTarget(sessionName: project.sessionName, title: project.name, path: project.path))
+        open(Self.target(for: project))
     }
 
     private func show(session name: String) {
-        open(ProjectTarget(sessionName: name, title: name, path: nil))
+        open(Self.target(forSession: name))
+    }
+
+    private static func target(for project: Project) -> ProjectTarget {
+        ProjectTarget(sessionName: project.sessionName, title: project.name, path: project.path)
+    }
+
+    private static func target(forSession name: String) -> ProjectTarget {
+        ProjectTarget(sessionName: name, title: name, path: nil)
     }
 
     private func open(_ target: ProjectTarget) {

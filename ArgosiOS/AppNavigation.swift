@@ -32,25 +32,13 @@ final class AppNavigation {
         compactColumn = id == nil ? .sidebar : .content
     }
 
-    /// Abre un proyecto o sesión en el detalle.
-    ///
-    /// Si el modelo ya creía estar en el detalle (iOS no siempre devuelve el cambio de
-    /// columna al volver atrás deslizando), asignar `.detail` otra vez no haría nada y el
-    /// toque quedaría muerto: se pasa por la lista y se vuelve a pedir el detalle en la
-    /// siguiente vuelta del bucle principal.
+    /// Abre un proyecto o sesión en el detalle. En iPhone quien navega es la selección de
+    /// la lista de proyectos (`ProjectsView`), enlazada a `target`: en iOS 27 cambiar
+    /// `compactColumn` desde el código no basta.
     func open(_ newTarget: ProjectTarget?) {
         if newTarget?.id != target?.id { mode = .terminal }
         target = newTarget
-        guard newTarget != nil else { return }
-        if compactColumn == .detail {
-            compactColumn = .content
-            Task { @MainActor [weak self] in
-                guard let self, self.target != nil else { return }
-                self.compactColumn = .detail
-            }
-        } else {
-            compactColumn = .detail
-        }
+        if newTarget != nil { compactColumn = .detail }
     }
 
     /// El detalle de `targetID` dejó de verse (en iPhone, volver atrás a la lista). Si
