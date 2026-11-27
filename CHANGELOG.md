@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-27
+
 ### Añadido
 - **Revisor automático antes del push (Mac e iPhone/iPad).** Todo encargo que sube a main
   (encargos con push y tareas programadas) pasa antes por Claude Sonnet en tu servidor, en
