@@ -39,7 +39,8 @@ extension ArgosAppModel {
             agents: attentionAgentInputs,
             ports: attentionPortInputs,
             syncs: attentionSyncInputs,
-            persistentAgents: attentionPersistentInputs
+            persistentAgents: attentionPersistentInputs,
+            reviews: attentionReviewInputs
         )
     }
 
@@ -78,6 +79,8 @@ extension ArgosAppModel {
             loadSelectedIfNeeded()
         case .sync(let serverID, let projectID):
             openSync(serverID: serverID, projectID: projectID)
+        case .taskReview(let serverID, _, let session):
+            openTaskReview(serverID: serverID, session: session)
         }
     }
 

@@ -37,6 +37,7 @@ extension SessionsViewModel {
         guard !Task.isCancelled else { return nil }
         absorbSessions(output.sessions, readOver: before)
         if let memory = output.memory { absorbMemory(memory) }
+        if let blocks = output.reviewBlocks, blocks != reviewBlocks { reviewBlocks = blocks }
         let limitAlerts = output.limitsChecked ? absorbLimits(output.limits) : []
         var transitions: [ClaudeTransition] = []
         if let claude = output.claude { transitions = await absorbClaudeActivity(claude) }

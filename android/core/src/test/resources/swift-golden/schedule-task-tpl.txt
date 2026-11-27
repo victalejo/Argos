@@ -10,3 +10,4 @@ push=1
 ref=abc12345
 max_minutes=45
 check=npm test
+claude=/usr/local/bin/claude

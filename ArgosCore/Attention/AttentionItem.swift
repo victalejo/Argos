@@ -17,6 +17,8 @@ enum AttentionKind: Int, CaseIterable, Comparable, Sendable {
     case agentPermission
     /// Falló el CI de un push vigilado.
     case ciFailed
+    /// El revisor automático bloqueó el push de un encargo.
+    case reviewBlocked
     /// Claude pide abrir un puerto en este dispositivo.
     case portRequest
     /// Un envío («Enviar al Mac / al servidor») falló.
@@ -31,7 +33,7 @@ enum AttentionKind: Int, CaseIterable, Comparable, Sendable {
     /// Pide una respuesta del usuario (cuenta en la insignia del Dock).
     var needsResponse: Bool {
         switch self {
-        case .claudeWaiting, .agentPermission, .portRequest: return true
+        case .claudeWaiting, .agentPermission, .portRequest, .reviewBlocked: return true
         case .ciFailed, .syncFailed, .syncFinished, .claudeDone: return false
         }
     }
@@ -42,6 +44,7 @@ enum AttentionKind: Int, CaseIterable, Comparable, Sendable {
         case .claudeWaiting: return "hand.raised.fill"
         case .agentPermission: return "lock.shield"
         case .ciFailed: return "xmark.octagon"
+        case .reviewBlocked: return "exclamationmark.shield"
         case .portRequest: return "network"
         case .syncFailed: return "exclamationmark.arrow.triangle.2.circlepath"
         case .syncFinished: return "checkmark.circle"
@@ -55,6 +58,7 @@ enum AttentionKind: Int, CaseIterable, Comparable, Sendable {
         case .claudeWaiting: return String(localized: "Claude espera tu respuesta")
         case .agentPermission: return String(localized: "Permiso pendiente del agente")
         case .ciFailed: return String(localized: "Falló el CI")
+        case .reviewBlocked: return String(localized: "El revisor bloqueó el push")
         case .portRequest: return String(localized: "Claude quiere abrir un puerto")
         case .syncFailed: return String(localized: "Falló un envío")
         case .syncFinished: return String(localized: "Envío terminado")
@@ -77,6 +81,8 @@ enum AttentionDestination: Equatable, Hashable, Sendable {
     case server(Server.ID)
     /// La hoja del envío de un proyecto.
     case sync(serverID: Server.ID, projectID: UUID)
+    /// Un encargo que bloqueó el revisor (con su proyecto, si se conoce).
+    case taskReview(serverID: Server.ID, block: ClaudeTaskReviewBlock, session: String?)
 }
 
 struct AttentionItem: Identifiable, Equatable, Hashable, Sendable {

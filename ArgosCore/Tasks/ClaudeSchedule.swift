@@ -107,6 +107,8 @@ enum ClaudeScheduleScripts {
         var task = request.metaText(directory: schedule.projectPath)
         task += "max_minutes=\(max(1, schedule.maxMinutes))\n"
         if !schedule.checkCommand.isEmpty { task += "check=\(clean(schedule.checkCommand))\n" }
+        // El revisor automático antes del push usa este mismo `claude`.
+        if schedule.push { task += "claude=\(clean(claudePath))\n" }
 
         return Files(
             config: configText(schedule),

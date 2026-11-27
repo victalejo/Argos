@@ -67,10 +67,16 @@ struct AttentionPopover: View {
                 model.openNextAttention()
             }
             Divider()
-            AttentionGroupsList(groups: model.attentionGroups) { item in
-                onOpen()
-                model.openAttention(item)
-            }
+            AttentionGroupsList(
+                groups: model.attentionGroups,
+                onOpen: { item in
+                    onOpen()
+                    model.openAttention(item)
+                },
+                onReview: { (item: AttentionItem, action: AttentionReviewAction) in
+                    model.performReviewAction(action, on: item)
+                }
+            )
         }
         .frame(width: 360)
     }
@@ -98,6 +104,7 @@ private struct AttentionPopoverHeader: View {
 private struct AttentionGroupsList: View {
     let groups: [AttentionGroup]
     let onOpen: (AttentionItem) -> Void
+    let onReview: (AttentionItem, AttentionReviewAction) -> Void
 
     var body: some View {
         if groups.isEmpty {
@@ -109,7 +116,7 @@ private struct AttentionGroupsList: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(groups) { group in
-                        AttentionGroupSection(group: group, onOpen: onOpen)
+                        AttentionGroupSection(group: group, onOpen: onOpen, onReview: onReview)
                     }
                 }
                 .padding(14)
@@ -122,6 +129,7 @@ private struct AttentionGroupsList: View {
 private struct AttentionGroupSection: View {
     let group: AttentionGroup
     let onOpen: (AttentionItem) -> Void
+    let onReview: (AttentionItem, AttentionReviewAction) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -131,6 +139,9 @@ private struct AttentionGroupSection: View {
                 .accessibilityAddTraits(.isHeader)
             ForEach(group.items) { item in
                 AttentionRow(item: item, serverName: group.server.name) { onOpen(item) }
+                if item.kind == .reviewBlocked {
+                    AttentionReviewButtons { (action: AttentionReviewAction) in onReview(item, action) }
+                }
             }
         }
     }

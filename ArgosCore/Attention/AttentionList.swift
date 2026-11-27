@@ -41,19 +41,27 @@ enum AttentionList {
         let message: String
     }
 
+    /// Un encargo que el revisor automático dejó en pausa.
+    struct ReviewInput: Sendable {
+        let serverID: Server.ID
+        let block: ClaudeTaskReviewBlock
+    }
+
     static func build(
         inbox: AttentionInbox,
         servers: [ServerInput],
         agents: [AgentPermissionInput] = [],
         ports: [PortInput] = [],
         syncs: [SyncInput] = [],
-        persistentAgents: [PersistentAgentAttentionTracker.Notice] = []
+        persistentAgents: [PersistentAgentAttentionTracker.Notice] = [],
+        reviews: [ReviewInput] = []
     ) -> [AttentionItem] {
         let projects = Dictionary(servers.map { ($0.serverID, $0.projects) }, uniquingKeysWith: { first, _ in first })
         var items = servers.flatMap(waitingItems)
         items += agents.map(agentItem)
         items += persistentAgents.map { persistentItem($0, projects: projects[$0.serverID] ?? []) }
         items += inbox.failedCI.values.map { ciItem($0, projects: projects[$0.serverID] ?? []) }
+        items += reviews.map { reviewItem($0, projects: projects[$0.serverID] ?? []) }
         items += ports.map(portItem)
         items += syncs.map(syncItem)
         items += inbox.unseenDone.values.map { doneItem($0, projects: projects[$0.serverID] ?? []) }
@@ -134,6 +142,19 @@ enum AttentionList {
         return AttentionItem(
             id: ci.id, kind: .ciFailed, serverID: ci.serverID,
             title: ci.name, detail: ci.summary, destination: destination
+        )
+    }
+
+    private static func reviewItem(_ review: ReviewInput, projects: [Project]) -> AttentionItem {
+        let project = projects.first { ClaudeUsageProjects.key(forPath: $0.path) == review.block.projectKey }
+        let title = review.block.title.isEmpty ? String(localized: "Encargo") : review.block.title
+        return AttentionItem(
+            id: "review|\(review.serverID)|\(review.block.id)",
+            kind: .reviewBlocked,
+            serverID: review.serverID,
+            title: project?.name ?? review.block.projectKey,
+            detail: String(localized: "\(title) · no se subió: decide si subirlo igualmente o pedir el arreglo"),
+            destination: .taskReview(serverID: review.serverID, block: review.block, session: project?.sessionName)
         )
     }
 

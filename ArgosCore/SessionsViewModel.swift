@@ -49,6 +49,9 @@ final class SessionsViewModel {
     /// Límites de uso de Claude según el último sondeo (`nil` = sin statusline de Argos o
     /// sin datos aún). Ver `ClaudeLimitsStatus`.
     private(set) var claudeLimits: ClaudeLimitsStatus?
+    /// Encargos que el revisor automático dejó en pausa (bandeja «Te necesita»); lo
+    /// escribe el sondeo.
+    var reviewBlocks: [ClaudeTaskReviewBlock] = []
     /// Última lectura suelta de memoria (iPhone/iPad), para espaciarlas.
     @ObservationIgnored private var lastMemoryRead: ContinuousClock.Instant?
     /// Cada cuánto, como mucho, se relee la memoria fuera del sondeador del Mac.

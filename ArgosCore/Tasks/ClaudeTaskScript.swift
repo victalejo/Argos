@@ -31,7 +31,7 @@ enum ClaudeTaskScript {
         # \#(marker) v1: despachador de encargos de Argos (cola por proyecto).
         # Uso: dispatch.sh tick | stop <panel> | failure <panel> | enqueue <proyecto> <id>
         #      | cancel <proyecto> <encargo> | retry <proyecto> <encargo> | next <proyecto>
-        #      | run <tarea programada>
+        #      | run <tarea programada> | push-anyway <proyecto> <encargo>
         base="${ARGOS_TASKS_DIR:-$HOME/.config/argos/tasks}"
         limits="${ARGOS_LIMITS_FILE:-$HOME/.config/argos/claude-limits.json}"
         self="$base/dispatch.sh"
@@ -176,19 +176,20 @@ enum ClaudeTaskScript {
           dir=$(meta "$1" dir); [ -d "$dir" ] || return 0
           git -C "$dir" add -A 2>/dev/null
           git -C "$dir" diff --cached --quiet 2>/dev/null && return 0
+          pre=$(git -C "$dir" rev-parse -q --verify HEAD 2>/dev/null)
           git -C "$dir" commit -q -m "$(meta "$1" title)" -m "Encargo de Argos." >/dev/null 2>&1 || { put "$1" reason "commit"; return 0; }
           [ "$(meta "$1" push)" = 1 ] || return 0
-          # Push a main solo si pasa la comprobación (si la hay). Desde un worktree se sube
-          # su rama como main del remoto (fast-forward): nunca toca el checkout del usuario.
+          # Push a main solo si pasa la comprobación (si la hay) y el revisor lo aprueba.
+          # Desde un worktree se sube su rama como main del remoto (fast-forward): nunca
+          # toca el checkout del usuario.
           check=$(meta "$1" check)
           if [ -n "$check" ] && ! (cd "$dir" && sh -c "$check") >"$1/check.log" 2>&1; then put "$1" reason "check"; return 0; fi
-          if [ "$(meta "$1" target)" = agent ]; then
-            git -C "$dir" push -q origin HEAD:main >/dev/null 2>&1 || put "$1" reason "push"
-          else
-            git -C "$dir" push -q >/dev/null 2>&1 || put "$1" reason "push"
-          fi
+          review_task "$1" "$dir" "$pre" || return 0
+          push_task "$1"
           return 0
         }
+
+        \#(ClaudeTaskReviewScript.functions)
 
         # Un encargo en agente que pasa de su tiempo máximo se detiene y se marca fallido.
         expire() {
@@ -305,6 +306,15 @@ enum ClaudeTaskScript {
                    [ -f "$base/incoming/$id.$f" ] && mv -f "$base/incoming/$id.$f" "$t/$f"
                  done
             [ -f "$t/meta" ] && put "$t" state pending
+            # Arreglo de lo que bloqueó el revisor: el revisor verá también el encargo
+            # original, y el bloqueado sale de la bandeja (su commit sigue en la rama).
+            f=$(meta "$t" fixes)
+            case "$f" in ''|*[!A-Za-z0-9_-]*) f= ;; esac
+            if [ -n "$f" ] && [ -d "$p/$f" ]; then
+              if [ -f "$p/$f/prompt.original" ]; then cp "$p/$f/prompt.original" "$t/prompt.original"
+              else cp "$p/$f/prompt" "$t/prompt.original" 2>/dev/null; fi
+              review_blocked "$p/$f" && { put "$p/$f" reason review-fixing; put "$p/$f" state done; }
+            fi
             unlock "$p"
             advance "$p" 0
             ;;
@@ -313,6 +323,18 @@ enum ClaudeTaskScript {
             case "$2" in ''|*[!0-9a-f]*) exit 0 ;; esac
             [ -f "$base/schedules/$2/config" ] && spawn "$base/schedules/$2"
             ;;
+          push-anyway)
+            # «Subir igualmente» lo que bloqueó el revisor: el push que faltaba, en segundo plano.
+            case "$2$3" in *[!A-Za-z0-9_-]*|'') exit 0 ;; esac
+            t="$base/$2/$3"; [ -d "$t" ] || exit 0
+            lock "$base/$2" || exit 0
+            ok=0
+            if review_blocked "$t"; then
+              ok=1; date +%s > "$t/pushed_anyway"; put "$t" reason pushing; put "$t" state done
+            fi
+            unlock "$base/$2"
+            [ "$ok" = 1 ] && { push_task "$t" </dev/null >/dev/null 2>&1 & }
+            ;;
           cancel|retry)
             case "$2$3" in *[!A-Za-z0-9_-]*|'') exit 0 ;; esac
             t="$base/$2/$3"; [ -d "$t" ] || exit 0
@@ -320,7 +342,8 @@ enum ClaudeTaskScript {
             s=$(state "$t")
             if [ "$1" = cancel ]; then
               case "$s" in pending|paused) put "$t" state cancelled ;; esac
-            else
+            elif ! review_blocked "$t"; then
+              # Lo bloqueado por el revisor no se repite: se sube igualmente o se arregla.
               case "$s" in paused|failed) put "$t" state pending ;; esac
             fi
             unlock "$base/$2"
@@ -341,6 +364,12 @@ enum ClaudeTaskScript {
           printf '@@task %s\n' "$r"
           printf 'state %s\n' "$(head -c 32 "$t/state" 2>/dev/null)"
           printf 'reason %s\n' "$(head -c 64 "$t/reason" 2>/dev/null)"
+          if [ -f "$t/review.json" ]; then
+            case "$(head -c 64 "$t/reason" 2>/dev/null)" in
+              review|review-inconclusive) printf 'review %s\n' "$(head -c \#(ClaudeTaskReviewScript.maxListedReportBytes) "$t/review.json" | tr '\n\r\t' '   ')" ;;
+              *) printf 'reviewed %s\n' "$(sed -n 's/.*"verdict"[[:space:]]*:[[:space:]]*"\([a-z]*\)".*/\1/p' "$t/review.json" | head -n 1 | head -c 16)" ;;
+            esac
+          fi
           printf 'started %s\n' "$(head -c 16 "$t/started" 2>/dev/null)"
           printf 'finished %s\n' "$(head -c 16 "$t/finished" 2>/dev/null)"
           head -c 2048 "$t/meta" 2>/dev/null | sed 's/^/meta /'

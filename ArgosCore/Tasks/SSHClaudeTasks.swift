@@ -25,8 +25,11 @@ extension SSHService {
         let id = request.taskID
         let key = ClaudeUsageProjects.key(forPath: projectPath)
         let incoming = ClaudeTaskScript.incomingRelativePath
+        var request = request
         if case .agent(let agentID, let worktree, let branch) = request.target {
             guard let claudePath = try await locateClaude() else { throw PersistentAgentError.claudeMissing }
+            // El revisor automático usa el mismo `claude` (el despachador lo busca si falta).
+            if request.push { request.extraMeta["claude"] = claudePath }
             let scripts = try ClaudeTaskAgentScripts.make(
                 request: request, agentID: agentID, worktree: worktree, branch: branch,
                 projectPath: projectPath, claudePath: claudePath
@@ -57,6 +60,11 @@ extension SSHService {
     func retryTask(_ task: ClaudeTask) async throws {
         try await ensureTaskDispatcher()
         try await taskAction("retry", task)
+    }
+
+    func pushTaskAnyway(_ task: ClaudeTask) async throws {
+        try await ensureTaskDispatcher()
+        try await taskAction("push-anyway", task)
     }
 
     private func taskAction(_ action: String, _ task: ClaudeTask) async throws {

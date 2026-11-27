@@ -121,6 +121,20 @@ final class ClaudeTasksModel {
         await perform { try await self.service.retryTask(task) }
     }
 
+    /// «Subir igualmente» lo que bloqueó el revisor.
+    func pushAnyway(_ task: ClaudeTask) async {
+        await perform { try await ClaudeTaskReviewActions.pushAnyway(task, service: self.service) }
+    }
+
+    /// «Pedir a Claude que lo arregle»: encargo nuevo en la misma rama, que se vuelve a revisar.
+    func requestFix(_ task: ClaudeTask) async {
+        await perform {
+            try await ClaudeTaskReviewActions.requestFix(
+                task, projectPath: self.project.path, serverID: self.serverID, service: self.service
+            )
+        }
+    }
+
     /// Activa el indicador de Claude (sus hooks son los que hacen avanzar la cola).
     func installHooks() async {
         await perform {
@@ -133,13 +147,15 @@ final class ClaudeTasksModel {
         guard !isWorking else { return }
         isWorking = true
         defer { isWorking = false }
+        var failure: String?
         do {
             try await action()
-            errorMessage = nil
         } catch {
             Log.ssh.error("Encargos: \(error.userMessage, privacy: .public)")
-            errorMessage = error.userMessage
+            failure = error.userMessage
         }
         await reload()
+        // Después de releer (que limpia el error de lectura), para que el fallo se vea.
+        if let failure { errorMessage = failure }
     }
 }

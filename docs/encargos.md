@@ -91,6 +91,33 @@ servidores sin cola no hacen nada.
 
 Un encargo que no pasa los frenos sigue `pending` y se reintenta en el siguiente `tick`.
 
+### Revisor automático antes del push
+
+Todo encargo con `push=1` (también los de tareas programadas) pasa, tras el commit y la
+comprobación (`check=`) y antes del push, por `claude -p --model claude-sonnet-5-5` (alias
+`sonnet` con opciones más viejas si el CLI no lo acepta) en la carpeta del encargo: contexto
+limpio (`--no-session-persistence`), solo `Read,Grep,Glob` (`--permission-mode dontAsk`, o
+`plan` en la reserva; nunca `bypassPermissions`), con plazo (`ARGOS_REVIEW_SECONDS`, 600 s).
+Recibe por stdin las instrucciones, el prompt del encargo (y el original si es un arreglo:
+`prompt.original`), `git diff --stat` y el diff `merge-base(HEAD, origin/main | @{u})..HEAD`
+recortado a `ARGOS_REVIEW_MAX_DIFF` (150 KB, y se le dice). Debe responder un JSON
+`{"verdict":"approve|block","summary","findings":[{severity,category,file,line,message}]}`.
+
+- Aprobado y sin `high`/`critical`: push y `review.json` queda como registro (`reviewed` en
+  el listado).
+- `block` o algún `high`/`critical`: `state=paused`, `reason=review`, sin push; el commit
+  queda en su rama. Informe en `review.json` (y la respuesta tal cual en `review.md`).
+- JSON roto, plazo vencido, `claude` ausente o que falla: `reason=review-inconclusive` y
+  `review.json` con `verdict=inconclusive` y `cause`. Nunca cuenta como aprobado.
+
+Salidas (app): `dispatch.sh push-anyway <proyecto> <encargo>` (push en segundo plano;
+`reason=pushing` mientras, `pushed_anyway` con la fecha) y «Pedir a Claude que lo arregle»:
+un encargo nuevo con `fixes=<encargo>` en el mismo agente/worktree/rama (o la misma ventana),
+commit, push y la misma comprobación; al encolarlo, el bloqueado pasa a `done` con
+`reason=review-fixing`. `retry` no repite un encargo bloqueado por el revisor. El sondeo
+trae los bloqueados (sección `reviews`) para la bandeja «Te necesita» del Mac. Motivos y
+archivos nuevos: las versiones publicadas los ignoran (motivo desconocido = sin texto).
+
 ## Puntos de restauración
 
 Cada encargo es un turno de Claude: con los puntos de restauración activados en el

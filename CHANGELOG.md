@@ -6,6 +6,16 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **Revisor automático antes del push (Mac e iPhone/iPad).** Todo encargo que sube a main
+  (encargos con push y tareas programadas) pasa antes por Claude Sonnet en tu servidor, en
+  solo lectura: mira el cambio completo y lo que se pidió, y si ve un problema de seguridad o
+  secretos, algo destructivo, un fallo claro (tests borrados, cambios fuera del encargo) o
+  cualquier hallazgo grave, **no sube nada**: el commit queda en su rama y el encargo, en
+  pausa con el informe. En «Encargos» y en la bandeja «Te necesita» del Mac eliges «Subir
+  igualmente» o «Pedir a Claude que lo arregle» (en la misma rama, y el arreglo se vuelve a
+  revisar). Si el revisor no responde a tiempo o su respuesta no se entiende, tampoco sube.
+
 ### Corregido
 - **iPhone: tocar un proyecto no hacía nada.** Tras volver atrás desde un proyecto, la app
   podía creer que seguía en el terminal y ningún proyecto se abría al tocarlo.

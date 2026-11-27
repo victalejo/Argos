@@ -43,9 +43,12 @@ enum ClaudeTaskAgentScripts {
         now: Date = Date()
     ) throws -> Scripts {
         guard request.prompt.utf8.count <= maxPromptBytes else { throw ClaudeTaskAgentError.promptTooLong }
-        let worktreeCommand = GitWorktreeCommands.add(GitWorktreeRequest(
-            repository: projectPath, branch: branch, createsBranch: true, base: "HEAD", path: worktree
-        ))
+        // Un arreglo trabaja en el worktree (y la rama) del encargo que arregla: debe existir.
+        let worktreeCommand = request.reuseWorktree
+            ? "[ -d \(ShellQuoting.singleQuoted(worktree)) ]"
+            : GitWorktreeCommands.add(GitWorktreeRequest(
+                repository: projectPath, branch: branch, createsBranch: true, base: "HEAD", path: worktree
+            ))
         let meta = PersistentAgentMeta(
             workingDirectory: worktree, title: request.title, createdAt: now,
             permissionMode: request.permissionMode.rawValue

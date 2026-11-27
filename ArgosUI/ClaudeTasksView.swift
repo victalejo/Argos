@@ -57,13 +57,29 @@ struct ClaudeTasksView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 ForEach(tasks) { task in
-                    ClaudeTaskRow(
-                        item: task,
-                        onCancel: { Task { await model.cancel(task) } },
-                        onRetry: { Task { await model.retry(task) } }
-                    )
+                    row(task)
                 }
             }
+        }
+    }
+}
+
+extension ClaudeTasksView {
+    @ViewBuilder
+    fileprivate func row(_ task: ClaudeTask) -> some View {
+        ClaudeTaskRow(
+            item: task,
+            onCancel: { Task { await model.cancel(task) } },
+            onRetry: { Task { await model.retry(task) } }
+        )
+        if task.isBlockedByReview {
+            ClaudeTaskReviewView(
+                task: task,
+                isWorking: model.isWorking,
+                onPushAnyway: { Task { await model.pushAnyway(task) } },
+                onFix: { Task { await model.requestFix(task) } }
+            )
+            .padding(.leading, 28)
         }
     }
 }
@@ -129,6 +145,9 @@ private struct ClaudeTaskRow: View {
         if let reason = item.reason, item.state == .pending || item.state == .paused || item.state == .failed || item.state == .done {
             parts.append(reason.text)
         }
+        if item.reason == nil, item.reviewedVerdict == ClaudeTaskReview.Verdict.approve.rawValue {
+            parts.append(String(localized: "Aprobado por el revisor automático."))
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -148,6 +167,8 @@ private struct ClaudeTaskRow: View {
     private var actions: some View {
         switch item.state {
         case .pending:
+            Button("Cancelar", action: onCancel).buttonStyle(.borderless)
+        case .paused where item.isBlockedByReview:
             Button("Cancelar", action: onCancel).buttonStyle(.borderless)
         case .paused:
             HStack(spacing: 8) {

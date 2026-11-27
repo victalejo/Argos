@@ -46,6 +46,16 @@ enum ClaudeTaskReason: String, Equatable, Sendable {
     case agent
     case timeout
     case check
+    /// El revisor automático está mirando los cambios antes del push.
+    case reviewing
+    /// El revisor bloqueó el push (informe en `review.json`).
+    case review
+    /// El revisor no fue concluyente (plazo, JSON roto…): también bloquea.
+    case reviewInconclusive = "review-inconclusive"
+    /// Lo bloqueado se encargó a Claude para que lo arregle (otro encargo).
+    case reviewFixing = "review-fixing"
+    /// «Subir igualmente»: el push está en marcha.
+    case pushing
 
     var text: String {
         switch self {
@@ -61,6 +71,11 @@ enum ClaudeTaskReason: String, Equatable, Sendable {
         case .agent: return String(localized: "No se pudo arrancar el agente del encargo (¿existe ya la rama o la carpeta?).")
         case .timeout: return String(localized: "Se detuvo por pasar de su tiempo máximo.")
         case .check: return String(localized: "Terminó, pero la comprobación no pasó: no se subió a main (la rama queda con el commit).")
+        case .reviewing: return String(localized: "El revisor automático está mirando los cambios antes de subirlos.")
+        case .review: return String(localized: "El revisor automático bloqueó el push: el commit queda en su rama.")
+        case .reviewInconclusive: return String(localized: "La revisión automática no fue concluyente: no se subió (el commit queda en su rama).")
+        case .reviewFixing: return String(localized: "El revisor lo bloqueó y se pidió a Claude que lo arregle en otro encargo.")
+        case .pushing: return String(localized: "Subiendo (push) sin la aprobación del revisor…")
         }
     }
 }
@@ -84,6 +99,21 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
     let isAgent: Bool
     /// Rama del worktree del encargo (solo en agente).
     let branch: String?
+    /// Lo que hace falta para «Pedir a Claude que lo arregle» (del `meta`).
+    var push = false
+    var directory: String?
+    var session: String?
+    var checkCommand: String?
+    var maxMinutes: Int?
+    /// Informe del revisor (solo si bloqueó o no fue concluyente).
+    var review: ClaudeTaskReview?
+    /// Veredicto de una revisión que no bloqueó (p. ej. `approve`).
+    var reviewedVerdict: String?
+
+    /// El revisor lo dejó en pausa: «Subir igualmente» o «Pedir a Claude que lo arregle».
+    var isBlockedByReview: Bool {
+        state == .paused && (reason == .review || reason == .reviewInconclusive)
+    }
 
     var id: String { "\(projectKey)/\(folder)" }
     var sequence: Int { Int(folder.prefix { $0.isNumber }) ?? 0 }
@@ -131,7 +161,7 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
             func date(_ key: String) -> Date? { fields[key].flatMap(Double.init).map { Date(timeIntervalSince1970: $0) } }
             let preview = String((fields["prompt"] ?? "").trimmingCharacters(in: .whitespaces).prefix(400))
             let title = String((meta["title"] ?? "").prefix(200))
-            return ClaudeTask(
+            var task = ClaudeTask(
                 projectKey: String(parts[0]), folder: String(parts[1]),
                 state: fields["state"].flatMap { ClaudeTaskState(rawValue: $0.trimmingCharacters(in: .whitespaces)) },
                 reason: fields["reason"].flatMap { ClaudeTaskReason(rawValue: $0.trimmingCharacters(in: .whitespaces)) },
@@ -144,6 +174,14 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
                 isAgent: meta["target"] == "agent",
                 branch: meta["branch"].map { String($0.prefix(200)) }
             )
+            task.push = meta["push"] == "1"
+            task.directory = meta["dir"].map { String($0.prefix(1024)) }
+            task.session = meta["session"].map { String($0.prefix(200)) }
+            task.checkCommand = meta["check"].map { String($0.prefix(1024)) }.flatMap { $0.isEmpty ? nil : $0 }
+            task.maxMinutes = meta["max_minutes"].flatMap(Int.init)
+            task.review = fields["review"].flatMap(ClaudeTaskReview.parse)
+            task.reviewedVerdict = fields["reviewed"].map { String($0.trimmingCharacters(in: .whitespaces).prefix(16)) }
+            return task
         }
 
         private static func isSafe(_ text: Substring) -> Bool {
@@ -177,6 +215,10 @@ struct ClaudeTaskRequest: Equatable, Sendable {
     var push = false
     var source = "manual"
     var reference: String?
+    /// En agente: el worktree ya existe (arreglo de un encargo en su misma rama).
+    var reuseWorktree = false
+    /// Claves extra del `meta` (p. ej. `fixes`, `check`, `claude`), en orden alfabético.
+    var extraMeta: [String: String] = [:]
 
     /// Título: primera línea con texto, recortada.
     var title: String {
@@ -203,6 +245,9 @@ struct ClaudeTaskRequest: Equatable, Sendable {
         }
         lines += ["commit=\(commit ? 1 : 0)", "push=\(push ? 1 : 0)"]
         if let reference { lines.append("ref=\(clean(reference))") }
+        for key in extraMeta.keys.sorted() where !key.isEmpty && key.allSatisfy({ $0.isLetter || $0 == "_" }) {
+            lines.append("\(key)=\(clean(extraMeta[key] ?? ""))")
+        }
         return lines.joined(separator: "\n") + "\n"
     }
 

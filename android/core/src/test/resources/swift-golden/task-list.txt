@@ -5,6 +5,12 @@ for t in "$b"/*/[0-9]*-*; do
   printf '@@task %s\n' "$r"
   printf 'state %s\n' "$(head -c 32 "$t/state" 2>/dev/null)"
   printf 'reason %s\n' "$(head -c 64 "$t/reason" 2>/dev/null)"
+  if [ -f "$t/review.json" ]; then
+    case "$(head -c 64 "$t/reason" 2>/dev/null)" in
+      review|review-inconclusive) printf 'review %s\n' "$(head -c 12288 "$t/review.json" | tr '\n\r\t' '   ')" ;;
+      *) printf 'reviewed %s\n' "$(sed -n 's/.*"verdict"[[:space:]]*:[[:space:]]*"\([a-z]*\)".*/\1/p' "$t/review.json" | head -n 1 | head -c 16)" ;;
+    esac
+  fi
   printf 'started %s\n' "$(head -c 16 "$t/started" 2>/dev/null)"
   printf 'finished %s\n' "$(head -c 16 "$t/finished" 2>/dev/null)"
   head -c 2048 "$t/meta" 2>/dev/null | sed 's/^/meta /'
