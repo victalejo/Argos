@@ -17,6 +17,9 @@ final class ClaudeBudgetModel {
     private(set) var reading: ClaudeBudgetReading?
     private(set) var isSaving = false
     private(set) var errorMessage: String?
+    /// Temporizador del servidor tras guardar (`.none`: no hay launchd, systemd ni cron, y
+    /// un encargo frenado no empezará solo al liberarse).
+    private(set) var timer: ClaudeTaskTimer.Kind?
 
     // Formulario.
     var windowEnabled = false
@@ -61,6 +64,13 @@ final class ClaudeBudgetModel {
         reading?.evaluation(projectKey: projectKey, now: now)
     }
 
+    /// Sin temporizador en el servidor nadie relanza la cola al liberarse el presupuesto.
+    var lacksTimer: Bool { timer == ClaudeTaskTimer.Kind.none && !saved.isEmpty }
+
+    /// Otro dispositivo con una versión anterior de Argos instaló un despachador que no
+    /// sabe de presupuestos: no frena hasta que se actualice allí.
+    var dispatcherOutdated: Bool { reading?.dispatcher == .outdated && !saved.isEmpty }
+
     /// Bloqueo anotado por el despachador que sigue vigente.
     func activeBlock(now: Date = Date()) -> ClaudeBudgetBlock? {
         reading?.block.flatMap { $0.isActive(now: now) ? $0 : nil }
@@ -69,7 +79,10 @@ final class ClaudeBudgetModel {
     /// Lee y relee mientras la tarea viva. Con un tope puesto, pone al día el índice de uso.
     func watch() async {
         await reload()
-        if !saved.isEmpty { await refreshIndex() }
+        if !saved.isEmpty {
+            await refreshIndex()
+            await refreshTimer()
+        }
         while !Task.isCancelled {
             try? await Task.sleep(for: Self.refreshInterval)
             guard !Task.isCancelled else { return }
@@ -96,7 +109,7 @@ final class ClaudeBudgetModel {
         isSaving = true
         defer { isSaving = false }
         do {
-            try await service.saveProjectBudget(draft, projectKey: projectKey)
+            timer = try await service.saveProjectBudget(draft, projectKey: projectKey)
             errorMessage = nil
         } catch {
             Log.ssh.error("Presupuesto: \(error.userMessage, privacy: .public)")
@@ -111,6 +124,14 @@ final class ClaudeBudgetModel {
         windowPercent = budget.windowPercent ?? Self.defaultWindowPercent
         dailyEnabled = budget.dailyUSD != nil
         dailyUSD = budget.dailyUSD ?? Self.defaultDailyUSD
+    }
+
+    private func refreshTimer() async {
+        do {
+            timer = try await ConnectionPriority.background { try await self.service.taskTimerStatus() }
+        } catch {
+            Log.ssh.notice("Presupuesto: no se pudo comprobar el temporizador: \(error.userMessage, privacy: .public)")
+        }
     }
 
     private func refreshIndex() async {

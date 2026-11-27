@@ -20,6 +20,7 @@ struct ClaudeBudgetSection: View {
                 Text("Este presupuesto lo guardó una versión más nueva de Argos: actualiza la app para cambiarlo.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             } else {
+                warnings
                 ClaudeBudgetWindowRow(model: model)
                 ClaudeBudgetDailyRow(model: model)
                 footer
@@ -33,6 +34,18 @@ struct ClaudeBudgetSection: View {
             Text(error).font(.callout).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
         } else {
             ProgressView().controlSize(.small)
+        }
+    }
+
+    @ViewBuilder
+    private var warnings: some View {
+        if model.dispatcherOutdated {
+            Label("Otro dispositivo con una versión anterior de Argos instaló un despachador sin presupuesto: hasta que actualices Argos allí, el presupuesto no frena.", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+        }
+        if model.lacksTimer {
+            Label("El servidor no tiene launchd, systemd ni cron: un encargo frenado no empezará solo al liberarse el presupuesto.", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
         }
     }
 

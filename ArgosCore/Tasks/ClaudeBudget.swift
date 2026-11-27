@@ -170,8 +170,14 @@ struct ClaudeBudgetBlock: Equatable, Sendable, Identifiable {
     let used: Double
     let cap: Double
     let until: Date
+    /// Cuándo empezó este bloqueo (el despachador lo conserva mientras dure): un bloqueo
+    /// nuevo en la misma ventana es otro aviso.
+    let since: Date?
 
-    var id: String { "\(projectKey)|\(kind.rawValue)|\(Int(until.timeIntervalSince1970))" }
+    var id: String {
+        let start = since.map { String(Int($0.timeIntervalSince1970)) } ?? "-"
+        return "\(projectKey)|\(kind.rawValue)|\(Int(until.timeIntervalSince1970))|\(start)"
+    }
 
     /// Sigue vigente (pasada su hora, el despachador lo deja arrancar en el siguiente tick).
     func isActive(now: Date) -> Bool { until > now }
@@ -191,15 +197,20 @@ struct ClaudeBudgetBlock: Equatable, Sendable, Identifiable {
               let cap = values["cap"].flatMap(Double.init), cap.isFinite, cap > 0,
               let until = values["until"].flatMap(Double.init), until > 0
         else { return nil }
-        self.init(projectKey: fields[1], kind: kind, used: used, cap: cap, until: Date(timeIntervalSince1970: until))
+        let since = values["since"].flatMap(Double.init).flatMap { $0 > 0 ? Date(timeIntervalSince1970: $0) : nil }
+        self.init(
+            projectKey: fields[1], kind: kind, used: used, cap: cap,
+            until: Date(timeIntervalSince1970: until), since: since
+        )
     }
 
-    init(projectKey: String, kind: Kind, used: Double, cap: Double, until: Date) {
+    init(projectKey: String, kind: Kind, used: Double, cap: Double, until: Date, since: Date? = nil) {
         self.projectKey = projectKey
         self.kind = kind
         self.used = min(used, 1_000_000_000)
         self.cap = cap
         self.until = until
+        self.since = since
     }
 
     static func isSafeKey(_ text: String) -> Bool {

@@ -105,7 +105,8 @@ protocol SSHServicing: Sendable {
     func taskTimerStatus() async throws -> ClaudeTaskTimer.Kind
     /// Presupuesto por proyecto (ver `ClaudeBudgetScript`).
     func readProjectBudget(projectKey: String) async throws -> ClaudeBudgetReading
-    func saveProjectBudget(_ budget: ClaudeProjectBudget, projectKey: String) async throws
+    @discardableResult
+    func saveProjectBudget(_ budget: ClaudeProjectBudget, projectKey: String) async throws -> ClaudeTaskTimer.Kind?
 
     // MARK: - Proyectos (carpetas con sesión tmux efímera)
 

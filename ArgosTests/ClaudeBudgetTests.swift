@@ -180,6 +180,14 @@ struct ClaudeBudgetLogicTests {
         let expired = ClaudeBudgetBlock(projectKey: "web", kind: .daily, used: 6, cap: 5, until: now.addingTimeInterval(-1))
         #expect(vm.absorbBudgetBlocks([block, expired], now: now).isEmpty)
         #expect(vm.budgetBlocks == [block])
+
+        // Se liberó y se volvió a frenar en la misma ventana: es otro aviso.
+        let first = ClaudeBudgetBlock(projectKey: "app", kind: .window, used: 30, cap: 20, until: now.addingTimeInterval(3600), since: now)
+        let again = ClaudeBudgetBlock(projectKey: "app", kind: .window, used: 31, cap: 20, until: now.addingTimeInterval(3600), since: now.addingTimeInterval(600))
+        #expect(first.id != again.id)
+        vm.absorbBudgetBlocks([first], now: now)
+        vm.absorbBudgetBlocks([], now: now)
+        #expect(vm.absorbBudgetBlocks([again], now: now) == [again])
     }
 
     @MainActor
@@ -196,6 +204,25 @@ struct ClaudeBudgetLogicTests {
         await model.save()
         #expect(mock.savedBudgets.first?.0 == ClaudeProjectBudget(windowPercent: 25, dailyUSD: 3))
         #expect(mock.savedBudgets.first?.1 == "app")
+        #expect(model.timer == .systemd && !model.lacksTimer)
+
+        // Sin temporizador posible en el servidor, la pantalla lo avisa.
+        mock.budgetTimer = .none
+        mock.budgetReading = ClaudeBudgetReading(output: "@@dispatcher\nold\n@@config\nv=1\nwindow_pct=25\ndaily_usd=3\n@@end\n")
+        await model.reload()
+        model.windowPercent = 30
+        await model.save()
+        #expect(model.lacksTimer)
+        #expect(model.dispatcherOutdated, "otro dispositivo instaló un despachador sin presupuesto")
+    }
+
+    @Test func laLecturaDiceSiElDespachadorSabeDePresupuestos() {
+        #expect(ClaudeBudgetReading(output: "@@dispatcher\nbudget\n@@end\n").dispatcher == .budget)
+        #expect(ClaudeBudgetReading(output: "@@dispatcher\nold\n@@end\n").dispatcher == .outdated)
+        #expect(ClaudeBudgetReading(output: "@@dispatcher\nmissing\n@@end\n").dispatcher == .missing)
+        #expect(ClaudeBudgetReading(output: "").dispatcher == .unknown)
+        let block = ClaudeBudgetBlock(pollLine: "blocked app v=1 kind=daily used=6 cap=5 until=1800003600 since=1800000000")
+        #expect(block?.since == Date(timeIntervalSince1970: 1_800_000_000))
     }
 }
 
@@ -283,6 +310,7 @@ struct ClaudeBudgetDispatcherTests {
         // Lo que lee la pantalla da la misma cuenta.
         let reading = ClaudeBudgetReading(output: try box.sh(ClaudeBudgetScript.readCommand(projectKey: "proyecto")))
         #expect(reading.budget.windowPercent == 20 && reading.block?.kind == .window && reading.records.count == 2)
+        #expect(reading.dispatcher == .budget)
         guard case .meter(let meter) = reading.evaluation(projectKey: "proyecto").window else {
             Issue.record("sin medidor"); return
         }
@@ -320,5 +348,41 @@ struct ClaudeBudgetDispatcherTests {
         try box.write(ClaudeProjectBudget(dailyUSD: 10).configText, ".config/argos/budgets/proyecto")
         try box.tick()
         #expect(try box.list().first?.state == .running)
+    }
+
+    @Test func topesFueraDeRangoNoFrenanComoEnLaApp() throws {
+        let box = try Box()
+        defer { box.close() }
+        try box.limits(used: 40, resetsAt: Int(Date().timeIntervalSince1970) + 3600)
+        try box.ledger([BudgetLedger.line(Date(), project: "proyecto", usd: 6)])
+        let config = "v=1\nwindow_pct=0\ndaily_usd=0\n"
+        #expect(ClaudeProjectBudget(configText: config).isEmpty)
+        try box.write(config, ".config/argos/budgets/proyecto")
+        try box.enqueue("aaa")
+        #expect(try box.list().first?.state == .running)
+        #expect(try box.blocks().isEmpty)
+    }
+
+    @Test func cancelarElFrenadoQuitaElBloqueoYElIndiceNoHaceEsperar() throws {
+        let box = try Box()
+        defer { box.close() }
+        try box.ledger([BudgetLedger.line(Date(), project: "proyecto", usd: 6)])
+        try box.write(ClaudeProjectBudget(dailyUSD: 5).configText, ".config/argos/budgets/proyecto")
+        // Un índice lento: se lanza en segundo plano y se evalúa con lo que ya hay.
+        try box.write("sleep 4; touch \"$HOME/indexed\"\n", ".config/argos/usage-index.sh")
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSinceNow: -600)],
+            ofItemAtPath: box.usage.appendingPathComponent("ledger.tsv").path
+        )
+        let start = Date()
+        try box.enqueue("aaa")
+        #expect(Date().timeIntervalSince(start) < 3, "no espera al índice")
+        let task = try #require(try box.list().first)
+        let blocks = try box.blocks()
+        #expect(task.reason == .budget && !blocks.isEmpty)
+
+        try box.sh("sh \"$HOME/.config/argos/tasks/dispatch.sh\" cancel proyecto \(task.folder)")
+        try box.tick()
+        #expect(try box.blocks().isEmpty, "sin pendientes, el bloqueo no sigue en la bandeja")
     }
 }

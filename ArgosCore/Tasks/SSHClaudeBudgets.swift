@@ -20,12 +20,16 @@ extension SSHService {
         return ClaudeBudgetReading(output: output)
     }
 
-    func saveProjectBudget(_ budget: ClaudeProjectBudget, projectKey: String) async throws {
+    /// Guarda el presupuesto. Con algún tope, deja puesto el temporizador que llama al
+    /// despachador cada minuto (sin él, un encargo frenado no empezaría solo al liberarse) y
+    /// devuelve cuál; `nil` si se quitó el presupuesto.
+    @discardableResult
+    func saveProjectBudget(_ budget: ClaudeProjectBudget, projectKey: String) async throws -> ClaudeTaskTimer.Kind? {
         guard ClaudeBudgetBlock.isSafeKey(projectKey) else { throw HomeFileError.unsafePath(projectKey) }
         let failure = String(localized: "No se pudo guardar el presupuesto del proyecto.")
         if budget.isEmpty {
             _ = try await runChecked(ClaudeBudgetScript.removeCommand(projectKey: projectKey), failureMessage: failure)
-            return
+            return nil
         }
         try await ensureTaskDispatcher()
         try await startClaudeUsageIndex()
@@ -34,8 +38,10 @@ extension SSHService {
         )
         // Con el tope cambiado, el bloqueo anotado ya no vale: el siguiente `tick` lo evalúa.
         _ = try await runChecked(ClaudeBudgetScript.clearBlockCommand(projectKey: projectKey), failureMessage: failure)
+        let timer = try await installTaskTimer()
         _ = try await runChecked(
             RemoteTimeout.wrap(ClaudeTaskScript.dispatchCommand(["tick"])), failureMessage: failure
         )
+        return timer
     }
 }

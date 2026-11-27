@@ -1,4 +1,6 @@
 d="$HOME/.config/argos/budgets"; k='-Users-v-app'
+printf '@@dispatcher\n'; s="$HOME/.config/argos/tasks/dispatch.sh"
+if [ ! -f "$s" ]; then echo missing; elif grep -q 'budget_ok' "$s"; then echo budget; else echo old; fi
 printf '@@config\n'; head -c 1024 "$d/$k" 2>/dev/null
 printf '\n@@blocked\n'; [ -f "$d/$k.blocked" ] && printf 'blocked %s %s\n' "$k" "$(head -c 256 "$d/$k.blocked" | tr '\n\r' '  ')"
 printf '@@clock\n'; date '+%s %H %M %S' | awk '{ print "now", $1; print "daystart", $1 - ($2 * 3600 + $3 * 60 + $4) }'

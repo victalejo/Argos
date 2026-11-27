@@ -14,7 +14,9 @@ El detalle por commit vive en el historial git (Conventional Commits):
   motivo («Pausado por presupuesto: 18 % de 20 % de la ventana, se libera a las 15:00»),
   empieza solo al liberarse y se avisa una vez en la bandeja «Te necesita» y con una
   notificación. Lo que ya está en marcha no se corta y lo que lanzas a mano en el terminal
-  no se frena. El tope de la ventana necesita los límites de Claude activados.
+  no se frena. El tope de la ventana necesita los límites de Claude activados. Actualiza
+  Argos en todos tus dispositivos: una versión anterior que encole encargos en el mismo
+  servidor reinstala un despachador sin presupuesto (la pantalla te avisa si pasa).
 
 ## [1.13.1] - 2026-11-27
 

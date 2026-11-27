@@ -154,6 +154,8 @@ enum ClaudeTaskScript {
             fi
             if t=$(first_in "$p" pending); then
               if review_barrier "$p" "$t"; then put "$t" reason review-wait; elif budget_ok "$p" "$t"; then launch "$p" "$t" "$2"; fi
+            else
+              budget_clear "$p"
             fi
           fi
           unlock "$p"

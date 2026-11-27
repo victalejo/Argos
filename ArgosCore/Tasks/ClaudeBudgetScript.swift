@@ -39,26 +39,29 @@ enum ClaudeBudgetScript {
         budgets="${ARGOS_BUDGETS_DIR:-$HOME/\#(directoryRelativePath)}"
         usage="${ARGOS_USAGE_DIR:-$HOME/\#(ClaudeUsageIndex.directoryRelativePath)}"
         budget_fresh=""
-        # Pone al día el índice de uso una vez por ejecución (con plazo; sin `timeout`, en
-        # segundo plano y se usa lo que haya).
+        # Pone al día el índice de uso, una vez por ejecución y SIEMPRE en segundo plano (tiene
+        # su propio cerrojo y solo guarda al terminar): se evalúa con lo que ya haya, así que
+        # un encargo puede tardar un `tick` en notar el último gasto.
         budget_refresh() {
           [ -n "$budget_fresh" ] && return 0; budget_fresh=1
           idx="$HOME/\#(ClaudeUsageIndex.scriptRelativePath)"
           [ -f "$idx" ] || return 0
           [ -n "$(find "$usage/ledger.tsv" -mmin -1 2>/dev/null)" ] && return 0
-          if command -v timeout >/dev/null 2>&1; then timeout 20 sh "$idx" >/dev/null 2>&1
-          else (nohup sh "$idx" >/dev/null 2>&1 &); fi
+          (nohup sh "$idx" >/dev/null 2>&1 &)
           return 0
         }
+        # Sin pendientes, un bloqueo anotado ya no frena nada (p. ej. se canceló el encargo).
+        budget_clear() { rm -f "$budgets/${1##*/}.blocked"; }
         # Imprime `ok` o `window|daily <usado> <tope> <se libera>` para el proyecto $1.
         budget_eval() {
           f="$budgets/$1"
           wp=$(sed -n 's/^window_pct=//p' "$f" 2>/dev/null | head -n 1)
           du=$(sed -n 's/^daily_usd=//p' "$f" 2>/dev/null | head -n 1)
-          case "$wp" in *[!0-9]*) wp="" ;; esac
+          # Mismos rangos que la app (ClaudeProjectBudget): fuera de ellos, sin tope.
+          case "$wp" in ''|*[!0-9]*) wp="" ;; *) [ ${#wp} -le 3 ] && [ "$wp" -ge 1 ] && [ "$wp" -le 100 ] || wp="" ;; esac
           printf '%s\n' "$du" | grep -Eq '^[0-9]+([.][0-9]+)?$' || du=""
+          [ -z "$du" ] || [ ${#du} -le 12 ] && awk -v d="$du" 'BEGIN { exit !(d + 0 >= 0.01 && d + 0 <= 100000) }' || du=""
           [ -n "$wp$du" ] || { echo ok; return 0; }
-          budget_refresh
           fh=""
           if [ -n "$wp" ] && [ -f "$limits" ] && grep -qs 'argos-claude-limits' "$HOME/.claude/settings.json"; then
             fh=$(LC_ALL=C awk '{ s = s $0 } END {
@@ -107,7 +110,9 @@ enum ClaudeBudgetScript {
         # ¿Arranca el encargo $2 del proyecto $1? Si no, motivo `budget` y bloqueo anotado
         # (se conserva `since` mientras dure el mismo bloqueo: así se avisa una sola vez).
         budget_ok() {
-          k=${1##*/}; [ -f "$budgets/$k" ] || return 0
+          k=${1##*/}; [ -f "$budgets/$k" ] || { budget_clear "$k"; return 0; }
+          # Fuera de `$(…)`: si no, la marca de «ya puesto al día» se perdería en la subshell.
+          budget_refresh
           r=$(budget_eval "$k")
           set -- "$2" $r
           if [ "$2" != window ] && [ "$2" != daily ]; then rm -f "$budgets/$k.blocked"; return 0; fi
@@ -132,6 +137,8 @@ enum ClaudeBudgetScript {
         let file = ShellQuoting.singleQuoted(projectKey)
         return #"""
             d="$HOME/\#(directoryRelativePath)"; k=\#(file)
+            printf '@@dispatcher\n'; s="$HOME/\#(ClaudeTaskScript.scriptRelativePath)"
+            if [ ! -f "$s" ]; then echo missing; elif grep -q 'budget_ok' "$s"; then echo budget; else echo old; fi
             printf '@@config\n'; head -c 1024 "$d/$k" 2>/dev/null
             printf '\n@@blocked\n'; [ -f "$d/$k.blocked" ] && printf 'blocked %s %s\n' "$k" "$(head -c 256 "$d/$k.blocked" | tr '\n\r' '  ')"
             printf '@@clock\n'; date '+%s %H %M %S' | awk '{ print "now", $1; print "daystart", $1 - ($2 * 3600 + $3 * 60 + $4) }'
@@ -165,6 +172,18 @@ enum ClaudeBudgetScript {
 
 /// Lectura de `ClaudeBudgetScript.readCommand`.
 struct ClaudeBudgetReading: Equatable, Sendable {
+    /// El despachador instalado en el servidor.
+    enum Dispatcher: Equatable, Sendable {
+        /// Sabe de presupuestos.
+        case budget
+        /// Lo instaló una versión anterior de Argos (otro dispositivo): no frena.
+        case outdated
+        /// Aún no hay despachador (se instala al guardar o al encolar).
+        case missing
+        case unknown
+    }
+
+    let dispatcher: Dispatcher
     let budget: ClaudeProjectBudget
     let block: ClaudeBudgetBlock?
     /// Reloj del servidor.
@@ -196,6 +215,12 @@ struct ClaudeBudgetReading: Equatable, Sendable {
         )
         // La medianoche del servidor se pasa al reloj de este dispositivo.
         let offset = clock["now"].map { localNow.timeIntervalSince1970 - $0 } ?? 0
+        switch sections["dispatcher"]?.first?.trimmingCharacters(in: .whitespaces) {
+        case "budget": dispatcher = .budget
+        case "old": dispatcher = .outdated
+        case "missing": dispatcher = .missing
+        default: dispatcher = .unknown
+        }
         budget = ClaudeProjectBudget(configText: (sections["config"] ?? []).joined(separator: "\n"))
         block = (sections["blocked"] ?? []).lazy.compactMap(ClaudeBudgetBlock.init(pollLine:)).first
         serverNow = clock["now"].map { Date(timeIntervalSince1970: $0) }

@@ -161,14 +161,24 @@ proyecto y no toque un archivo que comparten otras funciones.
 - **Máximo al día**: coste equivalente (`ClaudePricing`) del proyecto desde la medianoche
   del servidor (hora local del servidor, también redondeada a la hora).
 - `budget_ok <proyecto> <encargo>` (en `ClaudeBudgetScript`, incluido en `dispatch.sh`) se
-  llama justo antes de lanzar el primer `pending` (después de la barrera del revisor, `review-wait`), así que vale para la cola y para las
-  ejecuciones de tareas programadas. Pone al día el índice una vez por ejecución (con
-  `timeout 20` si existe; si no, en segundo plano, y usa lo que haya; no lo relanza si se
-  actualizó hace menos de un minuto). Si el proyecto pasó un tope, el encargo sigue
+  llama justo antes de lanzar el primer `pending` (pasada ya la barrera del revisor,
+  `review-wait`), así que vale para la cola y para las ejecuciones de tareas programadas. Pone al día el índice una vez por ejecución, siempre en
+  segundo plano (tiene su propio cerrojo y solo guarda al terminar; no se relanza si se
+  actualizó hace menos de un minuto) y evalúa con lo que ya haya: un encargo puede tardar
+  un `tick` en notar el último gasto. Valores fuera de rango (`window_pct` fuera de 1…100,
+  `daily_usd` < 0,01) se ignoran igual que en la app. Si el proyecto pasó un tope, el encargo sigue
   `pending` con motivo `budget` (las versiones publicadas ignoran motivos que no conocen) y
   se anota `budgets/<proyecto>.blocked` (`v=1 kind=window|daily used= cap= until= since=`,
   `since` se conserva mientras dure el mismo bloqueo). En cuanto deja de pasarlo (nueva
-  ventana, nuevo día o tope cambiado) el `tick` lo lanza y borra el bloqueo.
+  ventana, nuevo día o tope cambiado) el `tick` lo lanza y borra el bloqueo; también se
+  borra cuando el proyecto ya no tiene pendientes (p. ej. se canceló el encargo frenado).
+- Guardar un presupuesto con algún tope instala el temporizador de las tareas programadas
+  (sin él, nadie llamaría a `tick` al liberarse); si el servidor no tiene launchd, systemd
+  ni cron, la pantalla lo avisa.
+- Una versión publicada anterior (≤ 1.11.x) reinstala su `dispatch.sh` sin `budget_ok` al
+  encolar desde ese dispositivo, y entonces el presupuesto deja de frenar. No tiene arreglo
+  del lado de lo publicado: la lectura del presupuesto dice si el despachador instalado
+  tiene `budget_ok` y la pantalla avisa para actualizar Argos en ese dispositivo.
 - Un encargo ya en marcha no se corta; lo lanzado a mano en el terminal no pasa por aquí.
 - La app lee los bloqueos en la sección `budget` del sondeo: elemento informativo en la
   bandeja «Te necesita» (Mac) mientras dure y una notificación local por bloqueo (Mac y

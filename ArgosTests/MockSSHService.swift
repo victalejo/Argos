@@ -137,8 +137,10 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     var budgetReading = ClaudeBudgetReading(output: "")
     private(set) var savedBudgets: [(ClaudeProjectBudget, String)] = []
     func readProjectBudget(projectKey: String) async throws -> ClaudeBudgetReading { budgetReading }
-    func saveProjectBudget(_ budget: ClaudeProjectBudget, projectKey: String) async throws {
+    var budgetTimer: ClaudeTaskTimer.Kind = .systemd
+    func saveProjectBudget(_ budget: ClaudeProjectBudget, projectKey: String) async throws -> ClaudeTaskTimer.Kind? {
         savedBudgets.append((budget, projectKey))
+        return budget.isEmpty ? nil : budgetTimer
     }
     var schedules: [ClaudeSchedule] = []
     func saveSchedule(_ schedule: ClaudeSchedule) async throws -> ClaudeTaskTimer.Kind {

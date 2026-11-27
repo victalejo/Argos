@@ -11849,6 +11849,22 @@
         }
       }
     },
+    "El servidor no tiene launchd, systemd ni cron: un encargo frenado no empezará solo al liberarse el presupuesto." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor no tiene launchd, systemd ni cron: un encargo frenado no empezará solo al liberarse el presupuesto."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server has no launchd, systemd or cron: a paused task won’t start on its own when the budget frees up."
+          }
+        }
+      }
+    },
     "El servidor no tiene ningún locale UTF-8: una tmux sin UTF-8 rompe los acentos. Genera uno y defínelo." : {
       "localizations" : {
         "en" : {
@@ -22726,6 +22742,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Oscuro"
+          }
+        }
+      }
+    },
+    "Otro dispositivo con una versión anterior de Argos instaló un despachador sin presupuesto: hasta que actualices Argos allí, el presupuesto no frena." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otro dispositivo con una versión anterior de Argos instaló un despachador sin presupuesto: hasta que actualices Argos allí, el presupuesto no frena."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another device with an older version of Argos installed a task dispatcher without budgets: until you update Argos there, the budget won’t pause anything."
           }
         }
       }
