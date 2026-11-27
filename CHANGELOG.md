@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-11-27
+
 ### Añadido
 - **Presupuesto por proyecto (Mac e iPhone/iPad).** En «Encargos», apartado «Presupuesto»:
   «este proyecto no gasta más del 20 % de la ventana de 5 h» y/o «como mucho 5 USD al día»
