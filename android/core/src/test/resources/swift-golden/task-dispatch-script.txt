@@ -65,6 +65,95 @@ blocked() {
   return 1
 }
 
+# Presupuesto por proyecto (ver ClaudeBudgetScript): ¿puede arrancar ya un encargo?
+budgets="${ARGOS_BUDGETS_DIR:-$HOME/.config/argos/budgets}"
+usage="${ARGOS_USAGE_DIR:-$HOME/.config/argos/usage}"
+budget_fresh=""
+# Pone al día el índice de uso, una vez por ejecución y SIEMPRE en segundo plano (tiene
+# su propio cerrojo y solo guarda al terminar): se evalúa con lo que ya haya, así que
+# un encargo puede tardar un `tick` en notar el último gasto.
+budget_refresh() {
+  [ -n "$budget_fresh" ] && return 0; budget_fresh=1
+  idx="$HOME/.config/argos/usage-index.sh"
+  [ -f "$idx" ] || return 0
+  [ -n "$(find "$usage/ledger.tsv" -mmin -1 2>/dev/null)" ] && return 0
+  (nohup sh "$idx" >/dev/null 2>&1 &)
+  return 0
+}
+# Sin pendientes, un bloqueo anotado ya no frena nada (p. ej. se canceló el encargo).
+budget_clear() { rm -f "$budgets/${1##*/}.blocked"; }
+# Imprime `ok` o `window|daily <usado> <tope> <se libera>` para el proyecto $1.
+budget_eval() {
+  f="$budgets/$1"
+  wp=$(sed -n 's/^window_pct=//p' "$f" 2>/dev/null | head -n 1)
+  du=$(sed -n 's/^daily_usd=//p' "$f" 2>/dev/null | head -n 1)
+  # Mismos rangos que la app (ClaudeProjectBudget): fuera de ellos, sin tope.
+  case "$wp" in ''|*[!0-9]*) wp="" ;; *) [ ${#wp} -le 3 ] && [ "$wp" -ge 1 ] && [ "$wp" -le 100 ] || wp="" ;; esac
+  printf '%s\n' "$du" | grep -Eq '^[0-9]+([.][0-9]+)?$' || du=""
+  [ -z "$du" ] || [ ${#du} -le 12 ] && awk -v d="$du" 'BEGIN { exit !(d + 0 >= 0.01 && d + 0 <= 100000) }' || du=""
+  [ -n "$wp$du" ] || { echo ok; return 0; }
+  fh=""
+  if [ -n "$wp" ] && [ -f "$limits" ] && grep -qs 'argos-claude-limits' "$HOME/.claude/settings.json"; then
+    fh=$(LC_ALL=C awk '{ s = s $0 } END {
+      if (!match(s, /"five_hour":[ ]*[{][^}]*[}]/)) exit
+      o = substr(s, RSTART, RLENGTH); u = ""; r = ""
+      if (match(o, /"used_percentage":[ ]*[0-9.]+/)) { u = substr(o, RSTART, RLENGTH); sub(/.*:[ ]*/, "", u) }
+      if (match(o, /"resets_at":[ ]*[0-9]+/)) { r = substr(o, RSTART, RLENGTH); sub(/.*:[ ]*/, "", r) }
+      if (r + 0 > 100000000000) r = int(r / 1000)
+      if (u != "" && r != "") print u, r }' "$limits" 2>/dev/null)
+  fi
+  ds=$(date '+%s %H %M %S' | awk '{ print $1 - ($2 * 3600 + $3 * 60 + $4) }')
+  LC_ALL=C awk -F'\t' -v now="$(date +%s)" -v ds="$ds" -v key="$1" -v wp="$wp" -v du="$du" \
+    -v wu="${fh% *}" -v wr="${fh#* }" -v prices='claude-fable-5-2=8.0:40.0:10.0:16.0:0.2;claude-mythos-5-2=8.0:40.0:10.0:16.0:0.2;claude-fable-5-1=10.0:50.0:12.5:20.0:0.25;claude-mythos-5-1=10.0:50.0:12.5:20.0:0.25;claude-fable-5=10.0:50.0:12.5:20.0:1.0;claude-mythos-5=10.0:50.0:12.5:20.0:1.0;claude-opus-5-5=4.0:20.0:5.0:8.0:0.2;claude-opus-5=5.0:25.0:6.25:10.0:0.5;claude-opus-4-8=5.0:25.0:6.25:10.0:0.5;claude-opus-4-7=5.0:25.0:6.25:10.0:0.5;claude-opus-4-6=5.0:25.0:6.25:10.0:0.5;claude-opus-4-5=5.0:25.0:6.25:10.0:0.5;claude-opus-4=15.0:75.0:18.75:30.0:1.5;claude-sonnet-5-5=2.0:10.0:2.5:4.0:0.1;claude-sonnet-5=2.0:10.0:2.5:4.0:0.2;claude-sonnet-4=3.0:15.0:3.75:6.0:0.30000000000000004;claude-haiku-5-5=0.1:0.5:0.125:0.2:0.01;claude-haiku-4-5=1.0:5.0:1.25:2.0:0.1' '
+    function epoch(s,   y, m, d, era, yoe, doy, doe) {
+      if (length(s) != 13) return -1
+      y = substr(s, 1, 4) + 0; m = substr(s, 6, 2) + 0; d = substr(s, 9, 2) + 0
+      y -= (m <= 2); era = int(y / 400); yoe = y - era * 400
+      doy = int((153 * (m > 2 ? m - 3 : m + 9) + 2) / 5) + d - 1
+      doe = yoe * 365 + int(yoe / 4) - int(yoe / 100) + doy
+      return (era * 146097 + doe - 719468) * 86400 + (substr(s, 12, 2) + 0) * 3600
+    }
+    function cost(model,   i, best, bl) {
+      best = 0; bl = 0
+      for (i = 1; i <= np; i++) if (index(model, pre[i]) == 1 && length(pre[i]) > bl) { best = i; bl = length(pre[i]) }
+      if (!best) return 0
+      return ($4 * pin[best] + $5 * pout[best] + $6 * p5[best] + $7 * p1[best] + $8 * pr[best]) / 1000000
+    }
+    BEGIN {
+      np = split(prices, rows, ";")
+      for (i = 1; i <= np; i++) { split(rows[i], kv, "="); split(kv[2], v, ":"); pre[i] = kv[1]; pin[i] = v[1]; pout[i] = v[2]; p5[i] = v[3]; p1[i] = v[4]; pr[i] = v[5] }
+      ws = -1; if (wp != "" && wu != "" && wr + 0 > now + 0) ws = int((wr - 18000) / 3600) * 3600
+      dh = int(ds / 3600) * 3600
+    }
+    NF >= 9 {
+      t = epoch($1); if (t < 0 || t > now + 0) next
+      c = cost($3)
+      if (ws >= 0 && t >= ws) { all += c; if ($2 == key) mine += c }
+      if (du != "" && t >= dh && $2 == key) day += c
+    }
+    END {
+      if (ws >= 0 && all > 0 && wu * mine / all >= wp + 0) { printf "window %.2f %d %d\n", wu * mine / all, wp, wr; exit }
+      if (du != "" && day >= du + 0) { printf "daily %.4f %s %d\n", day, du, ds + 86400; exit }
+      print "ok"
+    }' "$usage/ledger.tsv" 2>/dev/null || echo ok
+}
+# ¿Arranca el encargo $2 del proyecto $1? Si no, motivo `budget` y bloqueo anotado
+# (se conserva `since` mientras dure el mismo bloqueo: así se avisa una sola vez).
+budget_ok() {
+  k=${1##*/}; [ -f "$budgets/$k" ] || { budget_clear "$k"; return 0; }
+  # Fuera de `$(…)`: si no, la marca de «ya puesto al día» se perdería en la subshell.
+  budget_refresh
+  r=$(budget_eval "$k")
+  set -- "$2" $r
+  if [ "$2" != window ] && [ "$2" != daily ]; then rm -f "$budgets/$k.blocked"; return 0; fi
+  put "$1" reason budget
+  b="$budgets/$k.blocked"
+  since=$(sed -n 's/^.* until=\([0-9]*\) since=\([0-9]*\).*$/\1 \2/p' "$b" 2>/dev/null)
+  case "$since" in "$5 "*) since=${since#* } ;; *) since=$(date +%s) ;; esac
+  printf 'v=1 kind=%s used=%s cap=%s until=%s since=%s\n' "$2" "$3" "$4" "$5" "$since" > "$b.$$" && mv -f "$b.$$" "$b"
+  return 1
+}
+
 # Lanza el encargo $2 del proyecto $1 en su panel. $3=1: Claude acaba de terminar
 # (hook Stop), no hace falta mirar si está libre.
 launch() {
@@ -121,7 +210,9 @@ advance() {
       put "$t" state pending
     fi
     if t=$(first_in "$p" pending); then
-      if review_barrier "$p" "$t"; then put "$t" reason review-wait; else launch "$p" "$t" "$2"; fi
+      if review_barrier "$p" "$t"; then put "$t" reason review-wait; elif budget_ok "$p" "$t"; then launch "$p" "$t" "$2"; fi
+    else
+      budget_clear "$p"
     fi
   fi
   unlock "$p"

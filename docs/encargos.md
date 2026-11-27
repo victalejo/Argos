@@ -162,10 +162,10 @@ proyecto y no toque un archivo que comparten otras funciones.
   del servidor (hora local del servidor, también redondeada a la hora).
 - `budget_ok <proyecto> <encargo>` (en `ClaudeBudgetScript`, incluido en `dispatch.sh`) se
   llama justo antes de lanzar el primer `pending` (pasada ya la barrera del revisor,
-  `review-wait`), así que vale para la cola y para las ejecuciones de tareas programadas. Pone al día el índice una vez por ejecución, siempre en
-  segundo plano (tiene su propio cerrojo y solo guarda al terminar; no se relanza si se
-  actualizó hace menos de un minuto) y evalúa con lo que ya haya: un encargo puede tardar
-  un `tick` en notar el último gasto. Valores fuera de rango (`window_pct` fuera de 1…100,
+  `review-wait`), así que vale para la cola y para las ejecuciones de tareas programadas.
+  Pone al día el índice una vez por ejecución, siempre en segundo plano (tiene su propio
+  cerrojo y solo guarda al terminar; no se relanza si se actualizó hace menos de un minuto)
+  y evalúa con lo que ya haya: un encargo puede tardar un `tick` en notar el último gasto. Valores fuera de rango (`window_pct` fuera de 1…100,
   `daily_usd` < 0,01) se ignoran igual que en la app. Si el proyecto pasó un tope, el encargo sigue
   `pending` con motivo `budget` (las versiones publicadas ignoran motivos que no conocen) y
   se anota `budgets/<proyecto>.blocked` (`v=1 kind=window|daily used= cap= until= since=`,
