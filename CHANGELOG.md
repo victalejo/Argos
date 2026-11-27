@@ -23,7 +23,7 @@ El detalle por commit vive en el historial git (Conventional Commits):
   veredicto claro en su respuesta (uno ambiguo, repetido o disfrazado ya no cuenta como
   aprobado, y cualquier gravedad que no sea baja o media bloquea), y ya no lee la
   configuración de Claude que traiga el propio cambio que revisa (ajustes, hooks o
-  servidores MCP del repositorio).
+  servidores MCP del repositorio; tampoco puede suplantar el lector de su respuesta).
 
 ## [1.13.1] - 2026-11-27
 

@@ -319,7 +319,9 @@ review_json() {
 # (detecta claves duplicadas); si no, un awk que recorre el JSON con su profundidad.
 review_decide() {
   if [ "${ARGOS_REVIEW_PARSER:-}" != awk ] && command -v python3 >/dev/null 2>&1; then
-    rd=$(printf '%s' "$1" | python3 -c "$review_py" 2>/dev/null)
+    # Desde / y aislado (-I: sin cwd ni PYTHON* en la ruta de módulos; -S: sin site):
+    # un json.py del repo revisado no puede suplantar al de Python ni aprobar.
+    rd=$(cd / && printf '%s' "$1" | python3 -I -S -c "$review_py" 2>/dev/null)
     case "$rd" in approve|block|invalid) printf '%s\n' "$rd"; return 0 ;; esac
   fi
   printf '%s' "$1" | LC_ALL=C awk "$review_awk"
