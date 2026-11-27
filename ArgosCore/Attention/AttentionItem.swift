@@ -23,6 +23,8 @@ enum AttentionKind: Int, CaseIterable, Comparable, Sendable {
     case portRequest
     /// Un envío («Enviar al Mac / al servidor») falló.
     case syncFailed
+    /// La cola de encargos de un proyecto se frenó por su presupuesto.
+    case budgetPaused
     /// Un envío terminó.
     case syncFinished
     /// Claude terminó y aún no se ha mirado.
@@ -34,7 +36,7 @@ enum AttentionKind: Int, CaseIterable, Comparable, Sendable {
     var needsResponse: Bool {
         switch self {
         case .claudeWaiting, .agentPermission, .portRequest, .reviewBlocked: return true
-        case .ciFailed, .syncFailed, .syncFinished, .claudeDone: return false
+        case .ciFailed, .syncFailed, .budgetPaused, .syncFinished, .claudeDone: return false
         }
     }
 
@@ -47,6 +49,7 @@ enum AttentionKind: Int, CaseIterable, Comparable, Sendable {
         case .reviewBlocked: return "exclamationmark.shield"
         case .portRequest: return "network"
         case .syncFailed: return "exclamationmark.arrow.triangle.2.circlepath"
+        case .budgetPaused: return "gauge.with.needle"
         case .syncFinished: return "checkmark.circle"
         case .claudeDone: return "checkmark.seal"
         }
@@ -61,6 +64,7 @@ enum AttentionKind: Int, CaseIterable, Comparable, Sendable {
         case .reviewBlocked: return String(localized: "El revisor bloqueó el push")
         case .portRequest: return String(localized: "Claude quiere abrir un puerto")
         case .syncFailed: return String(localized: "Falló un envío")
+        case .budgetPaused: return String(localized: "Encargos en pausa por presupuesto")
         case .syncFinished: return String(localized: "Envío terminado")
         case .claudeDone: return String(localized: "Claude terminó")
         }

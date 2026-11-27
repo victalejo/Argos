@@ -361,6 +361,23 @@ final class AgentNotifier {
         }
     }
 
+    /// «La cola de encargos se frenó por el presupuesto» (una vez por bloqueo, también entre
+    /// arranques: lo recuerda `ClaudeLimitAlertLedger`). Tocarlo abre el proyecto.
+    func postBudget(_ blocks: [ClaudeBudgetBlock], server: Server, projects: [Project]) {
+        for block in blocks where ClaudeLimitAlertLedger.claim("\(server.id.uuidString)-budget-\(block.id)") {
+            let project = projects.first { ClaudeUsageProjects.key(forPath: $0.path) == block.projectKey }
+            let content = UNMutableNotificationContent()
+            content.title = String(localized: "Encargos en pausa por presupuesto")
+            content.subtitle = "\(project?.name ?? ClaudeUsageProjects.fallbackName(block.projectKey)) · \(server.name)"
+            content.body = block.message()
+            content.sound = .default
+            content.threadIdentifier = "budget-\(server.id.uuidString)"
+            content.userInfo = NotificationRoute(serverID: server.id, projectPath: project?.path).userInfo
+            let id = "budget-\(server.id.uuidString)-\(block.id)"
+            UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
+        }
+    }
+
     /// Tocarlo abre el chat de ese agente (en su proyecto), tras Face ID si está activo.
     private func post(_ notice: AgentAttentionPlanner.Notice, server: Server, workingDirectory: String?) {
         let content = UNMutableNotificationContent()

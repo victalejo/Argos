@@ -58,6 +58,7 @@ struct GoldenParityTests {
         "checkpoint-restore-file", "checkpoint-enable", "checkpoint-disable",
         "usage-index-script", "usage-index-start", "usage-index-read",
         "task-dispatch-script", "task-list", "task-dispatch-enqueue", "task-meta",
+        "budget-poll", "budget-read", "budget-config",
         "schedule-list", "timer-install", "timer-status", "timer-uninstall", "schedule-config",
         "schedule-launch-tpl", "schedule-meta-tpl", "schedule-task-tpl",
     ]

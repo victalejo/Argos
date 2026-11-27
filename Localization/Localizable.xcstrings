@@ -2977,6 +2977,22 @@
         }
       }
     },
+    "Activa los límites de Claude (Ajustes del servidor) para usar este tope: sin ellos no frena." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa los límites de Claude (Ajustes del servidor) para usar este tope: sin ellos no frena."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Claude limits (server settings) to use this cap: without them it doesn’t pause anything."
+          }
+        }
+      }
+    },
     "Activada" : {
       "localizations" : {
         "en" : {
@@ -7285,6 +7301,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Como en Ajustes (%@)"
+          }
+        }
+      }
+    },
+    "Como mucho el %lld %% de la ventana" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Como mucho el %lld %% de la ventana"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "At most %lld %% of the window"
           }
         }
       }
@@ -12953,6 +12985,22 @@
         }
       }
     },
+    "Encargos en pausa por presupuesto" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encargos en pausa por presupuesto"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tasks paused by budget"
+          }
+        }
+      }
+    },
     "Encargos…" : {
       "localizations" : {
         "en" : {
@@ -13945,6 +13993,22 @@
         }
       }
     },
+    "Este presupuesto lo guardó una versión más nueva de Argos: actualiza la app para cambiarlo." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este presupuesto lo guardó una versión más nueva de Argos: actualiza la app para cambiarlo."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This budget was saved by a newer version of Argos: update the app to change it."
+          }
+        }
+      }
+    },
     "Este servidor cambió en otro dispositivo" : {
       "localizations" : {
         "en" : {
@@ -14489,6 +14553,22 @@
         }
       }
     },
+    "Frena la cola y las tareas programadas de este proyecto antes de empezar un encargo; lo que ya corre no se corta y lo que lances a mano en el terminal no se frena. El gasto es una estimación con precios de la API." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frena la cola y las tareas programadas de este proyecto antes de empezar un encargo; lo que ya corre no se corta y lo que lances a mano en el terminal no se frena. El gasto es una estimación con precios de la API."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pauses this project’s queue and scheduled tasks before a task starts; whatever is already running isn’t stopped, and what you run by hand in the terminal isn’t paused. Spending is an estimate at API prices."
+          }
+        }
+      }
+    },
     "Fuente" : {
       "localizations" : {
         "en" : {
@@ -14774,6 +14854,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Guardar el estado actual costará"
+          }
+        }
+      }
+    },
+    "Guardar presupuesto" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar presupuesto"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save budget"
           }
         }
       }
@@ -15222,6 +15318,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hoy"
+          }
+        }
+      }
+    },
+    "Hoy lleva %@ de %@ (día del servidor)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoy lleva %1$@ de %2$@ (día del servidor)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today: %1$@ of %2$@ (server day)."
           }
         }
       }
@@ -17610,6 +17722,38 @@
         }
       }
     },
+    "Lleva %@ %% de %@ %% de la ventana actual." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lleva %1$@ %% de %2$@ %% de la ventana actual."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Used %1$@ %% of %2$@ %% of the current window."
+          }
+        }
+      }
+    },
+    "Lleva %@ %% de %@ %% de la ventana actual; se reinicia %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lleva %1$@ %% de %2$@ %% de la ventana actual; se reinicia %3$@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Used %1$@ %% of %2$@ %% of the current window; it resets %3$@."
+          }
+        }
+      }
+    },
     "Llevas el %lld %% de «%@»." : {
       "localizations" : {
         "en" : {
@@ -18678,6 +18822,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Más reciente"
+          }
+        }
+      }
+    },
+    "Máximo al día" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máximo al día"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily maximum"
+          }
+        }
+      }
+    },
+    "Máximo al día en dólares" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máximo al día en dólares"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily maximum in dollars"
           }
         }
       }
@@ -20682,6 +20858,22 @@
         }
       }
     },
+    "No se pudo guardar el presupuesto del proyecto." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo guardar el presupuesto del proyecto."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t save the project budget."
+          }
+        }
+      }
+    },
     "No se pudo importar el servidor" : {
       "localizations" : {
         "en" : {
@@ -20886,6 +21078,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo leer el espacio libre (df)."
+          }
+        }
+      }
+    },
+    "No se pudo leer el presupuesto del proyecto." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el presupuesto del proyecto."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read the project budget."
           }
         }
       }
@@ -23066,6 +23274,54 @@
         }
       }
     },
+    "Pausado por el presupuesto del proyecto: empezará solo cuando se libere." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausado por el presupuesto del proyecto: empezará solo cuando se libere."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused by the project budget: it will start on its own once the budget frees up."
+          }
+        }
+      }
+    },
+    "Pausado por presupuesto: %@ %% de %@ %% de la ventana de 5 h; se libera %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausado por presupuesto: %1$@ %% de %2$@ %% de la ventana de 5 h; se libera %3$@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused by budget: %1$@ %% of %2$@ %% of the 5-hour window; frees up %3$@."
+          }
+        }
+      }
+    },
+    "Pausado por presupuesto: %@ de %@ hoy; se libera %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausado por presupuesto: %1$@ de %2$@ hoy; se libera %3$@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused by budget: %1$@ of %2$@ today; frees up %3$@."
+          }
+        }
+      }
+    },
     "Pedir %@ al abrir" : {
       "localizations" : {
         "en" : {
@@ -23974,6 +24230,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preparando…"
+          }
+        }
+      }
+    },
+    "Presupuesto" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presupuesto"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Budget"
           }
         }
       }
@@ -28851,6 +29123,38 @@
         }
       }
     },
+    "Tope alcanzado. %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tope alcanzado. %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cap reached. %@"
+          }
+        }
+      }
+    },
+    "Tope en la ventana de 5 h" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tope en la ventana de 5 h"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cap on the 5-hour window"
+          }
+        }
+      }
+    },
     "Trabaja con Claude Code en cada proyecto." : {
       "localizations" : {
         "en" : {
@@ -29179,6 +29483,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tus sesiones"
+          }
+        }
+      }
+    },
+    "USD" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USD"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USD"
+          }
+        }
+      }
+    },
+    "USD al día" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USD al día"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USD per day"
           }
         }
       }

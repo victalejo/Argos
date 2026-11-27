@@ -6,6 +6,16 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **Presupuesto por proyecto (Mac e iPhone/iPad).** En «Encargos», apartado «Presupuesto»:
+  «este proyecto no gasta más del 20 % de la ventana de 5 h» y/o «como mucho 5 USD al día»
+  (coste equivalente con precios de la API). La cola de encargos y las tareas programadas
+  del proyecto no empiezan un encargo nuevo mientras pase de su tope: queda en cola con el
+  motivo («Pausado por presupuesto: 18 % de 20 % de la ventana, se libera a las 15:00»),
+  empieza solo al liberarse y se avisa una vez en la bandeja «Te necesita» y con una
+  notificación. Lo que ya está en marcha no se corta y lo que lanzas a mano en el terminal
+  no se frena. El tope de la ventana necesita los límites de Claude activados.
+
 ## [1.13.1] - 2026-11-27
 
 ### Corregido

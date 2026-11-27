@@ -136,6 +136,27 @@ final class ClaudeActivityNotifier: NSObject {
         }
     }
 
+    /// «La cola de encargos se frenó por el presupuesto» (una vez por bloqueo, también
+    /// entre arranques: lo recuerda `ClaudeLimitAlertLedger`).
+    func notifyBudgetBlock(_ block: ClaudeBudgetBlock, serverID: Server.ID, serverName: String, projects: [Project]) {
+        guard ClaudeLimitAlertLedger.claim("\(serverID.uuidString)-budget-\(block.id)") else { return }
+        requestAuthorizationIfNeeded()
+        let project = projects.first { ClaudeUsageProjects.key(forPath: $0.path) == block.projectKey }
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "Encargos en pausa por presupuesto")
+        content.subtitle = "\(project?.name ?? ClaudeUsageProjects.fallbackName(block.projectKey)) · \(serverName)"
+        content.body = block.message()
+        content.sound = .default
+        content.threadIdentifier = "claude-budget-\(serverName)"
+        content.userInfo = NotificationRoute(serverID: serverID, session: project?.sessionName).userInfo
+        let request = UNNotificationRequest(identifier: "claude-budget-\(serverID.uuidString)-\(block.id)", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error {
+                Log.terminal.error("Notificación de presupuesto: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
     /// Pide permiso de notificaciones (una vez). Se llama al detectar actividad de
     /// Claude por primera vez, ANTES de necesitar notificar (la petición es asíncrona).
     func requestAuthorizationIfNeeded() {

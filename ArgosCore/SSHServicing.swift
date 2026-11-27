@@ -103,6 +103,9 @@ protocol SSHServicing: Sendable {
     func deleteSchedule(id: String) async throws
     func runScheduleNow(id: String) async throws
     func taskTimerStatus() async throws -> ClaudeTaskTimer.Kind
+    /// Presupuesto por proyecto (ver `ClaudeBudgetScript`).
+    func readProjectBudget(projectKey: String) async throws -> ClaudeBudgetReading
+    func saveProjectBudget(_ budget: ClaudeProjectBudget, projectKey: String) async throws
 
     // MARK: - Proyectos (carpetas con sesión tmux efímera)
 

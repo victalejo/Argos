@@ -58,6 +58,8 @@ enum ClaudeTaskReason: String, Equatable, Sendable {
     case pushing
     /// Espera: el revisor tiene bloqueado (o revisando) un encargo anterior de esa ventana.
     case reviewWait = "review-wait"
+    /// El proyecto pasó su presupuesto (`ClaudeProjectBudget`): sigue en cola hasta que se libere.
+    case budget
 
     var text: String {
         switch self {
@@ -79,6 +81,7 @@ enum ClaudeTaskReason: String, Equatable, Sendable {
         case .reviewFixing: return String(localized: "El revisor lo bloqueó y se pidió a Claude que lo arregle en otro encargo.")
         case .pushing: return String(localized: "Subiendo (push) sin la aprobación del revisor…")
         case .reviewWait: return String(localized: "Espera: el revisor tiene bloqueado un encargo anterior de esta ventana. Resuélvelo y empezará solo.")
+        case .budget: return String(localized: "Pausado por el presupuesto del proyecto: empezará solo cuando se libere.")
         }
     }
 }

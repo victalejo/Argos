@@ -88,6 +88,7 @@ servidores sin cola no hacen nada.
 2. Límite de uso < 85 % (si la statusline de límites está puesta).
 3. Memoria del servidor fuera de aviso (mismo umbral que la app: < 20 % libre → espera).
 4. Tareas programadas: proyecto sin Claude trabajando en ese momento; tiempo máximo.
+5. Presupuesto del proyecto (si tiene; ver abajo).
 
 Un encargo que no pasa los frenos sigue `pending` y se reintenta en el siguiente `tick`.
 
@@ -136,6 +137,45 @@ nada, se revisa y sube igualmente lo que quedó pendiente en la rama. `retry` no
 encargo bloqueado por el revisor. El sondeo trae los bloqueados (sección `reviews`) para la
 bandeja «Te necesita» del Mac. Motivos, claves y archivos nuevos: las versiones publicadas
 los ignoran (motivo desconocido = sin texto).
+
+### Presupuesto por proyecto (freno 5)
+
+Dos topes opcionales y combinables por proyecto (decisión del 2026-11-26), en
+`~/.config/argos/budgets/<proyecto>` (clave = la de `tasks/`), `clave=valor` legible por sh y
+aditivo (claves desconocidas se ignoran; la app no pisa un `v` más nuevo):
+
+```
+v=1
+window_pct=20        # % de la ventana de 5 h que puede gastar el proyecto (1…100)
+daily_usd=5.00       # coste equivalente máximo al día (USD)
+```
+
+Va fuera de `tasks/` (y no en `projects.json`) para que el despachador no lo tome por un
+proyecto y no toque un archivo que comparten otras funciones.
+
+- **Ventana de 5 h**: lo gastado por el proyecto en la ventana actual se estima como
+  `used_percentage global × (coste del proyecto / coste de todos los proyectos)`, sumando las
+  horas del índice de uso (`usage/ledger.tsv`) desde `resets_at − 5 h` (redondeado a la hora:
+  el índice va por horas, así que puede contar un poco de antes). Sin la statusline de
+  límites no se puede evaluar: no frena y la app lo dice.
+- **Máximo al día**: coste equivalente (`ClaudePricing`) del proyecto desde la medianoche
+  del servidor (hora local del servidor, también redondeada a la hora).
+- `budget_ok <proyecto> <encargo>` (en `ClaudeBudgetScript`, incluido en `dispatch.sh`) se
+  llama justo antes de lanzar el primer `pending` (después de la barrera del revisor, `review-wait`), así que vale para la cola y para las
+  ejecuciones de tareas programadas. Pone al día el índice una vez por ejecución (con
+  `timeout 20` si existe; si no, en segundo plano, y usa lo que haya; no lo relanza si se
+  actualizó hace menos de un minuto). Si el proyecto pasó un tope, el encargo sigue
+  `pending` con motivo `budget` (las versiones publicadas ignoran motivos que no conocen) y
+  se anota `budgets/<proyecto>.blocked` (`v=1 kind=window|daily used= cap= until= since=`,
+  `since` se conserva mientras dure el mismo bloqueo). En cuanto deja de pasarlo (nueva
+  ventana, nuevo día o tope cambiado) el `tick` lo lanza y borra el bloqueo.
+- Un encargo ya en marcha no se corta; lo lanzado a mano en el terminal no pasa por aquí.
+- La app lee los bloqueos en la sección `budget` del sondeo: elemento informativo en la
+  bandeja «Te necesita» (Mac) mientras dure y una notificación local por bloqueo (Mac y
+  iPhone/iPad; `ClaudeLimitAlertLedger` recuerda los ya avisados). Guardar el presupuesto
+  pone al día el despachador y el índice, borra el bloqueo y lanza un `tick`.
+- Android aún no lo porta (goldens en `pendingAndroidPort`): sus encargos se frenan igual
+  porque frena el servidor, pero no ve el motivo ni avisa.
 
 ## Puntos de restauración
 

@@ -95,6 +95,8 @@ enum ClaudeTaskScript {
           return 1
         }
 
+        \#(ClaudeBudgetScript.functions)
+
         # Lanza el encargo $2 del proyecto $1 en su panel. $3=1: Claude acaba de terminar
         # (hook Stop), no hace falta mirar si está libre.
         launch() {
@@ -151,7 +153,7 @@ enum ClaudeTaskScript {
               put "$t" state pending
             fi
             if t=$(first_in "$p" pending); then
-              if review_barrier "$p" "$t"; then put "$t" reason review-wait; else launch "$p" "$t" "$2"; fi
+              if review_barrier "$p" "$t"; then put "$t" reason review-wait; elif budget_ok "$p" "$t"; then launch "$p" "$t" "$2"; fi
             fi
           fi
           unlock "$p"

@@ -305,6 +305,9 @@ final class ArgosAppModel {
         if let alert = round.result.limitAlerts.first {
             notifier.notifyClaudeLimit(alert, serverID: server.id, serverName: server.name)
         }
+        for block in round.result.budgetAlerts {
+            notifier.notifyBudgetBlock(block, serverID: server.id, serverName: server.name, projects: vm.projects)
+        }
         if let pending = round.result.portRequests {
             portRequests[server.id]?.absorb(pending)
         }

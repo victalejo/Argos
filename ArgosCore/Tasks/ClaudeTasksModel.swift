@@ -31,6 +31,8 @@ final class ClaudeTasksModel {
 
     /// Ventanas del proyecto con Claude (índice → estado), para elegir dónde.
     let claudeWindows: [Int: ClaudeActivity]
+    /// Apartado «Presupuesto» del proyecto.
+    @ObservationIgnored let budget: ClaudeBudgetModel
 
     @ObservationIgnored private let service: any SSHServicing
     @ObservationIgnored let project: Project
@@ -55,6 +57,7 @@ final class ClaudeTasksModel {
         self.claudeWindows = claudeWindows
         self.refreshInterval = refreshInterval
         self.window = Self.suggestedWindow(claudeWindows)
+        self.budget = ClaudeBudgetModel(service: service, projectKey: ClaudeUsageProjects.key(forPath: project.path))
     }
 
     /// La ventana libre (Claude terminó) con número más bajo; si no, la primera con Claude.

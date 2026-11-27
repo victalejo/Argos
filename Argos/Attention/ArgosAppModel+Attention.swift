@@ -40,7 +40,8 @@ extension ArgosAppModel {
             ports: attentionPortInputs,
             syncs: attentionSyncInputs,
             persistentAgents: attentionPersistentInputs,
-            reviews: attentionReviewInputs
+            reviews: attentionReviewInputs,
+            budgets: attentionBudgetInputs
         )
     }
 
@@ -195,6 +196,13 @@ extension ArgosAppModel {
         }
         let watch = agentStore.watch
         return live + watch.tracker.notices(agents: watch.agents, excluding: Set(attached.map(\.tab.session.id)))
+    }
+
+    private var attentionBudgetInputs: [AttentionList.BudgetInput] {
+        store.servers.flatMap { server -> [AttentionList.BudgetInput] in
+            guard let vm = vms[server.id], case .loaded = vm.state else { return [] }
+            return vm.budgetBlocks.map { AttentionList.BudgetInput(serverID: server.id, block: $0) }
+        }
     }
 
     private var attentionPortInputs: [AttentionList.PortInput] {

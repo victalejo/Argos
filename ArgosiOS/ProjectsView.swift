@@ -443,7 +443,8 @@ struct ProjectsView: View {
             // También la lista: recoge lo creado o cerrado desde el Mac u otro cliente.
             await viewModel.refreshSessionsQuietly()
             await viewModel.refreshGitSummaries()
-            await viewModel.refreshServerReadings()
+            let budgetBlocks = await viewModel.refreshServerReadings()
+            AgentNotifier.shared.postBudget(budgetBlocks, server: currentServer, projects: viewModel.projects)
             AgentNotifier.shared.postCI(await viewModel.pollCIWatches(), server: currentServer)
             try? await Task.sleep(for: .seconds(5))
         }

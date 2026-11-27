@@ -47,6 +47,12 @@ enum AttentionList {
         let block: ClaudeTaskReviewBlock
     }
 
+    /// Un proyecto con la cola frenada por su presupuesto.
+    struct BudgetInput: Sendable {
+        let serverID: Server.ID
+        let block: ClaudeBudgetBlock
+    }
+
     static func build(
         inbox: AttentionInbox,
         servers: [ServerInput],
@@ -54,7 +60,9 @@ enum AttentionList {
         ports: [PortInput] = [],
         syncs: [SyncInput] = [],
         persistentAgents: [PersistentAgentAttentionTracker.Notice] = [],
-        reviews: [ReviewInput] = []
+        reviews: [ReviewInput] = [],
+        budgets: [BudgetInput] = [],
+        now: Date = Date()
     ) -> [AttentionItem] {
         let projects = Dictionary(servers.map { ($0.serverID, $0.projects) }, uniquingKeysWith: { first, _ in first })
         var items = servers.flatMap(waitingItems)
@@ -64,6 +72,7 @@ enum AttentionList {
         items += reviews.map { reviewItem($0, projects: projects[$0.serverID] ?? []) }
         items += ports.map(portItem)
         items += syncs.map(syncItem)
+        items += budgets.map { budgetItem($0, projects: projects[$0.serverID] ?? [], now: now) }
         items += inbox.unseenDone.values.map { doneItem($0, projects: projects[$0.serverID] ?? []) }
         let order = Dictionary(servers.enumerated().map { ($1.serverID, $0) }, uniquingKeysWith: { first, _ in first })
         return items.sorted { lhs, rhs in
@@ -155,6 +164,21 @@ enum AttentionList {
             title: project?.name ?? review.block.projectKey,
             detail: String(localized: "\(title) · no se subió: decide si subirlo igualmente o pedir el arreglo"),
             destination: .taskReview(serverID: review.serverID, block: review.block, session: project?.sessionName)
+        )
+    }
+
+    private static func budgetItem(_ input: BudgetInput, projects: [Project], now: Date) -> AttentionItem {
+        let project = projects.first { ClaudeUsageProjects.key(forPath: $0.path) == input.block.projectKey }
+        let destination: AttentionDestination = project.map {
+            .terminal(SessionHandle(serverID: input.serverID, sessionID: $0.sessionName), window: nil)
+        } ?? .server(input.serverID)
+        return AttentionItem(
+            id: "budget|\(input.serverID)|\(input.block.id)",
+            kind: .budgetPaused,
+            serverID: input.serverID,
+            title: project?.name ?? ClaudeUsageProjects.fallbackName(input.block.projectKey),
+            detail: input.block.message(now: now),
+            destination: destination
         )
     }
 

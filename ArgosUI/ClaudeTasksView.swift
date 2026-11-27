@@ -19,8 +19,10 @@ struct ClaudeTasksView: View {
                 Text(error).font(.callout).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
             }
             queue
+            ClaudeBudgetSection(model: model.budget)
         }
         .task { await model.watch() }
+        .task { await model.budget.watch() }
     }
 
     private var hooksNotice: some View {
@@ -69,6 +71,7 @@ extension ClaudeTasksView {
     fileprivate func row(_ task: ClaudeTask) -> some View {
         ClaudeTaskRow(
             item: task,
+            budgetBlock: model.budget.activeBlock(),
             onCancel: { Task { await model.cancel(task) } },
             onRetry: { Task { await model.retry(task) } }
         )
@@ -124,6 +127,8 @@ private struct ClaudeTaskComposer: View {
 
 private struct ClaudeTaskRow: View {
     let item: ClaudeTask
+    /// Bloqueo del presupuesto del proyecto (detalla el motivo `budget`).
+    let budgetBlock: ClaudeBudgetBlock?
     let onCancel: () -> Void
     let onRetry: () -> Void
 
@@ -143,7 +148,11 @@ private struct ClaudeTaskRow: View {
     private var subtitle: String {
         var parts = [item.state?.label ?? String(localized: "Desconocido")]
         if let reason = item.reason, item.state == .pending || item.state == .paused || item.state == .failed || item.state == .done {
-            parts.append(reason.text)
+            if reason == .budget, let budgetBlock {
+                parts.append(budgetBlock.message())
+            } else {
+                parts.append(reason.text)
+            }
         }
         if item.reason == nil, item.reviewedVerdict == ClaudeTaskReview.Verdict.approve.rawValue {
             parts.append(String(localized: "Aprobado por el revisor automático."))

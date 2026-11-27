@@ -17,6 +17,8 @@ struct WorkspacePollRound: Sendable {
     let portRequests: [PortForwardRequest]?
     /// Ventanas de uso de Claude que acaban de pasar al 85 % (o al 95 %).
     var limitAlerts: [ClaudeLimitAlert] = []
+    /// Proyectos cuya cola acaba de frenarse por su presupuesto.
+    var budgetAlerts: [ClaudeBudgetBlock] = []
 }
 
 extension SessionsViewModel {
@@ -39,19 +41,23 @@ extension SessionsViewModel {
         if let memory = output.memory { absorbMemory(memory) }
         if let blocks = output.reviewBlocks, blocks != reviewBlocks { reviewBlocks = blocks }
         let limitAlerts = output.limitsChecked ? absorbLimits(output.limits) : []
+        let budgetAlerts = output.budgetBlocks.map { absorbBudgetBlocks($0) } ?? []
         var transitions: [ClaudeTransition] = []
         if let claude = output.claude { transitions = await absorbClaudeActivity(claude) }
         // Cancelada ya con el estado de Claude aplicado: sus avisos se entregan (si no, un
         // «terminó» se perdería) pero no se usa más el servicio.
         guard !Task.isCancelled else {
-            return WorkspacePollRound(transitions: transitions, ciResults: [], portRequests: nil, limitAlerts: limitAlerts)
+            return WorkspacePollRound(
+                transitions: transitions, ciResults: [], portRequests: nil, limitAlerts: limitAlerts, budgetAlerts: budgetAlerts
+            )
         }
         // Si Claude acaba de terminar, el resumen git se relee ya: el aviso dice cuántos
         // archivos cambió y la fila del proyecto se actualiza al momento.
         await refreshGitSummaries(force: transitions.contains { $0.activity == .done })
         let ciResults = await pollCIWatches()
         return WorkspacePollRound(
-            transitions: transitions, ciResults: ciResults, portRequests: output.portRequests, limitAlerts: limitAlerts
+            transitions: transitions, ciResults: ciResults, portRequests: output.portRequests, limitAlerts: limitAlerts,
+            budgetAlerts: budgetAlerts
         )
     }
 

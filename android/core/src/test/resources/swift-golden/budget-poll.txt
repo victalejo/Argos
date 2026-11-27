@@ -1,0 +1,1 @@
+for f in "$HOME/.config/argos/budgets"/*.blocked; do [ -f "$f" ] || continue; n=${f##*/}; printf 'blocked %s %s\n' "${n%.blocked}" "$(head -c 256 "$f" | tr '\n\r' '  ')"; done; true

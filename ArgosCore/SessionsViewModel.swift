@@ -52,6 +52,8 @@ final class SessionsViewModel {
     /// Encargos que el revisor automático dejó en pausa (bandeja «Te necesita»); lo
     /// escribe el sondeo.
     var reviewBlocks: [ClaudeTaskReviewBlock] = []
+    /// Proyectos con encargos frenados por su presupuesto (último sondeo; solo vigentes).
+    private(set) var budgetBlocks: [ClaudeBudgetBlock] = []
     /// Última lectura suelta de memoria (iPhone/iPad), para espaciarlas.
     @ObservationIgnored private var lastMemoryRead: ContinuousClock.Instant?
     /// Cada cuánto, como mucho, se relee la memoria fuera del sondeador del Mac.
@@ -290,6 +292,16 @@ final class SessionsViewModel {
         return ClaudeLimitAlert.transitions(from: previous, to: merged, now: now)
     }
 
+    /// Aplica la sección `budget` de un sondeo. Devuelve los bloqueos nuevos (para avisar;
+    /// quien avisa recuerda los ya avisados entre arranques).
+    @discardableResult
+    func absorbBudgetBlocks(_ blocks: [ClaudeBudgetBlock], now: Date = Date()) -> [ClaudeBudgetBlock] {
+        let active = blocks.filter { $0.isActive(now: now) }
+        let known = Set(budgetBlocks.map(\.id))
+        budgetBlocks = active
+        return active.filter { !known.contains($0.id) }
+    }
+
     /// Aplica una lectura de memoria (con histéresis sobre el nivel anterior).
     func absorbMemory(_ reading: ServerMemoryReading) {
         memoryPressure = ServerMemoryPressure.evaluate(reading, previous: memoryPressure?.level)
@@ -297,17 +309,21 @@ final class SessionsViewModel {
 
     /// Relee la memoria y los límites de Claude (iPhone/iPad, que no usa el sondeador del
     /// Mac). Un fallo no borra la última lectura.
-    func refreshServerReadings() async {
-        guard case .loaded = state else { return }
+    /// Devuelve los bloqueos por presupuesto nuevos (para avisar).
+    @discardableResult
+    func refreshServerReadings() async -> [ClaudeBudgetBlock] {
+        guard case .loaded = state else { return [] }
         let now = ContinuousClock.now
-        if let lastMemoryRead, now - lastMemoryRead < Self.memoryReadInterval { return }
+        if let lastMemoryRead, now - lastMemoryRead < Self.memoryReadInterval { return [] }
         lastMemoryRead = now
         do {
-            let output = try await ConnectionPriority.background { try await service.workspacePoll([.memory, .limits]) }
+            let output = try await ConnectionPriority.background { try await service.workspacePoll([.memory, .limits, .budget]) }
             if let memory = output.memory { absorbMemory(memory) }
             if output.limitsChecked { absorbLimits(output.limits) }
+            return output.budgetBlocks.map { absorbBudgetBlocks($0) } ?? []
         } catch {
             noteBackgroundFailure(error, during: "leer la memoria y los límites del servidor")
+            return []
         }
     }
 

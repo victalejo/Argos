@@ -27,6 +27,8 @@
 //      <epoch en que se guardó> + JSON de la statusline   (ver ClaudeLimitsReading)
 //      @@argos-poll:reviews
 //      <proyecto>/<encargo>|<título>   encargos que bloqueó el revisor (ClaudeTaskReviewBlock)
+//      @@argos-poll:budget
+//      blocked <proyecto> <campos>                         (ver ClaudeBudgetBlock)
 //      @@argos-poll:end
 //
 //  Una sección cuenta solo si llega completa (le sigue otro marcador): si el plazo remoto
@@ -43,6 +45,8 @@ enum WorkspacePollSection: String, CaseIterable, Sendable, Hashable {
     case memory
     case limits
     case reviews
+    /// Encargos frenados por el presupuesto de su proyecto.
+    case budget
 }
 
 /// Lista de sesiones leída en el sondeo.
@@ -67,6 +71,8 @@ struct WorkspacePollOutput: Equatable, Sendable {
     var limitsChecked = false
     /// Encargos que el revisor automático dejó en pausa (`nil` = no llegó).
     var reviewBlocks: [ClaudeTaskReviewBlock]?
+    /// Bloqueos por presupuesto anotados por el despachador (`nil` = no se leyó).
+    var budgetBlocks: [ClaudeBudgetBlock]?
 
     init(
         claude: ClaudeActivitySnapshot? = nil,
@@ -122,6 +128,8 @@ enum WorkspacePollCommand {
             return ClaudeLimitsInstaller.pollCommand
         case .reviews:
             return ClaudeTaskReviewScript.pollCommand
+        case .budget:
+            return "{ \(ClaudeBudgetScript.pollCommand); }"
         }
     }
 
@@ -153,6 +161,9 @@ enum WorkspacePollCommand {
         }
         if requested.contains(.reviews), let lines = sections[.reviews] {
             result.reviewBlocks = ClaudeTaskReviewBlock.parse(lines: lines)
+        }
+        if requested.contains(.budget), let lines = sections[.budget] {
+            result.budgetBlocks = ClaudeBudgetBlock.parse(pollLines: lines)
         }
         return result
     }
