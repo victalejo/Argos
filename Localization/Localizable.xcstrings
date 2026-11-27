@@ -13465,6 +13465,22 @@
         }
       }
     },
+    "Enviar a la terminal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to Terminal"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar a la terminal"
+          }
+        }
+      }
+    },
     "Enviar al Mac" : {
       "localizations" : {
         "en" : {
@@ -18406,6 +18422,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Los puntos de restauración no están disponibles en esta conexión."
+          }
+        }
+      }
+    },
+    "Los valores entre « » vienen de git en el servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Values between « » come from git on the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los valores entre « » vienen de git en el servidor."
           }
         }
       }
@@ -26554,6 +26586,22 @@
         }
       }
     },
+    "Revisa el encargo antes de enviarlo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review the prompt before sending it"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa el encargo antes de enviarlo"
+          }
+        }
+      }
+    },
     "Revisa este texto antes de publicarlo: Argos oculta los secretos y datos personales que reconoce, pero no puede garantizar que no se escape alguno." : {
       "localizations" : {
         "en" : {
@@ -29319,6 +29367,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Texto más pequeño"
+          }
+        }
+      }
+    },
+    "Texto que se enviará" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text that will be sent"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto que se enviará"
           }
         }
       }

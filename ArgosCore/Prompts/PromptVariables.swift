@@ -5,7 +5,8 @@
 //  Variables fijas de la biblioteca de encargos: `{rama}`, `{ultimo_commit}`,
 //  `{archivos_cambiados}` y `{fecha}`. Sus valores salen de git en la carpeta del
 //  proyecto, con UN comando con plazo (`command`), y se sustituyen aquí (lógica pura).
-//  El servidor no es de fiar: cada valor se recorta y se limpia de caracteres de control.
+//  El servidor no es de fiar: rama y archivos solo con caracteres seguros, y el commit
+//  como hash + asunto corto en una línea (`GitValueSanitizer`).
 //
 
 import Foundation
@@ -20,7 +21,7 @@ enum PromptVariables {
     /// Plazo en el servidor del comando de git.
     static let timeoutSeconds = 15
     static let maxValueLength = 200
-    static let maxFiles = 30
+    static let maxFiles = 50
     /// Exit code del comando si la carpeta no existe.
     static let missingFolderExitCode = 3
 
@@ -116,11 +117,12 @@ enum PromptVariables {
             let value = String(line.dropFirst(2))
             switch line.first {
             case "D": values.date = clean(value).flatMap(validDay)
-            case "B": values.branch = clean(value)
-            case "C": values.lastCommit = clean(value)
+            case "B": values.branch = GitValueSanitizer.safeName(value)
+            case "C": values.lastCommit = GitValueSanitizer.commitLine(value)
             case "F":
                 // `XY ruta` (o `XY vieja -> nueva`): se quita el estado.
-                if values.changedFiles.count < maxFiles, value.count > 3, let path = clean(String(value.dropFirst(3))) {
+                if values.changedFiles.count < maxFiles, value.count > 3,
+                   let path = GitValueSanitizer.porcelainPath(String(value.dropFirst(3))) {
                     values.changedFiles.append(path)
                 }
             default: continue
