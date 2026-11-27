@@ -346,6 +346,17 @@ final class ArgosTerminalView: TerminalView {
         if let appliedTheme { applyTheme(appliedTheme) }
     }
 
+    /// «Buscar» del menú Edición (o ⌘F/⌘G con el terminal enfocado): abre la búsqueda en
+    /// el historial de tmux de Argos en vez de la barra propia de SwiftTerm, que solo ve
+    /// la pantalla (tmux redibuja y el historial real está en tmux).
+    var onFindAction: ((NSFindPanelAction) -> Void)?
+
+    override func performFindPanelAction(_ sender: Any?) {
+        guard let onFindAction else { return super.performFindPanelAction(sender) }
+        let tag = (sender as? NSValidatedUserInterfaceItem)?.tag ?? Int(NSFindPanelAction.showFindPanel.rawValue)
+        onFindAction(NSFindPanelAction(rawValue: UInt(tag)) ?? .showFindPanel)
+    }
+
     override func paste(_ sender: Any?) {
         if let (data, ext) = Self.imageFromPasteboard() {
             onPasteImage?(data, ext)

@@ -63,6 +63,10 @@ struct ArgosApp: App {
             // por defecto (⌘N es "Nuevo proyecto").
             TabCommands()
 
+            // Menú «Terminal»: buscar en el historial (⌘F, ⌘G, ⇧⌘G), copiar la salida del
+            // último comando (⌥⌘C) y las marcas de prompt del servidor.
+            TerminalFindCommands()
+
             // Menú de la app: "Acerca de Argos" propio (panel nativo con icono/enlaces)
             // + "Buscar actualizaciones…" (Sparkle, o la ficha de la App Store).
             CommandGroup(replacing: .appInfo) {

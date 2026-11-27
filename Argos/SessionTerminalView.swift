@@ -82,6 +82,12 @@ struct SessionTerminalView: View {
     @State var renamingWindow: TmuxWindow?
     /// Ventana pendiente de confirmar su cierre.
     @State var closingWindow: TmuxWindow?
+    /// Barra «Buscar en el historial» (modo copia de tmux).
+    @State var search: TerminalSearchModel
+    /// Aviso de «Copiar la salida del último comando».
+    @State var lastOutput: TerminalLastOutputModel
+    /// Marcas de prompt OSC 133 del servidor.
+    @State var shellMarks: ShellIntegrationModel
 
     init(
         handle: SessionHandle,
@@ -104,6 +110,10 @@ struct SessionTerminalView: View {
         self.onEnded = onEnded
         self.onSessionMissing = onSessionMissing
         _windowsModel = State(initialValue: TerminalWindowsModel(service: service, sessionName: session.name))
+        let runner: TerminalSearchModel.Runner = { (script: String) in try await service.runTerminalCommand(script) }
+        _search = State(initialValue: TerminalSearchModel(sessionName: session.name, run: runner))
+        _lastOutput = State(initialValue: TerminalLastOutputModel(run: runner))
+        _shellMarks = State(initialValue: ShellIntegrationModel(service: service))
     }
 
     var windows: [TmuxWindow] { windowsModel.windows }
@@ -136,6 +146,7 @@ struct SessionTerminalView: View {
             )
         }
         .focusedSceneValue(\.tabActions, tabActions)
+        .focusedSceneValue(\.terminalFindActions, findActions)
         .navigationTitle(session.name)
         .navigationSubtitle("Terminal remoto")
         .toolbar { paneToolbar }
@@ -151,12 +162,14 @@ struct SessionTerminalView: View {
             case .connecting, .connected:
                 controller = live
             }
+            installFindHandler()
         }
         // Sondea las ventanas de tmux mientras esta sesión está a la vista y conectada.
         .task(id: handle) {
             await windowsModel.poll(while: { !sleepMonitor.isAsleep && controller?.status == .connected })
         }
         .task(id: handle) { await loadAgentsAndBranch() }
+        .task(id: handle) { await shellMarks.load() }
         .onChange(of: windows) { Task { await refreshBranch() } }
         // Con la identidad del controlador: un reintento que falla AL INSTANTE con el mismo
         // mensaje deja el estado igual (`.failed(msg)`), y solo por el estado no se vería.
@@ -191,6 +204,7 @@ struct SessionTerminalView: View {
                 if let error = windowsModel.actionError {
                     TerminalActionErrorBanner(message: error) { windowsModel.actionError = nil }
                 }
+                searchOverlay
             } else {
                 TerminalConnectionProgress(title: String(localized: "Abriendo sesión"), sessionName: session.name)
             }
@@ -223,7 +237,7 @@ struct SessionTerminalView: View {
         .background(.bar)
     }
 
-    private var activeAgent: CodingAgent? {
+    var activeAgent: CodingAgent? {
         windowsModel.activeWindow.flatMap { WindowTabs.agent(for: $0, claudeReported: claudeByWindow[$0.index] != nil) }
     }
 
@@ -325,6 +339,7 @@ struct SessionTerminalView: View {
 
     private func reconnectNow() {
         controller = store.reconnect(handle, service: service, sessionName: session.name)
+        installFindHandler()
     }
 
     /// «Reconectar» del banner: acción explícita, levanta también el bloqueo de la

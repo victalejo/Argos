@@ -165,6 +165,16 @@ protocol SSHServicing: Sendable {
     /// Texto del panel activo de la sesión con su historial (`tmux capture-pane`).
     func capturePaneText(session: String) async throws -> String
 
+    // MARK: Herramientas del terminal (ver `SSHTerminalTools.swift`)
+
+    /// Comando corto de la búsqueda en el historial o de «Copiar la salida del último
+    /// comando» (sh POSIX, con plazo). Devuelve stdout; lanza si sale con error.
+    func runTerminalCommand(_ script: String) async throws -> String
+    /// Marcas de prompt OSC 133 en los rc del servidor (ver `ShellIntegrationBlock`).
+    func shellIntegrationStatus() async throws -> ShellIntegrationStatus
+    func installShellIntegration() async throws
+    func removeShellIntegration() async throws
+
     func attachTerminal(
         session name: String,
         initialCols: Int,

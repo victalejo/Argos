@@ -43,6 +43,8 @@ struct TerminalScreen: View {
     @State private var confirmingPaneClose = false
     /// Identifica esta vista como dueña del foco (ver `ServerHub.focusTerminal`).
     @State private var focusOwner = UUID()
+    /// Buscar en el historial y copiar la última salida (se crea al aparecer).
+    @State private var tools: TerminalTools?
 
     /// Cada cuánto se releen las ventanas mientras el terminal está a la vista (para
     /// ver qué corre en cada una: agentes, shell ocioso…).
@@ -97,6 +99,7 @@ struct TerminalScreen: View {
             TerminalHost(view: controller.terminalView)
                 .id(ObjectIdentifier(controller))
                 .overlay { statusOverlay(controller) }
+                .overlay { toolsOverlay }
         } else {
             Color(white: 0.07)
         }
@@ -213,8 +216,22 @@ struct TerminalScreen: View {
         if controller?.terminalView.font != font { controller?.terminalView.font = font }
     }
 
+    @ViewBuilder
+    private var toolsOverlay: some View {
+        if let tools {
+            TerminalToolsOverlay(tools: tools) { _ = controller?.terminalView.becomeFirstResponder() }
+        }
+    }
+
+    private var activeWindowIndex: Int? { windows.first { $0.isActive }?.index }
+
     private func didAppear() {
         if controller == nil { controller = hub.terminal(for: server, sessionName: sessionName) }
+        if tools == nil {
+            let created = TerminalTools(service: service, sessionName: sessionName)
+            tools = created
+            Task { await created.marks.load() }
+        }
         updateFocus()
     }
 
@@ -320,6 +337,12 @@ struct TerminalScreen: View {
                 .keyboardShortcut("[", modifiers: [.command, .shift])
             Button("Pestaña siguiente") { selectAdjacent(1) }
                 .keyboardShortcut("]", modifiers: [.command, .shift])
+            Button("Buscar en el historial") { tools?.openSearch(window: activeWindowIndex) }
+                .keyboardShortcut("f", modifiers: .command)
+            Button("Buscar siguiente") { tools?.findNext(window: activeWindowIndex) }
+                .keyboardShortcut("g", modifiers: .command)
+            Button("Buscar anterior") { tools?.findPrevious(window: activeWindowIndex) }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
             ForEach(1...9, id: \.self) { number in
                 Button(number == 9 ? "Última pestaña" : "Pestaña \(number)") {
                     if let target = WindowTabs.window(atShortcut: number, in: windows) { select(target) }
@@ -577,6 +600,8 @@ struct TerminalScreen: View {
             // Con el ratón de tmux activo, tocar el terminal no abre el teclado: este botón sí.
             Button("Teclado", systemImage: "keyboard") { controller?.toggleKeyboard() }
                 .disabled(controller == nil)
+            Button("Buscar en el historial", systemImage: "magnifyingglass") { tools?.openSearch(window: activeWindowIndex) }
+                .disabled(controller == nil || tools == nil)
             Button("Pegar", systemImage: "doc.on.clipboard") { controller?.pasteFromClipboard() }
                 .disabled(controller == nil)
             Menu("Adjuntar", systemImage: "paperclip") {
@@ -587,6 +612,9 @@ struct TerminalScreen: View {
             Menu("Opciones", systemImage: "ellipsis.circle") {
                 Button("Seleccionar texto", systemImage: "text.cursor") { isShowingText = true }
                     .disabled(controller == nil)
+                if let tools {
+                    TerminalToolsMenuItems(tools: tools, window: activeWindowIndex, agent: activeAgent)
+                }
                 Button("Reconectar", systemImage: "arrow.clockwise") { controller?.reconnectManually() }
                 paneMenu
                 Divider()

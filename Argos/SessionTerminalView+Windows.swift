@@ -15,6 +15,13 @@ extension SessionTerminalView {
     @ToolbarContentBuilder
     var paneToolbar: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
+            Button(action: openSearch) {
+                Label("Buscar en el historial", systemImage: "magnifyingglass")
+            }
+            .disabled(!isConnected)
+            .help("Buscar en el historial del terminal (⌘F)")
+        }
+        ToolbarItem(placement: .primaryAction) {
             Menu {
                 Button { run { await $0.splitPane(vertical: false) } } label: {
                     Label("Dividir a la derecha", systemImage: "rectangle.split.2x1")

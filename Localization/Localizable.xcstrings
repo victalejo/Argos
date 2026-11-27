@@ -484,6 +484,22 @@
         }
       }
     },
+    "%@ coincidencias" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ matches"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ coincidencias"
+          }
+        }
+      }
+    },
     "%@ de %@" : {
       "localizations" : {
         "en" : {
@@ -2237,6 +2253,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "/ruta/app-worktrees/rama"
+          }
+        }
+      }
+    },
+    "1 coincidencia" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 match"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 coincidencia"
           }
         }
       }
@@ -4721,6 +4753,22 @@
         }
       }
     },
+    "Buscando…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando…"
+          }
+        }
+      }
+    },
     "Buscar actualizaciones automáticamente" : {
       "localizations" : {
         "en" : {
@@ -4765,6 +4813,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buscar ahora…"
+          }
+        }
+      }
+    },
+    "Buscar anterior" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find Previous"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar anterior"
           }
         }
       }
@@ -4849,6 +4913,54 @@
         }
       }
     },
+    "Buscar en el historial" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search history"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar en el historial"
+          }
+        }
+      }
+    },
+    "Buscar en el historial del terminal (⌘F)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search the terminal history (⌘F)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar en el historial del terminal (⌘F)"
+          }
+        }
+      }
+    },
+    "Buscar en el historial…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search History…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar en el historial…"
+          }
+        }
+      }
+    },
     "Buscar proyectos" : {
       "localizations" : {
         "en" : {
@@ -4909,6 +5021,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buscar proyectos y sesiones"
+          }
+        }
+      }
+    },
+    "Buscar siguiente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find Next"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar siguiente"
           }
         }
       }
@@ -5661,6 +5789,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cerrar error"
+          }
+        }
+      }
+    },
+    "Cerrar la búsqueda" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close search"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar la búsqueda"
           }
         }
       }
@@ -6797,6 +6941,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Clonar y crear"
+          }
+        }
+      }
+    },
+    "Coincidencia anterior en el historial (⌘G)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Earlier match in the history (⌘G)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coincidencia anterior en el historial (⌘G)"
+          }
+        }
+      }
+    },
+    "Coincidencia más reciente (⇧⌘G)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More recent match (⇧⌘G)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coincidencia más reciente (⇧⌘G)"
           }
         }
       }
@@ -8041,6 +8217,38 @@
         }
       }
     },
+    "Copiada 1 línea" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied 1 line"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiada 1 línea"
+          }
+        }
+      }
+    },
+    "Copiadas %lld líneas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied %lld lines"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiadas %lld líneas"
+          }
+        }
+      }
+    },
     "Copiado" : {
       "localizations" : {
         "en" : {
@@ -8085,6 +8293,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copiar"
+          }
+        }
+      }
+    },
+    "Copiar coincidencias" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy matches"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar coincidencias"
           }
         }
       }
@@ -8181,6 +8405,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copiar la ruta en el servidor"
+          }
+        }
+      }
+    },
+    "Copiar la salida del último comando" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Last Command Output"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar la salida del último comando"
           }
         }
       }
@@ -9881,6 +10121,22 @@
         }
       }
     },
+    "Distinguir mayúsculas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Match case"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distinguir mayúsculas"
+          }
+        }
+      }
+    },
     "Dividir a la derecha" : {
       "localizations" : {
         "en" : {
@@ -11513,6 +11769,22 @@
         }
       }
     },
+    "El último comando no escribió nada." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The last command printed nothing."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El último comando no escribió nada."
+          }
+        }
+      }
+    },
     "El último mensaje no se guardó: %@." : {
       "localizations" : {
         "en" : {
@@ -12825,6 +13097,22 @@
         }
       }
     },
+    "Error" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        }
+      }
+    },
     "Error SSH: %@" : {
       "localizations" : {
         "en" : {
@@ -13657,6 +13945,38 @@
         }
       }
     },
+    "Expresión no válida" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid expression"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expresión no válida"
+          }
+        }
+      }
+    },
+    "Expresión regular" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regular expression"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expresión regular"
+          }
+        }
+      }
+    },
     "Fallo de cifrado o de protocolo en la conexión SSH (%@). Reintenta; si persiste, revisa la configuración del servidor." : {
       "localizations" : {
         "en" : {
@@ -13925,6 +14245,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fuente"
+          }
+        }
+      }
+    },
+    "Función no disponible." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not available."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Función no disponible."
           }
         }
       }
@@ -15258,6 +15594,22 @@
         }
       }
     },
+    "Instala en .zshrc/.bashrc del servidor (con copia) un bloque que marca prompts y salidas: copiar la última salida es exacto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adds a block to the server’s .zshrc/.bashrc (with a backup) that marks prompts and output, so copying the last output is exact."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instala en .zshrc/.bashrc del servidor (con copia) un bloque que marca prompts y salidas: copiar la última salida es exacto."
+          }
+        }
+      }
+    },
     "Instala git en el servidor para usar los puntos de restauración." : {
       "localizations" : {
         "en" : {
@@ -16570,6 +16922,22 @@
         }
       }
     },
+    "Las marcas de prompt solo están disponibles para zsh y bash (el shell del servidor es «%@»)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt marks are only available for zsh and bash (the server’s shell is “%@”)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las marcas de prompt solo están disponibles para zsh y bash (el shell del servidor es «%@»)."
+          }
+        }
+      }
+    },
     "Las notificaciones de Argos están desactivadas" : {
       "localizations" : {
         "en" : {
@@ -16694,6 +17062,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Leyendo el terminal…"
+          }
+        }
+      }
+    },
+    "Leyendo la salida…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the output…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leyendo la salida…"
           }
         }
       }
@@ -17206,6 +17590,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Marcar todo"
+          }
+        }
+      }
+    },
+    "Marcas de prompt (OSC 133)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt marks (OSC 133)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcas de prompt (OSC 133)"
+          }
+        }
+      }
+    },
+    "Marcas de prompt en el servidor (OSC 133)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt Marks on the Server (OSC 133)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcas de prompt en el servidor (OSC 133)"
+          }
+        }
+      }
+    },
+    "Marcas de prompt instaladas. Se activan en las shells que abras a partir de ahora." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt marks installed. They apply to shells you open from now on."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcas de prompt instaladas. Se activan en las shells que abras a partir de ahora."
+          }
+        }
+      }
+    },
+    "Marcas de prompt quitadas del servidor (queda copia en .argos-backup)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt marks removed from the server (a copy is kept in .argos-backup)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcas de prompt quitadas del servidor (queda copia en .argos-backup)."
           }
         }
       }
@@ -17834,6 +18282,22 @@
         }
       }
     },
+    "Más antigua" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Older"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más antigua"
+          }
+        }
+      }
+    },
     "Más opciones" : {
       "localizations" : {
         "en" : {
@@ -17846,6 +18310,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Más opciones"
+          }
+        }
+      }
+    },
+    "Más reciente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Newer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más reciente"
           }
         }
       }
@@ -18502,6 +18982,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se encontró la app Terminal."
+          }
+        }
+      }
+    },
+    "No se encontró la última respuesta de Claude." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t find Claude’s last reply."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontró la última respuesta de Claude."
           }
         }
       }
@@ -20026,6 +20522,22 @@
         }
       }
     },
+    "No se pudo leer el shell del servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read the server’s shell."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el shell del servidor."
+          }
+        }
+      }
+    },
     "No se pudo leer el terminal" : {
       "localizations" : {
         "en" : {
@@ -20566,6 +21078,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se puede restaurar"
+          }
+        }
+      }
+    },
+    "No se reconoce el prompt. Activa las marcas de prompt (OSC 133) para que sea exacto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The prompt wasn’t recognized. Turn on prompt marks (OSC 133) to make it exact."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se reconoce el prompt. Activa las marcas de prompt (OSC 133) para que sea exacto."
           }
         }
       }
@@ -21414,6 +21942,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opciones de agentes"
+          }
+        }
+      }
+    },
+    "Opciones de búsqueda" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search options"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opciones de búsqueda"
           }
         }
       }
@@ -27619,6 +28163,22 @@
         }
       }
     },
+    "Todas las ventanas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All windows"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todas las ventanas"
+          }
+        }
+      }
+    },
     "Todo en orden." : {
       "localizations" : {
         "en" : {
@@ -28667,6 +29227,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ventana %lld: %@"
+          }
+        }
+      }
+    },
+    "Ventana %lld: %@ · %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Window %lld: %@ · %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ventana %lld: %@ · %lld"
           }
         }
       }
@@ -31435,6 +32011,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "tmux no instalado"
+          }
+        }
+      }
+    },
+    "tmux no pudo completar la orden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tmux couldn’t complete the command."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tmux no pudo completar la orden."
+          }
+        }
+      }
+    },
+    "tmux no respondió a la búsqueda." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tmux didn’t answer the search."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tmux no respondió a la búsqueda."
           }
         }
       }

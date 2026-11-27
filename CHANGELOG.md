@@ -10,6 +10,17 @@ El detalle por commit vive en el historial git (Conventional Commits):
 - **Vista previa de lo que subes al terminal**: la imagen pegada, la foto o el archivo de
   imagen salen en miniatura en el aviso de subida (y en la cola); púlsala para verla en
   grande y comprobar que es la correcta.
+- **Buscar en el historial del terminal** (⌘F en el Mac; la lupa o ⌘F con teclado en el
+  iPhone/iPad): busca en todo el historial de la ventana, resalta las coincidencias en el
+  propio terminal y salta entre ellas con ↑/↓ (⌘G / ⇧⌘G), con el contador «3 de 12». Opciones
+  para distinguir mayúsculas, usar una expresión regular, buscar en todas las ventanas de la
+  sesión (con la lista de resultados: al elegir uno, cambia a esa ventana y salta) y copiar
+  las líneas que coinciden. Esc cierra la búsqueda.
+- **Copiar la salida del último comando** (⌥⌘C en el Mac; en «Opciones» en el iPhone/iPad):
+  en un shell copia lo que escribió el último comando; con Claude Code, su última respuesta
+  sin la caja del prompt ni la barra de estado. Opcionalmente, las **marcas de prompt
+  (OSC 133)** añaden a .zshrc/.bashrc del servidor un bloque (con copia del archivo, y se
+  quita igual de limpio) para que el corte sea exacto con tmux 3.4 o posterior.
 
 ## [1.11.1] - 2026-11-26
 
