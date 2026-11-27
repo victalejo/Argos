@@ -9,24 +9,50 @@
 
 import SwiftUI
 
-/// Botón de la barra de herramientas: campana con el número de pendientes.
+/// Botón de la barra de herramientas: campana con el número de pendientes. El popover NO
+/// cuelga de él (ver `attentionPopover(model:)`): la barra se redibuja cada vez que cambia
+/// el recuento o la actividad de Claude y SwiftUI cerraba un popover anclado a ella.
 struct AttentionToolbarButton: View {
     let model: ArgosAppModel
-    @State private var isPresented = false
 
     var body: some View {
         let count = model.attentionItems.count
-        Button { isPresented.toggle() } label: {
+        Button { model.isAttentionPopoverPresented.toggle() } label: {
             Label(count > 0 ? "\(count) pendientes" : "Nada pendiente",
                   systemImage: count > 0 ? "bell.badge.fill" : "bell")
                 .labelStyle(.titleAndIcon)
         }
         .help("Lo que te necesita en todos los servidores (⌘J va al siguiente)")
         .accessibilityLabel(AttentionText.summary(count: count))
-        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
-            AttentionPopover(model: model) { isPresented = false }
+    }
+}
+
+extension View {
+    /// La bandeja «Te necesita» como popover anclado a un punto FIJO de la ventana, bajo el
+    /// botón de la barra (que se redibuja a menudo). El estado vive en el modelo de la app.
+    func attentionPopover(model: ArgosAppModel) -> some View {
+        overlay(alignment: .topLeading) {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .padding(.leading, AttentionPopoverAnchor.leading)
+                .popover(
+                    isPresented: Binding(
+                        get: { model.isAttentionPopoverPresented },
+                        set: { (shown: Bool) in model.isAttentionPopoverPresented = shown }
+                    ),
+                    arrowEdge: .top
+                ) {
+                    AttentionPopover(model: model) { model.isAttentionPopoverPresented = false }
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
     }
+}
+
+/// Dónde cae, más o menos, el botón de la bandeja (junto a la barra lateral).
+enum AttentionPopoverAnchor {
+    static let leading: CGFloat = 130
 }
 
 /// Lista de la bandeja (popover de la ventana).

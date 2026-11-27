@@ -71,6 +71,7 @@ struct ContentView: View {
         .toolbar {
             ToolbarItem(placement: .navigation) { AttentionToolbarButton(model: model) }
         }
+        .attentionPopover(model: model)
         .onChange(of: model.selectedServerID) { _, newValue in
             persistedServerID = newValue?.uuidString ?? ""
             model.loadSelectedIfNeeded()

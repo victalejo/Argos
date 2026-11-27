@@ -69,6 +69,9 @@ final class ArgosAppModel {
     // MARK: Bandeja de atención (ver `ArgosAppModel+Attention.swift`)
     /// «Terminó» sin mirar y CI fallidos (lo demás se lee en vivo de su fuente).
     var attentionInbox = AttentionInbox()
+    /// Bandeja «Te necesita» abierta. Vive aquí y no en el botón: la barra de herramientas
+    /// se redibuja con cada cambio del recuento y el popover se cerraba solo.
+    var isAttentionPopoverPresented = false
     /// Último elemento abierto, para «Ir al siguiente que me necesita».
     @ObservationIgnored var lastAttentionID: String?
 
