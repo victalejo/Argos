@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-11-26
+
 ### Corregido
 - **Mac: la bandeja «Te necesita» se cerraba sola** al cambiar el número de pendientes o la
   actividad de Claude mientras estaba abierta.
