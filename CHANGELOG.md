@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-11-27
+
 ### Añadido
 - **Biblioteca de encargos**: guarda prompts para reutilizarlos, de cada proyecto o comunes a
   todo el servidor (en Mac: menú del proyecto → «Biblioteca de encargos…»; en iPhone/iPad:
