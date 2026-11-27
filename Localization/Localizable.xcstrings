@@ -724,6 +724,22 @@
         }
       }
     },
+    "%@ · no se subió: decide si subirlo igualmente o pedir el arreglo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · not pushed: choose to push anyway or ask for a fix"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · no se subió: decide si subirlo igualmente o pedir el arreglo"
+          }
+        }
+      }
+    },
     "%@ · sin rama remota" : {
       "localizations" : {
         "en" : {
@@ -3633,6 +3649,22 @@
         }
       }
     },
+    "Alta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alta"
+          }
+        }
+      }
+    },
     "Alternativa a conectar el servidor: genera un token en tu Mac con `claude setup-token` y pégalo aquí. Se guarda en el Llavero y usa tu plan, nunca la API de pago." : {
       "localizations" : {
         "en" : {
@@ -3741,6 +3773,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aprobado"
+          }
+        }
+      }
+    },
+    "Aprobado por el revisor automático." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approved by the automatic reviewer."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprobado por el revisor automático."
           }
         }
       }
@@ -4589,6 +4637,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "BETA"
+          }
+        }
+      }
+    },
+    "Baja" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baja"
           }
         }
       }
@@ -8873,6 +8937,22 @@
         }
       }
     },
+    "Crítica" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Critical"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crítica"
+          }
+        }
+      }
+    },
     "Cuenta solo lo que espera tu respuesta: Claude esperando, permisos del agente y puertos." : {
       "localizations" : {
         "en" : {
@@ -11305,6 +11385,102 @@
         }
       }
     },
+    "El revisor automático bloqueó el push: el commit queda en su rama." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The automatic reviewer blocked the push: the commit stays on its branch."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El revisor automático bloqueó el push: el commit queda en su rama."
+          }
+        }
+      }
+    },
+    "El revisor automático está mirando los cambios antes de subirlos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The automatic reviewer is checking the changes before pushing them."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El revisor automático está mirando los cambios antes de subirlos."
+          }
+        }
+      }
+    },
+    "El revisor bloqueó el push" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The reviewer blocked the push"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El revisor bloqueó el push"
+          }
+        }
+      }
+    },
+    "El revisor lo bloqueó y se pidió a Claude que lo arregle en otro encargo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The reviewer blocked it and Claude was asked to fix it in another task."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El revisor lo bloqueó y se pidió a Claude que lo arregle en otro encargo."
+          }
+        }
+      }
+    },
+    "El revisor no pudo ejecutarse." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The reviewer could not run."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El revisor no pudo ejecutarse."
+          }
+        }
+      }
+    },
+    "El revisor no respondió a tiempo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The reviewer did not answer in time."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El revisor no respondió a tiempo."
+          }
+        }
+      }
+    },
     "El script debe guardarse en la carpeta que propone Argos y con su nombre original." : {
       "localizations" : {
         "en" : {
@@ -13449,6 +13625,22 @@
         }
       }
     },
+    "Ese encargo ya no está bloqueado por el revisor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That task is no longer blocked by the reviewer."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese encargo ya no está bloqueado por el revisor."
+          }
+        }
+      }
+    },
     "Ese nombre de rama no es válido (sin espacios, «..», «~», «^», «:» ni «-» al principio)." : {
       "localizations" : {
         "en" : {
@@ -15434,6 +15626,22 @@
         }
       }
     },
+    "Informe del revisor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reviewer report"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Informe del revisor"
+          }
+        }
+      }
+    },
     "Informe para un issue" : {
       "localizations" : {
         "en" : {
@@ -16762,6 +16970,54 @@
         }
       }
     },
+    "La respuesta del revisor no se pudo leer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The reviewer's answer could not be read."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La respuesta del revisor no se pudo leer."
+          }
+        }
+      }
+    },
+    "La revisión automática no fue concluyente: no se subió (el commit queda en su rama)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The automatic review was inconclusive: nothing was pushed (the commit stays on its branch)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La revisión automática no fue concluyente: no se subió (el commit queda en su rama)."
+          }
+        }
+      }
+    },
+    "La revisión no fue concluyente." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The review was inconclusive."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La revisión no fue concluyente."
+          }
+        }
+      }
+    },
     "La salida del comando remoto es demasiado grande." : {
       "localizations" : {
         "en" : {
@@ -17750,6 +18006,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mayúsculas y tabulador"
+          }
+        }
+      }
+    },
+    "Media" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Media"
           }
         }
       }
@@ -18950,6 +19222,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No salgas de Argos hasta terminar: el inicio de sesión se cancelaría. Con «Copiar enlace» puedes autorizar desde otro dispositivo."
+          }
+        }
+      }
+    },
+    "No se encontró claude en el servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude was not found on the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontró claude en el servidor."
           }
         }
       }
@@ -21130,6 +21418,22 @@
         }
       }
     },
+    "No se sabe dónde arreglar este encargo (falta su carpeta o su ventana). Ábrelo en «Encargos»." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It's unclear where to fix this task (its folder or window is missing). Open it in “Tasks”."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se sabe dónde arreglar este encargo (falta su carpeta o su ventana). Ábrelo en «Encargos»."
+          }
+        }
+      }
+    },
     "No se sabe en qué carpeta trabajar" : {
       "localizations" : {
         "en" : {
@@ -22710,6 +23014,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pedir a Claude en ${project}: ${task}"
+          }
+        }
+      }
+    },
+    "Pedir a Claude que lo arregle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask Claude to fix it"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pedir a Claude que lo arregle"
           }
         }
       }
@@ -26090,6 +26410,22 @@
         }
       }
     },
+    "Se hará el push que faltaba tal como está el commit, con los hallazgos sin corregir." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The missing push will be done with the commit as it is, without fixing the findings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se hará el push que faltaba tal como está el commit, con los hallazgos sin corregir."
+          }
+        }
+      }
+    },
     "Se mandará al agente en marcha de «%@» en %@, en modo «%@»: puede hacer cambios sin pedirte permiso. ¿Enviar el encargo?" : {
       "localizations" : {
         "en" : {
@@ -27179,6 +27515,22 @@
         }
       }
     },
+    "Sin severidad" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No severity"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin severidad"
+          }
+        }
+      }
+    },
     "Sin subcarpetas." : {
       "localizations" : {
         "en" : {
@@ -27515,6 +27867,22 @@
         }
       }
     },
+    "Subiendo (push) sin la aprobación del revisor…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pushing without the reviewer's approval…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subiendo (push) sin la aprobación del revisor…"
+          }
+        }
+      }
+    },
     "Subiendo «%@»" : {
       "localizations" : {
         "en" : {
@@ -27527,6 +27895,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subiendo «%@»"
+          }
+        }
+      }
+    },
+    "Subir igualmente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push anyway"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subir igualmente"
           }
         }
       }
@@ -33203,6 +33587,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "¿Salir de Argos?"
+          }
+        }
+      }
+    },
+    "¿Subir sin la aprobación del revisor?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push without the reviewer's approval?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Subir sin la aprobación del revisor?"
           }
         }
       }

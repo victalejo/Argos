@@ -16,6 +16,8 @@ enum LocalizationWhitelist {
         "ArgosCore/Agent/PersistentAgentShell.swift",
         // Skill «argos-puertos» y archivos que se escriben en el servidor.
         "ArgosCore/PortForwarding/PortForwardServerFiles.swift",
+        // Prompt a Claude y título que se guarda en el servidor del encargo de arreglo.
+        "ArgosCore/Tasks/ClaudeTaskReviewFix.swift",
     ]
 
     /// Subcadenas de literales que no se traducen.
