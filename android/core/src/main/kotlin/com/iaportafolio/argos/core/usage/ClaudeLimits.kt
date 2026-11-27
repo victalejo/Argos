@@ -119,14 +119,20 @@ data class ClaudeLimitsReading(val windows: List<ClaudeLimitWindow>, val capture
      */
     fun merging(previous: ClaudeLimitsReading?): ClaudeLimitsReading {
         if (previous == null) return this
+        // Casi a la vez, el uso de una misma ventana no baja; una lectura posterior sí puede
+        // bajarlo (Anthropic a veces rebaja el uso sin cambiar la fecha de reinicio).
+        val isLater = java.time.Duration.between(previous.capturedAt, capturedAt).seconds > CONCURRENT_WRITE_SECONDS
         val merged = windows.map { window ->
             val old = previous.windows.firstOrNull { it.isSameWindow(window) }
-            if (old != null && old.usedPercent > window.usedPercent) window.copy(usedPercent = old.usedPercent) else window
+            if (!isLater && old != null && old.usedPercent > window.usedPercent) window.copy(usedPercent = old.usedPercent) else window
         }
         return of(merged, maxOf(capturedAt, previous.capturedAt))
     }
 
     companion object {
+        /** Margen en el que dos lecturas cuentan como simultáneas. */
+        const val CONCURRENT_WRITE_SECONDS = 120L
+
         /** Lectura con las ventanas ordenadas: 5 h, semana y el resto por nombre. */
         fun of(windows: List<ClaudeLimitWindow>, capturedAt: Instant): ClaudeLimitsReading =
             ClaudeLimitsReading(windows.sortedWith(compareBy<ClaudeLimitWindow>({ it.sortRank }, { it.kind })), capturedAt)

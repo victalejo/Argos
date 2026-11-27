@@ -158,6 +158,13 @@ class ClaudeLimitsTest {
     }
 
     @Test
+    fun `una lectura posterior puede bajar el uso de la misma ventana`() {
+        val before = reading(Triple("seven_day", 95.0, 90_000L))
+        val later = ClaudeLimitsReading.of(listOf(ClaudeLimitWindow("seven_day", 59.0, seconds(90_000))), seconds(600))
+        assertEquals(listOf(59.0), later.merging(before).windows.map { it.usedPercent })
+    }
+
+    @Test
     fun `el reloj del servidor no mueve el reinicio que da Anthropic`() {
         val reading = assertNotNull(
             ClaudeLimitsReading.parse(

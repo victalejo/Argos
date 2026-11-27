@@ -111,6 +111,17 @@ struct ClaudeLimitsReadingTests {
         #expect(next.merging(previous: fresh).windows.map(\.usedPercent) == [5])
     }
 
+    @Test func unaLecturaPosteriorPuedeBajarElUsoDeLaMismaVentana() {
+        // El usuario usó un reinicio: Anthropic rebaja la semana del 95 % al 59 % sin cambiar
+        // `resets_at`. Minutos después, la lectura nueva debe verse.
+        let before = Self.reading([("seven_day", 95, 90_000)])
+        let later = ClaudeLimitsReading(
+            windows: [ClaudeLimitWindow(kind: "seven_day", usedPercent: 59, resetsAt: Date(timeIntervalSince1970: 90_000))],
+            capturedAt: Date(timeIntervalSince1970: 600)
+        )
+        #expect(later.merging(previous: before).windows.map(\.usedPercent) == [59])
+    }
+
     @Test func elRelojDelServidorNoMueveElReinicioQueDaAnthropic() throws {
         let reading = try #require(ClaudeLimitsReading(
             lines: ["now 1000", "990", #"{"rate_limits":{"five_hour":{"used_percentage":1,"resets_at":5000}}}"#],

@@ -24,6 +24,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
   aprobado, y cualquier gravedad que no sea baja o media bloquea), y ya no lee la
   configuración de Claude que traiga el propio cambio que revisa (ajustes, hooks o
   servidores MCP del repositorio; tampoco puede suplantar el lector de su respuesta).
+- **El uso de Claude vuelve a bajar cuando Anthropic lo rebaja** (por ejemplo, tras usar un
+  reinicio) aunque no cambie la fecha de reinicio: ya no se queda en el 95 %.
 
 ## [1.13.1] - 2026-11-27
 

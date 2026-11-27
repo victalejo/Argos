@@ -119,13 +119,19 @@ struct ClaudeLimitsReading: Equatable, Sendable {
         }
     }
 
-    /// Con la lectura anterior: dentro de una MISMA ventana (mismo reinicio) el uso no baja.
-    /// Varias sesiones de Claude escriben el archivo y una parada puede dejar un porcentaje
-    /// viejo; se conserva el más alto visto para esa ventana.
+    /// Margen en el que dos lecturas cuentan como simultáneas.
+    static let concurrentWriteWindow: TimeInterval = 120
+
+    /// Con la lectura anterior: dentro de una MISMA ventana (mismo reinicio) y casi a la vez,
+    /// el uso no baja (varias sesiones de Claude escriben el archivo y una puede llegar con
+    /// un porcentaje de un momento antes). Una lectura posterior sí puede bajarlo: Anthropic
+    /// a veces reinicia o rebaja el uso sin cambiar la fecha de reinicio.
     func merging(previous: ClaudeLimitsReading?) -> ClaudeLimitsReading {
         guard let previous else { return self }
+        let isLater = capturedAt.timeIntervalSince(previous.capturedAt) > Self.concurrentWriteWindow
         let merged = windows.map { window -> ClaudeLimitWindow in
-            guard let old = previous.windows.first(where: { $0.isSameWindow(as: window) }),
+            guard !isLater,
+                  let old = previous.windows.first(where: { $0.isSameWindow(as: window) }),
                   old.usedPercent > window.usedPercent
             else { return window }
             return ClaudeLimitWindow(kind: window.kind, usedPercent: old.usedPercent, resetsAt: window.resetsAt)
