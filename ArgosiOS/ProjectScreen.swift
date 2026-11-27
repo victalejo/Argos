@@ -25,11 +25,13 @@ struct ProjectScreen: View {
     @Environment(ServerHub.self) private var hub
     @State private var showPorts = false
     @State private var showTasks = false
+    @State private var showPrompts = false
 
     private var service: any SSHServicing { hub.viewModel(for: server).service }
 
     var body: some View {
         content
+            .environment(\.savedPromptContext, promptContext)
             .toolbar {
                 if target.path != nil {
                     ToolbarItem(placement: .principal) {
@@ -49,6 +51,7 @@ struct ProjectScreen: View {
                 }
                 if project != nil {
                     ToolbarItem(placement: .topBarTrailing) { tasksButton }
+                    ToolbarItem(placement: .topBarTrailing) { promptsButton }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showPorts = true } label: {
@@ -63,6 +66,11 @@ struct ProjectScreen: View {
             .sheet(isPresented: $showTasks) {
                 if let project {
                     ClaudeTasksScreen(project: project, viewModel: hub.viewModel(for: server), serverID: server.id)
+                }
+            }
+            .sheet(isPresented: $showPrompts) {
+                if let project {
+                    PromptLibraryScreen(project: project, viewModel: hub.viewModel(for: server))
                 }
             }
             .portForwardRequests(service: service, serverName: server.name)
@@ -80,6 +88,22 @@ struct ProjectScreen: View {
             Image(systemName: "list.bullet.clipboard")
         }
         .accessibilityLabel("Encargos")
+    }
+
+    private var promptsButton: some View {
+        Button { showPrompts = true } label: {
+            Image(systemName: "books.vertical")
+        }
+        .accessibilityLabel("Biblioteca de encargos")
+    }
+
+    /// Biblioteca para la caja de mensaje de los agentes (solo en un proyecto).
+    private var promptContext: SavedPromptContext? {
+        guard let project else { return nil }
+        let viewModel = hub.viewModel(for: server)
+        return SavedPromptContext.make(
+            library: viewModel.promptLibrary, projectID: project.id, service: viewModel.service, path: project.path
+        )
     }
 
     @ViewBuilder

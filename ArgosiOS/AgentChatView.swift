@@ -23,6 +23,7 @@ struct AgentChatView: View {
     /// El usuario está al final de la conversación: solo entonces se sigue lo nuevo.
     @State private var isAtBottom = true
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.savedPromptContext) private var promptContext
     @FocusState private var composerFocused: Bool
 
     var body: some View {
@@ -191,6 +192,13 @@ struct AgentChatView: View {
 
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 8) {
+            if let promptContext, !promptContext.prompts.isEmpty {
+                SavedPromptMenu(prompts: promptContext.prompts) { (prompt: SavedPrompt) in
+                    Task { draft = await promptContext.expand(prompt.text) }
+                }
+                .labelStyle(.iconOnly)
+                .disabled(!canCompose)
+            }
             TextField(composerPlaceholder, text: $draft, axis: .vertical)
                 .lineLimit(1...6)
                 .textFieldStyle(.roundedBorder)

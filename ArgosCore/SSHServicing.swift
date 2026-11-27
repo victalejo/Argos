@@ -261,6 +261,12 @@ protocol SSHServicing: Sendable {
     func loadProjectsReport() async throws -> ProjectsLoadReport
     /// Lee-modifica-escribe projects.json sin pisar cambios ajenos (ver `ProjectsUpdater`).
     func updateProjects(_ transform: @escaping @Sendable ([Project]) throws -> [Project]) async throws -> ProjectsLoadReport
+    /// Como `updateProjects`, pero cambiando el documento entero (biblioteca de encargos).
+    func updateProjectsDocument(_ transform: @escaping @Sendable (ProjectsDocument) throws -> ProjectsDocument) async throws -> ProjectsLoadReport
+    /// Variables de git de la carpeta de un proyecto (`PromptVariables`).
+    func promptVariableValues(projectPath: String) async throws -> PromptVariables.Values
+    /// Pega `text` en la terminal de la sesión y pulsa Enter (`PromptPasteScript`).
+    func pastePromptToTerminal(session: String, window: Int?, text: String) async throws
     /// Sustituye projects.json por su copia `.argos-backup` (el dañado queda en `.argos-damaged`).
     func restoreProjectsBackup() async throws -> ProjectsLoadReport
     /// Sube a `<ruta>.argos-up` sin colocarlo (ver `SyncStaging`).

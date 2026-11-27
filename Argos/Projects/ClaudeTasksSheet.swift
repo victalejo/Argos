@@ -22,9 +22,13 @@ struct ClaudeTasksSheet: View {
             service: vm.service,
             serverID: serverID,
             project: project,
-            claudeWindows: vm.claudeActivity.windows(forSession: project.sessionName)
+            claudeWindows: vm.claudeActivity.windows(forSession: project.sessionName),
+            savedPrompts: vm.promptLibrary.prompts(forProject: project.id)
         ))
-        _schedules = State(initialValue: ClaudeSchedulesModel(service: vm.service, serverID: serverID, project: project))
+        _schedules = State(initialValue: ClaudeSchedulesModel(
+            service: vm.service, serverID: serverID, project: project,
+            savedPrompts: vm.promptLibrary.prompts(forProject: project.id)
+        ))
     }
 
     var body: some View {

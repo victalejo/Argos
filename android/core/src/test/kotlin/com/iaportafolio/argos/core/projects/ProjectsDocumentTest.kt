@@ -140,6 +140,25 @@ class ProjectsDocumentTest {
         assertEquals(golden("projects-document-output"), document.applying(document.projects, updated).encodedText())
     }
 
+    @Test
+    fun `conserva la biblioteca de encargos que escriben el Mac y el iPhone`() {
+        val prompts = """[{"id":"c1","title":"Común","text":"hola","model":"haiku"}]"""
+        val own = ""","prompts":[{"id":"p1","title":"Mío","text":"tests"}]"""
+        val text = fileWith(json(project(1), extra = own), extra = ""","prompts":$prompts,"promptsSeeded":true""")
+        val document = ProjectsDocument.decode(text)
+        val renamed = document.projects.map { it.copy(name = "nuevo") }
+        val written = ProjectsDocument.decode(document.applying(document.projects, renamed + project(2)).encodedText())
+
+        assertEquals(JsonPrimitive(true), written.extras["promptsSeeded"])
+        assertEquals(document.extras["prompts"], written.extras["prompts"])
+        val entry = assertIs<ProjectRecord.Readable>(written.entries.first())
+        assertEquals("nuevo", entry.project.name)
+        assertEquals(
+            assertIs<ProjectRecord.Readable>(document.entries.single()).extras["prompts"],
+            entry.extras["prompts"],
+        )
+    }
+
     private fun golden(name: String): String =
         assertNotNull(javaClass.getResource("/swift-golden/$name.txt"), "falta $name").readText(Charsets.UTF_8)
 }

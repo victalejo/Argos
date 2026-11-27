@@ -34,10 +34,24 @@ enum ProjectsUpdater {
         write: (_ data: Data, _ expected: String?) async throws -> ProjectsWriteOutcome,
         transform: ([Project]) throws -> [Project]
     ) async throws -> ProjectsLoadReport {
+        try await runDocument(read: read, write: write) { document in
+            try document.replacingProjects(try transform(document.projects))
+        }
+    }
+
+    /// Como `run`, pero `transform` cambia el documento entero (p. ej. la biblioteca de
+    /// encargos común y la de cada proyecto). Se aplica sobre lo recién leído en cada
+    /// intento; un archivo de una versión más nueva no se reescribe.
+    static func runDocument(
+        read: () async throws -> String,
+        write: (_ data: Data, _ expected: String?) async throws -> ProjectsWriteOutcome,
+        transform: (ProjectsDocument) throws -> ProjectsDocument
+    ) async throws -> ProjectsLoadReport {
         for attempt in 1...maxAttempts {
             let text = try await read()
             let document = try ProjectsDocument.parse(text)
-            let updated = try document.replacingProjects(try transform(document.projects))
+            guard !document.isNewerThanSupported else { throw ProjectError.newerFormat(document.version) }
+            let updated = try transform(document)
             let data = try updated.encoded()
             if data == Data(text.utf8) { return ProjectsLoadReport(document: updated) }
             switch try await write(data, expectedFingerprint(of: text)) {

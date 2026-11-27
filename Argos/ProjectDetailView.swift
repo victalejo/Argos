@@ -18,6 +18,10 @@ struct ProjectDetailView: View {
 
     private var session: TmuxSession? { vm.session(withID: handle.sessionID) }
     private var project: Project? { vm.project(forSession: handle.sessionID) }
+    /// Biblioteca de encargos para la caja de mensaje del agente (solo en un proyecto).
+    private var promptContext: SavedPromptContext? {
+        project.map { SavedPromptContext.make(library: vm.promptLibrary, projectID: $0.id, service: vm.service, path: $0.path) }
+    }
     private var serverName: String { model.store.server(withID: handle.serverID)?.name ?? String(localized: "el servidor") }
     private var mode: DetailMode { model.detailModes[handle] ?? .terminal }
 
@@ -146,6 +150,7 @@ struct ProjectDetailView: View {
                 serverName: serverName,
                 projectPath: project?.path
             )
+            .environment(\.savedPromptContext, promptContext)
             .id(handle)
         }
     }

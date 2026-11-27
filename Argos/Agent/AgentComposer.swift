@@ -19,6 +19,7 @@ struct AgentComposer: View {
     /// Mensaje que espera a que se confirme la reanudación para enviarse.
     @State private var pendingResumeText: String?
     @FocusState private var isFocused: Bool
+    @Environment(\.savedPromptContext) private var promptContext
 
     var body: some View {
         VStack(spacing: 0) {
@@ -61,6 +62,7 @@ struct AgentComposer: View {
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
                 Spacer(minLength: 4)
+                if let promptContext, !promptContext.prompts.isEmpty { promptMenu(promptContext) }
                 if session.phase == .working { interruptButton }
                 sendButton
             }
@@ -71,6 +73,19 @@ struct AgentComposer: View {
         .shadow(color: .black.opacity(0.035), radius: 8, y: 2)
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
+    }
+
+    /// Biblioteca de encargos: pone el prompt (con sus variables rellenas) en el borrador.
+    private func promptMenu(_ context: SavedPromptContext) -> some View {
+        SavedPromptMenu(prompts: context.prompts) { (prompt: SavedPrompt) in
+            Task {
+                draft = await context.expand(prompt.text)
+                isFocused = true
+            }
+        }
+        .menuStyle(.button)
+        .buttonStyle(.borderless)
+        .fixedSize()
     }
 
     /// Esc/«Detener» solo mientras trabaja SIN permiso pendiente (ahí Esc es «Denegar»).

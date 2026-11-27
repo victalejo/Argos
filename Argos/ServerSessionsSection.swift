@@ -413,6 +413,8 @@ struct ServerSessionsSection: View {
             Divider()
             Button("Encargos…") { projectForm = .tasks(server, project) }
                 .help("Cola de encargos para Claude: empiezan solos al terminar el anterior")
+            Button("Biblioteca de encargos…") { projectForm = .prompts(server, project) }
+                .help("Encargos guardados para reutilizarlos en la terminal, la cola, los agentes y Siri")
             Button("Ramas en paralelo…") { projectForm = .worktrees(server, project) }
                 .help("Abre otra rama del repositorio en su propia carpeta (git worktree) con su agente")
             Button("Editar proyecto…") { projectForm = .edit(server, project) }

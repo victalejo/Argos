@@ -33,6 +33,8 @@ final class ClaudeTasksModel {
     let claudeWindows: [Int: ClaudeActivity]
     /// Apartado «Presupuesto» del proyecto.
     @ObservationIgnored let budget: ClaudeBudgetModel
+    /// Biblioteca de encargos del proyecto (los suyos y los comunes), para elegir uno.
+    let savedPrompts: [SavedPrompt]
 
     @ObservationIgnored private let service: any SSHServicing
     @ObservationIgnored let project: Project
@@ -49,8 +51,10 @@ final class ClaudeTasksModel {
         serverID: Server.ID,
         project: Project,
         claudeWindows: [Int: ClaudeActivity],
+        savedPrompts: [SavedPrompt] = [],
         refreshInterval: Duration = ClaudeTasksModel.refreshInterval
     ) {
+        self.savedPrompts = savedPrompts
         self.service = service
         self.serverID = serverID
         self.project = project
@@ -114,6 +118,11 @@ final class ClaudeTasksModel {
             try await self.service.enqueueTask(request, projectPath: self.project.path)
             self.draft = ""
         }
+    }
+
+    /// Pone en el borrador un prompt de la biblioteca con sus variables ya rellenas.
+    func usePrompt(_ prompt: SavedPrompt) async {
+        draft = await PromptExpansion.expand(prompt.text, service: service, projectPath: project.path)
     }
 
     func cancel(_ task: ClaudeTask) async {

@@ -100,6 +100,12 @@ private struct ClaudeTaskComposer: View {
                 .accessibilityLabel(Text("Encargo para Claude"))
             options
             HStack {
+                if !model.savedPrompts.isEmpty {
+                    SavedPromptMenu(prompts: model.savedPrompts) { (prompt: SavedPrompt) in
+                        Task { await model.usePrompt(prompt) }
+                    }
+                    .fixedSize()
+                }
                 Spacer()
                 Button("Añadir a la cola") { Task { await model.add() } }
                     .buttonStyle(.borderedProminent)

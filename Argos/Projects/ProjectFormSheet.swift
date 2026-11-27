@@ -17,6 +17,8 @@ enum ProjectFormRequest: Identifiable {
     case worktrees(Server, Project)
     /// «Encargos…»: cola de encargos para Claude del proyecto.
     case tasks(Server, Project)
+    /// «Biblioteca de encargos…»: prompts guardados del proyecto y comunes del servidor.
+    case prompts(Server, Project)
 
     var id: String {
         switch self {
@@ -25,12 +27,14 @@ enum ProjectFormRequest: Identifiable {
         case .convert(let server, let session): return "convert-\(server.id)-\(session.name)"
         case .worktrees(_, let project): return "worktrees-\(project.id)"
         case .tasks(_, let project): return "tasks-\(project.id)"
+        case .prompts(_, let project): return "prompts-\(project.id)"
         }
     }
 
     var server: Server {
         switch self {
-        case .new(let server), .edit(let server, _), .convert(let server, _), .worktrees(let server, _), .tasks(let server, _):
+        case .new(let server), .edit(let server, _), .convert(let server, _), .worktrees(let server, _), .tasks(let server, _),
+             .prompts(let server, _):
             return server
         }
     }
@@ -105,7 +109,7 @@ struct ProjectFormSheet: View {
             let hasGroup = short != session.name
             _name = State(initialValue: hasGroup ? short : session.name)
             _group = State(initialValue: hasGroup ? sessionGroup : "")
-        case .new, .worktrees, .tasks:
+        case .new, .worktrees, .tasks, .prompts:
             projectID = UUID()
             createdAt = Date()
         }
@@ -118,6 +122,7 @@ struct ProjectFormSheet: View {
         case .convert: return String(localized: "Convertir en proyecto")
         case .worktrees: return String(localized: "Ramas en paralelo")
         case .tasks: return String(localized: "Encargos")
+        case .prompts: return String(localized: "Biblioteca de encargos")
         }
     }
 

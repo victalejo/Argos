@@ -23,7 +23,7 @@ extension SessionsViewModel {
     /// Relee projects.json. Un fallo no tumba la lista de sesiones: se muestra aparte.
     func reloadProjects() async {
         do {
-            apply(try await service.loadProjectsReport())
+            applyProjectsReport(try await service.loadProjectsReport())
         } catch {
             Log.store.error("Leer proyectos: \(error.userMessage, privacy: .public)")
             projectsError = error.userMessage
@@ -134,7 +134,7 @@ extension SessionsViewModel {
     /// Restaura projects.json desde su copia `.argos-backup` (para cuando está dañado).
     /// Lanza `ProjectError.noBackup`/`.invalidBackup` si no se puede.
     func restoreProjectsBackup() async throws {
-        apply(try await service.restoreProjectsBackup())
+        applyProjectsReport(try await service.restoreProjectsBackup())
         await refresh()
     }
 
@@ -147,11 +147,12 @@ extension SessionsViewModel {
             transform(&updated)
             return updated
         }
-        apply(report)
+        applyProjectsReport(report)
     }
 
-    private func apply(_ report: ProjectsLoadReport) {
+    func applyProjectsReport(_ report: ProjectsLoadReport) {
         projects = report.projects
+        promptLibrary = report.prompts
         projectsError = report.warning
         if let warning = report.warning { Log.store.notice("Proyectos: \(warning, privacy: .public)") }
     }

@@ -6,6 +6,17 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+### Añadido
+- **Biblioteca de encargos**: guarda prompts para reutilizarlos, de cada proyecto o comunes a
+  todo el servidor (en Mac: menú del proyecto → «Biblioteca de encargos…»; en iPhone/iPad:
+  el botón de libros del proyecto). Créalos, edítalos, bórralos y ordénalos; envíalos ya a
+  la terminal, añádelos a la cola, elígelos al escribir un encargo, una tarea programada o a
+  un agente, o pídelos con Siri y Atajos («Pedir a Claude» → «Encargo guardado»). Rellenan
+  solos `{rama}`, `{ultimo_commit}`, `{archivos_cambiados}` y `{fecha}` con lo que diga git
+  en el servidor, pueden llevar el modelo y el esfuerzo que prefieras, y la biblioteca
+  empieza con unos ejemplos que puedes cambiar. Se guardan en el servidor: los ves en todos
+  tus dispositivos.
+
 ## [1.14.0] - 2026-11-27
 
 ### Añadido

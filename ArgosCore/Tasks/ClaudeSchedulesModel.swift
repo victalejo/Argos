@@ -28,12 +28,19 @@ final class ClaudeSchedulesModel {
     var checkCommand = ""
     var maxMinutes = 60
 
+    /// Biblioteca de encargos del proyecto, para elegir uno.
+    @ObservationIgnored let savedPrompts: [SavedPrompt]
+
     @ObservationIgnored private let service: any SSHServicing
     @ObservationIgnored private let serverID: Server.ID
     @ObservationIgnored let project: Project
     @ObservationIgnored private let calendar: Calendar
 
-    init(service: any SSHServicing, serverID: Server.ID, project: Project, calendar: Calendar = .current) {
+    init(
+        service: any SSHServicing, serverID: Server.ID, project: Project,
+        savedPrompts: [SavedPrompt] = [], calendar: Calendar = .current
+    ) {
+        self.savedPrompts = savedPrompts
         self.service = service
         self.serverID = serverID
         self.project = project
@@ -81,6 +88,17 @@ final class ClaudeSchedulesModel {
             self.title = ""
             self.prompt = ""
         }
+    }
+
+    /// Copia un prompt de la biblioteca. Las variables se quedan tal cual: la tarea corre
+    /// más tarde y repetidas veces, y unos valores de hoy serían falsos mañana.
+    /// El encargo lleva `{rama}`, `{fecha}`…: en una tarea programada no se rellenan (la
+    /// interfaz lo avisa).
+    var promptHasVariables: Bool { PromptVariables.containsVariables(prompt) }
+
+    func usePrompt(_ prompt: SavedPrompt) {
+        if title.trimmingCharacters(in: .whitespaces).isEmpty { title = prompt.displayTitle }
+        self.prompt = prompt.text
     }
 
     func setEnabled(_ schedule: ClaudeSchedule, _ enabled: Bool) async {
