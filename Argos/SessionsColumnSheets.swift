@@ -25,6 +25,8 @@ struct SessionsColumnProjectSheets: ViewModifier {
                         WorktreesSheet(project: project, vm: vm)
                     } else if case .tasks(let server, let project) = request {
                         ClaudeTasksSheet(project: project, vm: vm, serverID: server.id)
+                    } else if case .prompts(_, let project) = request {
+                        PromptLibrarySheet(project: project, vm: vm)
                     } else {
                         ProjectFormSheet(request: request, vm: vm)
                     }

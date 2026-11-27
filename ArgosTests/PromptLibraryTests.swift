@@ -1,0 +1,384 @@
+//
+//  PromptLibraryTests.swift
+//  ArgosTests
+//
+//  Biblioteca de encargos en projects.json: ida y vuelta conservando lo desconocido,
+//  compatibilidad con versiones publicadas (sin la clave), siembra única, sustitución de
+//  variables de git, actualizador del documento entero con conflicto y los scripts
+//  remotos ejecutados en un sh local.
+//
+
+import Testing
+import Foundation
+@testable import Argos
+
+@Suite("Biblioteca de encargos")
+struct PromptLibraryTests {
+
+    private static let id1 = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+    private static let id2 = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+
+    private static func project(_ id: UUID, _ name: String) -> Project {
+        Project(id: id, name: name, path: "/srv/\(name)", createdAt: Date(timeIntervalSince1970: 1_762_509_600))
+    }
+
+    private static func document(_ projects: [Project]) throws -> ProjectsDocument {
+        try ProjectsDocument.empty.replacingProjects(projects)
+    }
+
+    private static func roundTrip(_ document: ProjectsDocument) throws -> ProjectsDocument {
+        try ProjectsDocument.parse(String(decoding: try document.encoded(), as: UTF8.self))
+    }
+
+    // MARK: - Documento
+
+    @Test("Sin prompts, los bytes son los de siempre (lo que escriben las versiones publicadas)")
+    func noPromptsSameBytes() throws {
+        let projects = [Self.project(Self.id1, "uno")]
+        let legacy = try ProjectsFile(projects: projects).encoded()
+        let document = try Self.document(projects)
+        #expect(document.promptLibrary == .empty)
+        // Añadir y quitar el último deja el archivo exactamente igual.
+        let prompt = SavedPrompt(id: "p", title: "T", text: "X")
+        let added = try document.updatingPrompts(.project(Self.id1)) { $0.upserting(prompt) }
+        let removed = try added.updatingPrompts(.project(Self.id1)) { $0.removing(id: "p") }
+        #expect(try removed.encoded() == legacy)
+    }
+
+    @Test("Ida y vuelta: comunes y del proyecto, con claves desconocidas y entradas ilegibles")
+    func roundTripKeepsUnknown() throws {
+        let text = """
+        {
+          "futuro" : 1,
+          "prompts" : [
+            { "id" : "c1", "title" : "Común", "text" : "hola", "color" : "rojo", "model" : "gpt-9" },
+            { "id" : "", "title" : "sin id" },
+            "basura"
+          ],
+          "projects" : [
+            {
+              "createdAt" : "2025-11-07T10:00:00Z",
+              "id" : "11111111-1111-1111-1111-111111111111",
+              "name" : "uno",
+              "path" : "/srv/uno",
+              "prompts" : [ { "id" : "p1", "title" : "Mío", "text" : "tests", "model" : "haiku", "effort" : "max" } ]
+            }
+          ],
+          "version" : 1
+        }
+        """
+        let document = try ProjectsDocument.parse(text)
+        let library = document.promptLibrary
+        #expect(library.common.prompts.map(\.id) == ["c1"])
+        #expect(library.common.invalid.count == 2)
+        #expect(library.common.prompts[0].model == nil)
+        #expect(library.common.prompts[0].extra["model"] == .string("gpt-9"))
+        let own = library.projectPrompts(Self.id1)
+        #expect(own.map(\.title) == ["Mío"])
+        #expect(own[0].model == .haiku && own[0].effort == .max)
+
+        // Se edita el común: lo desconocido (color, modelo raro, ilegibles) sigue ahí.
+        var edited = library.common.prompts[0]
+        edited.text = "adiós"
+        let updated = try Self.roundTrip(try document.updatingPrompts(.common) { $0.upserting(edited) })
+        let common = updated.promptLibrary.common
+        #expect(common.prompts[0].text == "adiós")
+        #expect(common.prompts[0].extra["color"] == .string("rojo"))
+        #expect(common.prompts[0].extra["model"] == .string("gpt-9"))
+        #expect(common.invalid == [.object(["id": .string(""), "title": .string("sin id")]), .string("basura")])
+        #expect(updated.extra["futuro"] == .int(1))
+        #expect(updated.promptLibrary.projectPrompts(Self.id1) == own)
+    }
+
+    @Test("Una versión publicada (que solo reescribe proyectos) conserva la biblioteca")
+    func publishedVersionsKeepPrompts() throws {
+        let base = try Self.document([Self.project(Self.id1, "uno")])
+        let withPrompts = try base
+            .updatingPrompts(.common) { $0.upserting(SavedPrompt(id: "c", title: "C", text: "c")) }
+            .updatingPrompts(.project(Self.id1)) { $0.upserting(SavedPrompt(id: "p", title: "P", text: "p")) }
+            .seedingExamplesIfNeeded()
+        let reread = try Self.roundTrip(withPrompts)
+        // Lo que hace `saveProject` de una versión vieja: sustituir la lista de proyectos.
+        var renamed = reread.projects
+        renamed[0].name = "renombrado"
+        let rewritten = try Self.roundTrip(try reread.replacingProjects(renamed + [Self.project(Self.id2, "dos")]))
+        #expect(rewritten.projects.map(\.name) == ["renombrado", "dos"])
+        #expect(rewritten.promptLibrary == withPrompts.promptLibrary)
+        #expect(ProjectsLoadReport(document: rewritten).prompts.seeded)
+    }
+
+    @Test("Un formato más nuevo o una lista con otra forma no se reescriben")
+    func refusesToOverwrite() throws {
+        let newer = try ProjectsDocument.parse(#"{"version": 2, "projects": []}"#)
+        #expect(throws: ProjectError.newerFormat(2)) { try newer.updatingPrompts(.common) { $0 } }
+        let odd = try ProjectsDocument.parse(#"{"version": 1, "projects": [], "prompts": {"a": 1}}"#)
+        #expect(throws: PromptLibraryError.unreadableList) { try odd.updatingPrompts(.common) { $0 } }
+        #expect(try odd.seedingExamplesIfNeeded() == odd)
+        #expect(throws: PromptLibraryError.projectNotFound) {
+            try ProjectsDocument.empty.updatingPrompts(.project(Self.id1)) { $0 }
+        }
+    }
+
+    // MARK: - Siembra
+
+    @Test("Los ejemplos se siembran una sola vez y no vuelven si se borran")
+    func seedsOnce() throws {
+        let empty = try Self.document([])
+        #expect(empty.promptLibrary.visibleCommon.map(\.id) == PromptSeed.examples.map(\.id))
+        let seeded = try empty.seedingExamplesIfNeeded()
+        #expect(seeded.promptLibrary.seeded)
+        #expect(seeded.promptLibrary.common.prompts == PromptSeed.examples)
+        #expect(seeded.promptLibrary.common.prompts.first { $0.id == "argos-ejemplo-dependencias" }?.model == .haiku)
+        #expect(try seeded.seedingExamplesIfNeeded() == seeded)
+
+        let deleted = try seeded.updatingPrompts(.common) { $0.removing(id: "argos-ejemplo-seguridad") }
+        let again = try Self.roundTrip(deleted).seedingExamplesIfNeeded()
+        #expect(!again.promptLibrary.common.prompts.contains { $0.id == "argos-ejemplo-seguridad" })
+        #expect(again.promptLibrary.visibleCommon.count == PromptSeed.examples.count - 1)
+    }
+
+    @Test("Sembrar respeta un común que ya existía con el mismo id")
+    func seedKeepsExisting() throws {
+        let mine = SavedPrompt(id: "argos-ejemplo-tests", title: "Mi versión", text: "otro")
+        let document = try Self.document([]).updatingPrompts(.common) { $0.upserting(mine) }
+        let seeded = try document.seedingExamplesIfNeeded()
+        #expect(seeded.promptLibrary.common.prompts.first { $0.id == mine.id } == mine)
+        #expect(seeded.promptLibrary.common.prompts.count == PromptSeed.examples.count)
+    }
+
+    // MARK: - Listas
+
+    @Test("Reordenar deja detrás lo que no se conocía; los del proyecto van antes que los comunes")
+    func reorderAndMerge() {
+        let list = PromptList(
+            prompts: ["a", "b", "c", "d"].map { SavedPrompt(id: $0, title: $0, text: $0) }, invalid: [], isWritable: true
+        )
+        #expect(list.reordered(["c", "a"]).prompts.map(\.id) == ["c", "a", "b", "d"])
+        #expect(PromptLibraryModel.moving(["a", "b", "c"], from: [0], to: 3) == ["b", "c", "a"])
+        #expect(PromptLibraryModel.moving(["a", "b", "c"], from: [2], to: 0) == ["c", "a", "b"])
+
+        let library = PromptLibrary(
+            common: PromptList(prompts: [SavedPrompt(id: "x", title: "X", text: "x")], invalid: [], isWritable: true),
+            byProject: [Self.id1: PromptList(prompts: [SavedPrompt(id: "y", title: "Y", text: "y")], invalid: [], isWritable: true)],
+            seeded: true
+        )
+        #expect(library.prompts(forProject: Self.id1).map(\.id) == ["y", "x"])
+        #expect(library.prompts(forProject: nil).map(\.id) == ["x"])
+        #expect(library.prompt(id: "y", project: Self.id2) == nil)
+    }
+
+    @Test("Del servidor: título en una línea sin control y texto demasiado largo apartado")
+    func validatesServerData() {
+        let prompt = SavedPrompt(json: .object(["id": .string("a"), "title": .string("Uno\ndos\u{1B}[31m\u{202E}"), "text": .string("t")]))
+        #expect(prompt?.title == "Uno dos[31m")
+        let huge = String(repeating: "x", count: SavedPrompt.maxTextLength + 1)
+        #expect(SavedPrompt(json: .object(["id": .string("a"), "title": .string(""), "text": .string(huge)])) == nil)
+        #expect(SavedPrompt(id: "a", title: " ", text: "Revisa\nesto").displayTitle == "Revisa esto")
+        #expect(PromptText.sanitizedForPaste("a\u{1B}[201~b\r\nc\td\u{7}") == "a[201~b\nc\td")
+    }
+
+    // MARK: - Variables
+
+    @Test("Sustitución de las cuatro variables y valores por defecto")
+    func substitution() {
+        let values = PromptVariables.Values(branch: "main", lastCommit: "abc123 Arregla", changedFiles: ["a.swift", "b c.txt"], date: "2026-11-26")
+        let text = "{rama} | {ultimo_commit} | {archivos_cambiados} | {fecha} | {otra}"
+        #expect(PromptVariables.substitute(text, values: values) == "main | abc123 Arregla | a.swift, b c.txt | 2026-11-26 | {otra}")
+        let fallback = Date(timeIntervalSince1970: 1_764_158_400) // 2025-11-26 12:00 UTC
+        let empty = PromptVariables.substitute(text, values: .init(), fallbackDate: fallback)
+        #expect(empty.hasPrefix("(sin datos) | (sin datos) | (ninguno) | 2025-11-2"))
+        #expect(PromptVariables.substitute("sin variables", values: values) == "sin variables")
+    }
+
+    @Test("Lo que llega del servidor se recorta y se limpia")
+    func parseServerOutput() {
+        let long = String(repeating: "r", count: 500)
+        let output = """
+        D 2026-11-26
+        B \(long)
+        C abc\u{1B}]0;x\u{7} Commit
+        F  M Argos/App.swift
+        F ?? nuevo.txt
+        F R  viejo -> nuevo
+        X ignorada
+        D
+        """
+        let values = PromptVariables.parse(output)
+        #expect(values.date == "2026-11-26")
+        #expect(values.branch?.count == PromptVariables.maxValueLength)
+        #expect(values.lastCommit == "abc]0;x Commit")
+        #expect(values.changedFiles == ["Argos/App.swift", "nuevo.txt", "viejo -> nuevo"])
+        #expect(PromptVariables.parse("D 26/11/2026").date == nil)
+    }
+
+    @Test("El comando de variables funciona en sh con un repo de git real")
+    func variablesCommandRuns() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("argos-pv-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let setup = "cd '\(dir.path)' && git init -q -b trabajo && git -c user.email=a@b -c user.name=A commit -q --allow-empty -m 'Primero' && echo x > nuevo.txt"
+        #expect(try Self.sh(setup).status == 0)
+        let result = try Self.sh(PromptVariables.command(projectPath: dir.path))
+        #expect(result.status == 0)
+        let values = PromptVariables.parse(result.output)
+        #expect(values.branch == "trabajo")
+        #expect(values.lastCommit?.hasSuffix(" Primero") == true)
+        #expect(values.changedFiles == ["nuevo.txt"])
+        #expect(values.date != nil)
+        #expect(try Self.sh(PromptVariables.command(projectPath: dir.path + "/no-existe")).status == PromptVariables.missingFolderExitCode)
+    }
+
+    @Test(
+        "Pegar en la terminal: pega en el panel, pulsa Enter y borra el archivo; con un shell no pega",
+        .enabled(if: FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/tmux")
+            || FileManager.default.isExecutableFile(atPath: "/usr/local/bin/tmux")
+            || FileManager.default.isExecutableFile(atPath: "/usr/bin/tmux"))
+    )
+    func pasteScriptRuns() throws {
+        // Servidor tmux propio (TMUX_TMPDIR) y HOME temporal: no toca el tmux del usuario.
+        let dir = URL(fileURLWithPath: "/tmp").appendingPathComponent("argos-pp-\(UUID().uuidString.prefix(8))")
+        let outbox = dir.appendingPathComponent(PromptPasteScript.outboxDirectory)
+        try FileManager.default.createDirectory(at: outbox, withIntermediateDirectories: true)
+        let env = "export HOME='\(dir.path)' TMUX_TMPDIR='\(dir.path)' PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; "
+        defer {
+            _ = try? Self.sh(env + "tmux kill-server 2>/dev/null")
+            try? FileManager.default.removeItem(at: dir)
+        }
+        let out = dir.appendingPathComponent("out.txt").path
+        #expect(try Self.sh(env + "tmux -u new-session -d -s 'proy/a' -x 80 -y 20 'cat > \(out)' && tmux -u new-session -d -s shell 'sh'").status == 0)
+
+        let path = PromptPasteScript.relativePath(token: "t1")
+        try "hola\nmundo".write(to: dir.appendingPathComponent(path), atomically: true, encoding: .utf8)
+        let sent = try Self.sh(env + PromptPasteScript.command(session: "proy/a", window: nil, relativePath: path))
+        #expect(sent.status == 0)
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent(path).path))
+        _ = try Self.sh("sleep 1")
+        #expect((try? String(contentsOfFile: out, encoding: .utf8)) == "hola\nmundo\n")
+
+        try "rm -rf ~".write(to: dir.appendingPathComponent(path), atomically: true, encoding: .utf8)
+        let shell = try Self.sh(env + PromptPasteScript.command(session: "shell", window: nil, relativePath: path))
+        #expect(shell.status == Int32(PromptPasteScript.shellOnlyExitCode))
+        let missing = try Self.sh(env + PromptPasteScript.command(session: "no-existe", window: nil, relativePath: path))
+        #expect(missing.status == Int32(PromptPasteScript.missingPaneExitCode))
+    }
+
+    private static func sh(_ command: String) throws -> (status: Int32, output: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", command]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return (process.terminationStatus, String(decoding: data, as: UTF8.self))
+    }
+
+    // MARK: - Actualizador del documento entero
+
+    private actor FakeFile {
+        var text: String
+        var writes = 0
+        var interference: [String]
+
+        init(text: String, interference: [String] = []) {
+            self.text = text
+            self.interference = interference
+        }
+
+        func read() -> String {
+            let current = text
+            if !interference.isEmpty { text = interference.removeFirst() }
+            return current
+        }
+
+        func write(_ data: Data, expected: String?) -> ProjectsWriteOutcome {
+            guard ProjectsUpdater.expectedFingerprint(of: text) == expected else { return .conflict }
+            text = String(decoding: data, as: UTF8.self)
+            writes += 1
+            return .written
+        }
+    }
+
+    private static func text(_ document: ProjectsDocument) throws -> String {
+        String(decoding: try document.encoded(), as: UTF8.self)
+    }
+
+    @Test("Con conflicto se relee y se reaplica: no se pierde lo que guardó otro dispositivo")
+    func documentUpdaterRetries() async throws {
+        let base = try Self.document([Self.project(Self.id1, "uno")])
+        let other = try base.updatingPrompts(.common) { $0.upserting(SavedPrompt(id: "ajeno", title: "A", text: "a")) }
+            .replacingProjects([Self.project(Self.id1, "uno"), Self.project(Self.id2, "dos")])
+        let fake = FakeFile(text: try Self.text(base), interference: [try Self.text(other)])
+        let mine = SavedPrompt(id: "mio", title: "M", text: "m")
+        let report = try await ProjectsUpdater.runDocument(
+            read: { await fake.read() },
+            write: { data, expected in await fake.write(data, expected: expected) },
+            transform: { try $0.updatingPrompts(.project(Self.id1)) { $0.upserting(mine) } }
+        )
+        #expect(await fake.writes == 1)
+        let final = try ProjectsDocument.parse(await fake.text)
+        #expect(final.projects.map(\.name) == ["uno", "dos"])
+        #expect(final.promptLibrary.common.prompts.map(\.id) == ["ajeno"])
+        #expect(final.promptLibrary.projectPrompts(Self.id1) == [mine])
+        #expect(report.prompts == final.promptLibrary)
+    }
+
+    @Test("Si no deja de cambiar se rinde; un formato más nuevo no se toca")
+    func documentUpdaterGivesUp() async throws {
+        let changes = try (0..<ProjectsUpdater.maxAttempts).map { try Self.text(try Self.document([Self.project(UUID(), "x\($0)")])) }
+        let fake = FakeFile(text: try Self.text(try Self.document([])), interference: changes)
+        await #expect(throws: ProjectError.writeConflict) {
+            _ = try await ProjectsUpdater.runDocument(
+                read: { await fake.read() },
+                write: { data, expected in await fake.write(data, expected: expected) },
+                transform: { try $0.seedingExamplesIfNeeded() }
+            )
+        }
+        #expect(await fake.writes == 0)
+
+        let newer = FakeFile(text: #"{"version": 2, "projects": []}"#)
+        await #expect(throws: ProjectError.newerFormat(2)) {
+            _ = try await ProjectsUpdater.runDocument(
+                read: { await newer.read() },
+                write: { data, expected in await newer.write(data, expected: expected) },
+                transform: { $0 }
+            )
+        }
+    }
+
+    // MARK: - Atajos
+
+    @Test("El atajo une el guardado y lo escrito; un id que ya no está es un error claro")
+    func shortcutResolution() throws {
+        let project = Self.project(Self.id1, "uno")
+        let document = try Self.document([project])
+            .updatingPrompts(.project(Self.id1)) { $0.upserting(SavedPrompt(id: "p", title: "P", text: "Haz tests")) }
+        let report = ProjectsLoadReport(document: document)
+        #expect(try ShortcutPromptResolver.savedPrompt(id: "p", report: report, projectPath: "/srv/uno").text == "Haz tests")
+        #expect(try ShortcutPromptResolver.savedPrompt(id: "argos-ejemplo-explica", report: report, projectPath: "/srv/uno").id == "argos-ejemplo-explica")
+        #expect(throws: ShortcutError.promptNotFound) {
+            try ShortcutPromptResolver.savedPrompt(id: "p", report: report, projectPath: "/srv/otro")
+        }
+        #expect(try ShortcutPromptResolver.combined(saved: "Haz tests", typed: " del login ") == "Haz tests\n\ndel login")
+        #expect(throws: ShortcutError.emptyTask) { try ShortcutPromptResolver.combined(saved: nil, typed: "  ") }
+    }
+
+    @Test("La caché de los atajos guarda solo títulos y se reemplaza por servidor")
+    func shortcutCache() {
+        let server = UUID()
+        let project = Self.project(Self.id1, "uno")
+        let library = PromptLibrary(
+            common: .empty,
+            byProject: [Self.id1: PromptList(prompts: [SavedPrompt(id: "p", title: "Tests", text: "secreto")], invalid: [], isWritable: true)],
+            seeded: true
+        )
+        let cache = SavedPromptShortcutCache.empty.updating(serverID: server, projects: [project], library: library)
+        let key = CachedProject.identifier(serverID: server, path: project.path)
+        #expect(cache.prompts(forProject: key) == [CachedPrompt(id: "p", title: "Tests")])
+        #expect(cache.prompt(withID: "p")?.title == "Tests")
+        #expect(cache.updating(serverID: server, projects: [], library: library).prompts(forProject: key).isEmpty)
+        #expect(cache.keepingServers([]).prompts(forProject: key).isEmpty)
+    }
+}

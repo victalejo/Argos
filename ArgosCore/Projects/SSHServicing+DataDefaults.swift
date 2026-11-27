@@ -22,6 +22,24 @@ extension SSHServicing {
         return ProjectsLoadReport(projects: updated)
     }
 
+    /// Dobles sin documento: se parte de los proyectos y solo se guardan los proyectos.
+    func updateProjectsDocument(
+        _ transform: @escaping @Sendable (ProjectsDocument) throws -> ProjectsDocument
+    ) async throws -> ProjectsLoadReport {
+        let base = try ProjectsDocument.empty.replacingProjects(try await loadProjects())
+        let updated = try transform(base)
+        try await saveProjects(updated.projects)
+        return ProjectsLoadReport(document: updated)
+    }
+
+    func promptVariableValues(projectPath: String) async throws -> PromptVariables.Values {
+        PromptVariables.Values()
+    }
+
+    func pastePromptToTerminal(session: String, window: Int?, text: String) async throws {
+        try await sendKeys(session: session, keys: text, enter: true)
+    }
+
     func restoreProjectsBackup() async throws -> ProjectsLoadReport {
         throw ProjectError.noBackup
     }

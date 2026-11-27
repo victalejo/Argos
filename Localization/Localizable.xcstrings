@@ -2865,6 +2865,22 @@
         }
       }
     },
+    "Acciones de «%@»" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions for “%@”"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acciones de «%@»"
+          }
+        }
+      }
+    },
     "Aceptar" : {
       "localizations" : {
         "en" : {
@@ -3601,6 +3617,22 @@
         }
       }
     },
+    "Al enviarlo se rellenan {rama}, {ultimo_commit}, {archivos_cambiados} y {fecha} con lo que diga git en la carpeta del proyecto. Se guardan en el servidor: los ven también tus otros dispositivos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When sent, {rama}, {ultimo_commit}, {archivos_cambiados} and {fecha} are filled in from git in the project folder. They’re saved on the server, so your other devices see them too."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al enviarlo se rellenan {rama}, {ultimo_commit}, {archivos_cambiados} y {fecha} con lo que diga git en la carpeta del proyecto. Se guardan en el servidor: los ven también tus otros dispositivos."
+          }
+        }
+      }
+    },
     "Al iniciar el proyecto" : {
       "localizations" : {
         "en" : {
@@ -3677,6 +3709,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alternativa a conectar el servidor: genera un token en tu Mac con `claude setup-token` y pégalo aquí. Se guarda en el Llavero y usa tu plan, nunca la API de pago."
+          }
+        }
+      }
+    },
+    "Alto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alto"
           }
         }
       }
@@ -4529,6 +4577,22 @@
         }
       }
     },
+    "Añadir a la cola de encargos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to the task queue"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir a la cola de encargos"
+          }
+        }
+      }
+    },
     "Añadir como proyecto" : {
       "localizations" : {
         "en" : {
@@ -4657,6 +4721,22 @@
         }
       }
     },
+    "Bajo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bajo"
+          }
+        }
+      }
+    },
     "Barra" : {
       "localizations" : {
         "en" : {
@@ -4685,6 +4765,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Barra vertical"
+          }
+        }
+      }
+    },
+    "Biblioteca" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Library"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biblioteca"
+          }
+        }
+      }
+    },
+    "Biblioteca de encargos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt Library"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biblioteca de encargos"
+          }
+        }
+      }
+    },
+    "Biblioteca de encargos…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt Library…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biblioteca de encargos…"
           }
         }
       }
@@ -6561,6 +6689,22 @@
         }
       }
     },
+    "Claude no está abierto en la terminal del proyecto: arráncalo y vuelve a enviarlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude isn’t open in the project’s terminal: start it and send it again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude no está abierto en la terminal del proyecto: arráncalo y vuelve a enviarlo."
+          }
+        }
+      }
+    },
     "Claude no propuso ningún mensaje." : {
       "localizations" : {
         "en" : {
@@ -7509,6 +7653,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Comprueba tmux, Claude Code, git y la conexión con este servidor"
+          }
+        }
+      }
+    },
+    "Comunes del servidor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared on This Server"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comunes del servidor"
           }
         }
       }
@@ -11033,6 +11193,22 @@
         }
       }
     },
+    "El encargo está vacío." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The prompt is empty."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El encargo está vacío."
+          }
+        }
+      }
+    },
     "El encargo está vacío: escribe qué quieres que haga Claude." : {
       "localizations" : {
         "en" : {
@@ -11365,6 +11541,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El portapapeles está vacío."
+          }
+        }
+      }
+    },
+    "El proyecto ya no está en el servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The project is no longer on the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El proyecto ya no está en el servidor."
           }
         }
       }
@@ -12921,6 +13113,54 @@
         }
       }
     },
+    "Encargo común del servidor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt shared on the server"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encargo común del servidor"
+          }
+        }
+      }
+    },
+    "Encargo de este proyecto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt for this project"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encargo de este proyecto"
+          }
+        }
+      }
+    },
+    "Encargo guardado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved Prompt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encargo guardado"
+          }
+        }
+      }
+    },
     "Encargo para Claude" : {
       "localizations" : {
         "en" : {
@@ -12949,6 +13189,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Encargos"
+          }
+        }
+      }
+    },
+    "Encargos guardados para reutilizarlos en la terminal, la cola, los agentes y Siri" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved prompts to reuse in the terminal, the queue, agents and Siri"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encargos guardados para reutilizarlos en la terminal, la cola, los agentes y Siri"
           }
         }
       }
@@ -13253,6 +13509,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enviar un comando a una o varias sesiones (⌥⌘K)"
+          }
+        }
+      }
+    },
+    "Enviar ya a la terminal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to Terminal Now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar ya a la terminal"
           }
         }
       }
@@ -13657,6 +13929,22 @@
         }
       }
     },
+    "Ese encargo guardado ya no está en la biblioteca del proyecto. Elige otro en el atajo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That saved prompt is no longer in the project’s library. Choose another one in the shortcut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese encargo guardado ya no está en la biblioteca del proyecto. Elige otro en el atajo."
+          }
+        }
+      }
+    },
     "Ese encargo ya no está bloqueado por el revisor." : {
       "localizations" : {
         "en" : {
@@ -13717,6 +14005,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ese servidor ya no está en Argos. Elige otro proyecto."
+          }
+        }
+      }
+    },
+    "Esfuerzo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Effort"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esfuerzo"
           }
         }
       }
@@ -13941,6 +14245,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Este dispositivo no tiene código ni %@ configurado."
+          }
+        }
+      }
+    },
+    "Este proyecto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Project"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este proyecto"
           }
         }
       }
@@ -16522,6 +16842,22 @@
         }
       }
     },
+    "La biblioteca de encargos del servidor tiene un formato que esta versión de Argos no entiende; no se ha cambiado. Actualiza Argos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server’s prompt library uses a format this version of Argos doesn’t understand; it hasn’t been changed. Update Argos."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La biblioteca de encargos del servidor tiene un formato que esta versión de Argos no entiende; no se ha cambiado. Actualiza Argos."
+          }
+        }
+      }
+    },
     "La carpeta '%@' ya no existe en el servidor. Edita el proyecto para elegir otra." : {
       "localizations" : {
         "en" : {
@@ -17094,6 +17430,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "La salida del comando remoto es demasiado grande."
+          }
+        }
+      }
+    },
+    "La sesión del proyecto no está abierta: ábrela y vuelve a enviarlo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The project’s session isn’t open: open it and send it again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sesión del proyecto no está abierta: ábrela y vuelve a enviarlo."
           }
         }
       }
@@ -18090,6 +18442,22 @@
         }
       }
     },
+    "Medio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medio"
+          }
+        }
+      }
+    },
     "Memoria" : {
       "localizations" : {
         "en" : {
@@ -18262,6 +18630,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Menta"
+          }
+        }
+      }
+    },
+    "Modelo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modelo"
           }
         }
       }
@@ -18678,6 +19062,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Más reciente"
+          }
+        }
+      }
+    },
+    "Máximo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Max"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Máximo"
           }
         }
       }
@@ -21958,6 +22358,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nuevo agente"
+          }
+        }
+      }
+    },
+    "Nuevo encargo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Prompt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuevo encargo"
           }
         }
       }
@@ -27547,6 +27963,22 @@
         }
       }
     },
+    "Sin preferencia" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Preference"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin preferencia"
+          }
+        }
+      }
+    },
     "Sin proyectos ni sesiones" : {
       "localizations" : {
         "en" : {
@@ -28507,6 +28939,22 @@
         }
       }
     },
+    "Texto del encargo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt Text"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto del encargo"
+          }
+        }
+      }
+    },
     "Texto más grande" : {
       "localizations" : {
         "en" : {
@@ -29183,6 +29631,22 @@
         }
       }
     },
+    "Título" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Title"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Título"
+          }
+        }
+      }
+    },
     "Un agente de Argos terminó o necesita algo" : {
       "localizations" : {
         "en" : {
@@ -29451,6 +29915,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Usar la versión del Mac"
+          }
+        }
+      }
+    },
+    "Usar un encargo guardado de la biblioteca" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use a saved prompt from the library"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar un encargo guardado de la biblioteca"
           }
         }
       }
@@ -32875,6 +33355,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "~/proyectos ❯ git status"
+          }
+        }
+      }
+    },
+    "«%@» enviado a la terminal." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” sent to the terminal."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» enviado a la terminal."
           }
         }
       }

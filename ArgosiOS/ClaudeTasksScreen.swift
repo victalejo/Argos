@@ -23,9 +23,13 @@ struct ClaudeTasksScreen: View {
             service: viewModel.service,
             serverID: serverID,
             project: project,
-            claudeWindows: viewModel.claudeActivity.windows(forSession: project.sessionName)
+            claudeWindows: viewModel.claudeActivity.windows(forSession: project.sessionName),
+            savedPrompts: viewModel.promptLibrary.prompts(forProject: project.id)
         ))
-        _schedules = State(initialValue: ClaudeSchedulesModel(service: viewModel.service, serverID: serverID, project: project))
+        _schedules = State(initialValue: ClaudeSchedulesModel(
+            service: viewModel.service, serverID: serverID, project: project,
+            savedPrompts: viewModel.promptLibrary.prompts(forProject: project.id)
+        ))
     }
 
     var body: some View {

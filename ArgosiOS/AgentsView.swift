@@ -16,6 +16,8 @@ struct AgentsView: View {
     let title: String
 
     @Environment(ServerHub.self) private var hub
+    /// Se vuelve a poner en el chat: el destino de navegación no lo hereda de aquí.
+    @Environment(\.savedPromptContext) private var promptContext
     @State private var agents: [PersistentAgentInfo]?
     @State private var errorMessage: String?
     @State private var isLaunching = false
@@ -91,6 +93,7 @@ struct AgentsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $opened) { route in
             AgentChatView(session: hub.agentSession(for: route.info, server: server))
+                .environment(\.savedPromptContext, promptContext)
         }
         .navigationDestination(isPresented: $showsServerAgents) {
             ServerAgentsView(server: server, service: service)

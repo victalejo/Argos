@@ -91,6 +91,7 @@ struct ProjectsView: View {
             // Atajos, Siri y Spotlight listan los proyectos sin red.
             .onChange(of: viewModel.projects, initial: true) { _, _ in updateShortcutIndex() }
             .onChange(of: isLoaded) { _, _ in updateShortcutIndex() }
+            .onChange(of: viewModel.promptLibrary) { _, _ in updateShortcutIndex() }
             // La vuelta de segundo plano la gestiona `ServerHub.didBecomeActive`: sondea la
             // conexión y refresca sin vaciar la lista (antes cualquier paso de inactivo a
             // activo, como abrir el Centro de control, la cambiaba por «Conectando…»).
@@ -590,7 +591,7 @@ struct ProjectsView: View {
     private func updateShortcutIndex() {
         let projects = viewModel.projects
         guard !projects.isEmpty || (isLoaded && viewModel.projectsError == nil) else { return }
-        ProjectShortcutIndex.update(serverID: server.id, projects: projects)
+        ProjectShortcutIndex.update(serverID: server.id, projects: projects, prompts: viewModel.promptLibrary)
     }
 
     private var isLoaded: Bool {

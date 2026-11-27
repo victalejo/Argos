@@ -220,6 +220,8 @@ final class SessionsViewModel {
     var projects: [Project] = []
     /// Error al leer/guardar proyectos (no impide listar sesiones).
     var projectsError: String?
+    /// Biblioteca de encargos del servidor (viene con projects.json).
+    var promptLibrary: PromptLibrary = .empty
 
     // MARK: - Resumen git (ver Git/SessionsViewModel+Git.swift)
 

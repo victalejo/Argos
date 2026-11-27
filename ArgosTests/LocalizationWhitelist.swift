@@ -18,6 +18,9 @@ enum LocalizationWhitelist {
         "ArgosCore/PortForwarding/PortForwardServerFiles.swift",
         // Prompt a Claude y título que se guarda en el servidor del encargo de arreglo.
         "ArgosCore/Tasks/ClaudeTaskReviewFix.swift",
+        // Encargos de ejemplo de la biblioteca: se siembran una vez en el servidor
+        // (projects.json) y viajan a Claude tal cual; el usuario los edita a su gusto.
+        "ArgosCore/Prompts/PromptSeed.swift",
     ]
 
     /// Subcadenas de literales que no se traducen.
@@ -30,6 +33,8 @@ enum LocalizationWhitelist {
         // Identificadores estables guardados (plegado de grupos); se muestran traducidos
         // con `SessionGrouping.displayName` / `VisibleProjectListing.displayName(ofGroup:)`.
         "Sesiones sueltas",
+        // Valor de las variables de un encargo cuando git no da datos (viaja a Claude).
+        "(sin datos)",
         // Prefijos que a veces añade Claude a su respuesta (se comparan, no se muestran).
         "Mensaje de commit:",
         // Marcadores del informe de diagnóstico (se comparan en los tests del redactor).

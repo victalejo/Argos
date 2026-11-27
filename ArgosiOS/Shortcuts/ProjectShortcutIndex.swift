@@ -19,10 +19,15 @@ enum ProjectShortcutIndex {
     /// Dominio de Spotlight de los proyectos (se borra entero al reindexar).
     static let spotlightDomain = "com.iaportafolio.argos.projects"
 
-    /// La app cargó la lista de proyectos de un servidor.
-    static func update(serverID: UUID, projects: [Project]) {
-        let before = store.load()
+    private static let promptStore = SavedPromptShortcutCacheStore()
+
+    /// La app cargó la lista de proyectos de un servidor (con su biblioteca de encargos).
+    static func update(serverID: UUID, projects: [Project], prompts: PromptLibrary) {
         let existing = Set(ServerStore().servers.map(\.id))
+        let promptsBefore = promptStore.load()
+        let promptsAfter = promptsBefore.updating(serverID: serverID, projects: projects, library: prompts).keepingServers(existing)
+        if promptsAfter != promptsBefore { promptStore.save(promptsAfter) }
+        let before = store.load()
         let after = before.updating(serverID: serverID, projects: projects).keepingServers(existing)
         guard after != before else { return }
         store.save(after)

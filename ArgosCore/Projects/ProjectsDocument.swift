@@ -151,15 +151,24 @@ struct ProjectsLoadReport: Equatable, Sendable {
     let skippedEntries: Int
     /// Versión de formato del archivo.
     let fileVersion: Int
+    /// Biblioteca de encargos del servidor (comunes y por proyecto).
+    let prompts: PromptLibrary
 
-    init(projects: [Project], skippedEntries: Int = 0, fileVersion: Int = ProjectsDocument.supportedVersion) {
+    init(
+        projects: [Project], skippedEntries: Int = 0, fileVersion: Int = ProjectsDocument.supportedVersion,
+        prompts: PromptLibrary = .empty
+    ) {
         self.projects = projects
         self.skippedEntries = skippedEntries
         self.fileVersion = fileVersion
+        self.prompts = prompts
     }
 
     init(document: ProjectsDocument) {
-        self.init(projects: document.projects, skippedEntries: document.invalidCount, fileVersion: document.version)
+        self.init(
+            projects: document.projects, skippedEntries: document.invalidCount, fileVersion: document.version,
+            prompts: document.promptLibrary
+        )
     }
 
     /// Aviso para la interfaz (`nil` si no hay nada que decir).

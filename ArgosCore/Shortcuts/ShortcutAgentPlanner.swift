@@ -140,6 +140,8 @@ enum ShortcutError: LocalizedError, Equatable {
     case permissionModeChanged
     /// La app está bloqueada con Face ID y no se pudo (o no se quiso) desbloquear.
     case appLocked
+    /// El encargo guardado elegido ya no está en la biblioteca del servidor.
+    case promptNotFound
 
     var errorDescription: String? {
         switch self {
@@ -167,6 +169,8 @@ enum ShortcutError: LocalizedError, Equatable {
             return String(localized: "El modo de permisos de este agente cambió; ábrelo en Argos para confirmarlo.")
         case .appLocked:
             return String(localized: "Argos está bloqueado. Desbloquéalo para usar este atajo.")
+        case .promptNotFound:
+            return String(localized: "Ese encargo guardado ya no está en la biblioteca del proyecto. Elige otro en el atajo.")
         }
     }
 }

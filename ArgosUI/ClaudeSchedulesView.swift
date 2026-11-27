@@ -92,6 +92,10 @@ private struct ClaudeScheduleForm: View {
                 TextField("Comprobación antes del push (p. ej. npm test)", text: $model.checkCommand)
             }
             HStack {
+                if !model.savedPrompts.isEmpty {
+                    SavedPromptMenu(prompts: model.savedPrompts) { (prompt: SavedPrompt) in model.usePrompt(prompt) }
+                        .fixedSize()
+                }
                 Spacer()
                 Button("Guardar tarea") { Task { await model.add() } }
                     .buttonStyle(.borderedProminent)

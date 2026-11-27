@@ -37,7 +37,11 @@ struct AskClaudeIntent: ForegroundContinuableIntent {
         inputOptions: String.IntentInputOptions(multiline: true),
         requestValueDialog: "¿Qué quieres que haga Claude?"
     )
-    var task: String
+    var task: String?
+
+    /// Un encargo de la biblioteca del proyecto; si además hay texto, va detrás.
+    @Parameter(title: "Encargo guardado")
+    var savedPrompt: SavedPromptEntity?
 
     static var parameterSummary: some ParameterSummary {
         Summary("Pedir a Claude en \(\.$project): \(\.$task)")
@@ -45,11 +49,22 @@ struct AskClaudeIntent: ForegroundContinuableIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let text = try ShortcutTask.validated(task)
+        let typed = task?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if savedPrompt == nil {
+            if typed.isEmpty { throw $task.needsValueError("¿Qué quieres que haga Claude?") }
+            _ = try ShortcutTask.validated(typed)
+        }
         // Antes de tocar la red: el bloqueo de la app manda (no lo salta «sin confirmar»).
         try await ShortcutAuthenticator.requireUnlock(for: self)
         let target = try ShortcutAgentSender.target(forProjectID: project.id)
         let prepared = try await ShortcutAgentSender.prepare(target)
+        let text: String
+        do {
+            text = try await resolvedText(typed: typed, prepared: prepared)
+        } catch {
+            ShortcutAgentSender.close(prepared.service)
+            throw error
+        }
         let mode = prepared.plan.permissionMode
         if ShortcutAgentPlanner.requiresConfirmation(mode: mode, allowsUnconfirmed: ShortcutPreferences.allowsUnconfirmed()) {
             do {
@@ -66,6 +81,23 @@ struct AskClaudeIntent: ForegroundContinuableIntent {
             : String(localized: "Enviado a Claude en «\(name)».")
         return .result(dialog: IntentDialog(stringLiteral: done))
     }
+
+    /// Lo escrito y, si se eligió, el encargo guardado leído del servidor con sus
+    /// variables rellenas (el texto de la biblioteca nunca se guarda en el dispositivo).
+    private func resolvedText(typed: String, prepared: ShortcutAgentSender.Prepared) async throws -> String {
+        guard let promptID = savedPrompt?.id else { return try ShortcutTask.validated(typed) }
+        let service = prepared.service
+        let path = prepared.target.project.path
+        let saved = try await Deadline.value(within: Self.promptTimeout, timeoutError: { ShortcutError.timedOut }) {
+            let report = try await service.loadProjectsReport()
+            let prompt = try ShortcutPromptResolver.savedPrompt(id: promptID, report: report, projectPath: path)
+            return await PromptExpansion.expand(prompt.text, service: service, projectPath: path)
+        }
+        return try ShortcutPromptResolver.combined(saved: saved, typed: typed)
+    }
+
+    /// Leer la biblioteca y las variables de git (la conexión ya está abierta).
+    private static let promptTimeout: Duration = .seconds(8)
 
     private func confirmationText(_ prepared: ShortcutAgentSender.Prepared) -> String {
         let modeTitle = ShortcutAgentPlanner.modeTitle(prepared.plan.permissionMode)
