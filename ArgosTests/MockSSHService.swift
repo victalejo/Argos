@@ -111,6 +111,36 @@ final class MockSSHService: SSHServicing, @unchecked Sendable {
     // MARK: - Transferencia de archivos
     func resourceSample() async throws -> ServerResourceSample { throw ServerResourceError.unsupported }
 
+    var metricsHistory = ServerMetricsHistory()
+    private(set) var metricsRequests: [ServerMetricsRange] = []
+    private(set) var metricsActions: [String] = []
+    func serverMetricsHistory(range: ServerMetricsRange) async throws -> ServerMetricsHistory {
+        metricsRequests.append(range)
+        return metricsHistory
+    }
+    func installServerMetrics() async throws -> ClaudeTaskTimer.Kind {
+        metricsActions.append("install")
+        metricsHistory.isInstalled = true
+        metricsHistory.timer = .systemd
+        return .systemd
+    }
+    func uninstallServerMetrics() async throws {
+        metricsActions.append("uninstall")
+        metricsHistory.isInstalled = false
+    }
+    var processSurvey = ClaudeProcessSurvey()
+    var orphanKillOutcome: ClaudeOrphanKillOutcome = .killed
+    private(set) var killedOrphans: [Int] = []
+    func claudeProcessSurvey() async throws -> ClaudeProcessSurvey { processSurvey }
+    func killClaudeOrphans(_ orphans: [ClaudeOrphan]) async throws -> [Int: ClaudeOrphanKillOutcome] {
+        killedOrphans.append(contentsOf: orphans.map(\.pid))
+        if orphanKillOutcome == .killed {
+            let gone = Set(orphans.map(\.pid))
+            processSurvey.processes.removeAll { gone.contains($0.pid) }
+        }
+        return Dictionary(uniqueKeysWithValues: orphans.map { ($0.pid, orphanKillOutcome) })
+    }
+
     var claudeSnapshot = ClaudeActivitySnapshot.empty
     func claudeActivity() async throws -> ClaudeActivitySnapshot { claudeSnapshot }
     func claudeHooksInstalled() async throws -> Bool { false }

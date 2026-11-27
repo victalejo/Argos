@@ -261,6 +261,7 @@ enum ClaudeTaskScript {
 
         case "$1" in
           tick)
+            \#(ServerMetricsScript.dispatcherLine)
             expire
             review_expire
             for s in "$base"/schedules/*/; do

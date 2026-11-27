@@ -1,0 +1,15 @@
+d="$HOME/.config/argos/metrics"
+s=$(( $(date +%s) - 21600 ))
+[ -f "$d/sample.sh" ] && echo '@@installed'
+[ -r /proc/meminfo ] || echo '@@noproc'
+printf '@@timer %s\n' "$(
+if [ "$(uname -s)" = Darwin ] && launchctl list 2>/dev/null | grep -q "com.iaportafolio.argos.tasks"; then echo launchd; exit 0; fi
+if command -v systemctl >/dev/null 2>&1 && systemctl --user is-active argos-tasks.timer >/dev/null 2>&1; then echo systemd; exit 0; fi
+if command -v crontab >/dev/null 2>&1 && crontab -l 2>/dev/null | grep -q 'argos-tasks-timer'; then echo cron; exit 0; fi
+echo none
+)"
+printf '@@now %s\n' "$(date +%s)"
+awk -v s="$s" '$1 == "m" && NF >= 10 && $2 + 0 >= s + 0 { print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10 }' "$d/minute.log" 2>/dev/null | tail -n 1500
+tail -n 1 "$d/minute.log" 2>/dev/null | awk '$1 == "m" && NF >= 11 { print "@@top", $11 }'
+awk -v s="$s" '$1 == "o" && $2 + 0 >= s + 0' "$d/oom.log" 2>/dev/null | tail -n 200
+exit 0

@@ -642,6 +642,7 @@ spawn() {
 
 case "$1" in
   tick)
+    [ -f "$HOME/.config/argos/metrics/sample.sh" ] && sh "$HOME/.config/argos/metrics/sample.sh" >/dev/null 2>&1
     expire
     review_expire
     for s in "$base"/schedules/*/; do

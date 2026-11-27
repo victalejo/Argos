@@ -20,8 +20,17 @@ struct ServerResourcesScreen: View {
     /// Uso de CPU entre las dos últimas muestras (`nil` hasta la segunda).
     @State private var cpuUsage: Double?
     @State private var errorMessage: String?
+    @State private var metrics: ServerMetricsModel
+    @State private var orphans: ClaudeOrphansModel
 
     private static let refreshInterval: Duration = .seconds(3)
+
+    init(serverName: String, service: any SSHServicing) {
+        self.serverName = serverName
+        self.service = service
+        _metrics = State(initialValue: ServerMetricsModel(service: service))
+        _orphans = State(initialValue: ClaudeOrphansModel(service: service))
+    }
 
     var body: some View {
         NavigationStack {
@@ -61,6 +70,7 @@ struct ServerResourcesScreen: View {
                 } header: {
                     Text("Encendido \(ResourceFormat.uptime(sample.uptimeSeconds)) · cada 3 s")
                 }
+                historySection
                 Section {
                     ForEach(sample.topProcesses) { process in
                         processRow(process)
@@ -86,6 +96,25 @@ struct ServerResourcesScreen: View {
             }
         } else {
             ProgressView("Leyendo recursos…")
+        }
+    }
+
+    private var historySection: some View {
+        Section {
+            NavigationLink {
+                ScrollView { ServerMetricsHistoryView(model: metrics).padding() }
+                    .navigationTitle("Historial")
+                    .navigationBarTitleDisplayMode(.inline)
+            } label: {
+                Label("Historial de recursos", systemImage: "chart.xyaxis.line")
+            }
+            NavigationLink {
+                ScrollView { ClaudeOrphansView(model: orphans).padding() }
+                    .navigationTitle("Claude huérfanos")
+                    .navigationBarTitleDisplayMode(.inline)
+            } label: {
+                Label("Procesos de Claude huérfanos", systemImage: "person.crop.circle.badge.questionmark")
+            }
         }
     }
 

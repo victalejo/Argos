@@ -1,0 +1,19 @@
+export LC_ALL=C
+me=$(id -u); echo "@@me $me"
+command -v tmux >/dev/null 2>&1 && tmux -u list-panes -a -F 'pane #{pane_pid}' 2>/dev/null | head -n 5000
+ids=""; agents=""
+for a in "$HOME/.config/argos/agents"/*/; do
+  [ -d "$a" ] || continue
+  id=$(basename "$a"); case "$id" in ''|*[!0-9A-Fa-f-]*) continue ;; esac
+  ids="$ids $id"
+  q=$(cat "$a/pid" 2>/dev/null); case "$q" in ''|*[!0-9]*) continue ;; esac
+  ps -o args= -p "$q" 2>/dev/null | grep -qF -- "$id" && agents="$agents $q"
+done
+for q in $agents; do echo "agent $q"; done
+ps -eo pid=,ppid=,uid=,rss=,etime=,tty=,comm= 2>/dev/null | head -n 20000 | sed 's/^ */p /'
+for c in $(ps -eo pid=,uid=,comm= 2>/dev/null | awk -v me="$me" '$2 == me { n = $3; for (i = 4; i <= NF; i++) n = n " " $i; sub(/.*\//, "", n); if (n == "claude") print $1 }' | head -n 500); do
+  a=$(ps -o args= -p "$c" 2>/dev/null)
+  for id in $ids; do case "$a" in *"$id"*) echo "agent $c" ;; esac; done
+  printf 'start %s %s\n' "$c" "$(ps -o lstart= -p "$c" 2>/dev/null | tr -s ' ' | sed 's/^ //; s/ $//')"
+done
+exit 0

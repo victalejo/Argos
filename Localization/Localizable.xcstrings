@@ -2321,6 +2321,22 @@
         }
       }
     },
+    "24 h" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 h"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 h"
+          }
+        }
+      }
+    },
     "30 días" : {
       "localizations" : {
         "en" : {
@@ -2333,6 +2349,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "30 días"
+          }
+        }
+      }
+    },
+    "6 h" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 h"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 h"
           }
         }
       }
@@ -3553,6 +3585,22 @@
         }
       }
     },
+    "Ahora" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora"
+          }
+        }
+      }
+    },
     "Ahora no" : {
       "localizations" : {
         "en" : {
@@ -4673,6 +4721,22 @@
         }
       }
     },
+    "Aún no hay muestras: se toma una cada minuto, aunque no tengas la app abierta." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No samples yet: one is taken every minute, even when the app isn’t open."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay muestras: se toma una cada minuto, aunque no tengas la app abierta."
+          }
+        }
+      }
+    },
     "Aún no hay puntos de restauración" : {
       "localizations" : {
         "en" : {
@@ -4961,6 +5025,22 @@
         }
       }
     },
+    "Buscando procesos…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking for processes…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando procesos…"
+          }
+        }
+      }
+    },
     "Buscando…" : {
       "localizations" : {
         "en" : {
@@ -5117,6 +5197,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buscar archivo…"
+          }
+        }
+      }
+    },
+    "Buscar de nuevo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar de nuevo"
           }
         }
       }
@@ -5325,6 +5421,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "CI · %@"
+          }
+        }
+      }
+    },
+    "CPU" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU"
           }
         }
       }
@@ -5665,6 +5777,22 @@
         }
       }
     },
+    "Carga" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carga"
+          }
+        }
+      }
+    },
     "Carga los proyectos de este servidor." : {
       "localizations" : {
         "en" : {
@@ -5873,6 +6001,22 @@
         }
       }
     },
+    "Cerrados: %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closed: %lld."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrados: %lld."
+          }
+        }
+      }
+    },
     "Cerrar" : {
       "localizations" : {
         "en" : {
@@ -6049,6 +6193,22 @@
         }
       }
     },
+    "Cerrar marcados" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close selected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar marcados"
+          }
+        }
+      }
+    },
     "Cerrar panel" : {
       "localizations" : {
         "en" : {
@@ -6093,6 +6253,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cerrar pestaña (el agente sigue en el servidor)"
+          }
+        }
+      }
+    },
+    "Cerrar procesos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close processes"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar procesos"
           }
         }
       }
@@ -6301,6 +6477,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claro"
+          }
+        }
+      }
+    },
+    "Claude" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
           }
         }
       }
@@ -6685,6 +6877,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude está trabajando…"
+          }
+        }
+      }
+    },
+    "Claude huérfanos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orphaned Claude"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude huérfanos"
           }
         }
       }
@@ -9381,6 +9589,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Deja los archivos como estaban justo antes de este mensaje (pide confirmación)"
+          }
+        }
+      }
+    },
+    "Dejar de guardar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop saving"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de guardar"
+          }
+        }
+      }
+    },
+    "Dejar de guardar y borrar el historial" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop saving and delete the history"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de guardar y borrar el historial"
           }
         }
       }
@@ -12089,6 +12329,22 @@
         }
       }
     },
+    "El servidor no tiene systemd, launchd ni cron para tomar una muestra cada minuto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server has no systemd, launchd or cron to take a sample every minute."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor no tiene systemd, launchd ni cron para tomar una muestra cada minuto."
+          }
+        }
+      }
+    },
     "El servidor rechazó abrir un canal SSH nuevo (¿demasiados canales abiertos en la conexión?). Reintenta en unos segundos. (%@)" : {
       "localizations" : {
         "en" : {
@@ -12789,6 +13045,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Empieza una conversación con Claude en %@ (%@).%@"
+          }
+        }
+      }
+    },
+    "En 7 días cada punto es un tramo de 10 min: memoria con su peor valor, CPU media y picos de carga y de Claude." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Over 7 days each point is a 10-minute slot: memory at its worst, average CPU and peak load and Claude memory."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En 7 días cada punto es un tramo de 10 min: memoria con su peor valor, CPU media y picos de carga y de Claude."
           }
         }
       }
@@ -14393,6 +14665,38 @@
         }
       }
     },
+    "Este servidor no es Linux (no tiene /proc): el historial no tendrá datos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This server isn’t Linux (it has no /proc): the history will have no data."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor no es Linux (no tiene /proc): el historial no tendrá datos."
+          }
+        }
+      }
+    },
+    "Este servidor no es Linux (no tiene /proc): no hay muestras que guardar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This server isn’t Linux (it has no /proc): there are no samples to save."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor no es Linux (no tiene /proc): no hay muestras que guardar."
+          }
+        }
+      }
+    },
     "Este servidor ya usa una clave SSH." : {
       "localizations" : {
         "en" : {
@@ -15114,6 +15418,22 @@
         }
       }
     },
+    "Guarda en el servidor una muestra por minuto de memoria, swap, CPU, carga y procesos de Claude, aunque no tengas la app abierta. Así verás la tendencia antes de que el sistema se quede sin memoria y qué la llenó." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saves a sample of memory, swap, CPU, load and Claude processes on the server every minute, even when the app isn’t open. You’ll see the trend before the system runs out of memory, and what filled it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guarda en el servidor una muestra por minuto de memoria, swap, CPU, carga y procesos de Claude, aunque no tengas la app abierta. Así verás la tendencia antes de que el sistema se quede sin memoria y qué la llenó."
+          }
+        }
+      }
+    },
     "Guarda una instantánea del proyecto cada vez que envías un mensaje a Claude Code, en una carpeta privada dentro de .git que no viaja con push ni con «Enviar al Mac». Al activarlo por primera vez se instala un hook en ~/.claude/settings.json del servidor." : {
       "localizations" : {
         "en" : {
@@ -15142,6 +15462,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Saved, but the server has no launchd, systemd or cron: it won’t run on its own."
+          }
+        }
+      }
+    },
+    "Guardado en el servidor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved on the server"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardado en el servidor"
           }
         }
       }
@@ -15206,6 +15542,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Guardar el estado actual costará"
+          }
+        }
+      }
+    },
+    "Guardar historial" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save history"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar historial"
           }
         }
       }
@@ -15302,6 +15654,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "HEAD desacoplado (%@)"
+          }
+        }
+      }
+    },
+    "Hace %@ · procesos hijos: %lld · sin terminal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ ago · child processes: %2$lld · no terminal"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hace %1$@ · procesos hijos: %2$lld · sin terminal"
+          }
+        }
+      }
+    },
+    "Hace %@ · procesos hijos: %lld · terminal %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ ago · child processes: %2$lld · terminal %3$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hace %1$@ · procesos hijos: %2$lld · terminal %3$@"
           }
         }
       }
@@ -15546,6 +15930,38 @@
         }
       }
     },
+    "Historial" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historial"
+          }
+        }
+      }
+    },
+    "Historial de recursos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resource history"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historial de recursos"
+          }
+        }
+      }
+    },
     "Hoja de cálculo demasiado grande" : {
       "localizations" : {
         "en" : {
@@ -15686,6 +16102,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Today: %1$@ of %2$@ (server day)."
+          }
+        }
+      }
+    },
+    "Huérfanos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orphans"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Huérfanos"
           }
         }
       }
@@ -17898,6 +18330,22 @@
         }
       }
     },
+    "Leyendo el historial…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the history…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leyendo el historial…"
+          }
+        }
+      }
+    },
     "Leyendo el terminal…" : {
       "localizations" : {
         "en" : {
@@ -18682,6 +19130,22 @@
         }
       }
     },
+    "Memoria de Claude (GB)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude memory (GB)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memoria de Claude (GB)"
+          }
+        }
+      }
+    },
     "Memoria del servidor correcta" : {
       "localizations" : {
         "en" : {
@@ -18758,6 +19222,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Memoria que usan"
+          }
+        }
+      }
+    },
+    "Memoria y swap usadas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memory and swap used"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memoria y swap usadas"
           }
         }
       }
@@ -19222,6 +19702,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Más antigua"
+          }
+        }
+      }
+    },
+    "Más memoria ahora" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Most memory now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más memoria ahora"
           }
         }
       }
@@ -19770,6 +20266,22 @@
         }
       }
     },
+    "No hay procesos de Claude huérfanos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No orphaned Claude processes."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay procesos de Claude huérfanos."
+          }
+        }
+      }
+    },
     "No hay ruta hasta el servidor. Comprueba tu conexión a internet." : {
       "localizations" : {
         "en" : {
@@ -19830,6 +20342,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No hay sesiones sueltas con una carpeta conocida."
+          }
+        }
+      }
+    },
+    "No hay temporizador en el servidor: el historial no avanza. Vuelve a pulsar «Guardar historial»." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There’s no timer on the server: the history isn’t advancing. Tap “Save history” again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay temporizador en el servidor: el historial no avanza. Vuelve a pulsar «Guardar historial»."
           }
         }
       }
@@ -20074,6 +20602,22 @@
         }
       }
     },
+    "No se pudieron cerrar los procesos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t close the processes."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron cerrar los procesos."
+          }
+        }
+      }
+    },
     "No se pudieron colocar los archivos subidos." : {
       "localizations" : {
         "en" : {
@@ -20214,6 +20758,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudieron leer los cambios"
+          }
+        }
+      }
+    },
+    "No se pudieron leer los procesos de Claude." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read the Claude processes."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron leer los procesos de Claude."
           }
         }
       }
@@ -21530,6 +22090,22 @@
         }
       }
     },
+    "No se pudo leer el historial de recursos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t read the resource history."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el historial de recursos."
+          }
+        }
+      }
+    },
     "No se pudo leer el presupuesto del proyecto." : {
       "localizations" : {
         "es" : {
@@ -21914,6 +22490,22 @@
         }
       }
     },
+    "No se pudo quitar el historial de recursos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t remove the resource history."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo quitar el historial de recursos."
+          }
+        }
+      }
+    },
     "No se pudo reenviar" : {
       "localizations" : {
         "en" : {
@@ -22022,6 +22614,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo subir el archivo al servidor. %@"
+          }
+        }
+      }
+    },
+    "No se pudo tomar la primera muestra." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t take the first sample."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo tomar la primera muestra."
           }
         }
       }
@@ -22790,6 +23398,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
+          }
+        }
+      }
+    },
+    "OOM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OOM"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OOM"
           }
         }
       }
@@ -24810,6 +25434,22 @@
         }
       }
     },
+    "Procesos `claude` que no cuelgan de ningún panel de tmux, de una sesión SSH abierta ni de un agente de Argos: suelen quedar tras cerrarse mal un terminal o tras un OOM, y siguen ocupando memoria con sus servidores MCP." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "`claude` processes that don’t belong to any tmux pane, open SSH session or Argos agent: they’re usually left behind when a terminal closes badly or after an OOM, and keep using memory with their MCP servers."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procesos `claude` que no cuelgan de ningún panel de tmux, de una sesión SSH abierta ni de un agente de Argos: suelen quedar tras cerrarse mal un terminal o tras un OOM, y siguen ocupando memoria con sus servidores MCP."
+          }
+        }
+      }
+    },
     "Procesos con más CPU" : {
       "localizations" : {
         "en" : {
@@ -24838,6 +25478,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Procesos de Claude"
+          }
+        }
+      }
+    },
+    "Procesos de Claude huérfanos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orphaned Claude processes"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Procesos de Claude huérfanos"
           }
         }
       }
@@ -27258,6 +27914,22 @@
         }
       }
     },
+    "Se guarda en el servidor: 1 muestra por minuto durante 24 h y cada 10 min hasta 7 días." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stored on the server: 1 sample per minute for 24 h and every 10 min for up to 7 days."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se guarda en el servidor: 1 muestra por minuto durante 24 h y cada 10 min hasta 7 días."
+          }
+        }
+      }
+    },
     "Se hará el push que faltaba tal como está el commit, con los hallazgos sin corregir." : {
       "localizations" : {
         "en" : {
@@ -27270,6 +27942,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Se hará el push que faltaba tal como está el commit, con los hallazgos sin corregir."
+          }
+        }
+      }
+    },
+    "Se les envía TERM y, si a los 5 segundos siguen vivos, KILL. Lo que estuvieran haciendo se pierde." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "They get TERM and, if still alive after 5 seconds, KILL. Whatever they were doing is lost."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se les envía TERM y, si a los 5 segundos siguen vivos, KILL. Lo que estuvieran haciendo se pierde."
           }
         }
       }
@@ -27430,6 +28118,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Se perdió la conexión. Reintentando automáticamente."
+          }
+        }
+      }
+    },
+    "Se quita el muestreo del servidor y se borra lo guardado. El temporizador se queda si lo usan tus tareas programadas." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sampling is removed from the server and what was saved is deleted. The timer stays if your scheduled tasks use it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se quita el muestreo del servidor y se borra lo guardado. El temporizador se queda si lo usan tus tareas programadas."
           }
         }
       }
@@ -27834,6 +28538,22 @@
         }
       }
     },
+    "Serie" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Series"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Serie"
+          }
+        }
+      }
+    },
     "Servidor" : {
       "localizations" : {
         "en" : {
@@ -27991,6 +28711,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sigue aunque cierres Argos o se corte la red; puedes continuarla desde el iPhone."
+          }
+        }
+      }
+    },
+    "Siguen vivos tras KILL: %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still alive after KILL: %lld."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siguen vivos tras KILL: %lld."
           }
         }
       }
@@ -28171,6 +28907,22 @@
         }
       }
     },
+    "Sin datos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin datos"
+          }
+        }
+      }
+    },
     "Sin diferencias de contenido" : {
       "localizations" : {
         "en" : {
@@ -28263,6 +29015,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sin instalar"
+          }
+        }
+      }
+    },
+    "Sin memoria en este periodo: %lld. La última, %@ (cerró %@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Out of memory in this period: %1$lld. The last one, %2$@ (closed %3$@)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin memoria en este periodo: %1$lld. La última, %2$@ (cerró %3$@)."
           }
         }
       }
@@ -28439,6 +29207,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sin swap y con poca RAM (%@): un pico de memoria puede tumbar tus sesiones. Añade un archivo de swap."
+          }
+        }
+      }
+    },
+    "Sin tocar porque ya no estaban o dejaron de ser huérfanos: %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left alone because they were gone or are no longer orphaned: %lld."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin tocar porque ya no estaban o dejaron de ser huérfanos: %lld."
           }
         }
       }
@@ -28855,6 +29639,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sus hooks avisan cuando Claude termina, y así empieza el siguiente encargo aunque la app esté cerrada."
+          }
+        }
+      }
+    },
+    "Swap" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swap"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swap"
           }
         }
       }
@@ -30187,6 +30987,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Usa el %1$lld %% de la memoria (RAM y swap); procesos de Claude en marcha: %2$lld. Si se llena, el sistema empezará a cerrar procesos: detén las sesiones que no estés usando."
+          }
+        }
+      }
+    },
+    "Usa el mismo temporizador que las tareas programadas (systemd, launchd o cron) y ocupa como mucho unos cientos de KB." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses the same timer as scheduled tasks (systemd, launchd or cron) and takes a few hundred KB at most."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa el mismo temporizador que las tareas programadas (systemd, launchd o cron) y ocupa como mucho unos cientos de KB."
           }
         }
       }
@@ -31731,6 +32547,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "claude terminó con código %@."
+          }
+        }
+      }
+    },
+    "claude · PID %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude · PID %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude · PID %@"
           }
         }
       }
@@ -34123,6 +34955,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "¿Cerrar la ventana %lld?"
+          }
+        }
+      }
+    },
+    "¿Cerrar los procesos marcados (%lld, %@)?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close the selected processes (%1$lld, %2$@)?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cerrar los procesos marcados (%1$lld, %2$@)?"
+          }
+        }
+      }
+    },
+    "¿Dejar de guardar el historial?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop saving the history?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Dejar de guardar el historial?"
           }
         }
       }

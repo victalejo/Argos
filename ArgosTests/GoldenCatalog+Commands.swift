@@ -125,6 +125,12 @@ extension GoldenCatalog {
             "task-dispatch-enqueue": ClaudeTaskScript.dispatchCommand(["enqueue", "-Users-v-app", "abc123def456"]),
             "task-meta": ClaudeTaskRequest(prompt: "Arregla los tests\nque fallen", session: "app", window: 2, cleanContext: true, commit: true)
                 .metaText(directory: "/Users/v/app"),
+            "metrics-sample-script": ServerMetricsScript.script,
+            "metrics-history-6h": ServerMetricsScript.historyCommand(.sixHours),
+            "metrics-history-7d": ServerMetricsScript.historyCommand(.week),
+            "metrics-uninstall": ServerMetricsScript.uninstallCommand,
+            "orphans-list": ClaudeOrphanScript.listCommand,
+            "orphans-kill": ClaudeOrphanScript.killCommand([(4242, "Wed Nov 26 10:00:00 2026")]),
         ]
     }
 

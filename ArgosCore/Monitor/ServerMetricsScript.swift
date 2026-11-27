@@ -1,0 +1,222 @@
+//
+//  ServerMetricsScript.swift
+//  ArgosCore
+//
+//  Historial de recursos del servidor: el script que toma una muestra cada minuto (lo llama
+//  `dispatch.sh tick`, el mismo temporizador de los encargos) y el comando con el que la
+//  app lee un rango. Solo construye texto (lógica pura; goldens).
+//
+//  Datos en `~/.config/argos/metrics/` (aditivos, versionados con `v1`):
+//   - `minute.log`  una línea por minuto, últimas 24 h:
+//                   `m <ts> <memTotal> <memDisp> <swapTotal> <swapLibre> <cpu‰> <carga×100>
+//                    <nClaude> <rssClaude> <top>` (KB; `-1` = sin dato; top =
+//                   `pid:rss:nombre,…`, los 5 con más memoria, nombres saneados).
+//   - `tenmin.log`  agregado cada 10 min, últimos 7 días: `a <inicio> <memTotal> <memDispMín>
+//                   <swapTotal> <swapLibreMín> <cpu‰ media> <cargaMáx> <nClaudeMáx> <rssClaudeMáx>`.
+//   - `oom.log`     marcas del kernel (o de systemd-oomd): `o <ts> <proceso>`, 7 días.
+//   - `cpu.last`, `oom.last` estado entre muestras; `lock/` cerrojo.
+//  Sin `/proc` (servidor macOS) el script sale sin escribir nada.
+//
+
+import Foundation
+
+enum ServerMetricsScript {
+
+    static let marker = "argos-metrics"
+    static let directoryRelativePath = ".config/argos/metrics"
+    static let scriptRelativePath = ".config/argos/metrics/sample.sh"
+
+    /// Retención (segundos) de cada archivo.
+    static let minuteRetention = 86_400
+    static let aggregateRetention = 604_800
+    static let aggregateSeconds = 600
+
+    static let script = #"""
+        # \#(marker) v1: una muestra de recursos por minuto (la toma `dispatch.sh tick`).
+        # Archivos y formato: ver ServerMetricsScript.swift en Argos. Sin /proc no hace nada.
+        d="${ARGOS_METRICS_DIR:-$HOME/\#(directoryRelativePath)}"
+        p="${ARGOS_METRICS_PROC:-/proc}"
+        umask 077
+        export LC_ALL=C
+        [ -d "$d" ] || exit 0
+        [ -r "$p/meminfo" ] && [ -r "$p/stat" ] || exit 0
+        lim() { _t=$1; shift; if command -v timeout >/dev/null 2>&1; then timeout -k 2 "$_t" "$@"; else "$@"; fi; }
+        if ! mkdir "$d/lock" 2>/dev/null; then
+          # Cerrojo de más de 5 min: de una muestra que murió.
+          [ -n "$(find "$d/lock" -prune -mmin +5 2>/dev/null)" ] || exit 0
+          rm -rf "$d/lock"; mkdir "$d/lock" 2>/dev/null || exit 0
+        fi
+        trap 'rm -rf "$d/lock"' EXIT
+        nw=${ARGOS_METRICS_NOW:-$(date +%s)}
+        case "$nw" in ''|*[!0-9]*) exit 0 ;; esac
+        # Escritura atómica: temporal y `mv`.
+        save() { cat > "$d/$1.$$" && mv -f "$d/$1.$$" "$d/$1"; }
+
+        mem=$(awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} /^SwapTotal:/{st=$2} /^SwapFree:/{sf=$2}
+          END { if (t > 0) printf "%.0f %.0f %.0f %.0f", t, a, st, sf }' "$p/meminfo" 2>/dev/null)
+        [ -n "$mem" ] || exit 0
+
+        # CPU: diferencia con la muestra anterior (si es de hace menos de 5 min), en milésimas.
+        ticks=$(awk '$1 == "cpu" { for (i = 2; i <= 9; i++) t += $i; printf "%.0f %.0f", t, $5 + $6; exit }' "$p/stat" 2>/dev/null)
+        cpu=$(printf '%s %s %s\n' "$nw" "$ticks" "$(head -n 1 "$d/cpu.last" 2>/dev/null)" | awk '
+          NF == 6 && $1 - $4 > 0 && $1 - $4 <= 300 && $2 > $5 && $3 >= $6 && $3 - $6 <= $2 - $5 {
+            printf "%d", 1000 - ($3 - $6) * 1000 / ($2 - $5); exit }
+          { print -1 }')
+        [ -n "$ticks" ] && printf '%s %s\n' "$nw" "$ticks" | save cpu.last
+        load=$(awk '{ printf "%.0f", $1 * 100 }' "$p/loadavg" 2>/dev/null)
+
+        # Procesos: nº de `claude` y memoria que suman con sus hijos (MCP, node…), y los 5 con
+        # más memoria. Solo el nombre corto (nunca la línea de comandos: puede llevar secretos).
+        pst() { if [ -n "$ARGOS_METRICS_PS" ]; then cat "$ARGOS_METRICS_PS"; else lim 10 ps -eo pid=,ppid=,rss=,comm=; fi; }
+        procs=$(pst 2>/dev/null | head -n 20000 | awk '
+          $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ {
+            n = $4; for (i = 5; i <= NF; i++) n = n " " $i; sub(/.*\//, "", n)
+            pp[$1] = $2; r[$1] = $3; nm[$1] = n; ids[++c] = $1 }
+          END {
+            for (k = 1; k <= c; k++) {
+              x = ids[k]; hit = 0
+              for (j = 0; j < 64 && x != ""; j++) { if (nm[x] == "claude") { hit = 1; break }; x = pp[x] }
+              if (hit) mem += r[ids[k]]
+              if (nm[ids[k]] == "claude") cn++
+              v = r[ids[k]] + 0
+              for (s = 1; s <= 5; s++) if (!(s in tv) || v > tv[s]) break
+              if (s <= 5) {
+                for (q = 5; q > s; q--) if ((q - 1) in tv) { tv[q] = tv[q - 1]; tp[q] = tp[q - 1] }
+                tv[s] = v; tp[s] = ids[k] }
+            }
+            top = ""
+            for (s = 1; s <= 5; s++) if (s in tv) {
+              n = nm[tp[s]]; gsub(/[^A-Za-z0-9._-]/, "", n); n = substr(n, 1, 24); if (n == "") n = "?"
+              top = top (top == "" ? "" : ",") tp[s] ":" sprintf("%.0f", tv[s]) ":" n }
+            if (c == 0) { print "-1 -1 -"; exit }
+            printf "%d %.0f %s", cn, mem, (top == "" ? "-" : top) }')
+
+        line="m $nw $mem ${cpu:--1} ${load:--1} ${procs:--1 -1 -}"
+        { awk -v c=$((nw - \#(minuteRetention))) -v n="$nw" '$1 == "m" && $2 + 0 > c + 0 && $2 + 0 < n + 0' "$d/minute.log" 2>/dev/null
+          printf '%s\n' "$line"; } | tail -n 1500 | save minute.log
+
+        # Agregado de los tramos de 10 min ya cerrados que aún no lo tienen (peor memoria,
+        # CPU media, picos de carga y de Claude).
+        last=$(tail -n 1 "$d/tenmin.log" 2>/dev/null | awk '$1 == "a" { printf "%.0f", $2 }')
+        agg=$(awk -v last="${last:-0}" -v cur=$((nw / \#(aggregateSeconds) * \#(aggregateSeconds))) '
+          function out() { if (b != "") printf "a %.0f %.0f %.0f %.0f %.0f %d %d %d %.0f\n", b, t, am, st, sm, (cc ? cs / cc : -1), lm, xm, rm }
+          $1 == "m" && NF >= 10 {
+            k = int($2 / \#(aggregateSeconds)) * \#(aggregateSeconds)
+            if (k <= last + 0 || k >= cur + 0) next
+            if (k != b) { out(); b = k; am = $4; sm = $6; cs = 0; cc = 0; lm = -1; xm = -1; rm = -1 }
+            t = $3; st = $5
+            if ($4 + 0 < am + 0) am = $4
+            if ($6 + 0 < sm + 0) sm = $6
+            if ($7 + 0 >= 0) { cs += $7; cc++ }
+            if ($8 + 0 > lm) lm = $8 + 0
+            if ($9 + 0 > xm) xm = $9 + 0
+            if ($10 + 0 > rm) rm = $10 + 0 }
+          END { out() }' "$d/minute.log" 2>/dev/null)
+        # Se reescribe si hay tramo nuevo o si el más viejo ya caducó (nunca crece sin límite).
+        stale() { head -n 1 "$d/$1" 2>/dev/null | awk -v c=$((nw - \#(aggregateRetention))) '$2 + 0 <= c + 0 { print 1 }'; }
+        [ -n "$agg$(stale tenmin.log)" ] && { awk -v c=$((nw - \#(aggregateRetention))) '$1 == "a" && $2 + 0 > c + 0' "$d/tenmin.log" 2>/dev/null
+          [ -z "$agg" ] || printf '%s\n' "$agg"; } | tail -n 1100 | save tenmin.log
+
+        # Marcas de OOM, si se pueden leer sin root (journal del kernel y systemd-oomd; dmesg
+        # si no hay journalctl). Si no se puede, no hay marcas: nunca se pide sudo.
+        since=$(head -n 1 "$d/oom.last" 2>/dev/null)
+        case "$since" in ''|*[!0-9]*) since=$((nw - \#(aggregateRetention))) ;; esac
+        [ "$since" -lt $((nw - \#(aggregateRetention))) ] && since=$((nw - \#(aggregateRetention)))
+        kern() {
+          if [ -n "$ARGOS_METRICS_JOURNAL" ]; then cat "$ARGOS_METRICS_JOURNAL"; return 0; fi
+          if command -v journalctl >/dev/null 2>&1; then
+            lim 15 journalctl -q --no-pager -o short-unix --since "@$since" _TRANSPORT=kernel + SYSLOG_IDENTIFIER=systemd-oomd
+          elif command -v dmesg >/dev/null 2>&1; then
+            bt=$(awk '$1 == "btime" { print $2; exit }' "$p/stat")
+            lim 10 dmesg | awk -v bt="${bt:-0}" 'match($0, /^\[ *[0-9]+/) {
+              v = substr($0, RSTART + 1, RLENGTH - 1); sub(/^ */, "", v); printf "%.0f %s\n", bt + v, $0 }'
+          fi
+        }
+        oom=$(kern 2>/dev/null | head -n 5000 | awk -v s="$since" -v n="$nw" '
+          { ts = int($1 + 0) }
+          ts <= s + 0 || ts > n + 0 { next }
+          /Out of memory: Kill/ {
+            w = "?"; if (match($0, /\([^)]*\)/)) w = substr($0, RSTART + 1, RLENGTH - 2)
+            gsub(/[^A-Za-z0-9._-]/, "", w); if (w == "") w = "?"
+            print "o", ts, substr(w, 1, 24); next }
+          /systemd-oomd/ && /Killed / { print "o", ts, "systemd-oomd" }')
+        printf '%s\n' "$nw" | save oom.last
+        [ -n "$oom$(stale oom.log)" ] && { awk -v c=$((nw - \#(aggregateRetention))) '$1 == "o" && $2 + 0 > c + 0' "$d/oom.log" 2>/dev/null
+          [ -z "$oom" ] || printf '%s\n' "$oom"; } | tail -n 200 | save oom.log
+        exit 0
+
+        """#
+
+    /// Línea que el `tick)` del despachador añade para tomar la muestra.
+    static let dispatcherLine = #"[ -f "$HOME/\#(scriptRelativePath)" ] && sh "$HOME/\#(scriptRelativePath)" >/dev/null 2>&1"#
+
+    /// Comando que lee el historial de `range` (recortado) y el estado: `@@installed` si el
+    /// muestreo está puesto, `@@noproc` si el servidor no tiene `/proc`, `@@timer <tipo>`,
+    /// `@@now <ts>`, las líneas `m`/`a` (sin el top), `@@top …` de la última muestra y las `o`.
+    static func historyCommand(_ range: ServerMetricsRange) -> String {
+        let since = "s=$(( $(date +%s) - \(range.seconds) ))"
+        let points: String
+        if range.usesAggregates {
+            points = #"""
+                awk -v s="$s" '$1 == "a" && NF >= 10 && $2 + 0 >= s + 0' "$d/tenmin.log" 2>/dev/null | tail -n 1100
+                l=$(tail -n 1 "$d/tenmin.log" 2>/dev/null | awk '$1 == "a" { printf "%.0f", $2 + \#(aggregateSeconds) }')
+                awk -v s="${l:-$s}" '$1 == "m" && NF >= 10 && $2 + 0 >= s + 0 { print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10 }' "$d/minute.log" 2>/dev/null | tail -n 1500
+                """#
+        } else {
+            points = #"""
+                awk -v s="$s" '$1 == "m" && NF >= 10 && $2 + 0 >= s + 0 { print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10 }' "$d/minute.log" 2>/dev/null | tail -n 1500
+                """#
+        }
+        return [
+            #"d="$HOME/\#(directoryRelativePath)""#,
+            since,
+            #"[ -f "$d/sample.sh" ] && echo '@@installed'"#,
+            "[ -r /proc/meminfo ] || echo '@@noproc'",
+            "printf '@@timer %s\\n' \"$(\n\(ClaudeTaskTimer.statusCommand)\n)\"",
+            "printf '@@now %s\\n' \"$(date +%s)\"",
+            points,
+            #"tail -n 1 "$d/minute.log" 2>/dev/null | awk '$1 == "m" && NF >= 11 { print "@@top", $11 }'"#,
+            #"awk -v s="$s" '$1 == "o" && $2 + 0 >= s + 0' "$d/oom.log" 2>/dev/null | tail -n 200"#,
+            "exit 0",
+        ].joined(separator: "\n")
+    }
+
+    /// Toma una muestra ya (tras instalar, para que la CPU tenga referencia).
+    static let sampleNowCommand = #"[ -f "$HOME/\#(scriptRelativePath)" ] && sh "$HOME/\#(scriptRelativePath)" >/dev/null 2>&1; exit 0"#
+
+    /// Quita el muestreo y su historial. El temporizador se queda si hay tareas programadas
+    /// (lo usan ellas); si no, se quita también.
+    static let uninstallCommand = #"""
+        rm -rf "$HOME/\#(directoryRelativePath)"
+        for f in "$HOME/\#(ClaudeTaskScript.directoryRelativePath)"/schedules/*/config; do [ -f "$f" ] && exit 0; done
+
+        """# + ClaudeTaskTimer.uninstallCommand
+}
+
+/// Rango del historial que enseña la app.
+enum ServerMetricsRange: String, CaseIterable, Identifiable, Sendable {
+    case sixHours = "6h"
+    case day = "24h"
+    case week = "7d"
+
+    var id: String { rawValue }
+
+    var seconds: Int {
+        switch self {
+        case .sixHours: return 6 * 3_600
+        case .day: return 24 * 3_600
+        case .week: return 7 * 86_400
+        }
+    }
+
+    /// 7 días se lee del agregado de 10 min (el detalle por minuto solo dura 24 h).
+    var usesAggregates: Bool { self == .week }
+
+    var label: String {
+        switch self {
+        case .sixHours: return String(localized: "6 h")
+        case .day: return String(localized: "24 h")
+        case .week: return String(localized: "7 días")
+        }
+    }
+}

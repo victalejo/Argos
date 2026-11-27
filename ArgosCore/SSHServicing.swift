@@ -75,6 +75,13 @@ protocol SSHServicing: Sendable {
 
     /// Muestra de CPU, memoria, disco y procesos del servidor (monitor de recursos).
     func resourceSample() async throws -> ServerResourceSample
+    /// Historial de recursos guardado en el servidor (ver `ServerMetricsScript`).
+    func serverMetricsHistory(range: ServerMetricsRange) async throws -> ServerMetricsHistory
+    @discardableResult func installServerMetrics() async throws -> ClaudeTaskTimer.Kind
+    func uninstallServerMetrics() async throws
+    /// Procesos de Claude para buscar huérfanos (ver `ClaudeProcessSurvey`).
+    func claudeProcessSurvey() async throws -> ClaudeProcessSurvey
+    func killClaudeOrphans(_ orphans: [ClaudeOrphan]) async throws -> [Int: ClaudeOrphanKillOutcome]
 
     /// Estado de Claude Code en los paneles de tmux (indicador por sesión/ventana).
     func claudeActivity() async throws -> ClaudeActivitySnapshot

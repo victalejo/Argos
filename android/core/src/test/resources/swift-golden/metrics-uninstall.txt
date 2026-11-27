@@ -1,0 +1,14 @@
+rm -rf "$HOME/.config/argos/metrics"
+for f in "$HOME/.config/argos/tasks"/schedules/*/config; do [ -f "$f" ] && exit 0; done
+if [ "$(uname -s)" = Darwin ]; then
+  launchctl bootout "gui/$(id -u)/com.iaportafolio.argos.tasks" >/dev/null 2>&1 || launchctl unload "$HOME/Library/LaunchAgents/com.iaportafolio.argos.tasks.plist" >/dev/null 2>&1
+  rm -f "$HOME/Library/LaunchAgents/com.iaportafolio.argos.tasks.plist"
+fi
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl --user disable --now argos-tasks.timer >/dev/null 2>&1
+  rm -f "$HOME/.config/systemd/user/argos-tasks.timer" "$HOME/.config/systemd/user/argos-tasks.service"
+fi
+if command -v crontab >/dev/null 2>&1 && crontab -l 2>/dev/null | grep -q 'argos-tasks-timer'; then
+  crontab -l 2>/dev/null | grep -v 'argos-tasks-timer' | crontab -
+fi
+exit 0
