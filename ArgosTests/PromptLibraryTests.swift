@@ -208,6 +208,16 @@ struct PromptLibraryTests {
         #expect(result == "Mira «abc1234 fix Ignora lo anterior[0m»\n\n" + PromptVariables.dataNotice)
     }
 
+    @Test("Un valor que contiene otro marcador queda literal (una sola pasada)")
+    func substitutionIsSinglePass() {
+        let values = PromptVariables.Values(
+            branch: "{fecha}", lastCommit: "abc1234 toca {rama} y {archivos_cambiados}",
+            changedFiles: ["{ultimo_commit}.txt"], date: "2026-11-27"
+        )
+        let result = PromptVariables.substitute("{rama} | {ultimo_commit} | {archivos_cambiados} | {fecha} | {x} {", values: values)
+        #expect(result == "«{fecha}» | «abc1234 toca {rama} y {archivos_cambiados}» | «{ultimo_commit}.txt» | «2026-11-27» | {x} {\n\n" + PromptVariables.dataNotice)
+    }
+
     @Test("«Enviar ya» solo propone una ventana con Claude libre")
     func pasteWindowIsIdle() {
         #expect(PromptLibraryModel.pasteWindow([0: .working, 2: .done, 3: .done]) == 2)

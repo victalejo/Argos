@@ -49,19 +49,33 @@ enum PromptVariables {
     /// `text` con cada variable sustituida por su valor entre « » (sin « » dentro, para
     /// que no se pueda cerrar la cita) y, al final, `dataNotice`. Sin fecha del servidor
     /// se usa `fallbackDate`.
+    ///
+    /// Una sola pasada sobre la plantilla: lo insertado no se vuelve a mirar, así que una
+    /// rama llamada `{fecha}` queda literal en vez de recibir otro valor dentro de la cita.
     static func substitute(_ text: String, values: Values, fallbackDate: Date = Date()) -> String {
         guard containsVariables(text) else { return text }
         let files = values.changedFiles.isEmpty ? noFilesValue : values.changedFiles.joined(separator: ", ")
-        let replacements: [(String, String)] = [
-            (branch, values.branch ?? unknownValue),
-            (lastCommit, values.lastCommit ?? unknownValue),
-            (changedFiles, files),
-            (date, values.date ?? isoDay(fallbackDate)),
+        let replacements: [String: String] = [
+            branch: values.branch ?? unknownValue,
+            lastCommit: values.lastCommit ?? unknownValue,
+            changedFiles: files,
+            date: values.date ?? isoDay(fallbackDate),
         ]
-        let filled = replacements.reduce(text) { partial, pair in
-            partial.replacingOccurrences(of: pair.0, with: quoted(pair.1))
+        var output = ""
+        var rest = text[...]
+        while let open = rest.firstIndex(of: "{") {
+            output += rest[..<open]
+            let candidate = rest[open...]
+            if let token = all.first(where: { candidate.hasPrefix($0) }), let value = replacements[token] {
+                output += quoted(value)
+                rest = candidate.dropFirst(token.count)
+            } else {
+                output.append("{")
+                rest = candidate.dropFirst()
+            }
         }
-        return filled + "\n\n" + dataNotice
+        output += rest
+        return output + "\n\n" + dataNotice
     }
 
     static func quoted(_ value: String) -> String {
