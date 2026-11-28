@@ -43,7 +43,7 @@ struct ClaudeLimitsSheet: View {
                         )
                     }
                     section("Contexto al arrancar Claude") {
-                        SessionContextSettingsView(model: context, projects: model.vms[target.server.id]?.projects ?? [])
+                        SessionContextSettingsView(model: context, projects: model.vms[target.server.id]?.projects ?? [], serverID: target.server.id)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

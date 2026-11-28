@@ -21,6 +21,8 @@ enum LocalizationWhitelist {
         // Encargos de ejemplo de la biblioteca: se siembran una vez en el servidor
         // (projects.json) y viajan a Claude tal cual; el usuario los edita a su gusto.
         "ArgosCore/Prompts/PromptSeed.swift",
+        // Script del contexto al arrancar Claude: lo que dice es texto para Claude.
+        "ArgosCore/ClaudeStatus/SessionContextScript.swift",
     ]
 
     /// Subcadenas de literales que no se traducen.

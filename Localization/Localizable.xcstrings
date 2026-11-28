@@ -4225,6 +4225,22 @@
         }
       }
     },
+    "Argos puede darle a Claude, al abrirse en un proyecto, un resumen de lo que pasa ahí. En este servidor no está activado." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When Claude opens in a project, Argos can give it a summary of what’s going on there. It’s not turned on for this server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Argos puede darle a Claude, al abrirse en un proyecto, un resumen de lo que pasa ahí. En este servidor no está activado."
+          }
+        }
+      }
+    },
     "Argos puede enseñarte cuánto llevas usado de tus límites de Claude en «%@»: la ventana de 5 horas y la semanal, con la hora a la que se reinician, y avisarte al llegar al %lld %%." : {
       "localizations" : {
         "en" : {
@@ -11001,6 +11017,54 @@
         }
       }
     },
+    "Es un hook SessionStart en ~/.claude/settings.json (con copia en settings.json.argos-backup). Solo lee, tarda como mucho unos 3 segundos y solo da recuentos y nombres de rama: ni secretos ni textos del servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It’s a SessionStart hook in ~/.claude/settings.json (backed up to settings.json.argos-backup). It only reads, takes about 3 seconds at most and only gives counts and branch names: no secrets and no text from the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es un hook SessionStart en ~/.claude/settings.json (con copia en settings.json.argos-backup). Solo lee, tarda como mucho unos 3 segundos y solo da recuentos y nombres de rama: ni secretos ni textos del servidor."
+          }
+        }
+      }
+    },
+    "No se pudo borrar ~/.config/argos/session-context.off en el servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t delete ~/.config/argos/session-context.off on the server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo borrar ~/.config/argos/session-context.off en el servidor."
+          }
+        }
+      }
+    },
+    "Nuevo: contexto al arrancar Claude" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New: context when Claude starts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuevo: contexto al arrancar Claude"
+          }
+        }
+      }
+    },
     "esfuerzo %@" : {
       "localizations" : {
         "en" : {
@@ -14245,22 +14309,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Es %@. %@"
-          }
-        }
-      }
-    },
-    "Es un hook SessionStart en ~/.claude/settings.json (con copia en settings.json.argos-backup). Solo lee, tarda como mucho unos 3 segundos y no incluye secretos." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "It’s a SessionStart hook in ~/.claude/settings.json (backed up to settings.json.argos-backup). It only reads, takes about 3 seconds at most and includes no secrets."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Es un hook SessionStart en ~/.claude/settings.json (con copia en settings.json.argos-backup). Solo lee, tarda como mucho unos 3 segundos y no incluye secretos."
           }
         }
       }
@@ -34875,6 +34923,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "~/.claude/settings.json del servidor no es un JSON válido; no se modificó. Corrígelo y vuelve a intentarlo."
+          }
+        }
+      }
+    },
+    "~/.claude/settings.json está cambiando a la vez desde otro sitio. Vuelve a intentarlo en unos segundos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/.claude/settings.json is being changed somewhere else at the same time. Try again in a few seconds."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/.claude/settings.json está cambiando a la vez desde otro sitio. Vuelve a intentarlo en unos segundos."
           }
         }
       }

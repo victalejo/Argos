@@ -93,15 +93,32 @@ struct SessionContextHookTests {
         #expect(command.hasSuffix("exit 0"))
     }
 
+    @Test func activadoExigeHookYScriptYQueNoEsteApagado() {
+        #expect(SessionContextStatus(hookInstalled: true, scriptPresent: true, turnedOff: false).isEnabled)
+        #expect(!SessionContextStatus(hookInstalled: true, scriptPresent: false, turnedOff: false).isEnabled)
+        #expect(!SessionContextStatus(hookInstalled: true, scriptPresent: true, turnedOff: true).isEnabled)
+        // Sin decidir: ni hook ni marca de apagado (indicador de antes de esta función).
+        #expect(SessionContextStatus(hookInstalled: false, scriptPresent: true, turnedOff: false).isUndecided)
+        #expect(!SessionContextStatus(hookInstalled: false, scriptPresent: false, turnedOff: true).isUndecided)
+        #expect(!SessionContextStatus(hookInstalled: true, scriptPresent: true, turnedOff: false).isUndecided)
+    }
+
+    @Test func elHookTienePlazoCortoYLaMarcaSeMiraComoEnElScript() {
+        #expect(SessionContextHookInstaller.timeout == 5)
+        #expect(SessionContextScript.flagsCommand.contains("[ -e \"$HOME/.config/argos/session-context.off\" ]"))
+        #expect(SessionContextScript.source.contains("[ -e \"$cfg/session-context.off\" ] && exit 0"))
+    }
+
     @MainActor
     @Test func elModeloCambiaElEstadoYAvisaDelFallo() async {
         let model = SessionContextModel(service: MockSSHService())
         await model.refresh()
-        #expect(model.state == .ready(enabled: false))
+        #expect(model.status?.isEnabled == false)
+        #expect(model.status?.isUndecided == true)
         await model.setEnabled(true)
         // El doble no lo admite: se avisa y se vuelve a leer el estado real.
         #expect(model.notice != nil)
-        #expect(model.state == .ready(enabled: false))
+        #expect(model.isEnabled == false)
         await model.loadPreview(projectPath: "/p")
         #expect(model.preview?.isEmpty == true)
     }

@@ -35,7 +35,7 @@ struct ClaudeLimitsScreen: View {
                     Text("Límites de la suscripción").font(.headline)
                     ClaudeLimitsSetupView(model: setup, status: viewModel.claudeLimits, serverName: server.name)
                     Text("Contexto al arrancar Claude").font(.headline)
-                    SessionContextSettingsView(model: context, projects: viewModel.projects)
+                    SessionContextSettingsView(model: context, projects: viewModel.projects, serverID: server.id)
                 }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)

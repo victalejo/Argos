@@ -48,10 +48,15 @@ extension SSHService {
     /// Fusiona los hooks de Argos en `~/.claude/settings.json` (conserva lo demás).
     /// settings.json puede contener secretos (p. ej. `env` con API keys): se escribe con
     /// `writeHomeFilePrivately` (SFTP, permisos 600, atómico) y con copia `.argos-backup`.
-    /// Con ellos va, salvo que el usuario lo apagara, el contexto al arrancar (`SSHSessionContext`).
+    /// En un servidor que aún no tenía el indicador va con él, salvo que el usuario lo
+    /// apagara, el contexto al arrancar (`SSHSessionContext`).
     func installClaudeHooks() async throws {
-        let withStatus = ClaudeHookInstaller.installing(into: try await readClaudeSettings())
-        let merged = await addingSessionContextByDefault(to: withStatus)
+        var settings = try await readClaudeSettings()
+        if !ClaudeHookInstaller.hasAnyOurs(in: settings), await prepareSessionContextForNewInstall() {
+            // El script ya está subido: se relee settings.json y va el hook con el indicador.
+            settings = SessionContextHookInstaller.installing(into: try await readClaudeSettings())
+        }
+        let merged = ClaudeHookInstaller.installing(into: settings)
         let content = Data(try ClaudeHookInstaller.serialize(merged).utf8)
         try await writeHomeFilePrivately(content, to: Self.claudeSettingsRelativePath, backup: true)
     }
@@ -62,7 +67,7 @@ extension SSHService {
     func upgradeClaudeHooksIfOutdated() async throws -> Bool {
         // El de los puntos de restauración, solo donde el usuario ya lo activó.
         try await upgradeCheckpointHookIfOutdated()
-        // El contexto al arrancar: donde ya está el indicador y nadie lo apagó.
+        // El contexto al arrancar: solo donde ya estaba activado (nunca lo activa).
         let contextWritten = try await upgradeSessionContextIfOutdated()
         let settings = try await readClaudeSettings()
         guard ClaudeHookInstaller.hasAnyOurs(in: settings),

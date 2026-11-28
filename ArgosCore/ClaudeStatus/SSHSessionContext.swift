@@ -3,10 +3,13 @@
 //  ArgosCore
 //
 //  Contexto de Argos al arrancar Claude (hook `SessionStart`, ver `SessionContextScript`).
-//  Se activa por defecto al instalar o actualizar los hooks del indicador, salvo que el
-//  usuario lo haya apagado en ese servidor (`session-context.off`, que se respeta también
-//  desde otros dispositivos). settings.json se escribe como los demás hooks: privado,
-//  atómico y con copia `.argos-backup`.
+//  - Se activa al instalar el indicador en un servidor que aún no lo tenía, salvo que el
+//    usuario lo hubiera apagado (`session-context.off`, que se respeta desde cualquier
+//    dispositivo). Donde el indicador ya estaba NO se activa solo: la app lo ofrece.
+//  - Al actualizar, solo se pone al día lo que ya estaba activado (script y hook).
+//  - settings.json se escribe como los demás hooks (privado, atómico, con copia
+//    `.argos-backup`) y además comprobando la huella de lo leído: si otro dispositivo lo
+//    cambió entretanto, se relee y se reaplica.
 //
 
 import Foundation
@@ -14,24 +17,32 @@ import Foundation
 extension SSHService {
     private static let contextSettingsPath = ".claude/settings.json"
 
-    func sessionContextEnabled() async throws -> Bool {
-        guard try await !sessionContextIsOff() else { return false }
-        return SessionContextHookInstaller.hasAny(in: try await readContextSettings())
+    func sessionContextStatus() async throws -> SessionContextStatus {
+        let flags = try await sessionContextFlags()
+        let settings = try ClaudeHookInstaller.parseSettings(try await readHomeFile(Self.contextSettingsPath))
+        return SessionContextStatus(
+            hookInstalled: SessionContextHookInstaller.hasAny(in: settings),
+            scriptPresent: flags.scriptPresent,
+            turnedOff: flags.turnedOff
+        )
     }
 
     func setSessionContextEnabled(_ enabled: Bool) async throws {
-        let settings = try await readContextSettings()
         if enabled {
             // El script antes que settings.json: un hook sin script no hace nada.
-            try await writeHomeFilePrivately(Data(SessionContextScript.source.utf8), to: SessionContextScript.installedRelativePath)
-            try await writeContextSettings(SessionContextHookInstaller.installing(into: settings))
-            _ = try await run(Self.removeOffMarkerCommand)
+            try await uploadSessionContextScript()
+            try await updateContextSettings { SessionContextHookInstaller.installing(into: $0) }
+            let removed = try await run(SessionContextScript.removeOffMarkerCommand)
+            guard removed.exitCode == 0 else {
+                throw SSHServiceError.commandFailed(
+                    exitCode: Int(removed.exitCode),
+                    message: String(localized: "No se pudo borrar ~/.config/argos/session-context.off en el servidor.")
+                )
+            }
         } else {
             // Primero la marca: aunque falle lo demás, el script ya no dice nada.
             try await writeHomeFilePrivately(Data("1\n".utf8), to: SessionContextScript.offRelativePath)
-            if SessionContextHookInstaller.hasAny(in: settings) {
-                try await writeContextSettings(SessionContextHookInstaller.removing(from: settings))
-            }
+            try await updateContextSettings { SessionContextHookInstaller.removing(from: $0) }
         }
     }
 
@@ -40,57 +51,79 @@ extension SSHService {
         return SessionContextPreview(output: result.stdout)
     }
 
-    /// `settings` con el hook de contexto añadido (y el script subido) salvo que el usuario
-    /// lo apagara. Un fallo aquí no impide instalar el indicador: se registra y sigue.
-    func addingSessionContextByDefault(to settings: [String: Any]) async -> [String: Any] {
+    /// Al instalar el indicador en un servidor que no lo tenía: sube el script si el usuario
+    /// no apagó el contexto y dice si hay que añadir el hook. Un fallo aquí no impide
+    /// instalar el indicador: se registra y sigue sin contexto.
+    func prepareSessionContextForNewInstall() async -> Bool {
         do {
-            guard try await !sessionContextIsOff() else { return settings }
-            if try await readHomeFile(SessionContextScript.installedRelativePath) != SessionContextScript.source {
-                try await writeHomeFilePrivately(Data(SessionContextScript.source.utf8), to: SessionContextScript.installedRelativePath)
-            }
-            return SessionContextHookInstaller.installing(into: settings)
+            guard try await !sessionContextFlags().turnedOff else { return false }
+            try await uploadSessionContextScript()
+            return true
         } catch {
             Log.ssh.error("Contexto de Claude al arrancar: \(error.userMessage, privacy: .public)")
-            return settings
-        }
-    }
-
-    /// Si el indicador (o el propio contexto) ya está en este servidor y nadie lo apagó,
-    /// deja el hook y el script en su versión actual. Devuelve si escribió settings.json.
-    @discardableResult
-    func upgradeSessionContextIfOutdated() async throws -> Bool {
-        let settings = try await readContextSettings()
-        guard ClaudeHookInstaller.hasAnyOurs(in: settings) || SessionContextHookInstaller.hasAny(in: settings) else { return false }
-        let merged = await addingSessionContextByDefault(to: settings)
-        guard SessionContextHookInstaller.isInstalled(in: merged), !SessionContextHookInstaller.isInstalled(in: settings) else {
             return false
         }
-        try await writeContextSettings(merged)
-        return true
     }
 
-    private static var offMarker: String { "\"$HOME/\(SessionContextScript.offRelativePath)\"" }
-    private static var removeOffMarkerCommand: String { "rm -f \(offMarker)" }
-    /// Como el script: apagado si la marca existe (sea cual sea su contenido).
-    static var offMarkerCheckCommand: String { "[ -e \(offMarker) ] && echo off; exit 0" }
-
-    private func sessionContextIsOff() async throws -> Bool {
-        try await run(Self.offMarkerCheckCommand).stdout.contains("off")
+    /// Solo donde ya está activado: deja el script y el hook en su versión actual. Nunca lo
+    /// activa. Devuelve si escribió algo.
+    @discardableResult
+    func upgradeSessionContextIfOutdated() async throws -> Bool {
+        let settings = try ClaudeHookInstaller.parseSettings(try await readHomeFile(Self.contextSettingsPath))
+        guard SessionContextHookInstaller.hasAny(in: settings), try await !sessionContextFlags().turnedOff else { return false }
+        var wrote = false
+        if try await readHomeFile(SessionContextScript.installedRelativePath) != SessionContextScript.source {
+            try await uploadSessionContextScript()
+            wrote = true
+        }
+        if !SessionContextHookInstaller.isInstalled(in: settings) {
+            try await updateContextSettings { SessionContextHookInstaller.installing(into: $0) }
+            wrote = true
+        }
+        return wrote
     }
 
-    private func readContextSettings() async throws -> [String: Any] {
-        try ClaudeHookInstaller.parseSettings(try await readHomeFile(Self.contextSettingsPath))
+    // MARK: - Privado
+
+    private func uploadSessionContextScript() async throws {
+        try await writeHomeFilePrivately(Data(SessionContextScript.source.utf8), to: SessionContextScript.installedRelativePath)
     }
 
-    private func writeContextSettings(_ settings: [String: Any]) async throws {
-        let content = Data(try ClaudeHookInstaller.serialize(settings).utf8)
-        try await writeHomeFilePrivately(content, to: Self.contextSettingsPath, backup: true)
+    private func sessionContextFlags() async throws -> (turnedOff: Bool, scriptPresent: Bool) {
+        let output = try await run(SessionContextScript.flagsCommand).stdout
+        let words = Set(output.split(whereSeparator: \.isWhitespace).map(String.init))
+        return (words.contains("off"), words.contains("script"))
+    }
+
+    /// Lee, transforma y escribe settings.json solo si sigue siendo lo leído (huella); si no,
+    /// relee y reaplica (como projects.json). Sin cambios no escribe.
+    private func updateContextSettings(_ transform: ([String: Any]) -> [String: Any]) async throws {
+        for attempt in 1...ProjectsUpdater.maxAttempts {
+            let text = try await readHomeFile(Self.contextSettingsPath)
+            let settings = try ClaudeHookInstaller.parseSettings(text)
+            let updated = transform(settings)
+            if NSDictionary(dictionary: updated).isEqual(to: settings) { return }
+            let data = Data(try ClaudeHookInstaller.serialize(updated).utf8)
+            let expectation = HomeFileExpectation(expected: ProjectsUpdater.expectedFingerprint(of: text))
+            switch try await writeHomeFile(data, to: Self.contextSettingsPath, expecting: expectation, backupSuffix: ".argos-backup") {
+            case .written:
+                return
+            case .conflict:
+                Log.ssh.notice("settings.json cambió mientras se guardaba (intento \(attempt)); se relee.")
+            }
+        }
+        throw SSHServiceError.commandFailed(
+            exitCode: Int(HomeFileScripts.conflictExitCode),
+            message: String(localized: "~/.claude/settings.json está cambiando a la vez desde otro sitio. Vuelve a intentarlo en unos segundos.")
+        )
     }
 }
 
 extension SSHServicing {
-    /// Por defecto (dobles de prueba): no disponible.
-    func sessionContextEnabled() async throws -> Bool { false }
+    /// Por defecto (dobles de prueba): nunca activado.
+    func sessionContextStatus() async throws -> SessionContextStatus {
+        SessionContextStatus(hookInstalled: false, scriptPresent: false, turnedOff: false)
+    }
     func setSessionContextEnabled(_ enabled: Bool) async throws {
         throw SSHService.SSHServiceError.commandFailed(exitCode: 1, message: String(localized: "No disponible en este servidor."))
     }

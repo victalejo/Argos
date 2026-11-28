@@ -5,7 +5,7 @@
         "hooks" : [
           {
             "command" : "f=\"$HOME/.config/argos/session-context.sh\"; [ -f \"$f\" ] && sh \"$f\" 2>/dev/null; exit 0 # argos-session-context",
-            "timeout" : 10,
+            "timeout" : 5,
             "type" : "command"
           }
         ],

@@ -18,8 +18,8 @@ enum SessionContextHookInstaller {
     static let event = "SessionStart"
     /// Al abrir, reanudar, `/clear` y tras compactar (no en `fork`, que hereda el contexto).
     static let matcher = "startup|resume|clear|compact"
-    /// Plazo del hook en Claude Code: el script se corta solo a los ~3 s.
-    static let timeout = 10
+    /// Plazo del hook en Claude Code: el script se corta solo a los ~2,5 s.
+    static let timeout = 5
 
     /// Ejecuta el script instalado (si está). Su stdout ES el contexto; stderr se descarta
     /// y siempre sale con 0 (otro código mostraría un error al usuario).
@@ -82,4 +82,17 @@ enum SessionContextHookInstaller {
     private static func isOurs(_ handler: [String: Any]) -> Bool {
         (handler["command"] as? String)?.hasSuffix("# \(marker)") ?? false
     }
+}
+
+/// Estado del contexto al arrancar en un servidor.
+struct SessionContextStatus: Equatable, Sendable {
+    let hookInstalled: Bool
+    let scriptPresent: Bool
+    /// El usuario lo apagó (`session-context.off`).
+    let turnedOff: Bool
+
+    var isEnabled: Bool { hookInstalled && scriptPresent && !turnedOff }
+    /// Nadie lo activó ni lo apagó aquí (servidores con el indicador de antes de esta
+    /// función): la app lo ofrece una vez en lugar de activarlo sola.
+    var isUndecided: Bool { !hookInstalled && !turnedOff }
 }

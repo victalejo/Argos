@@ -15,7 +15,7 @@ final class SessionContextModel {
 
     enum State: Equatable {
         case checking
-        case ready(enabled: Bool)
+        case ready(SessionContextStatus)
         case failed(String)
     }
 
@@ -32,11 +32,16 @@ final class SessionContextModel {
         self.service = service
     }
 
-    var isEnabled: Bool { state == .ready(enabled: true) }
+    var status: SessionContextStatus? {
+        if case .ready(let status) = state { return status }
+        return nil
+    }
+
+    var isEnabled: Bool { status?.isEnabled ?? false }
 
     func refresh() async {
         do {
-            state = .ready(enabled: try await service.sessionContextEnabled())
+            state = .ready(try await service.sessionContextStatus())
         } catch {
             Log.ssh.error("Comprobar el contexto de Claude: \(error.userMessage, privacy: .public)")
             state = .failed(error.userMessage)
@@ -44,14 +49,14 @@ final class SessionContextModel {
     }
 
     func setEnabled(_ enabled: Bool) async {
-        guard !isWorking, state != .ready(enabled: enabled) else { return }
+        guard !isWorking, status.map({ $0.isEnabled != enabled }) ?? false else { return }
         isWorking = true
         notice = nil
         preview = nil
         defer { isWorking = false }
         do {
             try await service.setSessionContextEnabled(enabled)
-            state = .ready(enabled: enabled)
+            await refresh()
             notice = enabled
                 ? String(localized: "Activado. Claude lo recibe al abrirse, reanudarse, limpiar (/clear) o compactar.")
                 : String(localized: "Desactivado. Claude ya no recibe el resumen de Argos en este servidor.")

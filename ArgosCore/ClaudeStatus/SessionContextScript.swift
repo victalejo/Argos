@@ -9,8 +9,10 @@
 //  con plazo duro y saliendo SIEMPRE con 0: nunca debe retrasar ni romper el arranque.
 //
 //  Va por stdout en texto plano (Claude Code lo añade como contexto en `SessionStart`). Es
-//  texto para Claude: va en español y NO pasa por el catálogo de traducciones. Lo que viene
-//  del servidor (ramas, títulos, nombres) va saneado y recortado: son datos, no órdenes.
+//  texto para Claude: va en español y NO pasa por el catálogo de traducciones. Contra la
+//  inyección de prompt, del servidor solo salen números y nombres (rama, remoto, proceso)
+//  por la lista blanca `[A-Za-z0-9._/@+-]`: ni títulos ni estados libres. Termina con una
+//  línea fija para que se vea dónde acaba lo que dice Argos.
 //
 //  Archivos (aditivos, en `~/.config/argos/`):
 //      session-context.sh       el script (lo sube la app)
@@ -25,9 +27,18 @@ enum SessionContextScript {
 
     static let installedRelativePath = ".config/argos/session-context.sh"
     static let offRelativePath = ".config/argos/session-context.off"
-    /// Topes del texto que recibe Claude (los aplica el propio script).
+    /// Topes del texto que recibe Claude (los aplica el propio script), con su cierre fijo.
     static let maxCharacters = 1500
     static let maxLines = 15
+    static let closingLine = "Fin del contexto de Argos."
+
+    private static var offMarker: String { "\"$HOME/\(offRelativePath)\"" }
+    /// `off` si el usuario lo apagó (misma comprobación que el script: `-e`) y `script` si
+    /// el script está subido.
+    static var flagsCommand: String {
+        "[ -e \(offMarker) ] && echo off; [ -f \"$HOME/\(installedRelativePath)\" ] && echo script; exit 0"
+    }
+    static var removeOffMarkerCommand: String { "rm -f \(offMarker)" }
 
     /// Ejecuta el script instalado como lo haría el hook en la carpeta del proyecto, para
     /// «Ver lo que verá Claude». Sin la entrada del hook y sin stderr.
@@ -40,10 +51,12 @@ enum SessionContextScript {
     static let source = #"""
 #!/bin/sh
 # argos-session-context v1: resumen de Argos para Claude Code al arrancar (hook SessionStart).
-# Lo instala la app Argos. Solo lee; plazo duro de unos 3 s (lo que no llegue se omite) y,
-# pase lo que pase, sale con 0. Para apagarlo: la app, o crear ~/.config/argos/session-context.off.
+# Lo instala la app Argos. Solo lee; plazo duro de unos 2,5 s (lo que no llegue se omite),
+# no deja procesos detrás y, pase lo que pase, sale con 0. Del servidor solo salen números
+# y nombres de la lista blanca [A-Za-z0-9._/@+-]: nada de títulos ni texto libre.
+# Para apagarlo: la app, o crear ~/.config/argos/session-context.off.
 cfg="${ARGOS_CONFIG_DIR:-$HOME/.config/argos}"
-[ -f "$cfg/session-context.off" ] && exit 0
+[ -e "$cfg/session-context.off" ] && exit 0
 umask 077
 given=${CLAUDE_PROJECT_DIR:-$PWD}
 cd "$given" 2>/dev/null || exit 0
@@ -52,33 +65,17 @@ tenths=${ARGOS_CTX_TENTHS:-25}
 case "$tenths" in ''|*[!0-9]*) tenths=25 ;; esac
 proc=${ARGOS_PROC_DIR:-/proc}
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/argos-ctx.XXXXXX" 2>/dev/null) || exit 0
-trap 'rm -rf "$tmp"' EXIT
+pids=""
+# Al salir: TERM a las partes que sigan (cada una mata a su orden en curso y a su vigilante).
+finish() { [ -n "$pids" ] && kill $pids 2>/dev/null; rm -rf "$tmp"; }
+trap finish EXIT
 trap 'exit 0' HUP INT TERM
 now=$(date +%s)
 case "$now" in ''|*[!0-9]*) exit 0 ;; esac
 
-# Saneado: sin controles (tampoco C1 ni bidi), con tope de bytes y en UTF-8 válido.
-c1=$(printf '\302[\200-\237]')
-bidi1=$(printf '\342\200[\252-\256]')
-bidi2=$(printf '\342\201[\246-\251]')
-if command -v iconv >/dev/null 2>&1; then utf8=1; else utf8=0; fi
-valid() { if [ "$utf8" = 1 ]; then iconv -c -f UTF-8 -t UTF-8 2>/dev/null; else LC_ALL=C tr -d '\200-\377'; fi; }
-clean() {
-  LC_ALL=C tr -d '\000-\037\177' | LC_ALL=C sed -e "s/$c1//g" -e "s/$bidi1//g" -e "s/$bidi2//g" \
-    | LC_ALL=C cut -c "1-${1:-200}" | valid
-}
-# "$@" con plazo de $1 s. Solo mata a su propio hijo, recién lanzado (y su vigilante).
-limited() {
-  _ls=$1; shift
-  "$@" </dev/null 2>/dev/null &
-  _lp=$!
-  ( sleep "$_ls"; kill "$_lp" 2>/dev/null; sleep 1; kill -9 "$_lp" 2>/dev/null ) </dev/null >/dev/null 2>&1 &
-  _lw=$!
-  wait "$_lp"; _lr=$?
-  kill "$_lw" 2>/dev/null
-  return "$_lr"
-}
-g() { GIT_OPTIONAL_LOCKS=0 GIT_TERMINAL_PROMPT=0 git -c core.fsmonitor=false -C "$dir" "$@"; }
+num() { case "$1" in ''|*[!0-9]*) return 1 ;; esac; return 0; }
+# Nombre del servidor (rama, remoto, proceso): solo [A-Za-z0-9._/@+-], lo demás «?», con tope.
+safe() { printf '%s' "$1" | LC_ALL=C tr -c 'A-Za-z0-9._/@+-' '?' | LC_ALL=C cut -c "1-${2:-40}"; }
 plural() { if [ "$1" = 1 ]; then printf '1 %s' "$2"; else printf '%s %s' "$1" "$3"; fi; }
 # Tiempo hasta el epoch $1: «2 h 10 min», «35 min», «3 d 4 h».
 until_text() {
@@ -88,7 +85,31 @@ until_text() {
   elif [ "$m" -ge 60 ]; then printf '%s h %s min' $((m / 60)) $((m % 60))
   else printf '%s min' "$m"; fi
 }
-num() { case "$1" in ''|*[!0-9]*) return 1 ;; esac; return 0; }
+# Primeros bytes de un archivo NORMAL (nunca una FIFO ni un dispositivo, que colgarían).
+rd() { [ -f "$1" ] && head -c "${2:-4096}" "$1" 2>/dev/null; }
+
+# "$@" con plazo de $1 s: lo lanza en segundo plano y lo mata al vencer. Solo mata a su
+# propio hijo recién lanzado (y a su vigilante, que se lleva su `sleep`).
+_lp=""; _lw=""
+limited() {
+  _ls=$1; shift
+  "$@" </dev/null 2>/dev/null &
+  _lp=$!
+  (
+    trap 'kill "$_ws" 2>/dev/null; exit 0' TERM
+    sleep "$_ls" & _ws=$!; wait "$_ws"
+    kill "$_lp" 2>/dev/null
+    sleep 1 & _ws=$!; wait "$_ws"
+    kill -9 "$_lp" 2>/dev/null
+  ) </dev/null >/dev/null 2>&1 &
+  _lw=$!
+  wait "$_lp"; _lr=$?
+  kill "$_lw" 2>/dev/null; wait "$_lw" 2>/dev/null
+  _lp=""; _lw=""
+  return "$_lr"
+}
+# git sin locks, sin preguntar y sin fsmonitor del repo; `exec` para que el plazo lo mate a él.
+g() { GIT_OPTIONAL_LOCKS=0 GIT_TERMINAL_PROMPT=0 exec git -c core.fsmonitor=false -C "$dir" "$@"; }
 # Clave del proyecto en ~/.config/argos (como ClaudeUsageProjects.key en la app). La app
 # guarda la carpeta tal cual se escribió: se prueba con esa y con la real (sin enlaces).
 keyof() { printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | LC_ALL=C sed 's/[^A-Za-z0-9]/-/g'; }
@@ -96,49 +117,50 @@ key=$(keyof "$dir")
 gkey=$(keyof "${given%/}")
 [ -d "$cfg/tasks/$key" ] || [ -f "$cfg/budgets/$key" ] || key=$gkey
 
-# 1. CI del último run de la rama (gh), con caché de 2 min.
+# 1. CI del último run de la rama (gh), con caché de 2 min. Solo estado y conclusión.
 ci() {
   command -v gh >/dev/null 2>&1 || return 0
-  br=$(g symbolic-ref --short -q HEAD 2>/dev/null) || return 0
+  limited 1 g symbolic-ref --short -q HEAD > "$tmp/br.raw" || return 0
+  br=$(rd "$tmp/br.raw" 256 | head -n 1)
+  [ -n "$br" ] || return 0
   cache="$cfg/session-context-cache"
   f="$cache/ci-$(printf '%s|%s' "$dir" "$br" | cksum | tr -c '0-9\n' '-')"
   if [ -f "$f" ] && [ -n "$(find "$f" -mmin -2 2>/dev/null)" ]; then
-    out=$(head -c 512 "$f")
+    out=$(rd "$f" 64)
   else
     # A un archivo y no a una tubería: un hijo de gh colgado no retiene la lectura. Un fallo
     # o un plazo vencido también se guardan (vacío): no se vuelve a esperar en 2 min.
     mkdir -p "$cache" 2>/dev/null || return 0
-    limited 2 gh run list --branch "$br" --limit 1 --json workflowName,status,conclusion \
-      --jq '.[0] | select(. != null) | [.workflowName, .status, .conclusion] | join("|")' > "$f.$$"
-    out=$(head -c 512 "$f.$$" 2>/dev/null)
+    limited 2 gh run list --branch "$br" --limit 1 --json status,conclusion \
+      --jq '.[0] | select(. != null) | [.status, .conclusion] | join("|")' > "$f.$$"
+    out=$(rd "$f.$$" 64)
     printf '%s\n' "$out" > "$f.$$" 2>/dev/null && mv -f "$f.$$" "$f" 2>/dev/null
   fi
   out=$(printf '%s' "$out" | head -n 1)
-  case "$out" in *'|'*'|'*) ;; *) return 0 ;; esac
-  conclusion=${out##*|}; rest=${out%|*}; status=${rest##*|}; name=${rest%|*}
+  case "$out" in *'|'*) ;; *) return 0 ;; esac
+  status=${out%%|*}; conclusion=${out#*|}
   case "$status" in
     completed)
       case "$conclusion" in
         success) what="pasó" ;; failure) what="falló" ;; cancelled) what="se canceló" ;;
         timed_out) what="se pasó de tiempo" ;; skipped) what="se saltó" ;;
-        *) what="terminó ($(printf '%s' "$conclusion" | clean 20))" ;;
+        *) what="terminó sin éxito ni fallo" ;;
       esac ;;
     in_progress) what="está en curso" ;;
     queued|waiting|pending|requested) what="está en cola" ;;
-    *) what="está en estado $(printf '%s' "$status" | clean 20)" ;;
+    *) what="está en un estado desconocido" ;;
   esac
-  printf 'CI: el último run de «%s» en la rama «%s» %s.' \
-    "$(printf '%s' "$name" | clean 60)" "$(printf '%s' "$br" | clean 80)" "$what"
+  printf 'CI: el último run de la rama %s %s.\n' "$(safe "$br" 50)" "$what"
 }
 
-# 2. Cambios sin commit, rama y distancia al remoto.
+# 2. Cambios sin commit (sin listar los no seguidos, que en repos grandes es lo caro), rama
+# y distancia al remoto.
 gitinfo() {
   command -v git >/dev/null 2>&1 || return 0
-  limited 2 g status --porcelain=v1 -b > "$tmp/st.raw" || return 0
-  h=$(sed -n '1s/^## //p' "$tmp/st.raw")
+  limited 2 g status --porcelain=v1 -b -uno > "$tmp/st.raw" || return 0
+  h=$(rd "$tmp/st.raw" 1024 | sed -n '1s/^## //p')
   [ -n "$h" ] || return 0
   n=$(sed 1d "$tmp/st.raw" | grep -c .)
-  u=$(grep -c '^??' "$tmp/st.raw")
   up=""; ahead=0; behind=0
   case "$h" in
     'No commits yet on '*|'Initial commit on '*) br=${h##* on }; note=" (sin commits aún)" ;;
@@ -149,16 +171,12 @@ gitinfo() {
       a=$(printf '%s' "$h" | sed -n 's/.*\[.*ahead \([0-9]*\).*/\1/p'); num "$a" && ahead=$a
       b=$(printf '%s' "$h" | sed -n 's/.*\[.*behind \([0-9]*\).*/\1/p'); num "$b" && behind=$b ;;
   esac
-  if [ -n "$br" ]; then where="rama «$(printf '%s' "$br" | clean 80)»$note"; else where="HEAD separado (sin rama)"; fi
-  if [ "$n" -gt 0 ]; then
-    changes="$(plural "$n" "cambio sin commit" "cambios sin commit")"
-    [ "$u" -gt 0 ] && changes="$changes ($u sin seguimiento)"
-  else
-    changes="sin cambios sin commit"
-  fi
+  if [ -n "$br" ]; then where="rama $(safe "$br" 50)$note"; else where="HEAD separado (sin rama)"; fi
+  if [ "$n" -gt 0 ]; then changes=$(plural "$n" "archivo con cambios sin commit" "archivos con cambios sin commit")
+  else changes="sin cambios sin commit en archivos con seguimiento"; fi
   remote=""
   if [ -n "$up" ]; then
-    upc=$(printf '%s' "$up" | clean 80)
+    upc=$(safe "$up" 50)
     if [ "$ahead" -gt 0 ] && [ "$behind" -gt 0 ]; then remote="; $ahead por delante y $behind por detrás de $upc"
     elif [ "$ahead" -gt 0 ]; then remote="; $ahead por delante de $upc (sin push)"
     elif [ "$behind" -gt 0 ]; then remote="; $behind por detrás de $upc"
@@ -166,44 +184,51 @@ gitinfo() {
   elif [ -n "$br" ]; then
     remote="; sin rama remota"
   fi
-  printf 'Git: %s, %s%s.' "$where" "$changes" "$remote"
+  printf 'Git: %s, %s%s.\n' "$where" "$changes" "$remote"
 }
 
-# 3. Puertos en escucha cuyo proceso trabaja dentro de la carpeta del proyecto (Linux).
+# 3. Servidores de desarrollo: puertos en escucha (>= 1024, o 80/443) cuyo proceso trabaja
+# dentro de la carpeta del proyecto (Linux). Fuera Claude, sus MCP y sshd.
 ports() {
   command -v ss >/dev/null 2>&1 && [ -d "$proc" ] || return 0
   limited 1 ss -Htlnp > "$tmp/ss.raw" || return 0
   : > "$tmp/ports.raw"
+  c=0
   while read -r state recvq sendq local rest; do
+    c=$((c + 1)); [ "$c" -gt 200 ] && break
     port=${local##*:}; num "$port" || continue
+    [ "$port" -ge 1024 ] || [ "$port" = 80 ] || [ "$port" = 443 ] || continue
     pid=$(printf '%s' "$rest" | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p')
     num "$pid" || continue
-    cwd=$(readlink "$proc/$pid/cwd" 2>/dev/null) || continue
+    name=$(printf '%s' "$rest" | sed -n 's/.*(("\([^"]*\)".*/\1/p')
+    case "$name" in claude|claude-*|sshd|tmux*) continue ;; esac
+    limited 1 readlink "$proc/$pid/cwd" > "$tmp/cwd.raw" || continue
+    cwd=$(rd "$tmp/cwd.raw" 4096)
     case "$cwd" in "$dir"|"$dir"/*|"${given%/}"|"${given%/}"/*) ;; *) continue ;; esac
-    name=$(printf '%s' "$rest" | sed -n 's/.*(("\([^"]*\)".*/\1/p' | clean 30)
-    printf '%s %s\n' "$port" "$name" >> "$tmp/ports.raw"
+    cmd=$(rd "$proc/$pid/cmdline" 2048 | tr '\000' ' ' | LC_ALL=C tr 'A-Z' 'a-z')
+    case "$cmd" in *claude*|*mcp*|*modelcontextprotocol*) continue ;; esac
+    printf '%s %s\n' "$port" "$(safe "$name" 20)" >> "$tmp/ports.raw"
   done < "$tmp/ss.raw"
   list=$(sort -n -u "$tmp/ports.raw" | head -n 8 | awk '{ printf "%s%s", (NR > 1 ? ", " : ""), $1; if ($2 != "") printf " (%s)", $2 }')
-  [ -n "$list" ] && printf 'Puertos en escucha de este proyecto: %s.' "$list"
+  [ -n "$list" ] && printf 'Puertos en escucha de este proyecto: %s.\n' "$list"
+  return 0
 }
 
-# 4. Encargos de la cola de Argos de este proyecto.
+# 4. Encargos de la cola de Argos de este proyecto (solo recuentos).
 tasks() {
   t_dir="$cfg/tasks/$key"
   [ -d "$t_dir" ] || return 0
-  pend=0; run=0; budget=0; review=0; rwait=0; paused=0; title=""; i=0
+  pend=0; run=0; budget=0; review=0; rwait=0; paused=0; i=0
   for t in "$t_dir"/[0-9]*-*; do
     [ -d "$t" ] || continue
     i=$((i + 1)); [ "$i" -gt 500 ] && break
-    s=$(head -c 32 "$t/state" 2>/dev/null); r=$(head -c 64 "$t/reason" 2>/dev/null)
+    s=$(rd "$t/state" 32); r=$(rd "$t/reason" 64)
     case "$s" in
       pending)
         pend=$((pend + 1))
         [ "$r" = budget ] && budget=$((budget + 1))
         [ "$r" = review-wait ] && rwait=$((rwait + 1)) ;;
-      running)
-        run=$((run + 1))
-        [ -n "$title" ] || title=$(sed -n 's/^title=//p' "$t/meta" 2>/dev/null | head -n 1 | clean 60) ;;
+      running) run=$((run + 1)) ;;
       paused)
         case "$r" in review|review-inconclusive) review=$((review + 1)) ;; *) paused=$((paused + 1)) ;; esac ;;
     esac
@@ -212,18 +237,18 @@ tasks() {
   parts=""
   add() { if [ -n "$parts" ]; then parts="$parts, $1"; else parts=$1; fi; }
   if [ "$pend" -gt 0 ]; then
-    p="$pend en cola"; extra=""
+    extra=""
     [ "$budget" -gt 0 ] && extra="$budget esperando por el presupuesto"
     [ "$rwait" -gt 0 ] && extra="${extra:+$extra, }$rwait esperando al revisor"
-    add "$p${extra:+ ($extra)}"
+    add "$pend en cola${extra:+ ($extra)}"
   fi
-  if [ "$run" -gt 0 ]; then add "$run en marcha${title:+ («$title»)}"; fi
+  [ "$run" -gt 0 ] && add "$run en marcha"
   [ "$review" -gt 0 ] && add "$(plural "$review" "bloqueado por el revisor" "bloqueados por el revisor")"
-  [ "$paused" -gt 0 ] && add "$(plural "$paused" "en pausa" "en pausa")"
-  printf 'Encargos de Argos de este proyecto: %s.' "$parts"
+  [ "$paused" -gt 0 ] && add "$paused en pausa"
+  printf 'Encargos de Argos de este proyecto: %s.\n' "$parts"
 }
 
-# 5. Otros Claude en este repo: ventanas de tmux y agentes persistentes de Argos.
+# 5. Otros Claude en este repo: ventanas de tmux y agentes persistentes de Argos (recuentos).
 in_repo() {
   while IFS= read -r w; do
     [ -n "$w" ] || continue
@@ -234,38 +259,38 @@ in_repo() {
 agents() {
   printf '%s\n%s\n' "$dir" "${given%/}" > "$tmp/wt.raw"
   if command -v git >/dev/null 2>&1 && limited 1 g worktree list --porcelain > "$tmp/wtl.raw"; then
-    sed -n 's/^worktree //p' "$tmp/wtl.raw" >> "$tmp/wt.raw"
+    rd "$tmp/wtl.raw" 65536 | sed -n 's/^worktree //p' | head -n 50 >> "$tmp/wt.raw"
   fi
-  sid=""
+  # El JSON del hook (para no contarse a sí mismo si es un agente persistente).
   j=0
-  while [ ! -f "$tmp/in.done" ] && [ "$j" -lt 5 ]; do sleep 0.1 2>/dev/null || break; j=$((j + 1)); done
-  [ -f "$tmp/in" ] && sid=$(LC_ALL=C sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([A-Za-z0-9-]*\)".*/\1/p' "$tmp/in" | head -n 1)
-  work=0; wait_n=0; idle=0; where=""
-  if command -v tmux >/dev/null 2>&1; then
-    limited 1 tmux -u list-panes -a -F '#{pane_id}|#{@argos_claude}|#{session_name}:#{window_index}|#{pane_current_path}' > "$tmp/panes.raw"
-    while IFS='|' read -r pane st win path; do
+  while [ -n "$reader" ] && kill -0 "$reader" 2>/dev/null && [ "$j" -lt 5 ]; do
+    sleep 0.1 2>/dev/null || break; j=$((j + 1))
+  done
+  sid=$(rd "$tmp/in" 8192 | LC_ALL=C sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([A-Za-z0-9-]*\)".*/\1/p' | head -n 1)
+  work=0; wait_n=0; idle=0
+  if command -v tmux >/dev/null 2>&1 && limited 1 tmux -u list-panes -a -F '#{pane_id}|#{@argos_claude}|#{pane_current_path}' > "$tmp/panes.raw"; then
+    c=0
+    while IFS='|' read -r pane st path; do
+      c=$((c + 1)); [ "$c" -gt 500 ] && break
       [ -n "$st" ] && [ "$pane" != "${TMUX_PANE:-}" ] || continue
       in_repo "$path" || continue
-      case "$st" in working) work=$((work + 1)) ;; waiting) wait_n=$((wait_n + 1)) ;; done) idle=$((idle + 1)) ;; *) continue ;; esac
-      [ $((work + wait_n + idle)) -le 3 ] && where="${where:+$where, }$(printf '%s' "$win" | clean 40)"
+      case "$st" in working) work=$((work + 1)) ;; waiting) wait_n=$((wait_n + 1)) ;; done) idle=$((idle + 1)) ;; esac
     done < "$tmp/panes.raw"
   fi
-  live=0; titles=""
+  live=0; c=0
   for d in "$cfg/agents"/*/; do
-    [ -f "$d/meta.json" ] || continue
+    c=$((c + 1)); [ "$c" -gt 100 ] && break
+    meta=$(rd "$d/meta.json" 16384) || continue
     id=$(basename "$d")
     [ -n "$sid" ] && [ "$id" = "$sid" ] && continue
-    grep -q '"hibernatedAt"' "$d/meta.json" 2>/dev/null && continue
-    wd=$(LC_ALL=C sed -n 's/.*"workingDirectory"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$d/meta.json" | head -n 1 | sed 's#\\/#/#g')
+    case "$meta" in *'"hibernatedAt"'*) continue ;; esac
+    wd=$(printf '%s' "$meta" | LC_ALL=C sed -n 's/.*"workingDirectory"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1 | sed 's#\\/#/#g')
     case "$wd" in '~') wd=$HOME ;; '~/'*) wd="$HOME/${wd#\~/}" ;; esac
     [ -n "$wd" ] && in_repo "$wd" || continue
-    p=$(head -c 16 "$d/pid" 2>/dev/null); num "$p" || continue
-    ps -o args= -p "$p" 2>/dev/null | grep -q -- "$id" || continue
+    p=$(rd "$d/pid" 16 | head -n 1); num "$p" || continue
+    limited 1 ps -o args= -p "$p" > "$tmp/ps.raw" || continue
+    grep -q -- "$id" "$tmp/ps.raw" 2>/dev/null || continue
     live=$((live + 1))
-    if [ "$live" -le 2 ]; then
-      tt=$(LC_ALL=C sed -n 's/.*"title"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$d/meta.json" | head -n 1 | clean 40)
-      [ -n "$tt" ] && titles="${titles:+$titles, }«$tt»"
-    fi
   done
   total=$((work + wait_n + idle))
   if [ "$total" -gt 0 ]; then
@@ -273,81 +298,89 @@ agents() {
     [ "$work" -gt 0 ] && parts="$work trabajando"
     [ "$wait_n" -gt 0 ] && parts="${parts:+$parts, }$wait_n esperando respuesta"
     [ "$idle" -gt 0 ] && parts="${parts:+$parts, }$idle en reposo"
-    printf 'Otros Claude en tmux en este repo (o sus worktrees): %s; ventanas %s.\n' "$parts" "$where"
+    printf 'Otros Claude en ventanas de tmux de este repo (o sus worktrees): %s.\n' "$parts"
   fi
-  [ "$live" -gt 0 ] && printf 'Agentes persistentes de Argos en este repo: %s%s.\n' "$live" "${titles:+ ($titles)}"
+  [ "$live" -gt 0 ] && printf 'Agentes persistentes de Argos en este repo: %s.\n' "$live"
   return 0
 }
 
-# 6. Lo que queda de los límites de Claude y el presupuesto del proyecto.
+# 6. Lo que queda de los límites de Claude (si la lectura es reciente) y el presupuesto.
 limits() {
   f="$cfg/claude-limits.json"
-  [ -f "$f" ] || return 0
-  head -c 65536 "$f" | LC_ALL=C awk -v now="$now" '
-    function grab(s, k,   r) {
-      if (!match(s, "\"" k "\"[ ]*:[ ]*[0-9.]+")) return ""
-      r = substr(s, RSTART, RLENGTH); sub(/.*:[ ]*/, "", r); return r
-    }
-    NR == 1 { saved = $0 + 0; next }
-    { all = all $0 }
-    END {
-      for (i = 1; i <= 2; i++) {
-        k = (i == 1) ? "five_hour" : "seven_day"
-        if (!match(all, "\"" k "\"[ ]*:[ ]*[{][^}]*[}]")) continue
-        b = substr(all, RSTART, RLENGTH); u = grab(b, "used_percentage"); r = grab(b, "resets_at") + 0
-        if (u == "") continue
-        if (r > 0 && r <= now) u = 0
-        u = int(u + 0.5); if (u > 100) u = 100; if (u < 0) u = 0
-        print k, 100 - u, r
+  if [ -f "$f" ]; then
+    rd "$f" 65536 | LC_ALL=C awk -v now="$now" '
+      function grab(s, k,   r) {
+        if (!match(s, "\"" k "\"[ ]*:[ ]*[0-9.]+")) return ""
+        r = substr(s, RSTART, RLENGTH); sub(/.*:[ ]*/, "", r); return r
       }
-      print "saved", saved
-    }' > "$tmp/lim.raw"
-  out=""
-  while read -r k left r; do
-    case "$k" in
-      five_hour) label="de la ventana de 5 h" ;;
-      seven_day) label="de la semanal" ;;
-      *) continue ;;
-    esac
-    num "$left" || continue
-    item="$left % $label"
-    num "$r" && [ "$r" -gt "$now" ] && item="$item (se reinicia en $(until_text "$r"))"
-    out="${out:+$out y }$item"
-  done < "$tmp/lim.raw"
-  saved=$(sed -n 's/^saved //p' "$tmp/lim.raw")
-  if [ -n "$out" ]; then
-    age=""
-    num "$saved" && [ "$saved" -gt 0 ] && [ $((now - saved)) -ge 3600 ] && age=" (lectura de hace $(( (now - saved) / 3600 )) h)"
-    printf 'Límites de Claude: quedan %s%s.\n' "$out" "$age"
+      NR == 1 { saved = $0 + 0; next }
+      { all = all $0 }
+      END {
+        print "saved", saved
+        for (i = 1; i <= 2; i++) {
+          k = (i == 1) ? "five_hour" : "seven_day"
+          if (!match(all, "\"" k "\"[ ]*:[ ]*[{][^}]*[}]")) continue
+          b = substr(all, RSTART, RLENGTH); u = grab(b, "used_percentage"); r = grab(b, "resets_at") + 0
+          if (u == "") continue
+          if (r > 0 && r <= now) u = 0
+          u = int(u + 0.5); if (u > 100) u = 100; if (u < 0) u = 0
+          print k, 100 - u, r
+        }
+      }' > "$tmp/lim.raw"
+    saved=$(sed -n 's/^saved //p' "$tmp/lim.raw")
+    if num "$saved" && [ "$saved" -gt 0 ] && [ $((now - saved)) -le 1800 ]; then
+      out=""
+      while read -r k left r; do
+        case "$k" in
+          five_hour) label="de la ventana de 5 h" ;;
+          seven_day) label="de la semanal" ;;
+          *) continue ;;
+        esac
+        num "$left" || continue
+        item="$left % $label"
+        num "$r" && [ "$r" -gt "$now" ] && item="$item (se reinicia en $(until_text "$r"))"
+        out="${out:+$out y }$item"
+      done < "$tmp/lim.raw"
+      [ -n "$out" ] && printf 'Límites de Claude: quedan %s.\n' "$out"
+    elif [ -s "$tmp/lim.raw" ]; then
+      printf 'Límites de Claude: sin lectura reciente.\n'
+    fi
   fi
   bf="$cfg/budgets/$key"
   [ -f "$bf" ] || return 0
-  wp=$(sed -n 's/^window_pct=//p' "$bf" | head -n 1); du=$(sed -n 's/^daily_usd=//p' "$bf" | head -n 1)
-  num "$wp" || wp=""
+  wp=$(rd "$bf" 1024 | sed -n 's/^window_pct=//p' | head -n 1)
+  du=$(rd "$bf" 1024 | sed -n 's/^daily_usd=//p' | head -n 1)
+  num "$wp" && [ "$wp" -le 100 ] || wp=""
   case "$du" in ''|*[!0-9.]*) du="" ;; esac
+  du=$(printf '%s' "$du" | cut -c 1-12)
   [ -n "$wp$du" ] || return 0
   caps=""
   [ -n "$wp" ] && caps="$wp % de la ventana de 5 h"
   [ -n "$du" ] && caps="${caps:+$caps y }$du USD al día"
   blk=""
-  if [ -f "$bf.blocked" ]; then
-    until=$(sed -n 's/.*until=\([0-9]*\).*/\1/p' "$bf.blocked" | head -n 1)
-    num "$until" && [ "$until" -gt "$now" ] && blk="; ahora agotado: los encargos esperan y se libera en $(until_text "$until")"
-  fi
+  until=$(rd "$bf.blocked" 1024 | sed -n 's/.*until=\([0-9]*\).*/\1/p' | head -n 1)
+  num "$until" && [ "$until" -gt "$now" ] && blk="; ahora agotado: los encargos esperan y se libera en $(until_text "$until")"
   printf 'Presupuesto de este proyecto: %s%s.\n' "$caps" "$blk"
 }
 
-# Cada parte en paralelo; la salida de cada una a su archivo (nunca al stdout del hook).
-# La entrada (JSON del hook) se lee aparte, sin esperarla: solo sirve para el session_id.
+# El JSON del hook se lee aparte y con plazo (solo sirve para el session_id).
+reader=""
 if [ ! -t 0 ]; then
-  { head -c 8192 > "$tmp/in"; : > "$tmp/in.done"; } <&0 >/dev/null 2>&1 &
-else
-  : > "$tmp/in.done"
+  head -c 8192 <&0 > "$tmp/in" 2>/dev/null &
+  reader=$!
+  pids=$reader
 fi
+# Cada parte en paralelo; su salida a su archivo (nunca al stdout del hook). Cada una guarda
+# su nombre en `_sec` (ninguna lo usa), avisa al terminar con `.done` y, si la paran, mata a
+# su orden en curso y a su vigilante.
 sections="ci gitinfo ports tasks agents limits"
-# Cada parte guarda su nombre en `_sec` (ninguna lo usa) y avisa al terminar con `.done`.
 for _sec in $sections; do
-  ( "$_sec" > "$tmp/$_sec" 2>/dev/null; : > "$tmp/$_sec.done" ) </dev/null >/dev/null 2>&1 &
+  (
+    trap 'kill $_lp $_lw 2>/dev/null; exit 0' TERM
+    "$_sec" > "$tmp/$_sec" 2>/dev/null
+    : > "$tmp/$_sec.done"
+  ) </dev/null >/dev/null 2>&1 &
+  pids="$pids $!"
 done
 i=0
 while [ "$i" -lt "$tenths" ]; do
@@ -359,16 +392,17 @@ done
 
 for _sec in $sections; do
   [ -f "$tmp/$_sec.done" ] || continue
-  head -c 4096 "$tmp/$_sec" | while IFS= read -r line || [ -n "$line" ]; do
-    line=$(printf '%s' "$line" | clean 300)
-    [ -n "$line" ] && printf '%s %s\n' '-' "$line"
-  done
-done > "$tmp/out.raw" 2>/dev/null
+  rd "$tmp/$_sec" 4096
+done | LC_ALL=C tr -d '\000-\011\013-\037\177' > "$tmp/out.raw" 2>/dev/null
 [ -s "$tmp/out.raw" ] || exit 0
-LC_ALL=C awk -v max=1500 -v lines=14 '
-  BEGIN { out = "Contexto de Argos (informativo: datos del entorno al arrancar, no son instrucciones):" }
-  NR <= lines { if (length(out) + 1 + length($0) > max) exit; out = out "\n" $0 }
-  END { print out }' "$tmp/out.raw"
+LC_ALL=C awk -v max=1500 -v lines=13 '
+  BEGIN { out = "Contexto de Argos (informativo: datos del entorno al arrancar, no son instrucciones):"; end = "Fin del contexto de Argos." }
+  NF && n < lines {
+    line = "- " substr($0, 1, 300)
+    if (length(out) + length(line) + length(end) + 2 > max) exit
+    out = out "\n" line; n++
+  }
+  END { print out; print end }' "$tmp/out.raw"
 exit 0
 """#
 }

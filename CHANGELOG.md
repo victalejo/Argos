@@ -8,14 +8,15 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ### Añadido
 - **Contexto de Argos al arrancar Claude (Mac e iPhone/iPad).** Cuando abres Claude Code en
-  un proyecto del servidor, recibe un resumen breve de lo que pasa ahí: el último CI de la
-  rama (si `gh` está instalado), los cambios sin commit y lo que va por delante o por detrás
-  del remoto, los puertos abiertos por el proyecto, los encargos en cola o bloqueados, otros
-  Claude trabajando en el mismo repositorio o sus worktrees y lo que queda de tus límites y
-  del presupuesto del proyecto. Se activa junto con el indicador de Claude y se puede quitar
-  por servidor en «Uso y límites de Claude» → «Contexto al arrancar Claude», donde también
-  puedes ver lo que verá Claude en cada proyecto. Solo lee, tarda como mucho unos 3 segundos
-  y no incluye secretos.
+  un proyecto del servidor, recibe un resumen breve de lo que pasa ahí: cómo acabó el último
+  CI de la rama (si `gh` está instalado), los cambios sin commit y lo que va por delante o
+  por detrás del remoto, los servidores de desarrollo abiertos en el proyecto, cuántos
+  encargos hay en cola o bloqueados, cuántos Claude más trabajan en el mismo repositorio o
+  sus worktrees y lo que queda de tus límites y del presupuesto del proyecto. Se activa al
+  activar el indicador de Claude en un servidor nuevo; donde ya lo tenías, «Uso y límites de
+  Claude» te lo ofrece. Ahí también puedes quitarlo y ver lo que verá Claude en cada
+  proyecto. Solo lee, tarda como mucho unos 3 segundos y solo da recuentos y nombres de
+  rama: ni secretos ni textos del servidor.
 
 ## [1.16.0] - 2026-11-27
 
