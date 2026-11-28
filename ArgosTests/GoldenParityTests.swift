@@ -61,6 +61,8 @@ struct GoldenParityTests {
         "budget-poll", "budget-read", "budget-config",
         "schedule-list", "timer-install", "timer-status", "timer-uninstall", "schedule-config",
         "schedule-launch-tpl", "schedule-meta-tpl", "schedule-task-tpl",
+        "metrics-sample-script", "metrics-history-6h", "metrics-history-7d", "metrics-uninstall",
+        "orphans-list", "orphans-kill",
     ]
 
     @Test func losPendientesDePortTienenGenerador() throws {

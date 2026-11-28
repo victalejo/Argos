@@ -12,6 +12,21 @@ El detalle por commit vive en el historial git (Conventional Commits):
   ya relleno con lo que dice git, y no sale nada hasta que pulsas Enviar. Además, la rama y
   los nombres de archivo solo llevan letras, números y `. _ / @ + -` (lo demás sale como
   «?»), y el último commit es su hash y un asunto corto en una sola línea.
+- **Historial de recursos del servidor (Mac e iPhone/iPad).** En «Recursos del servidor»,
+  «Guardar historial» deja al servidor tomando una muestra por minuto (memoria, swap, CPU,
+  carga y cuánta memoria ocupan los procesos de Claude con sus MCP), aunque no tengas la app
+  abierta. Gráficas de 6 h, 24 h y 7 días, con una marca roja cada vez que el sistema se
+  quedó sin memoria (si el servidor deja leerlo sin sudo) y los procesos que más memoria
+  usan ahora. Ocupa unos cientos de KB, se limpia solo y se puede quitar cuando quieras (el
+  temporizador del servidor se queda: lo usan también los encargos y los presupuestos). Si
+  después abres una versión anterior de Argos que reinstale el despachador de encargos, el
+  historial deja de avanzar hasta que lo vuelvas a abrir con esta versión.
+- **Cerrar procesos de Claude huérfanos.** En «Recursos del servidor», «Huérfanos» lista los
+  `claude` que ya no cuelgan de ningún panel de tmux ni son agentes de Argos (quedan tras
+  cerrarse mal un terminal o tras un OOM), con su memoria, antigüedad, carpeta y orden;
+  marca los que quieras cerrar y confirma. Nunca toca los de tmux, screen, zellij, una
+  sesión SSH abierta, VS Code Remote, los agentes ni los que lanza Argos para encargos y
+  revisiones.
 
 ### Corregido
 - **«Copiar la salida del último comando» con Claude Code** ya no dice «No se encontró la

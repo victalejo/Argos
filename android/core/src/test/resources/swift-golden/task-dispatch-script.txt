@@ -642,6 +642,7 @@ spawn() {
 
 case "$1" in
   tick)
+    _mp=""; [ -f "$HOME/.config/argos/metrics/sample.sh" ] && detach sh "$HOME/.config/argos/metrics/sample.sh" && _mp=$!
     expire
     review_expire
     for s in "$base"/schedules/*/; do
@@ -652,6 +653,7 @@ case "$1" in
       p=${p%/}; case "${p##*/}" in incoming|schedules) continue ;; esac
       [ -d "$p" ] && advance "$p" 0
     done
+    _mi=0; while [ -n "$_mp" ] && [ $_mi -lt "${ARGOS_METRICS_WAIT:-40}" ] && kill -0 "$_mp" 2>/dev/null; do sleep 1; _mi=$((_mi + 1)); done
     ;;
   next)
     [ -d "$base/$2" ] && advance "$base/$2" 1

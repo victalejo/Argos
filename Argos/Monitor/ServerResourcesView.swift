@@ -13,6 +13,9 @@ struct ServerResourcesView: View {
     let serverName: String
     let service: any SSHServicing
 
+    @State private var tab: ResourcesTab = .now
+    @State private var metricsModel: ServerMetricsModel
+    @State private var orphansModel: ClaudeOrphansModel
     @State private var sample: ServerResourceSample?
     /// Uso de CPU calculado entre las dos últimas muestras (`nil` hasta la segunda).
     @State private var cpuUsage: Double?
@@ -21,33 +24,59 @@ struct ServerResourcesView: View {
 
     private static let refreshInterval: Duration = .seconds(3)
 
+    init(serverName: String, service: any SSHServicing) {
+        self.serverName = serverName
+        self.service = service
+        _metricsModel = State(initialValue: ServerMetricsModel(service: service))
+        _orphansModel = State(initialValue: ClaudeOrphansModel(service: service))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            if let sample {
-                if let errorMessage {
-                    Label("No se pudo actualizar. Se muestran los últimos datos: \(errorMessage)", systemImage: "exclamationmark.arrow.triangle.2.circlepath")
-                        .font(.caption).foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(10)
-                        .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 9))
+            Picker("Vista", selection: $tab) {
+                ForEach(ResourcesTab.allCases) { tab in
+                    Text(tab.label).tag(tab)
                 }
-                metrics(for: sample)
-                Divider()
-                processList(sample.topProcesses)
-            } else if let errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                ProgressView("Leyendo recursos…")
-                    .frame(maxWidth: .infinity, minHeight: 120)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            switch tab {
+            case .now: liveContent
+            case .history: ScrollView { ServerMetricsHistoryView(model: metricsModel).padding(.trailing, 4) }.frame(maxHeight: 560)
+            case .orphans: ScrollView { ClaudeOrphansView(model: orphansModel).padding(.trailing, 4) }.frame(maxHeight: 520)
             }
         }
         .padding(20)
         .frame(width: 410)
         .animation(ArgosTheme.motion(reduceMotion: reduceMotion), value: cpuUsage)
-        .task { await poll() }
+        .task(id: tab) {
+            guard tab == .now else { return }
+            await poll()
+        }
+    }
+
+    @ViewBuilder
+    private var liveContent: some View {
+        if let sample {
+            if let errorMessage {
+                Label("No se pudo actualizar. Se muestran los últimos datos: \(errorMessage)", systemImage: "exclamationmark.arrow.triangle.2.circlepath")
+                    .font(.caption).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 9))
+            }
+            metrics(for: sample)
+            Divider()
+            processList(sample.topProcesses)
+        } else if let errorMessage {
+            Label(errorMessage, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            ProgressView("Leyendo recursos…")
+                .frame(maxWidth: .infinity, minHeight: 120)
+        }
     }
 
     private var header: some View {
@@ -55,7 +84,7 @@ struct ServerResourcesView: View {
             WorkspaceIcon(symbol: "gauge.with.dots.needle.50percent", size: 36)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Recursos de \(serverName)").font(.headline)
-                Text("Actualización cada 3 segundos")
+                Text(tab == .now ? String(localized: "Actualización cada 3 segundos") : String(localized: "Guardado en el servidor"))
                     .font(.caption2).foregroundStyle(.secondary)
             }
             Spacer()
@@ -185,6 +214,21 @@ private struct MetricRow: View {
         case ..<0.7: return .green
         case ..<0.9: return .orange
         default: return .red
+        }
+    }
+}
+
+/// Pestañas del popover de recursos.
+private enum ResourcesTab: String, CaseIterable, Identifiable {
+    case now, history, orphans
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .now: return String(localized: "Ahora")
+        case .history: return String(localized: "Historial")
+        case .orphans: return String(localized: "Huérfanos")
         }
     }
 }
