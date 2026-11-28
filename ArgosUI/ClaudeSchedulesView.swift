@@ -66,6 +66,7 @@ private struct ClaudeScheduleRow: View {
     private var summary: String {
         let days = ClaudeScheduleDays.text(schedule.weekdays)
         var text = String(localized: "\(days) a las \(schedule.timeText)")
+        if let model = schedule.modelChoice.summary { text += " · " + model }
         if schedule.push { text += " · " + String(localized: "push a main") }
         if let last = schedule.lastRun {
             text += " · " + String(localized: "última: \(last.formatted(date: .abbreviated, time: .shortened))")
@@ -92,6 +93,7 @@ private struct ClaudeScheduleForm: View {
             ClaudeWeekdayPicker(selection: $model.weekdays)
             DatePicker("Hora", selection: $model.time, displayedComponents: .hourAndMinute)
             Stepper("Tiempo máximo: \(model.maxMinutes) min", value: $model.maxMinutes, in: 10...480, step: 10)
+            ClaudeTaskModelPicker(choice: $model.modelChoice)
             Toggle("Push a main al terminar", isOn: $model.push)
             if model.push {
                 TextField("Comprobación antes del push (p. ej. npm test)", text: $model.checkCommand)

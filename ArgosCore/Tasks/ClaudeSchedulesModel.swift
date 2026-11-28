@@ -27,6 +27,7 @@ final class ClaudeSchedulesModel {
     var push = false
     var checkCommand = ""
     var maxMinutes = 60
+    var modelChoice = ClaudeTaskModelChoice.default
 
     /// Biblioteca de encargos del proyecto, para elegir uno.
     @ObservationIgnored let savedPrompts: [SavedPrompt]
@@ -82,7 +83,8 @@ final class ClaudeSchedulesModel {
             push: push,
             checkCommand: checkCommand.trimmingCharacters(in: .whitespaces),
             maxMinutes: max(1, maxMinutes),
-            permissionMode: AgentPermissionPreferences.effectiveMode(serverID: serverID, workingDirectory: project.path)
+            permissionMode: AgentPermissionPreferences.effectiveMode(serverID: serverID, workingDirectory: project.path),
+            modelChoice: modelChoice
         )
         await save(schedule) {
             self.title = ""
@@ -99,6 +101,7 @@ final class ClaudeSchedulesModel {
     func usePrompt(_ prompt: SavedPrompt) {
         if title.trimmingCharacters(in: .whitespaces).isEmpty { title = prompt.displayTitle }
         self.prompt = prompt.text
+        modelChoice = modelChoice.applying(ClaudeTaskModelChoice(savedPrompt: prompt))
     }
 
     func setEnabled(_ schedule: ClaudeSchedule, _ enabled: Bool) async {

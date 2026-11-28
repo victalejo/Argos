@@ -51,10 +51,12 @@ enum ClaudeTaskAgentScripts {
             ))
         let meta = PersistentAgentMeta(
             workingDirectory: worktree, title: request.title, createdAt: now,
-            permissionMode: request.permissionMode.rawValue
+            permissionMode: request.permissionMode.rawValue,
+            model: request.modelChoice.model?.rawValue, effort: request.modelChoice.effort?.rawValue
         )
         let invocation = ClaudeAgentCommand.persistent(
-            claudePath: claudePath, sessionID: agentID, resume: false, permissionMode: request.permissionMode
+            claudePath: claudePath, sessionID: agentID, resume: false, permissionMode: request.permissionMode,
+            modelChoice: request.modelChoice
         )
         // El worktree, sin tocar stdin: el lanzador lee de ahí la línea del token (vacía).
         let launch = "\(worktreeCommand) </dev/null >/dev/null 2>&1 || exit 1\n"

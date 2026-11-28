@@ -59,7 +59,39 @@ commit=0|1                                # commit al terminar
 push=0|1                                  # push a main (solo si pasan los tests en tareas programadas)
 attempts=<n>                              # CI: intentos hasta verde
 max_minutes=<n>                           # tiempo máximo
+model=haiku|sonnet|opus                   # opcional: alias del CLI (sin la clave = por defecto)
+effort=low|medium|high|xhigh|max          # opcional: esfuerzo (--effort / /effort)
 ```
+
+### Modelo y esfuerzo (`ClaudeTaskModelChoice`)
+
+Lista cerrada: valores desconocidos se leen como «por defecto». En **agente** y en
+**tareas programadas** van en la línea de `claude` (`--model`, `--effort`) y en el
+`meta.json` del agente (`model`, `effort`), para que reanudarlo los conserve; la `config`
+de la programada lleva también `model=`/`effort=`.
+
+En la **terminal**, el despachador escribe `/model <alias>` y `/effort <nivel>` antes del
+prompt y espera a que Claude Code los guarde y quede libre (no hay forma de cambiarlos solo
+para la sesión: Claude Code interactivo los guarda siempre como predeterminados en
+`~/.claude/settings.json`, claves `model` y `effortLevel`). Como ese archivo es uno para
+todo el servidor, hay un registro global `tasks/model-restore` (cerrojo
+`tasks/.model-restore/lock`) con el valor original (lo anota solo el primer encargo que lo
+cambia), lo último que escribió Argos y los encargos que lo tienen cambiado. Al terminar
+(`stop`, `finish`) o pausarse (`failure`), el panel del encargo vuelve al original
+(`/model default` y `/effort auto` si no había clave); el registro se borra con el último.
+Las claves se leen solo de primer nivel (python3 aislado o, sin él, un awk con
+profundidad); si el valor guardado no se podría volver a poner, el encargo no cambia el
+modelo y lo dice (`model_note=unsafe`).
+
+Nunca se escribe en un panel que no esté libre: Claude trabajando o esperando, un diálogo
+de permiso o de elección en pantalla, o alguien tecleando en esa sesión en los últimos
+10 s (`client_activity`). Se reintenta unos segundos tras el hook y luego en cada `tick`;
+pasados 30 min se abandona (`model_note=kept`). Tampoco si el panel ya no es el de
+`session:window` del meta (tras reiniciar tmux los `%N` se reutilizan) ni si el usuario
+cambió el ajuste a mano entre medias (ya no es lo que puso Argos). Si el pegado del prompt
+falla después de cambiar el modelo, se restaura antes de dejarlo en cola. Lo que se
+restaura es lo **guardado**: si la ventana se abrió con `--model` u otro modelo de
+proyecto, vuelve al predeterminado guardado, no a ese.
 
 Un archivo por encargo y un cerrojo por proyecto (`mkdir lock`) evitan que la app (al
 encolar) y el despachador (al avanzar) se pisen. El texto del prompt nunca pasa por la

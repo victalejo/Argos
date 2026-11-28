@@ -161,10 +161,11 @@ final class PromptLibraryModel {
             try await service.pastePromptToTerminal(session: project.sessionName, window: preferredWindow, text: text)
             notice = String(localized: "«\(prompt.displayTitle)» enviado a la terminal.")
         case .enqueue:
-            let request = ClaudeTaskRequest(
+            var request = ClaudeTaskRequest(
                 prompt: text, session: project.sessionName,
                 window: ClaudeTasksModel.suggestedWindow(claudeWindows), cleanContext: false, commit: false
             )
+            request.modelChoice = ClaudeTaskModelChoice(savedPrompt: prompt)
             try await service.enqueueTask(request, projectPath: project.path)
             notice = String(localized: "«\(prompt.displayTitle)» se ha añadido a la cola de encargos.")
         }

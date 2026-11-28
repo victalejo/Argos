@@ -93,17 +93,20 @@ enum ClaudeAgentCommand {
     /// para que los prompts queden en el log y una reconexión reconstruya la conversación.
     /// `resume`: reanuda una conversación existente (el proceso anterior terminó).
     /// El token OAuth NO va aquí: el lanzador lo recibe por stdin y lo exporta.
+    /// `modelChoice`: `--model`/`--effort` (solo valores de una lista cerrada; nada si es
+    /// «por defecto»).
     static func persistent(
         claudePath: String,
         sessionID: String,
         resume: Bool,
-        permissionMode: PermissionMode = .default
+        permissionMode: PermissionMode = .default,
+        modelChoice: ClaudeTaskModelChoice = .default
     ) -> String {
         let flags = (baseFlags + [
             "--replay-user-messages",
             "--permission-mode", modeArgument(permissionMode),
             resume ? "--resume" : "--session-id", sessionID,
-        ]).joined(separator: " ")
+        ] + modelChoice.cliArguments).joined(separator: " ")
         return "env -u ANTHROPIC_API_KEY \(ShellQuoting.singleQuoted(claudePath)) \(flags)"
     }
 

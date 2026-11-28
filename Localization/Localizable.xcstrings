@@ -10889,6 +10889,38 @@
         }
       }
     },
+    "En la terminal, Argos escribe /model y /effort antes del encargo y, al terminar, vuelve a poner los que Claude Code tenía guardados. Mientras dura, esa ventana (y las sesiones nuevas de Claude Code) usan los del encargo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In the terminal, Argos types /model and /effort before the task and, when it finishes, puts back the ones Claude Code had saved. While it runs, that window (and new Claude Code sessions) use the task's."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En la terminal, Argos escribe /model y /effort antes del encargo y, al terminar, vuelve a poner los que Claude Code tenía guardados. Mientras dura, esa ventana (y las sesiones nuevas de Claude Code) usan los del encargo."
+          }
+        }
+      }
+    },
+    "esfuerzo %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ effort"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "esfuerzo %@"
+          }
+        }
+      }
+    },
     "ESPACIO DE TRABAJO" : {
       "localizations" : {
         "en" : {
@@ -19738,6 +19770,22 @@
         }
       }
     },
+    "Muy alto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Very high"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muy alto"
+          }
+        }
+      }
+    },
     "Muévete más rápido" : {
       "localizations" : {
         "en" : {
@@ -20534,6 +20582,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No salgas de Argos hasta terminar: el inicio de sesión se cancelaría. Con «Copiar enlace» puedes autorizar desde otro dispositivo."
+          }
+        }
+      }
+    },
+    "No se cambió el modelo: los ajustes de Claude Code tienen un valor que Argos no sabría volver a poner." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The model wasn't changed: Claude Code's settings hold a value Argos couldn't put back."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se cambió el modelo: los ajustes de Claude Code tienen un valor que Argos no sabría volver a poner."
           }
         }
       }
@@ -22698,6 +22762,22 @@
         }
       }
     },
+    "No se pudo volver a poner el modelo de antes en la ventana: compruébalo con /model." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't put the previous model back in the window: check it with /model."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo volver a poner el modelo de antes en la ventana: compruébalo con /model."
+          }
+        }
+      }
+    },
     "No se pudo tomar la primera muestra." : {
       "localizations" : {
         "en" : {
@@ -24054,6 +24134,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "PID %@"
+          }
+        }
+      }
+    },
+    "Por defecto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por defecto"
           }
         }
       }

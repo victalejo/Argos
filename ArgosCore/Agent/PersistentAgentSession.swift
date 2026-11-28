@@ -147,7 +147,8 @@ final class PersistentAgentSession {
             throw PersistentAgentError.claudeMissing
         }
         let invocation = ClaudeAgentCommand.persistent(
-            claudePath: claudePath, sessionID: id, resume: resume, permissionMode: meta.resolvedPermissionMode
+            claudePath: claudePath, sessionID: id, resume: resume, permissionMode: meta.resolvedPermissionMode,
+            modelChoice: meta.modelChoice
         )
         let command = try PersistentAgentScript.launch(
             id: id, meta: meta, claudeInvocation: invocation, hibernation: hibernation
