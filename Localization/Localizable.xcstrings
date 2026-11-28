@@ -19978,6 +19978,22 @@
         }
       }
     },
+    "No se cambió el modelo: los ajustes de Claude Code tienen un valor que Argos no sabría volver a poner." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The model wasn't changed: Claude Code's settings hold a value Argos couldn't put back."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se cambió el modelo: los ajustes de Claude Code tienen un valor que Argos no sabría volver a poner."
+          }
+        }
+      }
+    },
     "No se encontró claude en el servidor." : {
       "localizations" : {
         "en" : {
@@ -22070,6 +22086,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo subir el archivo al servidor. %@"
+          }
+        }
+      }
+    },
+    "No se pudo volver a poner el modelo de antes en la ventana: compruébalo con /model." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't put the previous model back in the window: check it with /model."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo volver a poner el modelo de antes en la ventana: compruébalo con /model."
           }
         }
       }

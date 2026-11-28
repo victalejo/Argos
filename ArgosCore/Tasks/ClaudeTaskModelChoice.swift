@@ -52,6 +52,23 @@ enum ClaudeTaskEffort: String, CaseIterable, Sendable {
     }
 }
 
+/// Lo que el despachador apunta (`model_note=`) cuando no pudo hacer su parte en la terminal.
+enum ClaudeTaskModelNote: String, Equatable, Sendable {
+    /// No se cambió: el valor guardado en los ajustes de Claude Code no se podría volver a poner.
+    case unsafe
+    /// No se volvió a poner el de antes (la ventana se cerró o no quedó libre en 30 min).
+    case kept
+
+    var text: String {
+        switch self {
+        case .unsafe:
+            return String(localized: "No se cambió el modelo: los ajustes de Claude Code tienen un valor que Argos no sabría volver a poner.")
+        case .kept:
+            return String(localized: "No se pudo volver a poner el modelo de antes en la ventana: compruébalo con /model.")
+        }
+    }
+}
+
 /// Modelo y esfuerzo elegidos (`nil` = el que tenga Claude Code por defecto).
 struct ClaudeTaskModelChoice: Equatable, Hashable, Sendable {
     var model: ClaudeTaskModel?

@@ -122,6 +122,8 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
     }
     /// Modelo y esfuerzo pedidos (por defecto si no se pidió nada o es desconocido).
     var modelChoice: ClaudeTaskModelChoice = .default
+    /// Aviso del despachador sobre el modelo en la terminal (no se cambió o no se restauró).
+    var modelNote: ClaudeTaskModelNote?
 
     var id: String { "\(projectKey)/\(folder)" }
     var sequence: Int { Int(folder.prefix { $0.isNumber }) ?? 0 }
@@ -184,6 +186,7 @@ struct ClaudeTask: Identifiable, Equatable, Sendable {
                 modelChoice: ClaudeTaskModelChoice(modelText: meta["model"], effortText: meta["effort"])
             )
             task.push = meta["push"] == "1" || meta["review_push"] == "1"
+            task.modelNote = meta["model_note"].flatMap { ClaudeTaskModelNote(rawValue: $0.trimmingCharacters(in: .whitespaces)) }
             task.directory = meta["dir"].map { String($0.prefix(1024)) }
             task.session = meta["session"].map { String($0.prefix(200)) }
             task.checkCommand = meta["check"].map { String($0.prefix(1024)) }.flatMap { $0.isEmpty ? nil : $0 }

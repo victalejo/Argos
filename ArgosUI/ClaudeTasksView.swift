@@ -155,6 +155,7 @@ private struct ClaudeTaskRow: View {
     private var subtitle: String {
         var parts = [item.state?.label ?? String(localized: "Desconocido")]
         if let model = item.modelChoice.summary { parts.append(model) }
+        if let note = item.modelNote { parts.append(note.text) }
         if let reason = item.reason, item.state == .pending || item.state == .paused || item.state == .failed || item.state == .done {
             if reason == .budget, let budgetBlock {
                 parts.append(budgetBlock.message())

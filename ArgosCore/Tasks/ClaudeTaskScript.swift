@@ -60,13 +60,21 @@ enum ClaudeTaskScript {
         }
 
         # ¿Puede recibir un encargo el panel? Claude libre: sin estado «trabajando/esperando»
-        # y sin rastro de trabajo en pantalla (como el sondeo de la app).
+        # (salvo con $2=1: Claude acaba de terminar), sin rastro de trabajo en pantalla (como
+        # el sondeo de la app), sin un diálogo de permiso o de elección abierto (un Enter lo
+        # respondería) y sin nadie tecleando en esa sesión en los últimos 10 s.
         idle() {
-          o=$(tmux -u show-options -pqv -t "$1" @argos_claude 2>/dev/null)
-          case "$o" in working|waiting) return 1 ;; esac
+          if [ "$2" != 1 ]; then
+            o=$(tmux -u show-options -pqv -t "$1" @argos_claude 2>/dev/null)
+            case "$o" in working|waiting) return 1 ;; esac
+          fi
           s=$(tmux -u capture-pane -p -t "$1" 2>/dev/null) || return 1
           printf '%s\n' "$s" | tail -n 4 | grep -q 'esc to interrupt' && return 1
           printf '%s\n' "$s" | grep -q '^[^ ]* Waiting for [0-9]* background' && return 1
+          printf '%s\n' "$s" | tail -n 14 | grep -qE 'Do you want to|Enter to (select|confirm)|Esc to cancel|❯ [0-9]+\.' && return 1
+          sn=$(tmux -u display-message -p -t "$1" '#{session_name}' 2>/dev/null)
+          ca=$(tmux -u list-clients -t "=$sn" -F '#{client_activity}' 2>/dev/null | sort -n | tail -n 1)
+          case "$ca" in ''|*[!0-9]*) ;; *) [ $(( $(date +%s) - ca )) -lt 10 ] && return 1 ;; esac
           return 0
         }
 
@@ -97,54 +105,7 @@ enum ClaudeTaskScript {
 
         \#(ClaudeBudgetScript.functions)
 
-        # Modelo y esfuerzo de un encargo en la terminal (ver `ClaudeTaskModelChoice`). En
-        # Claude Code interactivo, `/model` y `/effort` también los guardan como predeterminados
-        # en ~/.claude/settings.json: antes se apunta lo que había (`restore`) y al acabar el
-        # encargo se vuelve a poner. Solo valores de una lista cerrada.
-        say() { tmux -u send-keys -t "$1" -l "$2" 2>/dev/null; tmux -u send-keys -t "$1" Enter 2>/dev/null; }
-        # Valor guardado de la clave $1 en los ajustes de Claude Code: vacío si no está, «?» si
-        # está pero no es un texto sencillo (entonces no se toca).
-        setting() {
-          sf="$HOME/.claude/settings.json"
-          grep -qs "\"$1\"[[:space:]]*:" "$sf" || return 0
-          sv=$(grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$sf" | head -n 1 | sed 's/.*"\([^"]*\)"$/\1/')
-          case "$sv" in ''|*[!]A-Za-z0-9._:[-]*) sv='?' ;; esac
-          [ ${#sv} -le 80 ] || sv='?'
-          printf '%s\n' "$sv"
-        }
-        # Antes del encargo $1 en el panel $2: apunta lo que había y escribe /model y /effort.
-        set_model() {
-          md=$(meta "$1" model); ef=$(meta "$1" effort)
-          case "$md" in haiku|sonnet|opus) ;; *) md= ;; esac
-          case "$ef" in low|medium|high|xhigh|max) ;; *) ef= ;; esac
-          [ -n "$md$ef" ] || return 0
-          rsm=; rse=
-          if [ -n "$md" ]; then
-            pv=$(setting model)
-            case "$pv" in '') rsm=default ;; '?') ;; *) rsm=$pv ;; esac
-          fi
-          if [ -n "$ef" ]; then
-            pv=$(setting effortLevel)
-            case "$pv" in '') rse=auto ;; low|medium|high|xhigh|max) rse=$pv ;; esac
-          fi
-          printf 'model=%s\neffort=%s\n' "$rsm" "$rse" > "$1/restore"
-          [ -n "$md" ] && { say "$2" "/model $md"; sleep 2; }
-          [ -n "$ef" ] && { say "$2" "/effort $ef"; sleep 1; }
-          return 0
-        }
-        # Al acabar (o pausarse) un encargo en la terminal: vuelve a poner el modelo y el
-        # esfuerzo que había, si Claude sigue abierto en su panel.
-        restore_model() {
-          [ -f "$1/restore" ] || return 0
-          rp=$(cat "$1/pane" 2>/dev/null)
-          rmd=$(sed -n 's/^model=//p' "$1/restore" | head -n 1); ref=$(sed -n 's/^effort=//p' "$1/restore" | head -n 1)
-          rm -f "$1/restore"
-          [ -n "$rp" ] && tmux -u list-panes -a -F '#{pane_id}' 2>/dev/null | grep -qxF "$rp" || return 0
-          shell_only "$rp" && return 0
-          case "$rmd" in ''|*[!]A-Za-z0-9._:[-]*) ;; *) say "$rp" "/model $rmd"; sleep 2 ;; esac
-          case "$ref" in auto|low|medium|high|xhigh|max) say "$rp" "/effort $ref"; sleep 1 ;; esac
-          return 0
-        }
+        \#(ClaudeTaskModelScript.functions)
 
         # Lanza el encargo $2 del proyecto $1 en su panel. $3=1: Claude acaba de terminar
         # (hook Stop), no hace falta mirar si está libre.
@@ -161,19 +122,24 @@ enum ClaudeTaskScript {
           if [ "$(meta "$t" context)" = clear ]; then
             tmux -u send-keys -t "$pane" /clear Enter 2>/dev/null; sleep 2
           fi
-          set_model "$t" "$pane"
+          put "$t" pane "$pane"
+          # Un encargo anterior de este panel que aún no volvió a su modelo: primero eso.
+          for o in "$1"/[0-9]*-*; do
+            [ "$o" != "$t" ] && [ -f "$o/restore" ] && [ "$(state "$o")" != running ] && [ "$(cat "$o/pane" 2>/dev/null)" = "$pane" ] && restore_model "$o"
+          done
+          set_model "$t" "$pane" || { put "$t" reason "busy"; return 1; }
           if [ "$(meta "$t" resume)" = 1 ]; then
             printf '%s' "Continúa con el encargo anterior donde lo dejaste." > "$t/prompt.resume"
             src="$t/prompt.resume"
           else
             src="$t/prompt"
           fi
-          tmux -u load-buffer -b "$buf" "$src" 2>/dev/null || { put "$t" reason "tmux"; return 1; }
-          tmux -u paste-buffer -p -d -b "$buf" -t "$pane" 2>/dev/null || { put "$t" reason "tmux"; return 1; }
+          tmux -u load-buffer -b "$buf" "$src" 2>/dev/null || { put "$t" reason "tmux"; restore_model "$t"; return 1; }
+          tmux -u paste-buffer -p -d -b "$buf" -t "$pane" 2>/dev/null || { put "$t" reason "tmux"; restore_model "$t"; return 1; }
           sleep 1
           tmux -u send-keys -t "$pane" Enter 2>/dev/null
           tmux -u set-option -p -t "$pane" @argos_claude working 2>/dev/null
-          put "$t" pane "$pane"; put "$t" started "$(date +%s)"; rm -f "$t/reason"
+          put "$t" started "$(date +%s)"; rm -f "$t/reason"
           put "$t" state running
           return 0
         }
@@ -313,6 +279,7 @@ enum ClaudeTaskScript {
           tick)
             expire
             review_expire
+            model_sweep
             for s in "$base"/schedules/*/; do
               s=${s%/}; [ -f "$s/config" ] || continue
               due "$s" && spawn "$s"
@@ -344,7 +311,7 @@ enum ClaudeTaskScript {
                 # por vencida.
                 detach sh "$self" finish "${p##*/}" "${t##*/}"
               else
-                (sleep 2; restore_model "$t"; sh "$self" next "${p##*/}") >/dev/null 2>&1 &
+                (sleep 2; restore_soon "$t"; sh "$self" next "${p##*/}") >/dev/null 2>&1 &
               fi
             else
               case "$i" in
@@ -353,7 +320,7 @@ enum ClaudeTaskScript {
               esac
               printf 'resume=1\n' >> "$t/meta"
               put "$t" state paused
-              [ -f "$t/restore" ] && { (sleep 2; restore_model "$t") >/dev/null 2>&1 & }
+              [ -f "$t/restore" ] && { (sleep 2; restore_soon "$t") >/dev/null 2>&1 & }
             fi
             ;;
           enqueue)
@@ -411,7 +378,7 @@ enum ClaudeTaskScript {
             # Interno (hook Stop): commit, comprobación, revisión y push; luego el siguiente.
             case "$2$3" in *[!A-Za-z0-9_-]*|'') exit 0 ;; esac
             t="$base/$2/$3"; [ -d "$t" ] || exit 0
-            [ -f "$t/restore" ] && { sleep 2; restore_model "$t"; }
+            [ -f "$t/restore" ] && { sleep 2; restore_soon "$t"; }
             commit_task "$t"
             advance "$base/$2" 1
             ;;
