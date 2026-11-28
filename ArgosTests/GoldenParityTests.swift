@@ -63,6 +63,7 @@ struct GoldenParityTests {
         "schedule-launch-tpl", "schedule-meta-tpl", "schedule-task-tpl",
         "metrics-sample-script", "metrics-history-6h", "metrics-history-7d", "metrics-uninstall",
         "orphans-list", "orphans-kill",
+        "session-context-script", "session-context-hook", "session-context-preview", "hooks-with-session-context",
     ]
 
     @Test func losPendientesDePortTienenGenerador() throws {

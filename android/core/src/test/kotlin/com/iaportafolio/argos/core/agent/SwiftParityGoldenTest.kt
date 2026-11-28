@@ -112,6 +112,17 @@ class SwiftParityGoldenTest {
         assertGolden("serialize-empty", ClaudeHookInstaller.serialize(JsonObject(emptyMap())))
     }
 
+    /**
+     * El hook `SessionStart` del contexto al arrancar Claude (lo instalan Mac e iPhone/iPad,
+     * con su propia marca): reinstalar o quitar el indicador desde Android debe conservarlo.
+     */
+    @Test
+    fun `el indicador de Android conserva el hook de contexto de Swift`() {
+        val withContext = ClaudeHookInstaller.parseSettings(golden("hooks-with-session-context"))
+        assertGolden("hooks-session-context-reinstalled", ClaudeHookInstaller.serialize(ClaudeHookInstaller.installing(withContext)))
+        assertGolden("hooks-session-context-status-removed", ClaudeHookInstaller.serialize(ClaudeHookInstaller.removing(withContext)))
+    }
+
     @Test
     fun `statusline de limites de Claude`() {
         // Mismas entradas que `GoldenCatalog.claudeLimits()` de Swift.

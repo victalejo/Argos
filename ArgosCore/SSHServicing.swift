@@ -306,6 +306,15 @@ protocol SSHServicing: Sendable {
     func installCheckpointHook() async throws
     /// Quita el hook de captura y su script del servidor.
     func uninstallCheckpointHook() async throws
+
+    // MARK: Contexto al arrancar Claude (implementación por defecto en `SSHSessionContext.swift`)
+
+    /// ¿Recibe Claude el contexto de Argos al arrancar en este servidor?
+    func sessionContextEnabled() async throws -> Bool
+    /// Activa (hook y script) o apaga (y recuerda que se apagó) el contexto al arrancar.
+    func setSessionContextEnabled(_ enabled: Bool) async throws
+    /// Lo que recibiría Claude ahora al arrancar en `projectPath`.
+    func previewSessionContext(projectPath: String) async throws -> SessionContextPreview
 }
 
 extension SSHServicing {

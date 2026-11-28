@@ -3,7 +3,8 @@
 //  Argos
 //
 //  Hoja del Mac «Uso y límites de Claude» de un servidor: tokens y coste por proyecto y día
-//  (`ClaudeUsageView`) y la lectura de límites (`ClaudeLimitsSetupView`).
+//  (`ClaudeUsageView`), la lectura de límites (`ClaudeLimitsSetupView`) y el contexto que
+//  Argos le da a Claude al arrancar (`SessionContextSettingsView`).
 //
 
 import SwiftUI
@@ -15,12 +16,14 @@ struct ClaudeLimitsSheet: View {
 
     @State private var setup: ClaudeLimitsSetupModel
     @State private var usage: ClaudeUsageModel
+    @State private var context: SessionContextModel
 
     init(target: ServerSheetTarget, model: ArgosAppModel, onClose: @escaping () -> Void) {
         self.target = target
         self.model = model
         self.onClose = onClose
         _setup = State(initialValue: ClaudeLimitsSetupModel(service: target.service))
+        _context = State(initialValue: SessionContextModel(service: target.service))
         _usage = State(initialValue: ClaudeUsageModel(
             service: target.service, projects: model.vms[target.server.id]?.projects ?? []
         ))
@@ -38,6 +41,9 @@ struct ClaudeLimitsSheet: View {
                             status: model.vms[target.server.id]?.claudeLimits,
                             serverName: target.server.name
                         )
+                    }
+                    section("Contexto al arrancar Claude") {
+                        SessionContextSettingsView(model: context, projects: model.vms[target.server.id]?.projects ?? [])
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -3073,6 +3073,22 @@
         }
       }
     },
+    "Activado. Claude lo recibe al abrirse, reanudarse, limpiar (/clear) o compactar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On. Claude gets it when it starts, resumes, clears (/clear) or compacts."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activado. Claude lo recibe al abrirse, reanudarse, limpiar (/clear) o compactar."
+          }
+        }
+      }
+    },
     "Activado. Los límites aparecen en cuanto Claude Code refresque su barra de estado (al usarlo); las sesiones ya abiertas lo recogen solas." : {
       "localizations" : {
         "en" : {
@@ -3601,6 +3617,22 @@
         }
       }
     },
+    "Ahora mismo Claude no recibiría nada en este proyecto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Right now Claude wouldn’t receive anything in this project."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora mismo Claude no recibiría nada en este proyecto."
+          }
+        }
+      }
+    },
     "Ahora no" : {
       "localizations" : {
         "en" : {
@@ -3645,6 +3677,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Al abrir"
+          }
+        }
+      }
+    },
+    "Al abrir Claude Code en un proyecto, Argos le da un resumen breve: el último CI de la rama, los cambios sin commit, los puertos abiertos, los encargos en cola, otros Claude en el mismo repositorio y lo que queda de tus límites." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you open Claude Code in a project, Argos gives it a short summary: the latest CI run for the branch, uncommitted changes, open ports, queued tasks, other Claude sessions in the same repository and what’s left of your limits."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al abrir Claude Code en un proyecto, Argos le da un resumen breve: el último CI de la rama, los cambios sin commit, los puertos abiertos, los encargos en cola, otros Claude en el mismo repositorio y lo que queda de tus límites."
           }
         }
       }
@@ -8489,6 +8537,38 @@
         }
       }
     },
+    "Contexto al arrancar Claude" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Context When Claude Starts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contexto al arrancar Claude"
+          }
+        }
+      }
+    },
+    "Contexto de Argos al arrancar Claude" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Argos context when Claude starts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contexto de Argos al arrancar Claude"
+          }
+        }
+      }
+    },
     "Continuar" : {
       "localizations" : {
         "en" : {
@@ -9813,6 +9893,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Desactivado"
+          }
+        }
+      }
+    },
+    "Desactivado. Claude ya no recibe el resumen de Argos en este servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off. Claude no longer gets the Argos summary on this server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivado. Claude ya no recibe el resumen de Argos en este servidor."
           }
         }
       }
@@ -14149,6 +14245,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Es %@. %@"
+          }
+        }
+      }
+    },
+    "Es un hook SessionStart en ~/.claude/settings.json (con copia en settings.json.argos-backup). Solo lee, tarda como mucho unos 3 segundos y no incluye secretos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It’s a SessionStart hook in ~/.claude/settings.json (backed up to settings.json.argos-backup). It only reads, takes about 3 seconds at most and includes no secrets."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es un hook SessionStart en ~/.claude/settings.json (con copia en settings.json.argos-backup). Solo lee, tarda como mucho unos 3 segundos y no incluye secretos."
           }
         }
       }
@@ -20154,6 +20266,22 @@
         }
       }
     },
+    "No disponible en este servidor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not available on this server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No disponible en este servidor."
+          }
+        }
+      }
+    },
     "No es un repositorio git" : {
       "localizations" : {
         "en" : {
@@ -21450,6 +21578,22 @@
         }
       }
     },
+    "No se pudo cambiar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t change it: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cambiar: %@"
+          }
+        }
+      }
+    },
     "No se pudo cargar la clave Ed25519. Verifica que esté en formato OpenSSH y, si tiene passphrase, que se haya inyectado correctamente." : {
       "localizations" : {
         "en" : {
@@ -21926,6 +22070,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo dividir el panel"
+          }
+        }
+      }
+    },
+    "No se pudo ejecutar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t run it: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo ejecutar: %@"
           }
         }
       }
@@ -31771,6 +31931,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ver lo que cambió en este turno"
+          }
+        }
+      }
+    },
+    "Ver lo que verá Claude" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See what Claude will see"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ver lo que verá Claude"
           }
         }
       }
