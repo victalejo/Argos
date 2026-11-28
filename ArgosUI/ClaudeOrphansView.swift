@@ -100,6 +100,16 @@ private struct OrphanRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("claude · PID \(String(orphan.pid))").font(.callout.weight(.medium))
                     Text(detail).font(.caption).foregroundStyle(.secondary)
+                    if let directory = orphan.directory {
+                        Label(directory, systemImage: "folder")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .lineLimit(1).truncationMode(.middle)
+                    }
+                    if let command = orphan.command {
+                        Text(verbatim: command)
+                            .font(.caption.monospaced()).foregroundStyle(.tertiary)
+                            .lineLimit(2).truncationMode(.tail)
+                    }
                 }
                 Spacer(minLength: 8)
                 Text(ResourceFormat.kilobytes(orphan.totalRSSKB)).font(.callout.monospacedDigit())

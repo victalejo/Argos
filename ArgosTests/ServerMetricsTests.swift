@@ -85,8 +85,8 @@ struct ServerMetricsParsingTests {
     @Test func rangosYLineaDelDespachador() {
         #expect(ServerMetricsRange.week.usesAggregates && !ServerMetricsRange.day.usesAggregates)
         #expect(ServerMetricsRange.sixHours.seconds == 21_600)
-        #expect(ClaudeTaskScript.script.contains(ServerMetricsScript.dispatcherLine))
-        #expect(ServerMetricsScript.dispatcherLine == #"[ -f "$HOME/.config/argos/metrics/sample.sh" ] && sh "$HOME/.config/argos/metrics/sample.sh" >/dev/null 2>&1"#)
+        #expect(ClaudeTaskScript.script.contains(ServerMetricsScript.dispatcherStartLine))
+        #expect(ServerMetricsScript.dispatcherStartLine.contains("detach sh \"$HOME/.config/argos/metrics/sample.sh\""))
         #expect(ServerMetricsScript.historyCommand(.week).contains("tenmin.log"))
         #expect(!ServerMetricsScript.historyCommand(.day).contains("tenmin.log"))
     }
@@ -226,19 +226,56 @@ struct ServerMetricsScriptTests {
         #expect(box.lines("minute.log").isEmpty, "otra muestra en curso")
     }
 
-    @Test func elDespachadorTomaLaMuestraEnCadaTick() throws {
-        let box = try Box()
+    private static func installDispatcher(in box: Box) throws {
         try FileManager.default.createDirectory(
             at: box.home.appendingPathComponent(ClaudeTaskScript.directoryRelativePath), withIntermediateDirectories: true
         )
         try ClaudeTaskScript.script.write(
             to: box.home.appendingPathComponent(ClaudeTaskScript.scriptRelativePath), atomically: true, encoding: .utf8
         )
+    }
+
+    @Test func elDespachadorTomaLaMuestraEnCadaTick() throws {
+        let box = try Box()
+        try Self.installDispatcher(in: box)
         try "cpu  1 0 0 1 0 0 0 0 0 0\n".write(to: box.proc.appendingPathComponent("stat"), atomically: true, encoding: .utf8)
         let env = "ARGOS_METRICS_PROC='\(box.proc.path)' ARGOS_METRICS_PS='\(box.home.path)/ps' ARGOS_METRICS_JOURNAL=/dev/null ARGOS_METRICS_NOW=1700000010"
         let result = try LocalShell.run("\(env) sh \"$HOME/\(ClaudeTaskScript.scriptRelativePath)\" tick", home: box.home)
         #expect(result.exitCode == 0)
-        #expect(box.lines("minute.log").count == 1)
+        #expect(box.lines("minute.log").count == 1, "el tick espera a la muestra (systemd mataría lo que quede)")
+    }
+
+    @Test func unaMuestraColgadaNoFrenaElTick() throws {
+        let box = try Box()
+        try Self.installDispatcher(in: box)
+        // Una muestra que no acaba nunca (un `ps` o un `journalctl` colgados).
+        try "sleep 30\n".write(to: box.metrics.appendingPathComponent("sample.sh"), atomically: true, encoding: .utf8)
+        let start = Date()
+        let result = try LocalShell.run(
+            "ARGOS_METRICS_WAIT=1 sh \"$HOME/\(ClaudeTaskScript.scriptRelativePath)\" tick; pkill -f \"$HOME/\(ServerMetricsScript.scriptRelativePath)\"",
+            home: box.home
+        )
+        #expect(result.exitCode == 0)
+        #expect(Date().timeIntervalSince(start) < 10, "el tick no espera más de su plazo")
+        let script = ClaudeTaskScript.script
+        let startLine = try #require(script.range(of: ServerMetricsScript.dispatcherStartLine))
+        let expire = try #require(script.range(of: "expire\n", range: startLine.upperBound..<script.endIndex))
+        #expect(script[startLine.upperBound..<expire.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                "la muestra se lanza en segundo plano antes de expire")
+        #expect(script.contains(ServerMetricsScript.dispatcherWaitLine))
+    }
+
+    @Test func sinTimeoutElPsRealTienePlazo() throws {
+        let box = try Box()
+        // Sin ARGOS_METRICS_PS: el `ps` de verdad pasa por `lim`, que en el Mac (sin `timeout`)
+        // usa el vigilante propio.
+        try "cpu  1 0 0 1 0 0 0 0 0 0\n".write(to: box.proc.appendingPathComponent("stat"), atomically: true, encoding: .utf8)
+        let env = "ARGOS_METRICS_PROC='\(box.proc.path)' ARGOS_METRICS_JOURNAL=/dev/null ARGOS_METRICS_NOW=1700000010"
+        let result = try LocalShell.run("\(env) sh \"$HOME/\(ServerMetricsScript.scriptRelativePath)\"", home: box.home)
+        #expect(result.exitCode == 0)
+        let fields = box.lines("minute.log").first?.split(separator: " ") ?? []
+        #expect(fields.count == 11, "muestra completa: \(fields)")
+        #expect(fields.count == 11 && Int(fields[8]) ?? -1 >= 0, "cuenta los claude del Mac")
     }
 
     @Test func elComandoDeLecturaDevuelveElRango() throws {
@@ -262,41 +299,28 @@ struct ServerMetricsScriptTests {
 
     /// `launchctl`, `systemctl` y `crontab` falsos (anotan su uso en `$HOME/timer.log`) por
     /// delante en el PATH: el desinstalador nunca llega a los del Mac que ejecuta las pruebas.
-    private static func runWithFakeTimerTools(_ command: String, box: Box) throws -> (LocalShell.Result, String) {
+    @Test func quitarSoloBorraElHistorialYNuncaElTemporizador() throws {
+        let box = try Box()
         let bin = box.home.appendingPathComponent("fakebin")
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
         let log = box.home.appendingPathComponent("timer.log").path
         for tool in ["launchctl", "systemctl", "crontab"] {
-            let body = tool == "crontab"
-                ? "#!/bin/sh\necho \"crontab $*\" >> '\(log)'\n[ \"$1\" = -l ] && echo '* * * * * x # \(ClaudeTaskTimer.marker)'\nexit 0\n"
-                : "#!/bin/sh\necho \"\(tool) $*\" >> '\(log)'\nexit 0\n"
             let url = bin.appendingPathComponent(tool)
-            try body.write(to: url, atomically: true, encoding: .utf8)
+            try "#!/bin/sh\necho \"\(tool) $*\" >> '\(log)'\nexit 0\n".write(to: url, atomically: true, encoding: .utf8)
             try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
         }
-        let result = try LocalShell.run("PATH='\(bin.path):/usr/bin:/bin'; export PATH\n" + command, home: box.home)
-        let calls = (try? String(contentsOfFile: log, encoding: .utf8)) ?? ""
-        return (result, calls)
-    }
-
-    @Test func quitarConTareasProgramadasDejaElTemporizador() throws {
-        let box = try Box()
-        let schedule = box.home.appendingPathComponent("\(ClaudeTaskScript.directoryRelativePath)/schedules/abc")
-        try FileManager.default.createDirectory(at: schedule, withIntermediateDirectories: true)
-        try "enabled=1\n".write(to: schedule.appendingPathComponent("config"), atomically: true, encoding: .utf8)
-        let (result, calls) = try Self.runWithFakeTimerTools(ServerMetricsScript.uninstallCommand, box: box)
+        // Lo que depende del tick: cola, presupuestos (sin tareas programadas).
+        let tasks = box.home.appendingPathComponent(ClaudeTaskScript.directoryRelativePath)
+        let budget = box.home.appendingPathComponent(".config/argos/budgets/x")
+        try FileManager.default.createDirectory(at: tasks.appendingPathComponent("proyecto"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: budget, withIntermediateDirectories: true)
+        #expect(!ServerMetricsScript.uninstallCommand.contains("launchctl"))
+        #expect(!ServerMetricsScript.uninstallCommand.contains("crontab"))
+        let result = try LocalShell.run("PATH='\(bin.path):/usr/bin:/bin'; export PATH\n" + ServerMetricsScript.uninstallCommand, home: box.home)
         #expect(result.exitCode == 0)
         #expect(!FileManager.default.fileExists(atPath: box.metrics.path))
-        #expect(FileManager.default.fileExists(atPath: schedule.path))
-        #expect(calls.isEmpty, "con tareas programadas el temporizador no se toca: \(calls)")
-    }
-
-    @Test func quitarSinTareasProgramadasQuitaElTemporizador() throws {
-        let box = try Box()
-        let (result, calls) = try Self.runWithFakeTimerTools(ServerMetricsScript.uninstallCommand, box: box)
-        #expect(result.exitCode == 0)
-        #expect(!FileManager.default.fileExists(atPath: box.metrics.path))
-        #expect(calls.contains("crontab -"), "quita su línea de cron (falso): \(calls)")
-        #expect(calls.contains("launchctl"), "y el launchd (falso): \(calls)")
+        #expect(FileManager.default.fileExists(atPath: tasks.appendingPathComponent("proyecto").path))
+        #expect(FileManager.default.fileExists(atPath: budget.path))
+        #expect(((try? String(contentsOfFile: log, encoding: .utf8)) ?? "").isEmpty, "no toca ningún temporizador")
     }
 }

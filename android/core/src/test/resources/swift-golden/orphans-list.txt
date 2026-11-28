@@ -9,11 +9,21 @@ for a in "$HOME/.config/argos/agents"/*/; do
   q=$(cat "$a/pid" 2>/dev/null); case "$q" in ''|*[!0-9]*) continue ;; esac
   ps -o args= -p "$q" 2>/dev/null | grep -qF -- "$id" && agents="$agents $q"
 done
+managed=$(ps -eo pid=,args= 2>/dev/null | awk 'index($0, "/.config/argos/") || index($0, "/.vscode-server") || index($0, "/.cursor-server") || index($0, "/.windsurf-server") { print $1 }' | head -n 5000 | tr '\n' ' ')
 for q in $agents; do echo "agent $q"; done
+for q in $managed; do echo "managed $q"; done
 ps -eo pid=,ppid=,uid=,rss=,etime=,tty=,comm= 2>/dev/null | head -n 20000 | sed 's/^ */p /'
 for c in $(ps -eo pid=,uid=,comm= 2>/dev/null | awk -v me="$me" '$2 == me { n = $3; for (i = 4; i <= NF; i++) n = n " " $i; sub(/.*\//, "", n); if (n == "claude") print $1 }' | head -n 500); do
   a=$(ps -o args= -p "$c" 2>/dev/null)
   for id in $ids; do case "$a" in *"$id"*) echo "agent $c" ;; esac; done
+  grep -qs '\.service$' "/proc/$c/cgroup" && echo "svc $c"
   printf 'start %s %s\n' "$c" "$(ps -o lstart= -p "$c" 2>/dev/null | tr -s ' ' | sed 's/^ //; s/ $//')"
+  w=$(readlink "/proc/$c/cwd" 2>/dev/null | tr -cd 'A-Za-z0-9._/ +@:,=~-' | cut -c1-200)
+  [ -n "$w" ] && printf 'cwd %s %s\n' "$c" "$w"
+  printf '%s\n' "$a" | awk -v c="$c" '{ o = $1; sub(/.*\//, "", o); d = 0
+    for (i = 2; i <= NF && i <= 60; i++) { t = $i
+      if (t ~ /^-/) { sub(/=.*/, "", t); gsub(/[^A-Za-z0-9_-]/, "", t); o = o " " t; d = 0 }
+      else if (!d) { o = o " ..."; d = 1 } }
+    gsub(/[^A-Za-z0-9_. -]/, "", o); print "args", c, substr(o, 1, 200); exit }'
 done
 exit 0

@@ -40,7 +40,14 @@ enum ServerMetricsScript {
         export LC_ALL=C
         [ -d "$d" ] || exit 0
         [ -r "$p/meminfo" ] && [ -r "$p/stat" ] || exit 0
-        lim() { _t=$1; shift; if command -v timeout >/dev/null 2>&1; then timeout -k 2 "$_t" "$@"; else "$@"; fi; }
+        # Plazo $1 (s) para el resto: con `timeout` si lo hay y, si no, con un vigilante propio.
+        lim() {
+          _t=$1; shift
+          if command -v timeout >/dev/null 2>&1; then timeout -k 2 "$_t" "$@"; return; fi
+          "$@" & _c=$!
+          ( sleep "$_t"; kill -TERM "$_c" 2>/dev/null; sleep 2; kill -KILL "$_c" 2>/dev/null ) </dev/null >/dev/null 2>&1 &
+          _w=$!; wait "$_c"; _r=$?; kill "$_w" 2>/dev/null; return $_r
+        }
         if ! mkdir "$d/lock" 2>/dev/null; then
           # Cerrojo de más de 5 min: de una muestra que murió.
           [ -n "$(find "$d/lock" -prune -mmin +5 2>/dev/null)" ] || exit 0
@@ -148,7 +155,14 @@ enum ServerMetricsScript {
         """#
 
     /// Línea que el `tick)` del despachador añade para tomar la muestra.
-    static let dispatcherLine = #"[ -f "$HOME/\#(scriptRelativePath)" ] && sh "$HOME/\#(scriptRelativePath)" >/dev/null 2>&1"#
+    /// Líneas que el `tick)` del despachador añade: la primera lanza la muestra en segundo
+    /// plano y desacoplada (con `detach`, del despachador), para que un `ps` o un `journalctl`
+    /// colgados nunca retrasen los encargos, los horarios ni el presupuesto; la última, al final
+    /// del `tick`, espera como mucho `dispatcherWaitSeconds` a que acabe (systemd mata lo que
+    /// queda en el grupo del servicio al terminar el `tick`).
+    static let dispatcherStartLine = #"_mp=""; [ -f "$HOME/\#(scriptRelativePath)" ] && detach sh "$HOME/\#(scriptRelativePath)" && _mp=$!"#
+    static let dispatcherWaitSeconds = 40
+    static let dispatcherWaitLine = #"_mi=0; while [ -n "$_mp" ] && [ $_mi -lt "${ARGOS_METRICS_WAIT:-\#(dispatcherWaitSeconds)}" ] && kill -0 "$_mp" 2>/dev/null; do sleep 1; _mi=$((_mi + 1)); done"#
 
     /// Comando que lee el historial de `range` (recortado) y el estado: `@@installed` si el
     /// muestreo está puesto, `@@noproc` si el servidor no tiene `/proc`, `@@timer <tipo>`,
@@ -184,13 +198,9 @@ enum ServerMetricsScript {
     /// Toma una muestra ya (tras instalar, para que la CPU tenga referencia).
     static let sampleNowCommand = #"[ -f "$HOME/\#(scriptRelativePath)" ] && sh "$HOME/\#(scriptRelativePath)" >/dev/null 2>&1; exit 0"#
 
-    /// Quita el muestreo y su historial. El temporizador se queda si hay tareas programadas
-    /// (lo usan ellas); si no, se quita también.
-    static let uninstallCommand = #"""
-        rm -rf "$HOME/\#(directoryRelativePath)"
-        for f in "$HOME/\#(ClaudeTaskScript.directoryRelativePath)"/schedules/*/config; do [ -f "$f" ] && exit 0; done
-
-        """# + ClaudeTaskTimer.uninstallCommand
+    /// Quita el muestreo y su historial, y nada más: el temporizador es compartido (encargos
+    /// en cola, revisión antes del push, tareas programadas y presupuestos dependen del `tick`).
+    static let uninstallCommand = #"rm -rf "$HOME/\#(directoryRelativePath)"; exit 0"#
 }
 
 /// Rango del historial que enseña la app.

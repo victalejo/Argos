@@ -36,6 +36,10 @@ struct ClaudeOrphan: Equatable, Sendable, Identifiable {
     /// Hora de arranque tal como la da `ps -o lstart=`: identifica el proceso al matarlo
     /// (un PID puede reutilizarse).
     let fingerprint: String
+    /// Carpeta de trabajo (de `/proc`; `nil` si no se pudo leer).
+    var directory: String? = nil
+    /// Orden con solo sus opciones (sin valores): para saber qué es antes de cerrarlo.
+    var command: String? = nil
 
     var id: Int { pid }
 }
@@ -48,11 +52,26 @@ struct ClaudeProcessSurvey: Equatable, Sendable {
     var panePIDs: Set<Int> = []
     /// PIDs de agentes persistentes registrados (vivos y comprobados).
     var agentPIDs: Set<Int> = []
+    /// Procesos cuya línea de comandos lleva una marca de Argos (despachador, revisor,
+    /// lanzadores de encargos) o de un IDE remoto: ni ellos ni lo que cuelga se tocan.
+    var managedPIDs: Set<Int> = []
+    /// `claude` que corren dentro de un servicio de systemd (del sistema o `--user`).
+    var servicePIDs: Set<Int> = []
     var fingerprints: [Int: String] = [:]
+    var directories: [Int: String] = [:]
+    var commands: [Int: String] = [:]
 
-    /// Ancestros cuyo árbol nunca se toca: un servidor tmux (paneles de cualquier socket),
-    /// una sesión SSH viva (agente de la app, terminal sin tmux) o mosh.
-    static let protectedAncestorPrefixes = ["tmux", "sshd", "mosh-server"]
+    /// Ancestros cuyo árbol nunca se toca: tmux (paneles de cualquier socket) y una sesión
+    /// SSH viva (agente de la app, terminal sin tmux). Debe coincidir con el script de matar.
+    static let protectedAncestorPrefixes = ["tmux", "sshd"]
+    /// Multiplexores, sesiones y cron.
+    static let protectedAncestorNames: Set<String> = [
+        "screen", "SCREEN", "zellij", "dtach", "abduco", "script", "dropbear", "mosh-server", "cron", "crond",
+    ]
+
+    static func isProtectedAncestorName(_ name: String) -> Bool {
+        protectedAncestorNames.contains(name) || protectedAncestorPrefixes.contains { name.hasPrefix($0) }
+    }
     static let claudeName = "claude"
     private static let maxDepth = 64
 
@@ -65,6 +84,16 @@ struct ClaudeProcessSurvey: Equatable, Sendable {
             case "@@me": survey.uid = fields.count > 1 ? Int(fields[1]) : nil
             case "pane": if fields.count > 1, let pid = positive(fields[1]) { survey.panePIDs.insert(pid) }
             case "agent": if fields.count > 1, let pid = positive(fields[1]) { survey.agentPIDs.insert(pid) }
+            case "managed": if fields.count > 1, let pid = positive(fields[1]) { survey.managedPIDs.insert(pid) }
+            case "svc": if fields.count > 1, let pid = positive(fields[1]) { survey.servicePIDs.insert(pid) }
+            case "cwd":
+                if fields.count > 2, let pid = positive(fields[1]) {
+                    survey.directories[pid] = sanitized(fields[2...].joined(separator: " "), extra: "/ +@:,=~")
+                }
+            case "args":
+                if fields.count > 2, let pid = positive(fields[1]) {
+                    survey.commands[pid] = sanitized(fields[2...].joined(separator: " "), extra: " .")
+                }
             case "start":
                 if fields.count > 2, let pid = positive(fields[1]),
                    let print = ClaudeOrphanScript.validFingerprint(fields[2...].joined(separator: " ")) {
@@ -77,6 +106,12 @@ struct ClaudeProcessSurvey: Equatable, Sendable {
             }
         }
         return survey
+    }
+
+    /// Texto mostrable: solo letras, cifras, `._-` y los `extra`; como mucho 200 caracteres.
+    static func sanitized(_ text: String, extra: String) -> String {
+        let allowed = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" + extra)
+        return String(text.filter { allowed.contains($0) }.prefix(200))
     }
 
     private static func positive(_ text: String) -> Int? {
@@ -127,7 +162,7 @@ struct ClaudeProcessSurvey: Equatable, Sendable {
 
         let candidates = processes.filter { row in
             row.uid == uid && row.name == Self.claudeName && fingerprints[row.pid] != nil
-                && !isProtected(row.pid, byPID: byPID)
+                && !servicePIDs.contains(row.pid) && !isProtected(row.pid, byPID: byPID)
         }
         let candidatePIDs = Set(candidates.map(\.pid))
         // Solo la raíz: un `claude` hijo de otro huérfano va con él.
@@ -138,20 +173,22 @@ struct ClaudeProcessSurvey: Equatable, Sendable {
             let tty = root.tty.allSatisfy({ $0 == "?" || $0 == "-" }) ? nil : root.tty
             return ClaudeOrphan(
                 pid: root.pid, totalRSSKB: rss, descendants: family.count,
-                elapsedSeconds: root.elapsedSeconds, tty: tty, fingerprint: fingerprints[root.pid] ?? ""
+                elapsedSeconds: root.elapsedSeconds, tty: tty, fingerprint: fingerprints[root.pid] ?? "",
+                directory: directories[root.pid], command: commands[root.pid]
             )
         }
         .sorted { $0.totalRSSKB != $1.totalRSSKB ? $0.totalRSSKB > $1.totalRSSKB : $0.pid < $1.pid }
     }
 
-    /// El proceso o un ancestro es un panel de tmux, un agente o un proceso protegido. Si
+    /// El proceso o un ancestro es un panel de tmux, un agente, un proceso con marca de Argos
+    /// o de un IDE remoto, o un multiplexor, sesión o cron. Si
     /// la cadena no llega a init (tabla incompleta o con ciclos), se trata como protegido.
     func isProtected(_ pid: Int, byPID: [Int: ServerProcessRow]) -> Bool {
         var current = pid
         for depth in 0..<Self.maxDepth {
-            if panePIDs.contains(current) || agentPIDs.contains(current) { return true }
+            if panePIDs.contains(current) || agentPIDs.contains(current) || managedPIDs.contains(current) { return true }
             guard let row = byPID[current] else { return true }
-            if depth > 0, Self.protectedAncestorPrefixes.contains(where: { row.name.hasPrefix($0) }) { return true }
+            if depth > 0, Self.isProtectedAncestorName(row.name) { return true }
             if row.ppid <= 1 { return false }
             current = row.ppid
         }

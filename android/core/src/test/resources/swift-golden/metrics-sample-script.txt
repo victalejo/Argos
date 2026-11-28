@@ -6,7 +6,14 @@ umask 077
 export LC_ALL=C
 [ -d "$d" ] || exit 0
 [ -r "$p/meminfo" ] && [ -r "$p/stat" ] || exit 0
-lim() { _t=$1; shift; if command -v timeout >/dev/null 2>&1; then timeout -k 2 "$_t" "$@"; else "$@"; fi; }
+# Plazo $1 (s) para el resto: con `timeout` si lo hay y, si no, con un vigilante propio.
+lim() {
+  _t=$1; shift
+  if command -v timeout >/dev/null 2>&1; then timeout -k 2 "$_t" "$@"; return; fi
+  "$@" & _c=$!
+  ( sleep "$_t"; kill -TERM "$_c" 2>/dev/null; sleep 2; kill -KILL "$_c" 2>/dev/null ) </dev/null >/dev/null 2>&1 &
+  _w=$!; wait "$_c"; _r=$?; kill "$_w" 2>/dev/null; return $_r
+}
 if ! mkdir "$d/lock" 2>/dev/null; then
   # Cerrojo de más de 5 min: de una muestra que murió.
   [ -n "$(find "$d/lock" -prune -mmin +5 2>/dev/null)" ] || exit 0

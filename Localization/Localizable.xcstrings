@@ -28122,18 +28122,18 @@
         }
       }
     },
-    "Se quita el muestreo del servidor y se borra lo guardado. El temporizador se queda si lo usan tus tareas programadas." : {
+    "Se quita el muestreo del servidor y se borra lo guardado. El temporizador del servidor se queda: lo usan también los encargos y los presupuestos." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sampling is removed from the server and what was saved is deleted. The timer stays if your scheduled tasks use it."
+            "value" : "Sampling is removed from the server and what was saved is deleted. The server timer stays: tasks and budgets use it too."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se quita el muestreo del servidor y se borra lo guardado. El temporizador se queda si lo usan tus tareas programadas."
+            "value" : "Se quita el muestreo del servidor y se borra lo guardado. El temporizador del servidor se queda: lo usan también los encargos y los presupuestos."
           }
         }
       }

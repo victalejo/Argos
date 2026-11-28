@@ -84,6 +84,39 @@ struct ClaudeOrphanDetectionTests {
         #expect(ClaudeProcessSurvey.parse("p 1 0 0 1 00:01 ? init").orphans().isEmpty, "sin @@me no hay huérfanos")
     }
 
+    /// Lo que también se protege: lo lanzado por Argos (despachador/revisor, con marca en la
+    /// línea de comandos), VS Code Remote, servicios de systemd y los multiplexores, sesiones y
+    /// cron. Un huérfano de verdad sigue saliendo, con su carpeta y su orden saneadas.
+    @Test func protegeLoDeArgosLosIDEsServiciosYMultiplexores() {
+        var lines = ["@@me 1000", "managed 900", "managed 910", "svc 920"]
+        let parents: [(Int, String)] = [
+            (900, "sh"), (910, "node"), (930, "screen"), (940, "SCREEN"), (950, "zellij"), (960, "dtach"),
+            (970, "abduco"), (980, "script"), (990, "dropbear"), (1000, "cron"), (1010, "crond"), (1020, "mosh-server"),
+        ]
+        for (pid, name) in parents {
+            lines.append("p \(pid) 1 1000 1000 01:00 ? \(name)")
+            lines.append("p \(pid + 1) \(pid) 1000 500000 01:00 ? claude")
+            lines.append("start \(pid + 1) Wed Nov 26 10:00:00 2026")
+        }
+        lines += [
+            "p 920 1 1000 500000 01:00 ? claude", "start 920 Wed Nov 26 10:00:00 2026",
+            "p 2000 1 1000 700000 01:00 pts/3 claude", "start 2000 Wed Nov 26 10:00:00 2026",
+            "cwd 2000 /home/u/mi proyecto;rm",
+            "args 2000 claude --resume ... --model ... $(x)",
+        ]
+        let survey = ClaudeProcessSurvey.parse(lines.joined(separator: "\n"))
+        let orphans = survey.orphans()
+        #expect(orphans.map(\.pid) == [2000], "solo el huérfano de verdad: \(orphans.map(\.pid))")
+        #expect(orphans.first?.directory == "/home/u/mi proyectorm")
+        #expect(orphans.first?.command == "claude --resume ... --model ... x")
+        #expect(orphans.first?.tty == "pts/3")
+        for name in ["screen", "zellij", "dtach", "abduco", "script", "dropbear", "cron", "crond", "tmux: server", "sshd-session"] {
+            #expect(ClaudeProcessSurvey.isProtectedAncestorName(name), "\(name)")
+        }
+        #expect(!ClaudeProcessSurvey.isProtectedAncestorName("systemd"), "systemd --user adopta a los huérfanos: se mira su cgroup")
+        #expect(ClaudeOrphanScript.listCommand.contains("/.config/argos/") && ClaudeOrphanScript.listCommand.contains("/.vscode-server"))
+    }
+
     @Test func tiempoTranscurrido() {
         #expect(ClaudeProcessSurvey.parseElapsed("05:07") == 307)
         #expect(ClaudeProcessSurvey.parseElapsed("01:02:03") == 3_723)
@@ -181,7 +214,7 @@ struct ClaudeOrphanScriptTests {
 
         /// Arranca `inner` (bash) con nombre `name`, desenganchado; devuelve su PID.
         func spawn(_ name: String, _ inner: String, tag: String) throws -> Int {
-            let pidFile = home.appendingPathComponent("\(tag).pid").path
+            let pidFile = home.appendingPathComponent("spawn-\(UUID().uuidString).pid").path
             let launcher = "echo $$ > '\(pidFile)'; exec -a \(name) /bin/bash -c \(ShellQuoting.singleQuoted(inner)) \(tag)"
             let script = "( nohup /bin/bash -c \(ShellQuoting.singleQuoted(launcher)) </dev/null >/dev/null 2>&1 & ); sleep 1"
             _ = try run(script, seconds: 10)
@@ -284,5 +317,54 @@ struct ClaudeOrphanScriptTests {
                                        fingerprint: again.fingerprints[agent] ?? "")
         #expect(try box.kill([forcedAgent]) == [agent: .skipped])
         #expect(Box.isAlive(agent))
+    }
+
+    /// El revisor de encargos: un `sh …/.config/argos/tasks/dispatch.sh` desacoplado (padre
+    /// launchd/init) con un `claude -p` debajo. Y un `screen` con un claude dentro.
+    @Test func nuncaTocaElRevisorDelDespachadorNiScreen() throws {
+        let box = try Box()
+        let inner = "( exec -a claude /bin/bash -c 'sleep 30; :' ); :"
+        let dispatcher = try box.spawn("sh", inner, tag: "\(box.home.path)/.config/argos/tasks/dispatch.sh")
+        defer { Box.killTree(dispatcher) }
+        let screen = try box.spawn("screen", inner, tag: "screen-\(UUID().uuidString.prefix(8))")
+        defer { Box.killTree(screen) }
+        let survey = try box.survey()
+        #expect(survey.managedPIDs.contains(dispatcher), "la marca de Argos en su línea de comandos")
+        for parent in [dispatcher, screen] {
+            let child = try #require(survey.processes.first { $0.ppid == parent && $0.name == "claude" })
+            #expect(!survey.orphans().contains { $0.pid == child.pid })
+            let forced = ClaudeOrphan(pid: child.pid, totalRSSKB: 0, descendants: 0, elapsedSeconds: nil, tty: nil,
+                                      fingerprint: survey.fingerprints[child.pid] ?? "")
+            #expect(try box.kill([forced]) == [child.pid: .skipped], "el servidor vuelve a comprobarlo")
+            #expect(Box.isAlive(child.pid))
+        }
+    }
+
+    /// La familia sale de una sola foto de `ps` y, antes de cada señal, cada miembro tiene que
+    /// seguir colgando de la raíz (mientras viva).
+    @Test func laFamiliaYElParentescoSeCompruebanEnElServidor() throws {
+        let box = try Box()
+        let root = try box.spawn("claude", "sleep 30 & wait", tag: "family-\(UUID().uuidString.prefix(8))")
+        defer { Box.killTree(root) }
+        let stranger = try box.spawn("claude", "sleep 30; :", tag: "stranger-\(UUID().uuidString.prefix(8))")
+        defer { Box.killTree(stranger) }
+        let survey = try box.survey()
+        let child = try #require(survey.processes.first { $0.ppid == root }?.pid)
+        let rootPrint = try #require(survey.fingerprints[root]).replacingOccurrences(of: " ", with: "_")
+        let probe = ClaudeOrphanScript.killHelpers + """
+
+            family \(root) | sed 's/=.*//' | tr '\\n' ' '; echo
+            related \(child) \(root) '\(rootPrint)' && echo hijo-si
+            related \(stranger) \(root) '\(rootPrint)' || echo ajeno-no
+            related \(stranger) \(root) 'Mon_Jan_1_00:00:00_2001' && echo raiz-muerta-si
+            """
+        let output = try box.run(probe)
+        let lines = output.split(separator: "\n").map(String.init)
+        #expect(lines.first.map { Set($0.split(separator: " ").compactMap { Int($0) }) } == [root, child])
+        #expect(lines.contains("hijo-si") && lines.contains("ajeno-no") && lines.contains("raiz-muerta-si"), "\(lines)")
+        // Y el ajeno sigue vivo tras matar la familia de la raíz.
+        let orphan = try #require(survey.orphans().first { $0.pid == root })
+        #expect(try box.kill([orphan]) == [root: .killed])
+        #expect(!Box.isAlive(child) && Box.isAlive(stranger))
     }
 }

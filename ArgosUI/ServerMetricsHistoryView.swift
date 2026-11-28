@@ -93,7 +93,7 @@ struct ServerMetricsHistoryView: View {
                 Task { await model.uninstall() }
             }
         } message: {
-            Text("Se quita el muestreo del servidor y se borra lo guardado. El temporizador se queda si lo usan tus tareas programadas.")
+            Text("Se quita el muestreo del servidor y se borra lo guardado. El temporizador del servidor se queda: lo usan también los encargos y los presupuestos.")
         }
     }
 

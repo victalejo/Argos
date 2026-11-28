@@ -261,7 +261,7 @@ enum ClaudeTaskScript {
 
         case "$1" in
           tick)
-            \#(ServerMetricsScript.dispatcherLine)
+            \#(ServerMetricsScript.dispatcherStartLine)
             expire
             review_expire
             for s in "$base"/schedules/*/; do
@@ -272,6 +272,7 @@ enum ClaudeTaskScript {
               p=${p%/}; case "${p##*/}" in incoming|schedules) continue ;; esac
               [ -d "$p" ] && advance "$p" 0
             done
+            \#(ServerMetricsScript.dispatcherWaitLine)
             ;;
           next)
             [ -d "$base/$2" ] && advance "$base/$2" 1
