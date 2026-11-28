@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-11-28
+
 ### Añadido
 - **Contexto de Argos al arrancar Claude (Mac e iPhone/iPad).** Cuando abres Claude Code en
   un proyecto del servidor, recibe un resumen breve de lo que pasa ahí: cómo acabó el último
