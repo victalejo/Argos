@@ -6,6 +6,8 @@ El detalle por commit vive en el historial git (Conventional Commits):
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-11-27
+
 ### Añadido
 - **Biblioteca de encargos: ves el texto antes de enviarlo.** Si el encargo lleva variables
   (`{rama}`, `{ultimo_commit}`…), «Enviar ya» y «Añadir a la cola» enseñan primero el texto
